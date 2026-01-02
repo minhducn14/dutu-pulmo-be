@@ -36,11 +36,12 @@ export default registerAs<DatabaseConfig>('database', () => {
  * Convert DatabaseConfig => TypeORM DataSourceOptions
  */
 export function toTypeOrmOptions(cfg: DatabaseConfig): DataSourceOptions {
+  const nodeEnv = process.env.NODE_ENV;
   const common: Partial<DataSourceOptions> = {
     type: cfg.type,
     entities: ['dist/**/*.entity{.ts,.js}'], // khi chạy app đã build
     migrations: ['dist/migrations/*.js'], // khi chạy app đã build
-    synchronize: false, // OFF for production
+    synchronize: nodeEnv === 'development', // OFF for production
     ssl: cfg.ssl ? { rejectUnauthorized: false } : undefined,
   };
 

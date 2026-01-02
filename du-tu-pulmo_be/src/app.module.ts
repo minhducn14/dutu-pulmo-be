@@ -9,6 +9,16 @@ import frontendConfig from './config/frontend.config';
 import * as Joi from 'joi';
 import { ConfigModule } from '@nestjs/config';
 
+// Core Modules
+import { AuthModule } from './modules/core/auth/auth.module';
+
+// Feature Modules
+import { AccountModule } from './modules/account/account.module';
+import { DoctorModule } from './modules/doctor/doctor.module';
+import { EmailModule } from './modules/email/email.module';
+import { PatientModule } from './modules/patient/patient.module';
+import { UserModule } from './modules/user/user.module';
+
 @Module({
   imports: [
     TypeOrmModule.forRootAsync({
@@ -28,6 +38,12 @@ import { ConfigModule } from '@nestjs/config';
 
       }),
     }),
+    AuthModule,
+    AccountModule,
+    DoctorModule,
+    EmailModule,
+    PatientModule,
+    UserModule,
   ],
   controllers: [AppController],
   providers: [AppService],

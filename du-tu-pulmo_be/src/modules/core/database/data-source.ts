@@ -14,7 +14,6 @@ const getOptions = async () => {
 
 const getAppDataSource = async () => {
   const options = await getOptions();
-  console.log("options", options);
   return new DataSource(options);
 };
 
