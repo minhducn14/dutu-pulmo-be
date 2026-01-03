@@ -5,14 +5,19 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  ManyToMany,
   JoinColumn,
+  JoinTable,
   OneToMany,
   DeleteDateColumn,
   OneToOne,
   Index,
 } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
+import { Specialty } from '../../specialty/entities/specialty.entity';
+import { SubSpecialty } from '../../specialty/entities/sub-specialty.entity';
 import { VerificationStatus } from 'src/modules/common/enums/doctor-verification-status.enum';
+import { DoctorSchedule } from './doctor-schedule.entity';
 
 @Entity('doctors')
 @Index(['verificationStatus'])
@@ -48,15 +53,25 @@ export class Doctor {
   @Column({ name: 'specialty_id', type: 'uuid', nullable: true })
   specialtyId: string; // Chuyên khoa
 
-  @Column({ name: 'sub_specialties', type: 'text', array: true, nullable: true })
-  subSpecialties: string[]; // Chuyên khám
+  @ManyToOne(() => Specialty, (specialty) => specialty.doctors)
+  @JoinColumn({ name: 'specialty_id' })
+  specialty: Specialty;
+
+  @ManyToMany(() => SubSpecialty)
+  @JoinTable({
+    name: 'doctor_sub_specialties',
+    joinColumn: { name: 'doctor_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'sub_specialty_id', referencedColumnName: 'id' },
+  })
+  subSpecialties: SubSpecialty[];
 
   @Column({ name: 'years_of_experience', type: 'integer', nullable: true })
   yearsOfExperience: number;
 
   // Nơi công tác
   @Column({ name: 'primary_hospital_id', type: 'uuid', nullable: true })
-  primaryHospitalId: string;
+  primaryHospitalId: string | null;
+
 
   // Mô tả trình độ chuyên môn
   @Column({ name: 'expertise_description', type: 'text', nullable: true })
@@ -83,14 +98,8 @@ export class Doctor {
   trainingUnits: { url: string; name: string }[];
 
   // Rating
-  @Column({
-    name: 'average_rating',
-    type: 'decimal',
-    precision: 3,
-    scale: 2,
-    default: 0,
-  })
-  averageRating: number;
+  @Column({ name: 'average_rating', type: 'decimal', precision: 3, scale: 2, default: 0 })
+  averageRating: string;
 
   @Column({ name: 'total_reviews', type: 'integer', default: 0 })
   totalReviews: number;
@@ -125,4 +134,7 @@ export class Doctor {
     default: () => 'CURRENT_TIMESTAMP',
   })
   updatedAt: Date;
+
+  @OneToMany(() => DoctorSchedule, (ds) => ds.doctor)
+  schedules: DoctorSchedule[];
 }

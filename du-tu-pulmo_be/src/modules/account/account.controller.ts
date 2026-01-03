@@ -28,6 +28,7 @@ import { RolesGuard } from '../core/auth/guards/roles.guard';
 import { ResponseCommon } from 'src/common/dto/response.dto';
 import { CurrentUser } from 'src/common/decorators/user.decorator';
 import type { JwtUser } from '../core/auth/strategies/jwt.strategy';
+import { RoleEnum } from '../common/enums/role.enum';
 
 @ApiTags('Accounts')
 @Controller('accounts')
@@ -39,7 +40,7 @@ export class AccountController {
   @Get()
   @ApiOperation({ summary: 'Lấy danh sách tài khoản (Admin)' })
   @ApiResponse({ status: HttpStatus.OK, type: [AccountResponseDto] })
-  @Roles('ADMIN')
+  @Roles(RoleEnum.ADMIN)
   async findAll(): Promise<ResponseCommon<AccountResponseDto[]>> {
     const response = await this.accountService.findAll();
     const accounts = response.data ?? [];
@@ -58,7 +59,7 @@ export class AccountController {
   @ApiOperation({ summary: 'Lấy tài khoản theo id (Admin)' })
   @ApiResponse({ status: HttpStatus.OK, type: AccountResponseDto })
   @ApiParam({ name: 'id', description: 'Account ID (UUID)' })
-  @Roles('ADMIN')
+  @Roles(RoleEnum.ADMIN)
   async findOne(
     @Param('id') id: string,
   ): Promise<ResponseCommon<AccountResponseDto>> {
@@ -82,7 +83,7 @@ export class AccountController {
   @ApiOperation({ summary: 'Cập nhật tài khoản (Admin only)' })
   @ApiParam({ name: 'id', description: 'Account ID to update' })
   @ApiResponse({ status: HttpStatus.OK, type: AccountResponseDto })
-  @Roles('ADMIN')
+  @Roles(RoleEnum.ADMIN)
   async adminUpdate(
     @Param('id') id: string,
     @Body() dto: AdminUpdateAccountDto,
@@ -107,7 +108,7 @@ export class AccountController {
   @ApiOperation({ summary: 'Xóa tài khoản (Admin - soft delete)' })
   @ApiParam({ name: 'id', description: 'Account ID to delete' })
   @ApiResponse({ status: HttpStatus.OK })
-  @Roles('ADMIN')
+  @Roles(RoleEnum.ADMIN)
   async delete(
     @Param('id') id: string,
     @CurrentUser() user: JwtUser,
@@ -119,7 +120,7 @@ export class AccountController {
   @Get('admin/deleted')
   @ApiOperation({ summary: 'Xem tài khoản đã xóa (Admin)' })
   @ApiResponse({ status: HttpStatus.OK })
-  @Roles('ADMIN')
+  @Roles(RoleEnum.ADMIN)
   async findDeleted(): Promise<ResponseCommon<AccountResponseDto[]>> {
     const response = await this.accountService.findDeleted();
     const accounts = response.data ?? [];
@@ -141,7 +142,7 @@ export class AccountController {
   @ApiOperation({ summary: 'Khôi phục tài khoản đã xóa (Admin)' })
   @ApiParam({ name: 'id', description: 'Account ID to restore' })
   @ApiResponse({ status: HttpStatus.OK, type: AccountResponseDto })
-  @Roles('ADMIN')
+  @Roles(RoleEnum.ADMIN)
   async restore(
     @Param('id') id: string,
   ): Promise<ResponseCommon<AccountResponseDto | null>> {

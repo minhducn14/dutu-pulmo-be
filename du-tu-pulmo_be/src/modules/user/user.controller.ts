@@ -25,6 +25,7 @@ import { RolesGuard } from '../core/auth/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { CurrentUser } from 'src/common/decorators/user.decorator';
 import type { JwtUser } from '../core/auth/strategies/jwt.strategy';
+import { RoleEnum } from '../common/enums/role.enum';
 
 @ApiTags('Users')
 @Controller('users')
@@ -34,7 +35,7 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Get()
-  @Roles('ADMIN')
+  @Roles(RoleEnum.ADMIN)
   @ApiOperation({ summary: 'Lấy danh sách tất cả users (Admin)' })
   @ApiResponse({ status: HttpStatus.OK, type: [UserResponseDto] })
   findAll() {
@@ -54,7 +55,7 @@ export class UserController {
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User không tồn tại' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Không có quyền truy cập' })
   findOne(@Param('id') id: string, @CurrentUser() user: JwtUser) {
-    if (!user.roles?.includes('ADMIN') && user.userId !== id) {
+    if (!user.roles?.includes(RoleEnum.ADMIN) && user.userId !== id) {
       throw new ForbiddenException('Bạn chỉ có thể xem thông tin của mình');
     }
     return this.userService.findOne(id);
@@ -69,17 +70,17 @@ export class UserController {
     @Body() updateUserDto: UpdateUserDto,
     @CurrentUser() user: JwtUser,
   ) {
-    if (!user.roles?.includes('ADMIN') && user.userId !== id) {
+    if (!user.roles?.includes(RoleEnum.ADMIN) && user.userId !== id) {
       throw new ForbiddenException('Bạn chỉ có thể cập nhật thông tin của mình');
     }
-    if (!user.roles?.includes('ADMIN') && updateUserDto.status) {
+    if (!user.roles?.includes(RoleEnum.ADMIN) && updateUserDto.status) {
       throw new ForbiddenException('Bạn không có quyền cập nhật trạng thái tài khoản');
     }
     return this.userService.update(id, updateUserDto);
   }
 
   @Delete(':id')
-  @Roles('ADMIN')
+  @Roles(RoleEnum.ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Xóa user (Admin)' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Xóa user thành công' })
