@@ -12,11 +12,14 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EmailModule } from 'src/modules/email/email.module';
 import { Patient } from 'src/modules/patient/entities/patient.entity';
 import { Doctor } from 'src/modules/doctor/entities/doctor.entity';
+import { DoctorSchedule } from 'src/modules/doctor/entities/doctor-schedule.entity';
+import { TimeSlot } from 'src/modules/doctor/entities/time-slot.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Account, User, Patient, Doctor, RefreshToken]),
+    // SEC-01: Added DoctorSchedule and TimeSlot for DoctorOwnershipGuard injection
+    TypeOrmModule.forFeature([Account, User, Patient, Doctor, DoctorSchedule, TimeSlot, RefreshToken]),
     PassportModule,
     ConfigModule,
     EmailModule,

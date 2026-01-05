@@ -41,12 +41,15 @@ export class User {
   })
   status: UserStatusEnum; // Profile/Business status
 
-   // Địa chỉ
+  // Địa chỉ
+  @Column({ length: 20, nullable: true })
+  provinceCode: string;
+
   @Column({ length: 100, nullable: true })
   province: string; // Tỉnh/Thành phố
 
-  @Column({ length: 100, nullable: true })
-  district: string; // Quận/Huyện
+  @Column({ length: 20, nullable: true })
+  wardCode: string;
 
   @Column({ length: 100, nullable: true })
   ward: string; //  Phường/Xã

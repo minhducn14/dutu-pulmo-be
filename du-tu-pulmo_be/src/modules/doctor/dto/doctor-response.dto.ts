@@ -1,4 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Specialty } from 'src/modules/common/enums/specialty.enum';
+import { DoctorTitle } from 'src/modules/common/enums/doctor-title.enum';
 import { UserStatusEnum } from '../../common/enums/user-status.enum';
 import { GenderEnum } from '../../common/enums/gender.enum';
 import { VerificationStatus } from 'src/modules/common/enums/doctor-verification-status.enum';
@@ -95,24 +97,22 @@ export class DoctorResponseDto {
   })
   licenseImageUrls?: { url: string; expiry?: string }[];
 
-  @ApiPropertyOptional({ example: 'BSCKII', description: 'Học hàm/học vị' })
-  title?: string;
+  @ApiPropertyOptional({
+    enum: DoctorTitle,
+    example: DoctorTitle.SPECIALIST_DOCTOR_2,
+    description: 'Học hàm/học vị'
+  })
+  title?: DoctorTitle;
 
   @ApiPropertyOptional({ example: 'Trưởng khoa', description: 'Chức vụ' })
   position?: string;
 
   @ApiPropertyOptional({
-    example: 'b7c1cf97-6734-43ae-9a62-0f97b48f5999',
-    description: 'ID chuyên khoa',
+    enum: Specialty,
+    example: Specialty.PULMONOLOGY,
+    description: 'Chuyên khoa',
   })
-  specialtyId?: string;
-
-  @ApiPropertyOptional({
-    example: ['Hô hấp', 'Nội tổng quát'],
-    description: 'Các chuyên khám (sub specialties)',
-    type: [String],
-  })
-  subSpecialties?: string[];
+  specialty?: Specialty;
 
   @ApiPropertyOptional({
     example: 8,
@@ -176,6 +176,13 @@ export class DoctorResponseDto {
     description: 'Thời điểm được duyệt xác thực',
   })
   verifiedAt?: Date;
+
+  @ApiPropertyOptional({
+    example: '300000',
+    description: 'Phí khám mặc định (VND) - dùng khi schedule không set phí riêng',
+    nullable: true,
+  })
+  defaultConsultationFee?: string | null;
   
   // ====== timestamps ======
   @ApiProperty({ example: '2023-01-01T00:00:00.000Z', description: 'Thời gian tạo tài khoản bác sĩ' })

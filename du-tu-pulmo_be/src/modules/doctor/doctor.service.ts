@@ -10,14 +10,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, Not, IsNull } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { Doctor } from './entities/doctor.entity';
+// import { SubSpecialty } from '../specialty/entities/sub-specialty.entity';
 import { Account } from '../account/entities/account.entity';
 import { User } from '../user/entities/user.entity';
-import { SubSpecialty } from '../specialty/entities/sub-specialty.entity';
 import { FindDoctorsDto } from './dto/find-doctors.dto';
 import { CreateDoctorDto } from './dto/create-doctor.dto';
 import { PaginatedResponseDto } from 'src/common/dto/pagination.dto';
+import { UpdateDoctorDto } from './dto/update-doctor.dto';
 import { ResponseCommon } from 'src/common/dto/response.dto';
 import { RoleEnum } from '../common/enums/role.enum';
+import { VerificationStatus } from '../common/enums/doctor-verification-status.enum';
 
 @Injectable()
 export class DoctorService {
@@ -39,14 +41,14 @@ export class DoctorService {
   }
 
   async findAllPaginated(dto: FindDoctorsDto): Promise<ResponseCommon<PaginatedResponseDto<Doctor>>> {
-    const { page = 1, limit = 10, search, specialtyId, subSpecialtyId, hospitalId } = dto;
+    const { page = 1, limit = 10, search, specialty, hospitalId } = dto;
     const skip = (page - 1) * limit;
 
     const queryBuilder = this.doctorRepository.createQueryBuilder('doctor')
       .leftJoinAndSelect('doctor.user', 'user')
       .leftJoinAndSelect('user.account', 'account')
-      .leftJoinAndSelect('doctor.specialty', 'specialty')
-      .leftJoinAndSelect('doctor.subSpecialties', 'subSpecialties');
+      .leftJoinAndSelect('doctor.user', 'user')
+      .leftJoinAndSelect('user.account', 'account');
 
     // Tìm kiếm theo tên bác sĩ (từ user.fullName) hoặc bio
     if (search) {
@@ -57,13 +59,8 @@ export class DoctorService {
     }
 
     // Lọc theo chuyên khoa
-    if (specialtyId) {
-      queryBuilder.andWhere('doctor.specialtyId = :specialtyId', { specialtyId });
-    }
-
-    // Lọc theo chuyên khoa phụ (ManyToMany relation)
-    if (subSpecialtyId) {
-      queryBuilder.andWhere('subSpecialties.id = :subSpecialtyId', { subSpecialtyId });
+    if (specialty) {
+      queryBuilder.andWhere('doctor.specialty = :specialty', { specialty });
     }
 
     // Lọc theo bệnh viện
@@ -167,18 +164,13 @@ export class DoctorService {
       const account = manager.create(Account, {
         email: normalizedEmail,
         password: hashedPassword,
-        isVerified: true, // Admin tạo bác sĩ nên verify luôn
+        isVerified: true,
         verifiedAt: new Date(),
+        verificationStatus: VerificationStatus.VERIFIED,
         roles: [RoleEnum.DOCTOR],
         user: user,
       });
       await manager.save(account);
-
-      // Load sub-specialties if provided
-      let subSpecialties: SubSpecialty[] = [];
-      if (dto.subSpecialtyIds && dto.subSpecialtyIds.length > 0) {
-        subSpecialties = await manager.findByIds(SubSpecialty, dto.subSpecialtyIds);
-      }
 
       // Create Doctor profile
       const newDoctor = manager.create(Doctor, {
@@ -188,18 +180,10 @@ export class DoctorService {
         practiceStartYear: dto.practiceStartYear,
         title: dto.title,
         position: dto.position,
-        specialtyId: dto.specialtyId,
-        subSpecialties: subSpecialties,
-        yearsOfExperience: dto.yearsOfExperience,
-        primaryHospitalId: dto.primaryHospitalId,
-        expertiseDescription: dto.expertiseDescription,
+        specialty: dto.specialty,
         bio: dto.bio,
-        workExperience: dto.workExperience,
-        education: dto.education,
-        awardsResearch: dto.awardsResearch,
         licenseImageUrls: dto.licenseImageUrls,
-        certifications: dto.certifications,
-        trainingUnits: dto.trainingUnits,
+        defaultConsultationFee: dto.defaultConsultationFee?.toString() ?? null,
       });
       await manager.save(newDoctor);
 
@@ -211,19 +195,56 @@ export class DoctorService {
     return new ResponseCommon(201, 'Tạo bác sĩ thành công', doctor);
   }
 
-  async update(id: string, data: Partial<Doctor>): Promise<ResponseCommon<Doctor | null>> {
-    const doctor = await this.doctorRepository.findOne({ where: { id } });
+  async update(id: string, dto: UpdateDoctorDto): Promise<ResponseCommon<Doctor | null>> {
+    const doctor = await this.doctorRepository.findOne({ 
+      where: { id },
+      relations: ['user'],
+    });
     if (!doctor) {
       throw new NotFoundException(`Không tìm thấy bác sĩ với ID ${id}`);
     }
-    
-    await this.doctorRepository.update(id, data);
-    
+
+    const {
+      fullName,
+      phone,
+      dateOfBirth,
+      gender,
+      CCCD,
+      provinceCode,
+      province,
+      wardCode,
+      ward,
+      address,
+      ...doctorFields
+    } = dto;
+
+    await this.dataSource.transaction(async (manager) => {
+      const userUpdateData: Partial<User> = {};
+      if (fullName !== undefined) userUpdateData.fullName = fullName;
+      if (phone !== undefined) userUpdateData.phone = phone;
+      if (dateOfBirth !== undefined) userUpdateData.dateOfBirth = new Date(dateOfBirth);
+      if (gender !== undefined) userUpdateData.gender = gender;
+      if (CCCD !== undefined) userUpdateData.CCCD = CCCD;
+      if (provinceCode !== undefined) userUpdateData.provinceCode = provinceCode;
+      if (province !== undefined) userUpdateData.province = province;
+      if (wardCode !== undefined) userUpdateData.wardCode = wardCode;
+      if (ward !== undefined) userUpdateData.ward = ward;
+      if (address !== undefined) userUpdateData.address = address;
+
+      if (Object.keys(userUpdateData).length > 0) {
+        await manager.update(User, doctor.userId, userUpdateData);
+      }
+
+      if (Object.keys(doctorFields).length > 0) {
+        await manager.update(Doctor, id, doctorFields);
+      }
+    });
+
     const updated = await this.doctorRepository.findOne({
       where: { id },
       relations: ['user'],
     });
-    return new ResponseCommon(200, 'SUCCESS', updated);
+    return new ResponseCommon(200, 'Cập nhật bác sĩ thành công', updated);
   }
 
   async remove(
@@ -240,30 +261,13 @@ export class DoctorService {
       throw new NotFoundException(`Không tìm thấy bác sĩ với ID ${id}`);
     }
 
-    // Log admin action for audit
     this.logger.log(`Admin ${deletedBy} deleting doctor ${id}, reason: ${reason || 'No reason provided'}`);
 
-    // Use TypeORM soft delete (sets deletedAt)
     await this.doctorRepository.softDelete(id);
 
     return new ResponseCommon(200, 'SUCCESS', null);
   }
 
-  /**
-   * Admin only: Hard delete (for data cleanup during development only)
-   */
-  async hardDelete(id: string): Promise<ResponseCommon<null>> {
-    if (process.env.NODE_ENV === 'production') {
-      throw new ForbiddenException('Hard delete not allowed in production');
-    }
-
-    await this.doctorRepository.delete(id);
-    return new ResponseCommon(200, 'SUCCESS', null);
-  }
-
-  /**
-   * Find deleted doctors (for admin recovery)
-   */
   async findDeleted(): Promise<ResponseCommon<Doctor[]>> {
     const doctors = await this.doctorRepository.find({
       where: { deletedAt: Not(IsNull()) },
@@ -273,9 +277,6 @@ export class DoctorService {
     return new ResponseCommon(200, 'SUCCESS', doctors);
   }
 
-  /**
-   * Restore soft-deleted doctor
-   */
   async restore(id: string): Promise<ResponseCommon<Doctor | null>> {
     await this.doctorRepository.restore(id);
     const doctor = await this.doctorRepository.findOne({

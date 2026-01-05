@@ -62,6 +62,16 @@ export class UpdateUserDto {
 
   // Địa chỉ
   @ApiPropertyOptional({
+    description: 'Mã Tỉnh/Thành phố',
+    example: '01',
+    maxLength: 20,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(1, 20)
+  provinceCode?: string;
+
+  @ApiPropertyOptional({
     description: 'Tỉnh/Thành phố',
     example: 'Hồ Chí Minh',
     maxLength: 100,
@@ -72,14 +82,14 @@ export class UpdateUserDto {
   province?: string;
 
   @ApiPropertyOptional({
-    description: 'Quận/Huyện',
-    example: 'Quận 1',
-    maxLength: 100,
+    description: 'Mã Phường/Xã',
+    example: '00001',
+    maxLength: 20,
   })
   @IsOptional()
   @IsString()
-  @Length(1, 100)
-  district?: string;
+  @Length(1, 20)
+  wardCode?: string;
 
   @ApiPropertyOptional({
     description: 'Phường/Xã',

@@ -14,14 +14,14 @@ import {
   Index,
 } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
-import { Specialty } from '../../specialty/entities/specialty.entity';
-import { SubSpecialty } from '../../specialty/entities/sub-specialty.entity';
+import { Specialty } from 'src/modules/common/enums/specialty.enum';
+import { DoctorTitle } from 'src/modules/common/enums/doctor-title.enum';
 import { VerificationStatus } from 'src/modules/common/enums/doctor-verification-status.enum';
 import { DoctorSchedule } from './doctor-schedule.entity';
 
 @Entity('doctors')
 @Index(['verificationStatus'])
-@Index(['specialtyId'])
+@Index(['specialty'])
 @Index(['primaryHospitalId'])
 export class Doctor {
   @PrimaryGeneratedColumn('uuid')
@@ -44,26 +44,22 @@ export class Doctor {
   @Column({ name: 'license_image_urls', type: 'jsonb', nullable: true })
   licenseImageUrls: { url: string; expiry?: string }[];
 
-  @Column({ length: 100, nullable: true })
-  title: string; // Học hàm/học vị
-
+  @Column({
+    type: 'enum',
+    enum: DoctorTitle,
+    nullable: true,
+  })
+  title: DoctorTitle; // Học hàm/học vị
+  
   @Column({ length: 100, nullable: true })
   position: string; // Chức vụ
 
-  @Column({ name: 'specialty_id', type: 'uuid', nullable: true })
-  specialtyId: string; // Chuyên khoa
-
-  @ManyToOne(() => Specialty, (specialty) => specialty.doctors)
-  @JoinColumn({ name: 'specialty_id' })
-  specialty: Specialty;
-
-  @ManyToMany(() => SubSpecialty)
-  @JoinTable({
-    name: 'doctor_sub_specialties',
-    joinColumn: { name: 'doctor_id', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'sub_specialty_id', referencedColumnName: 'id' },
+  @Column({
+    type: 'enum',
+    enum: Specialty,
+    nullable: true
   })
-  subSpecialties: SubSpecialty[];
+  specialty: Specialty;
 
   @Column({ name: 'years_of_experience', type: 'integer', nullable: true })
   yearsOfExperience: number;
@@ -103,6 +99,10 @@ export class Doctor {
 
   @Column({ name: 'total_reviews', type: 'integer', default: 0 })
   totalReviews: number;
+
+  // Default consultation fee - used when schedule.consultationFee is null
+  @Column({ name: 'default_consultation_fee', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  defaultConsultationFee: string | null;
 
   @Column({
     name: 'verification_status',

@@ -55,16 +55,22 @@ export class UserResponseDto {
 
   // Địa chỉ
   @ApiPropertyOptional({ 
+    example: '01',
+    description: 'Mã Tỉnh/Thành phố'
+  })
+  provinceCode?: string;
+
+  @ApiPropertyOptional({ 
     example: 'Hồ Chí Minh',
     description: 'Tỉnh/Thành phố'
   })
   province?: string;
 
   @ApiPropertyOptional({ 
-    example: 'Quận 1',
-    description: 'Quận/Huyện'
+    example: '00001',
+    description: 'Mã Phường/Xã'
   })
-  district?: string;
+  wardCode?: string;
 
   @ApiPropertyOptional({ 
     example: 'Phường Bến Nghé',

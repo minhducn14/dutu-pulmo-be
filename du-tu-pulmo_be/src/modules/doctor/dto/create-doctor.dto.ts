@@ -13,9 +13,13 @@ import {
   MinLength,
   MaxLength,
   Matches,
+  IsEnum,
+  IsNumber,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Specialty } from 'src/modules/common/enums/specialty.enum';
+import { DoctorTitle } from 'src/modules/common/enums/doctor-title.enum';
 
 class LicenseImageDto {
   @ApiProperty({ description: 'URL ảnh giấy phép hành nghề' })
@@ -43,9 +47,10 @@ class CertificationDto {
 }
 
 class TrainingUnitDto {
-  @ApiProperty({ description: 'URL logo đơn vị đào tạo' })
+  @ApiPropertyOptional({ description: 'URL logo' })
+  @IsOptional()
   @IsString()
-  url: string;
+  url?: string;
 
   @ApiProperty({ description: 'Tên đơn vị đào tạo' })
   @IsString()
@@ -103,11 +108,14 @@ export class CreateDoctorDto {
   @Min(1950)
   practiceStartYear?: number;
 
-  @ApiPropertyOptional({ description: 'Học hàm/học vị', example: 'Tiến sĩ' })
+  @ApiPropertyOptional({
+    description: 'Học hàm/học vị',
+    enum: DoctorTitle,
+    example: DoctorTitle.PHD_DOCTOR
+  })
   @IsOptional()
-  @IsString()
-  @Length(0, 100)
-  title?: string;
+  @IsEnum(DoctorTitle)
+  title?: DoctorTitle;
 
   @ApiPropertyOptional({ description: 'Chức vụ', example: 'Trưởng khoa' })
   @IsOptional()
@@ -115,57 +123,19 @@ export class CreateDoctorDto {
   @Length(0, 100)
   position?: string;
 
-  @ApiPropertyOptional({ description: 'ID chuyên khoa (UUID)' })
-  @IsOptional()
-  @IsUUID()
-  specialtyId?: string;
-
-  @ApiPropertyOptional({
-    description: 'Danh sách ID chuyên khám (SubSpecialty IDs)',
-    type: [String],
-    example: ['uuid-1', 'uuid-2'],
-  })
-  @IsOptional()
-  @IsArray()
-  @IsUUID('4', { each: true })
-  subSpecialtyIds?: string[];
-
-  @ApiPropertyOptional({ description: 'Số năm kinh nghiệm', example: 15 })
-  @IsOptional()
-  @Transform(({ value }) => value ? parseInt(value, 10) : undefined)
-  @IsInt()
-  @Min(0)
-  yearsOfExperience?: number;
-
-  @ApiPropertyOptional({ description: 'ID bệnh viện chính (UUID)' })
-  @IsOptional()
-  @IsUUID()
-  primaryHospitalId?: string;
-
-  @ApiPropertyOptional({ description: 'Mô tả trình độ chuyên môn' })
-  @IsOptional()
-  @IsString()
-  expertiseDescription?: string;
-
   @ApiPropertyOptional({ description: 'Giới thiệu bản thân' })
   @IsOptional()
   @IsString()
   bio?: string;
 
-  @ApiPropertyOptional({ description: 'Kinh nghiệm làm việc' })
+  @ApiPropertyOptional({
+    description: 'Chuyên khoa',
+    enum: Specialty,
+    example: Specialty.PULMONOLOGY
+  })
   @IsOptional()
-  @IsString()
-  workExperience?: string;
-
-  @ApiPropertyOptional({ description: 'Học vấn' })
-  @IsOptional()
-  @IsString()
-  education?: string;
-
-  @ApiPropertyOptional({ description: 'Giải thưởng/Công trình nghiên cứu' })
-  @IsOptional()
-  @IsString()
-  awardsResearch?: string;
+  @IsEnum(Specialty)
+  specialty?: Specialty;
 
   @ApiPropertyOptional({
     description: 'Ảnh giấy phép hành nghề',
@@ -177,9 +147,45 @@ export class CreateDoctorDto {
   @Type(() => LicenseImageDto)
   licenseImageUrls?: LicenseImageDto[];
 
+  @ApiPropertyOptional({ description: 'Số năm kinh nghiệm', example: 10 })
+  @IsOptional()
+  @Transform(({ value }) => value ? parseInt(value, 10) : undefined)
+  @IsInt()
+  @Min(0)
+  yearsOfExperience?: number;
+
+  @ApiPropertyOptional({ description: 'ID bệnh viện công tác chính', example: 'uuid-hospital-id' })
+  @IsOptional()
+  @IsUUID()
+  primaryHospitalId?: string;
+
+  @ApiPropertyOptional({ description: 'Mô tả trình độ chuyên môn' })
+  @IsOptional()
+  @IsString()
+  expertiseDescription?: string;
+
+  @ApiPropertyOptional({ description: 'Kinh nghiệm làm việc' })
+  @IsOptional()
+  @IsString()
+  workExperience?: string;
+
+  @ApiPropertyOptional({ description: 'Học vấn' })
+  @IsOptional()
+  @IsString()
+  education?: string;
+
   @ApiPropertyOptional({
     description: 'Chứng chỉ',
-    type: [CertificationDto],
+    type: 'array',
+    items: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        issuer: { type: 'string' },
+        year: { type: 'number' }
+      }
+    },
+    example: [{ name: 'Chứng chỉ Nội soi', issuer: 'BV Chợ Rẫy', year: 2020 }]
   })
   @IsOptional()
   @IsArray()
@@ -187,13 +193,39 @@ export class CreateDoctorDto {
   @Type(() => CertificationDto)
   certifications?: CertificationDto[];
 
+  @ApiPropertyOptional({ description: 'Giải thưởng/Công trình nghiên cứu' })
+  @IsOptional()
+  @IsString()
+  awardsResearch?: string;
+
   @ApiPropertyOptional({
     description: 'Đơn vị đào tạo',
-    type: [TrainingUnitDto],
+    type: 'array',
+    items: {
+      type: 'object',
+      properties: {
+        url: { type: 'string' },
+        name: { type: 'string' }
+      }
+    },
+    example: [{ url: 'https://example.com/logo.png', name: 'Đại học Y Hà Nội' }]
   })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => TrainingUnitDto)
   trainingUnits?: TrainingUnitDto[];
-}
+
+  @ApiPropertyOptional({
+    description: 'Phí khám mặc định (VND) - dùng khi schedule không set phí riêng',
+    example: 300000,
+    type: Number,
+  })
+  @IsOptional()
+  @Type(() => Number) 
+  @IsNumber({ maxDecimalPlaces: 2 }) 
+  @Min(0)
+  @Max(100000000)
+  @Transform(({ value }) => value != null ? value.toString() : null, { toClassOnly: true })
+  defaultConsultationFee?: string;
+  }

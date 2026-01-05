@@ -43,7 +43,8 @@ import {
   fileTypeConfigs, 
   FileDefaults,
 } from 'src/common/config/file-type.config';
-
+import { Specialty } from '../common/enums/specialty.enum';
+import { DoctorTitle } from '../common/enums/doctor-title.enum';
 
 
 @ApiTags('Doctors')
@@ -112,16 +113,18 @@ export class DoctorController {
         password: { type: 'string', example: 'SecurePass123' },
         fullName: { type: 'string', example: 'BS. Nguyễn Văn A' },
         phone: { type: 'string', example: '0912345678' },
-        licenseNumber: { type: 'string', example: 'GP-12345' },
-        practiceStartYear: { type: 'number', example: 2010 },
-        title: { type: 'string', example: 'Tiến sĩ' },
-        position: { type: 'string', example: 'Trưởng khoa' },
-        bio: { type: 'string' },
         licenseImages: {
           type: 'array',
           items: { type: 'string', format: 'binary' },
           description: 'Ảnh giấy phép hành nghề (bắt buộc, tối đa 5 ảnh)',
         },
+        licenseNumber: { type: 'string', example: 'GP-12345' },
+        practiceStartYear: { type: 'number', example: 2010 },
+        title: { type: 'string', example: DoctorTitle.PHD_DOCTOR, enum: Object.values(DoctorTitle) },
+        position: { type: 'string', example: 'Trưởng khoa' },
+        bio: { type: 'string' },
+        specialty: { type: 'string', example: Specialty.PULMONOLOGY, enum: Object.values(Specialty) },
+        defaultConsultationFee: { type: 'number', example: 100000 },
       },
       required: ['email', 'password', 'fullName', 'licenseNumber', 'licenseImages'],
     },
@@ -149,7 +152,7 @@ export class DoctorController {
       url: result.url,
       expiry: undefined,
     }));
-
+    console.log(dto);
     const response = await this.doctorService.create(dto);
     const doc = response.data;
     return new ResponseCommon(response.code, response.message, this.toResponseDto(doc));
@@ -246,8 +249,7 @@ export class DoctorController {
       licenseImageUrls: doctor.licenseImageUrls,
       title: doctor.title,
       position: doctor.position,
-      specialtyId: doctor.specialtyId,
-      subSpecialties: doctor.subSpecialties,
+      specialty: doctor.specialty,
       yearsOfExperience: doctor.yearsOfExperience,
       primaryHospitalId: doctor.primaryHospitalId,
       expertiseDescription: doctor.expertiseDescription,

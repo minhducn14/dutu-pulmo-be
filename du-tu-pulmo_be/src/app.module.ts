@@ -1,8 +1,10 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import AppDataSourcePromise from './modules/core/database/data-source';
 
 // Configurations
@@ -21,7 +23,6 @@ import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
 import { DoctorModule } from './modules/doctor/doctor.module';
 import { EmailModule } from './modules/email/email.module';
 import { PatientModule } from './modules/patient/patient.module';
-import { SpecialtyModule } from './modules/specialty/specialty.module';
 import { UserModule } from './modules/user/user.module';
 
 @Module({
@@ -47,13 +48,18 @@ import { UserModule } from './modules/user/user.module';
         CLOUDINARY_API_SECRET: Joi.string().required(),
       }),
     }),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000, // 1 phút
+        limit: 1000, // 1000 requests per minute
+      },
+    ]),
     AuthModule,
     AccountModule,
     CloudinaryModule,
     DoctorModule,
     EmailModule,
     PatientModule,
-    SpecialtyModule,
     UserModule,
   ],
   controllers: [AppController],

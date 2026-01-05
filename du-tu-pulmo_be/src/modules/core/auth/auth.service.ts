@@ -280,7 +280,7 @@ export class AuthService {
     const tokenJti = `rt_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
     const accessToken = this.jwtService.sign(payload, { 
-      expiresIn: '15m',
+      expiresIn: '1d',
       jwtid: `at_${Date.now()}_${Math.random().toString(36).substring(7)}`,
     });
 
@@ -396,9 +396,9 @@ export class AuthService {
 
       const tokenJti = `rt_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
-      // Generate access token (15m giống login thường)
+      // Generate access token (1d giống login thường)
       const accessToken = this.jwtService.sign(payload, { 
-        expiresIn: '15m',
+        expiresIn: '1d',
         jwtid: `at_${Date.now()}_${Math.random().toString(36).substring(7)}`,
       });
 
@@ -830,7 +830,7 @@ export class AuthService {
       const tokenJti = `rt_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
       const newAccessToken = this.jwtService.sign(payload, {
-        expiresIn: '15m',
+        expiresIn: '1d',
         jwtid: `at_${Date.now()}_${Math.random().toString(36).substring(7)}`,
       });
 
