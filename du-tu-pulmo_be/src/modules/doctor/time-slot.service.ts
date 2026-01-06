@@ -7,7 +7,6 @@ import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.e
 import { ResponseCommon } from 'src/common/dto/response.dto';
 import { DoctorSchedule } from './entities/doctor-schedule.entity';
 
-// Constants for slot limits
 const MAX_SLOTS_PER_REQUEST = 100;
 const MAX_SLOTS_PER_DAY = 50;
 
@@ -38,8 +37,6 @@ export class TimeSlotService {
         startTime: MoreThanOrEqual(now),
       },
       order: { startTime: 'ASC' },
-      // take: limit,
-      // skip: offset,
     });
     return new ResponseCommon(200, 'SUCCESS', slots);
   }
@@ -49,25 +46,22 @@ export class TimeSlotService {
     startDate: Date,
     endDate: Date,
   ): Promise<TimeSlot[]> {
-    // Add future-only filter
     const now = new Date();
     const effectiveStart = startDate > now ? startDate : now;
 
-    return this.timeSlotRepository.find({
+    const slots = await this.timeSlotRepository.find({
       where: {
         doctorId,
         isAvailable: true,
         startTime: Between(effectiveStart, endDate),
       },
       order: { startTime: 'ASC' },
-      take: 100, // Limit results
+      take: 100,
     });
+
+    return slots.filter(slot => slot.bookedCount < slot.capacity);
   }
 
-  /**
-   * Find ALL slots in a date range (regardless of isAvailable).
-   * Used by slot generator to prevent overlap with existing slots.
-   */
   async findSlotsInRange(
     doctorId: string,
     startDate: Date,
@@ -90,15 +84,14 @@ export class TimeSlotService {
     const now = new Date();
     const queryDate = new Date(date);
     queryDate.setHours(0, 0, 0, 0);
-    
-    // ✅ Check nếu date là quá khứ
+
     if (queryDate < new Date(now.setHours(0, 0, 0, 0))) {
       return new ResponseCommon(200, 'Ngày đã qua', []);
     }
 
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
-    
+
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
@@ -106,9 +99,6 @@ export class TimeSlotService {
     return new ResponseCommon(200, 'SUCCESS', slots);
   }
 
-  /**
-   * Check for overlapping time slots
-   */
   private async checkOverlap(
     doctorId: string,
     startTime: Date,
@@ -134,9 +124,6 @@ export class TimeSlotService {
     }
   }
 
-  /**
-   * Validate slot data
-   */
   private validateSlot(dto: CreateTimeSlotDto, doctorSchedule?: DoctorSchedule): void {
     const startTime = new Date(dto.startTime);
     const endTime = new Date(dto.endTime);
@@ -146,43 +133,36 @@ export class TimeSlotService {
       throw new BadRequestException('Thời gian bắt đầu phải trước thời gian kết thúc');
     }
 
-    // ✅ Sử dụng minimumBookingTime từ schedule (nếu có)
     const minBookingHours = doctorSchedule?.minimumBookingTime || 1;
     const minBookingBufferMs = minBookingHours * 60 * 60 * 1000;
     const earliestAllowed = new Date(now.getTime() + minBookingBufferMs);
-    
+
     if (startTime < earliestAllowed) {
       throw new BadRequestException(
         `Slot phải bắt đầu sau ${earliestAllowed.toISOString()} (tối thiểu ${minBookingHours} giờ từ hiện tại)`
       );
     }
 
-    // ✅ Sử dụng maxAdvanceBookingDays từ schedule (nếu có)
     const maxAdvanceDays = doctorSchedule?.maxAdvanceBookingDays || 90;
     const maxDate = new Date(now.getTime() + maxAdvanceDays * 24 * 60 * 60 * 1000);
-    
+
     if (startTime > maxDate) {
       throw new BadRequestException(`Không thể tạo slot quá ${maxAdvanceDays} ngày trong tương lai`);
     }
 
-    // ✅ Validate appointment types
     if (dto.allowedAppointmentTypes.includes(AppointmentTypeEnum.IN_CLINIC) && !dto.locationHospitalId) {
       throw new BadRequestException('Khám tại phòng khám yêu cầu chọn địa điểm');
     }
 
-    // ✅ Validate có ít nhất 1 appointment type
     if (!dto.allowedAppointmentTypes || dto.allowedAppointmentTypes.length === 0) {
       throw new BadRequestException('Phải có ít nhất 1 loại hình khám');
     }
   }
 
-  /**
-   * Count slots for a specific date
-   */
   private async countSlotsForDate(doctorId: string, date: Date): Promise<number> {
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
-    
+
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
@@ -200,10 +180,8 @@ export class TimeSlotService {
     const startTime = new Date(dto.startTime);
     const endTime = new Date(dto.endTime);
 
-    // Check overlap
     await this.checkOverlap(doctorId, startTime, endTime);
 
-    // Check max slots per day
     const existingCount = await this.countSlotsForDate(doctorId, startTime);
     if (existingCount >= MAX_SLOTS_PER_DAY) {
       throw new BadRequestException(`Tối đa ${MAX_SLOTS_PER_DAY} slots mỗi ngày`);
@@ -223,12 +201,7 @@ export class TimeSlotService {
     return new ResponseCommon(201, 'Tạo time slot thành công', saved);
   }
 
-  /**
-   * Bulk create with transaction wrapper for atomicity.
-   * Uses bulk overlap check instead of sequential queries.
-   */
   async createMany(doctorId: string, dtos: CreateTimeSlotDto[]): Promise<ResponseCommon<TimeSlot[]>> {
-    // Validate request size
     if (dtos.length > MAX_SLOTS_PER_REQUEST) {
       throw new BadRequestException(`Tối đa ${MAX_SLOTS_PER_REQUEST} slots mỗi request`);
     }
@@ -237,31 +210,28 @@ export class TimeSlotService {
       throw new BadRequestException('Danh sách slots không được rỗng');
     }
 
-    // ✅ Check duplicate trong batch
     const timeRanges: Array<{ startTime: Date; endTime: Date }> = [];
     const slotsByDate = new Map<string, number>();
     const seenSlots = new Set<string>();
 
     for (const dto of dtos) {
       this.validateSlot(dto);
-      
+
       const startTime = new Date(dto.startTime);
       const endTime = new Date(dto.endTime);
-      
-      // ✅ Check duplicate trong batch
+
       const slotKey = `${startTime.getTime()}-${endTime.getTime()}`;
       if (seenSlots.has(slotKey)) {
         throw new BadRequestException(`Phát hiện slot trùng lặp trong batch: ${dto.startTime}`);
       }
       seenSlots.add(slotKey);
-      
+
       timeRanges.push({ startTime, endTime });
-      
+
       const dateKey = startTime.toISOString().split('T')[0];
       slotsByDate.set(dateKey, (slotsByDate.get(dateKey) || 0) + 1);
     }
 
-    // Check existing slot counts per day
     for (const [dateKey, newCount] of slotsByDate.entries()) {
       const date = new Date(dateKey);
       const existingCount = await this.countSlotsForDate(doctorId, date);
@@ -274,10 +244,8 @@ export class TimeSlotService {
       }
     }
 
-    // ✅ Bulk overlap check với existing slots
     await this.checkOverlapBulk(doctorId, timeRanges);
 
-    // ✅ Wrap in transaction và INSERT thật sự
     const result = await this.dataSource.transaction(async (manager) => {
       const entities = dtos.map(dto => 
         manager.create(TimeSlot, {
@@ -292,8 +260,6 @@ export class TimeSlotService {
         })
       );
 
-      // ✅ Save toàn bộ, nếu có conflict → throw error rõ ràng
-      // Không dùng orIgnore() nữa
       return manager.save(TimeSlot, entities);
     });
 
@@ -304,21 +270,15 @@ export class TimeSlotService {
     );
   }
 
-  /**
-   * Check overlaps for multiple time ranges in single query.
-   * Replaces O(n) sequential queries with O(1) bulk query.
-   */
   private async checkOverlapBulk(
     doctorId: string,
     timeRanges: Array<{ startTime: Date; endTime: Date }>,
   ): Promise<void> {
     if (timeRanges.length === 0) return;
 
-    // ✅ Tìm min/max time trong batch
     const minStart = timeRanges.reduce((min, r) => r.startTime < min ? r.startTime : min, timeRanges[0].startTime);
     const maxEnd = timeRanges.reduce((max, r) => r.endTime > max ? r.endTime : max, timeRanges[0].endTime);
 
-    // ✅ Lấy TẤT CẢ existing slots trong khoảng min-max
     const existingSlots = await this.timeSlotRepository.find({
       where: {
         doctorId,
@@ -327,9 +287,8 @@ export class TimeSlotService {
       select: ['startTime', 'endTime'],
     });
 
-    // ✅ Check overlap in-memory (nhanh hơn database)
     for (const newSlot of timeRanges) {
-      const overlapping = existingSlots.  find(existing =>
+      const overlapping = existingSlots.find(existing =>
         newSlot.startTime < existing.endTime && newSlot.endTime > existing.startTime
       );
 
@@ -341,13 +300,8 @@ export class TimeSlotService {
     }
   }
 
-  /**
-   * Book a slot with atomic operation and pessimistic lock.
-   * Prevents race conditions when multiple users try to book the same slot.
-   */
   async bookSlot(slotId: string, appointmentId: string): Promise<ResponseCommon<TimeSlot>> {
     const result = await this.dataSource.transaction('READ COMMITTED', async (transactionalEntityManager) => {
-      // Lock the row for update
       const slot = await transactionalEntityManager.findOne(TimeSlot, {
         where: { id: slotId },
         lock: { mode: 'pessimistic_write' },
@@ -358,25 +312,18 @@ export class TimeSlotService {
       }
 
       if (!slot.isAvailable) {
-        throw new ConflictException('Time slot không còn trống');
+        throw new ConflictException('Time slot đã bị tắt bởi bác sĩ');
       }
 
-      // Check capacity
-      if (slot.bookedCount + 1 > slot.capacity) {
+      if (slot.bookedCount >= slot.capacity) {
         throw new ConflictException('Time slot đã đầy');
       }
 
-      // Check if slot is in the past
       if (slot.startTime < new Date()) {
         throw new BadRequestException('Không thể đặt slot đã qua');
       }
 
-      const newBookedCount = slot.bookedCount + 1;
-      // isAvailable = false only when slot is completely full
-      const isStillAvailable = newBookedCount < slot.capacity;
-
-      slot.bookedCount = newBookedCount;
-      slot.isAvailable = isStillAvailable;
+      slot.bookedCount++;
 
       return transactionalEntityManager.save(slot);
     });
@@ -384,9 +331,7 @@ export class TimeSlotService {
     return new ResponseCommon(200, 'Đặt lịch thành công', result);
   }
 
-  /**
-   * Cancel a booking with atomic operation.
-   */
+
   async cancelBooking(slotId: string): Promise<ResponseCommon<TimeSlot>> {
     const result = await this.dataSource.transaction('READ COMMITTED', async (transactionalEntityManager) => {
       const slot = await transactionalEntityManager.findOne(TimeSlot, {
@@ -402,8 +347,7 @@ export class TimeSlotService {
         throw new ConflictException('Time slot không có booking để hủy');
       }
 
-      slot.bookedCount -= 1;
-      slot.isAvailable = true;
+      slot.bookedCount--;
 
       return transactionalEntityManager.save(slot);
     });
@@ -411,11 +355,78 @@ export class TimeSlotService {
     return new ResponseCommon(200, 'Hủy lịch thành công', result);
   }
 
+  async toggleSlotAvailability(
+    slotId: string,
+    isAvailable: boolean,
+  ): Promise<ResponseCommon<TimeSlot>> {
+    const slotResult = await this.findById(slotId);
+    const slot = slotResult.data!;
+
+    if (!isAvailable && slot.bookedCount > 0) {
+      throw new BadRequestException(
+        `Không thể tắt slot đã có ${slot.bookedCount} booking. Vui lòng hủy booking trước.`
+      );
+    }
+
+    await this.timeSlotRepository.update(slotId, { isAvailable });
+    
+    const updated = await this.timeSlotRepository.findOne({ where: { id: slotId } });
+    
+    const message = isAvailable 
+      ? 'Đã kích hoạt time slot' 
+      : 'Đã tắt time slot (không cho phép đặt lịch mới)';
+    
+    return new ResponseCommon(200, message, updated!);
+  }
+
+  async bulkToggleSlots(
+    slotIds: string[],
+    isAvailable: boolean,
+  ): Promise<ResponseCommon<{ success: number; failed: number; errors: string[] }>> {
+    if (slotIds.length === 0) {
+      throw new BadRequestException('Danh sách slot IDs không được rỗng');
+    }
+
+    if (slotIds.length > 100) {
+      throw new BadRequestException('Tối đa 100 slots mỗi lần');
+    }
+
+    let success = 0;
+    let failed = 0;
+    const errors: string[] = [];
+
+    for (const slotId of slotIds) {
+      try {
+        const slot = await this.timeSlotRepository.findOne({ where: { id: slotId } });
+        
+        if (!slot) {
+          errors.push(`Slot ${slotId}: không tìm thấy`);
+          failed++;
+          continue;
+        }
+
+        if (!isAvailable && slot.bookedCount > 0) {
+          errors.push(`Slot ${slotId}: có ${slot.bookedCount} booking, không thể tắt`);
+          failed++;
+          continue;
+        }
+
+        await this.timeSlotRepository.update(slotId, { isAvailable });
+        success++;
+      } catch (error) {
+        errors.push(`Slot ${slotId}: ${error.message}`);
+        failed++;
+      }
+    }
+
+    const message = `Hoàn tất: ${success} thành công, ${failed} thất bại`;
+    return new ResponseCommon(200, message, { success, failed, errors });
+  }
+
   async update(id: string, dto: UpdateTimeSlotDto): Promise<ResponseCommon<TimeSlot>> {
     const existingResult = await this.findById(id);
     const existing = existingResult.data!;
 
-    // If time changed, validate and check overlap
     if (dto.startTime || dto.endTime) {
       const startTime = dto.startTime ? new Date(dto.startTime) : existing.startTime;
       const endTime = dto.endTime ? new Date(dto.endTime) : existing.endTime;
@@ -427,7 +438,6 @@ export class TimeSlotService {
       await this.checkOverlap(existing.doctorId, startTime, endTime, id);
     }
 
-    // Validate IN_CLINIC requires hospitalId
     const newAppointmentTypes = dto.allowedAppointmentTypes ?? existing.allowedAppointmentTypes;
     const newLocationHospitalId = dto.locationHospitalId !== undefined 
       ? dto.locationHospitalId 
@@ -435,6 +445,12 @@ export class TimeSlotService {
 
     if (newAppointmentTypes.includes(AppointmentTypeEnum.IN_CLINIC) && !newLocationHospitalId) {
       throw new BadRequestException('Khám tại phòng khám yêu cầu chọn địa điểm');
+    }
+
+    if (dto.isAvailable === false && existing.bookedCount > 0) {
+      throw new BadRequestException(
+        `Không thể tắt slot đã có ${existing.bookedCount} booking. Vui lòng hủy booking trước.`
+      );
     }
 
     const updateData: Partial<TimeSlot> = {
@@ -454,8 +470,7 @@ export class TimeSlotService {
   async delete(id: string): Promise<ResponseCommon<null>> {
     const slotResult = await this.findById(id);
     const slot = slotResult.data!;
-    
-    // Cannot delete slot with bookings
+
     if (slot.bookedCount > 0) {
       throw new ConflictException('Không thể xóa slot đã có booking');
     }
@@ -465,7 +480,6 @@ export class TimeSlotService {
   }
 
   async deleteByDoctorId(doctorId: string): Promise<ResponseCommon<null>> {
-    // Only delete slots without bookings
     await this.timeSlotRepository
       .createQueryBuilder()
       .delete()
