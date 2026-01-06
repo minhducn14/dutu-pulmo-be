@@ -300,61 +300,6 @@ export class TimeSlotService {
     }
   }
 
-  async bookSlot(slotId: string, appointmentId: string): Promise<ResponseCommon<TimeSlot>> {
-    const result = await this.dataSource.transaction('READ COMMITTED', async (transactionalEntityManager) => {
-      const slot = await transactionalEntityManager.findOne(TimeSlot, {
-        where: { id: slotId },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!slot) {
-        throw new NotFoundException(`Không tìm thấy time slot với ID ${slotId}`);
-      }
-
-      if (!slot.isAvailable) {
-        throw new ConflictException('Time slot đã bị tắt bởi bác sĩ');
-      }
-
-      if (slot.bookedCount >= slot.capacity) {
-        throw new ConflictException('Time slot đã đầy');
-      }
-
-      if (slot.startTime < new Date()) {
-        throw new BadRequestException('Không thể đặt slot đã qua');
-      }
-
-      slot.bookedCount++;
-
-      return transactionalEntityManager.save(slot);
-    });
-
-    return new ResponseCommon(200, 'Đặt lịch thành công', result);
-  }
-
-
-  async cancelBooking(slotId: string): Promise<ResponseCommon<TimeSlot>> {
-    const result = await this.dataSource.transaction('READ COMMITTED', async (transactionalEntityManager) => {
-      const slot = await transactionalEntityManager.findOne(TimeSlot, {
-        where: { id: slotId },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!slot) {
-        throw new NotFoundException(`Không tìm thấy time slot với ID ${slotId}`);
-      }
-
-      if (slot.bookedCount <= 0) {
-        throw new ConflictException('Time slot không có booking để hủy');
-      }
-
-      slot.bookedCount--;
-
-      return transactionalEntityManager.save(slot);
-    });
-
-    return new ResponseCommon(200, 'Hủy lịch thành công', result);
-  }
-
   async toggleSlotAvailability(
     slotId: string,
     isAvailable: boolean,

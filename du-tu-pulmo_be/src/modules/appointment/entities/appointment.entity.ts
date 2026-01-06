@@ -1,0 +1,208 @@
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
+import { Patient } from '../../patient/entities/patient.entity';
+import { Doctor } from '../../doctor/entities/doctor.entity';
+import { User } from '../../user/entities/user.entity';
+import { Hospital } from '../../hospital/entities/hospital.entity';
+import { TimeSlot } from '../../doctor/entities/time-slot.entity';
+import { AppointmentTypeEnum } from '../../common/enums/appointment-type.enum';
+import { AppointmentStatusEnum } from '../../common/enums/appointment-status.enum';
+
+@Entity('appointments')
+export class Appointment {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({ name: 'appointment_number', length: 50, unique: true })
+  appointmentNumber: string;
+
+  @ManyToOne(() => Patient, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'patient_id' })
+  patient: Patient;
+
+  @Column({ name: 'patient_id', type: 'uuid' })
+  patientId: string;
+
+  @ManyToOne(() => Doctor, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'doctor_id' })
+  doctor: Doctor;
+
+  @Column({ name: 'doctor_id', type: 'uuid', nullable: true })
+  doctorId: string;
+
+  @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'booked_by_user_id' })
+  bookedByUser: User;
+
+  @Column({ name: 'booked_by_user_id', type: 'uuid', nullable: true })
+  bookedByUserId: string;
+
+  @ManyToOne(() => Hospital, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'hospital_id' })
+  hospital: Hospital;
+
+  @Column({ name: 'hospital_id', type: 'uuid', nullable: true })
+  hospitalId: string;
+
+  @Column({ name: 'screening_id', type: 'uuid', nullable: true })
+  screeningId: string;
+
+  @ManyToOne(() => TimeSlot, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'time_slot_id' })
+  timeSlot: TimeSlot;
+
+  @Column({ name: 'time_slot_id', type: 'uuid', nullable: true })
+  timeSlotId: string;
+
+  @Column({
+    name: 'appointment_type',
+    type: 'enum',
+    enum: AppointmentTypeEnum,
+    default: AppointmentTypeEnum.IN_CLINIC,
+  })
+  appointmentType: AppointmentTypeEnum;
+
+  @Column({ name: 'scheduled_at', type: 'timestamptz' })
+  scheduledAt: Date;
+
+  @Column({ name: 'duration_minutes', type: 'integer', default: 30 })
+  durationMinutes: number;
+
+  @Column({ length: 50, default: 'Asia/Ho_Chi_Minh' })
+  timezone: string;
+
+  @Column({
+    type: 'enum',
+    enum: AppointmentStatusEnum,
+    default: AppointmentStatusEnum.PENDING_PAYMENT,
+  })
+  status: AppointmentStatusEnum;
+
+  @Column({ name: 'fee_amount', type: 'bigint' })
+  feeAmount: string;
+
+  @Column({ name: 'paid_amount', type: 'bigint', default: '0' })
+  paidAmount: string;
+
+  @Column({ name: 'payment_id', type: 'uuid', nullable: true })
+  paymentId: string;
+
+  @Column({ default: false })
+  refunded: boolean;
+
+  @Column({ name: 'refund_amount', type: 'bigint', nullable: true })
+  refundAmount: string;
+
+  @Column({ name: 'refund_status', length: 20, nullable: true })
+  refundStatus: string;
+
+  // Video call fields
+  @Column({ name: 'meeting_room_id', length: 100, nullable: true })
+  meetingRoomId: string;
+
+  @Column({ name: 'meeting_url', type: 'text', nullable: true })
+  meetingUrl: string;
+
+  @Column({ name: 'meeting_password', length: 50, nullable: true })
+  meetingPassword: string;
+
+  @Column({ name: 'recording_url', type: 'text', nullable: true })
+  recordingUrl: string;
+
+  @Column({ name: 'recording_consent', default: false })
+  recordingConsent: boolean;
+
+  // Daily.co
+  @Column({ name: 'daily_co_token', type: 'text', nullable: true })
+  dailyCoToken: string;
+
+  @Column({ name: 'daily_co_channel', length: 100, nullable: true })
+  dailyCoChannel: string;
+
+  @Column({ name: 'daily_co_uid', type: 'integer', nullable: true })
+  dailyCoUid: number;
+
+  // Clinical info
+  @Column({ name: 'chief_complaint', type: 'text', nullable: true })
+  chiefComplaint: string;
+
+  @Column({ type: 'text', array: true, nullable: true })
+  symptoms: string[];
+
+  @Column({ name: 'patient_notes', type: 'text', nullable: true })
+  patientNotes: string;
+
+  @Column({ name: 'doctor_notes', type: 'text', nullable: true })
+  doctorNotes: string;
+
+  @Column({ name: 'clinical_notes', type: 'text', nullable: true })
+  clinicalNotes: string;
+
+  // Follow-up
+  @Column({ name: 'follow_up_required', default: false })
+  followUpRequired: boolean;
+
+  @Column({ name: 'next_appointment_date', type: 'timestamptz', nullable: true })
+  nextAppointmentDate: Date;
+
+  @Column({ name: 'has_follow_up', default: false })
+  hasFollowUp: boolean;
+
+  // Reminders
+  @Column({ name: 'reminder_24h_sent', default: false })
+  reminder24hSent: boolean;
+
+  @Column({ name: 'reminder_1h_sent', default: false })
+  reminder1hSent: boolean;
+
+  @Column({ name: 'reminder_sent_at', type: 'timestamptz', nullable: true })
+  reminderSentAt: Date;
+
+  @Column({ name: 'confirmation_sent', default: false })
+  confirmationSent: boolean;
+
+  // Timeline
+  @Column({ name: 'check_in_time', type: 'timestamptz', nullable: true })
+  checkInTime: Date;
+
+  @Column({ name: 'started_at', type: 'timestamptz', nullable: true })
+  startedAt: Date;
+
+  @Column({ name: 'ended_at', type: 'timestamptz', nullable: true })
+  endedAt: Date;
+
+  // Cancellation
+  @Column({ name: 'cancelled_at', type: 'timestamptz', nullable: true })
+  cancelledAt: Date;
+
+  @Column({ name: 'cancellation_reason', type: 'text', nullable: true })
+  cancellationReason: string;
+
+  @Column({ name: 'cancelled_by', length: 20, nullable: true })
+  cancelledBy: string; // PATIENT, DOCTOR, SYSTEM
+
+  // Rating
+  @Column({ name: 'patient_rating', type: 'integer', nullable: true })
+  patientRating: number; // 1-5
+
+  @CreateDateColumn({
+    name: 'created_at',
+    type: 'timestamptz',
+    default: () => 'CURRENT_TIMESTAMP',
+  })
+  createdAt: Date;
+
+  @UpdateDateColumn({
+    name: 'updated_at',
+    type: 'timestamptz',
+    default: () => 'CURRENT_TIMESTAMP',
+  })
+  updatedAt: Date;
+}

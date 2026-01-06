@@ -31,7 +31,6 @@ import {
   CreateTimeSlotDto,
   BulkCreateTimeSlotsDto,
   UpdateTimeSlotDto,
-  BookTimeSlotDto,
   ToggleSlotAvailabilityDto,
   BulkToggleSlotsDto,
   DisableSlotsForDayDto,
@@ -145,52 +144,6 @@ export class TimeSlotController {
     return this.timeSlotService.createMany(doctorId, dto.slots);
   }
 
-  @Post(':id/book')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Đặt một time slot' })
-  @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
-  @ApiParam({ name: 'id', description: 'Time Slot ID (UUID)' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Đặt thành công',
-    type: TimeSlotResponseDto,
-  })
-  @ApiResponse({
-    status: HttpStatus.CONFLICT,
-    description: 'Time slot không còn trống',
-  })
-  book(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: BookTimeSlotDto,
-  ) {
-    return this.timeSlotService.bookSlot(id, dto.appointmentId);
-  }
-
-  @Post(':id/cancel')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Hủy đặt time slot' })
-  @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
-  @ApiParam({ name: 'id', description: 'Time Slot ID (UUID)' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Hủy thành công',
-    type: TimeSlotResponseDto,
-  })
-  @ApiResponse({
-    status: HttpStatus.CONFLICT,
-    description: 'Time slot không có booking để hủy',
-  })
-  cancel(@Param('id', ParseUUIDPipe) id: string) {
-    return this.timeSlotService.cancelBooking(id);
-  }
-
-  /**
-   * 🆕 API: Toggle 1 slot manually
-   * PATCH /doctors/:doctorId/time-slots/:id/availability
-   */
   @Patch(':id/availability')
   @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
   @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
@@ -214,10 +167,6 @@ export class TimeSlotController {
     return this.timeSlotService.toggleSlotAvailability(id, dto.isAvailable);
   }
 
-  /**
-   * 🆕 API: Bulk toggle nhiều slots
-   * POST /doctors/:doctorId/time-slots/bulk-toggle
-   */
   @Post('bulk-toggle')
   @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
   @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
@@ -234,10 +183,6 @@ export class TimeSlotController {
     return this.timeSlotService.bulkToggleSlots(dto.slotIds, dto.isAvailable);
   }
 
-  /**
-   * 🆕 API: Helper - Tắt tất cả slots của bác sĩ trong 1 ngày
-   * POST /doctors/:doctorId/time-slots/disable-day
-   */
   @Post('disable-day')
   @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
   @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)

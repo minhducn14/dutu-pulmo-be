@@ -104,15 +104,6 @@ export class UpdateTimeSlotDto {
 }
 
 /**
- * DTO for booking a time slot.
- */
-export class BookTimeSlotDto {
-  @ApiProperty({ description: 'ID cuộc hẹn' })
-  @IsUUID()
-  appointmentId: string;
-}
-
-/**
  * Query DTO for finding available slots.
  */
 export class FindAvailableSlotsQueryDto {
