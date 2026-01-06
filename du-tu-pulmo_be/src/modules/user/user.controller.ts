@@ -52,8 +52,14 @@ export class UserController {
   @Get(':id')
   @ApiOperation({ summary: 'Lấy user theo id (Admin hoặc chính mình)' })
   @ApiResponse({ status: HttpStatus.OK, type: UserResponseDto })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User không tồn tại' })
-  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Không có quyền truy cập' })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'User không tồn tại',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Không có quyền truy cập',
+  })
   findOne(@Param('id') id: string, @CurrentUser() user: JwtUser) {
     if (!user.roles?.includes(RoleEnum.ADMIN) && user.userId !== id) {
       throw new ForbiddenException('Bạn chỉ có thể xem thông tin của mình');
@@ -64,17 +70,24 @@ export class UserController {
   @Patch(':id')
   @ApiOperation({ summary: 'Cập nhật thông tin user (Admin hoặc chính mình)' })
   @ApiResponse({ status: HttpStatus.OK, type: UserResponseDto })
-  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Không có quyền truy cập' })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Không có quyền truy cập',
+  })
   update(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
     @CurrentUser() user: JwtUser,
   ) {
     if (!user.roles?.includes(RoleEnum.ADMIN) && user.userId !== id) {
-      throw new ForbiddenException('Bạn chỉ có thể cập nhật thông tin của mình');
+      throw new ForbiddenException(
+        'Bạn chỉ có thể cập nhật thông tin của mình',
+      );
     }
     if (!user.roles?.includes(RoleEnum.ADMIN) && updateUserDto.status) {
-      throw new ForbiddenException('Bạn không có quyền cập nhật trạng thái tài khoản');
+      throw new ForbiddenException(
+        'Bạn không có quyền cập nhật trạng thái tài khoản',
+      );
     }
     return this.userService.update(id, updateUserDto);
   }

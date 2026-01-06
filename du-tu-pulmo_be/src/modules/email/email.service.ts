@@ -110,7 +110,10 @@ export class EmailService {
   /**
    * Verification email template
    */
-  private getVerificationEmailTemplate(verificationUrl: string, userName: string): string {
+  private getVerificationEmailTemplate(
+    verificationUrl: string,
+    userName: string,
+  ): string {
     return `
     <!DOCTYPE html>
     <html lang="vi">
@@ -268,7 +271,10 @@ export class EmailService {
   /**
    * Plain text version for verification email
    */
-  private getVerificationPlainText(verificationUrl: string, userName: string): string {
+  private getVerificationPlainText(
+    verificationUrl: string,
+    userName: string,
+  ): string {
     return `
 Xin chào ${userName},
 
@@ -294,7 +300,10 @@ Hỗ trợ: support@dutupulmo.vn
   /**
    * Welcome email template (sent after successful verification)
    */
-  private getWelcomeEmailTemplate(userName: string, frontendUrl: string): string {
+  private getWelcomeEmailTemplate(
+    userName: string,
+    frontendUrl: string,
+  ): string {
     return `
     <!DOCTYPE html>
     <html lang="vi">
@@ -446,7 +455,10 @@ Hỗ trợ: support@dutupulmo.vn
   /**
    * Reset password email template
    */
-  private getResetPasswordTemplate(resetUrl: string, userName?: string): string {
+  private getResetPasswordTemplate(
+    resetUrl: string,
+    userName?: string,
+  ): string {
     return `
     <!DOCTYPE html>
     <html lang="vi">

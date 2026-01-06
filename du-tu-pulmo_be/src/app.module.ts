@@ -30,7 +30,7 @@ import { UserModule } from './modules/user/user.module';
     TypeOrmModule.forRootAsync({
       useFactory: async () => (await AppDataSourcePromise).options,
     }),
-   ConfigModule.forRoot({
+    ConfigModule.forRoot({
       isGlobal: true,
       load: [vnpayConfig, frontendConfig, cloudinaryConfig],
       validationSchema: Joi.object({
@@ -40,7 +40,7 @@ import { UserModule } from './modules/user/user.module';
         VNP_HASH_SECRET: Joi.string().required(),
         VNP_URL: Joi.string().uri().required(),
         VNP_RETURN_URL: Joi.string().uri().required(),
-        VNP_IPN_URL: Joi.string().uri().optional(), 
+        VNP_IPN_URL: Joi.string().uri().optional(),
 
         // Cloudinary configuration
         CLOUDINARY_CLOUD_NAME: Joi.string().required(),
@@ -65,7 +65,6 @@ import { UserModule } from './modules/user/user.module';
   controllers: [AppController],
   providers: [AppService],
 })
-
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(LoggerMiddleware).forRoutes('*');

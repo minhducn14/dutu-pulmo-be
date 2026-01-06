@@ -50,16 +50,18 @@ export class TimeSlotController {
     description: 'Danh sách time slots',
     type: [TimeSlotResponseDto],
   })
-  findByDoctor(
-    @Param('doctorId', ParseUUIDPipe) doctorId: string,
-  ) {
+  findByDoctor(@Param('doctorId', ParseUUIDPipe) doctorId: string) {
     return this.timeSlotService.findByDoctorId(doctorId);
   }
 
   @Get('available')
   @ApiOperation({ summary: 'Lấy các time slots còn trống theo ngày' })
   @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
-  @ApiQuery({ name: 'date', description: 'Ngày cần tìm (YYYY-MM-DD)', required: true })
+  @ApiQuery({
+    name: 'date',
+    description: 'Ngày cần tìm (YYYY-MM-DD)',
+    required: true,
+  })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Danh sách time slots còn trống',
@@ -74,7 +76,9 @@ export class TimeSlotController {
     }
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) {
-      throw new BadRequestException('Ngày không hợp lệ, sử dụng format YYYY-MM-DD');
+      throw new BadRequestException(
+        'Ngày không hợp lệ, sử dụng format YYYY-MM-DD',
+      );
     }
     return this.timeSlotService.findAvailableSlotsByDate(doctorId, date);
   }
@@ -177,9 +181,7 @@ export class TimeSlotController {
     status: HttpStatus.OK,
     description: 'Kết quả toggle',
   })
-  bulkToggle(
-    @Body() dto: BulkToggleSlotsDto,
-  ) {
+  bulkToggle(@Body() dto: BulkToggleSlotsDto) {
     return this.timeSlotService.bulkToggleSlots(dto.slotIds, dto.isAvailable);
   }
 

@@ -3,11 +3,10 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-jwt';
 import { Request } from 'express';
 
-
 export type JwtPayload = {
-  sub: string;        // accountId (authenticate)
-  accountId: string;  // explicit alias for clarity
-  userId: string;     // user entity id (for data associations)
+  sub: string; // accountId (authenticate)
+  accountId: string; // explicit alias for clarity
+  userId: string; // user entity id (for data associations)
   email?: string;
   roles?: string[];
   fullName?: string;
@@ -15,16 +14,15 @@ export type JwtPayload = {
   doctorId?: string;
   iat?: number;
   exp?: number;
-  jti?: string;       // Token unique ID for revocation
-  aud?: string;       // Audience
-  iss?: string;       // Issuer
+  jti?: string; // Token unique ID for revocation
+  aud?: string; // Audience
+  iss?: string; // Issuer
 };
 
-
 export type JwtUser = {
-  id: string;         // DEPRECATED: Use accountId or userId explicitly
-  accountId: string;  // Account ID (for account-level operations)
-  userId: string;     // User ID (for data ownership)
+  id: string; // DEPRECATED: Use accountId or userId explicitly
+  accountId: string; // Account ID (for account-level operations)
+  userId: string; // User ID (for data ownership)
   email?: string;
   roles?: string[];
   fullName?: string;

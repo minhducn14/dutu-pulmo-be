@@ -7,12 +7,7 @@ import {
   ParseUUIDPipe,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiParam,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { DoctorService } from './doctor.service';
 import { FindDoctorsDto } from './dto/find-doctors.dto';
 import { ResponseCommon } from 'src/common/dto/response.dto';
@@ -30,7 +25,9 @@ export class PublicDoctorController {
   @Get()
   @ApiOperation({ summary: 'Lấy danh sách bác sĩ công khai (có phân trang)' })
   @ApiResponse({ status: HttpStatus.OK, type: [DoctorResponseDto] })
-  async findAll(@Query() dto: FindDoctorsDto): Promise<ResponseCommon<DoctorResponseDto[]>> {
+  async findAll(
+    @Query() dto: FindDoctorsDto,
+  ): Promise<ResponseCommon<DoctorResponseDto[]>> {
     const response = await this.doctorService.findAllPaginated(dto);
     const doctors = response.data?.items ?? [];
     const data = doctors.map((doc) => this.toPublicResponseDto(doc));
@@ -41,7 +38,10 @@ export class PublicDoctorController {
   @ApiOperation({ summary: 'Lấy thông tin chi tiết bác sĩ công khai' })
   @ApiParam({ name: 'id', description: 'Doctor ID (UUID)' })
   @ApiResponse({ status: HttpStatus.OK, type: DoctorResponseDto })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Không tìm thấy bác sĩ' })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Không tìm thấy bác sĩ',
+  })
   async findOne(
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<ResponseCommon<DoctorResponseDto>> {
@@ -50,7 +50,11 @@ export class PublicDoctorController {
     if (!doc) {
       throw new NotFoundException('Không tìm thấy bác sĩ');
     }
-    return new ResponseCommon(response.code, response.message, this.toPublicResponseDto(doc));
+    return new ResponseCommon(
+      response.code,
+      response.message,
+      this.toPublicResponseDto(doc),
+    );
   }
 
   /**
@@ -59,7 +63,7 @@ export class PublicDoctorController {
    */
   private toPublicResponseDto(doctor: any): DoctorResponseDto {
     const user = doctor.user;
-    
+
     return {
       id: doctor.id,
       userId: doctor.userId,

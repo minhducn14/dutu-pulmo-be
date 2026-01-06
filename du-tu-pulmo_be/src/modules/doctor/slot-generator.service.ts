@@ -1,26 +1,27 @@
-import { Injectable, BadRequestException, Inject, forwardRef } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import {
+  Injectable,
+  BadRequestException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { DoctorSchedule } from './entities/doctor-schedule.entity';
-import { Doctor } from './entities/doctor.entity';
 import { TimeSlot } from './entities/time-slot.entity';
 import { DoctorScheduleService } from './doctor-schedule.service';
 import { TimeSlotService } from './time-slot.service';
 import { CreateTimeSlotDto } from './dto/time-slot.dto';
 import { ResponseCommon } from 'src/common/dto/response.dto';
-import { ScheduleType, SCHEDULE_TYPE_PRIORITY } from 'src/modules/common/enums/schedule-type.enum';
+import {
+  ScheduleType,
+  SCHEDULE_TYPE_PRIORITY,
+} from 'src/modules/common/enums/schedule-type.enum';
 
 @Injectable()
 export class SlotGeneratorService {
-  private doctorHospitalCache = new Map<string, string | null>();
-
   constructor(
     @Inject(forwardRef(() => DoctorScheduleService))
     private readonly scheduleService: DoctorScheduleService,
     @Inject(forwardRef(() => TimeSlotService))
     private readonly timeSlotService: TimeSlotService,
-    @InjectRepository(Doctor)
-    private readonly doctorRepository: Repository<Doctor>,
   ) {}
 
   async generateAndSaveSlots(
@@ -51,83 +52,108 @@ export class SlotGeneratorService {
     const schedule = scheduleResult.data!;
 
     // 3. Get ALL schedules for this doctor (for priority handling)
-    const allSchedulesResult = await this.scheduleService.findByDoctorId(schedule.doctorId);
+    const allSchedulesResult = await this.scheduleService.findByDoctorId(
+      schedule.doctorId,
+    );
     const allSchedules = allSchedulesResult.data || [];
 
     // Filter active schedules that overlap with date range
-    const relevantSchedules = allSchedules.filter(s => {
+    const relevantSchedules = allSchedules.filter((s) => {
       if (s.effectiveUntil && s.effectiveUntil < startDate) return false;
       if (s.effectiveFrom && s.effectiveFrom > endDate) return false;
       return true;
     });
 
     // Sort by priority (highest first)
-    const sortedSchedules = relevantSchedules.sort((a, b) => b.priority - a.priority);
+    const sortedSchedules = relevantSchedules.sort(
+      (a, b) => b.priority - a.priority,
+    );
 
-    // 4. Generate slots day by day
+    // 4. Handle slots from lower-priority schedules
+    await this.handleOverriddenSlots(
+      schedule.doctorId,
+      startDate,
+      endDate,
+      sortedSchedules,
+    );
+
+    // 5. Generate slots day by day
     const allSlots: Partial<TimeSlot>[] = [];
     const currentDate = new Date(startDate);
     currentDate.setHours(0, 0, 0, 0);
 
     while (currentDate <= endDate) {
-      const daySlots = await this.generateSlotsForDay(currentDate, sortedSchedules);
+      const daySlots = await this.generateSlotsForDay(
+        currentDate,
+        sortedSchedules,
+      );
       allSlots.push(...daySlots);
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
     if (allSlots.length === 0) {
-      return new ResponseCommon(200, 'Không có slot nào được tạo trong khoảng thời gian này (do nghỉ hoặc không có lịch)', []);
+      return new ResponseCommon(
+        200,
+        '2 Không có slot nào được tạo trong khoảng thời gian này (do nghỉ hoặc không có lịch)',
+        [],
+      );
     }
 
     // 5. Get existing slots to filter out overlaps
-    const existingSlots = await this.timeSlotService.findAvailableSlots(
+    const existingSlots = await this.timeSlotService.findSlotsInRange(
       schedule.doctorId,
       startDate,
       endDate,
     );
 
     // 6. Filter out overlapping slots
-    const nonOverlapping = allSlots.filter(newSlot => {
-      return !existingSlots.some(existingSlot =>
-        newSlot.startTime! < existingSlot.endTime &&
-        newSlot.endTime! > existingSlot.startTime
+    const nonOverlapping = allSlots.filter((newSlot) => {
+      return !existingSlots.some(
+        (existingSlot) =>
+          newSlot.startTime! < existingSlot.endTime &&
+          newSlot.endTime! > existingSlot.startTime,
       );
     });
 
     if (nonOverlapping.length === 0) {
-      return new ResponseCommon(200, 'Tất cả slots đã tồn tại trong khoảng thời gian này', []);
+      return new ResponseCommon(
+        200,
+        'Tất cả slots đã tồn tại trong khoảng thời gian này',
+        [],
+      );
     }
 
     // 7. Convert to DTOs and bulk create
-    const dtos: CreateTimeSlotDto[] = nonOverlapping.map(slot => ({
+    const dtos: CreateTimeSlotDto[] = nonOverlapping.map((slot) => ({
       startTime: slot.startTime!.toISOString(),
       endTime: slot.endTime!.toISOString(),
       capacity: slot.capacity!,
       allowedAppointmentTypes: slot.allowedAppointmentTypes!,
-      locationHospitalId: slot.locationHospitalId ?? undefined,
       isAvailable: true,
+      scheduleId: slot.scheduleId ?? undefined,
     }));
 
-    const result = await this.timeSlotService.createMany(schedule.doctorId, dtos);
+    const result = await this.timeSlotService.createMany(
+      schedule.doctorId,
+      dtos,
+    );
     return new ResponseCommon(
-      201, 
+      201,
       `Đã tạo ${result.data?.length ?? 0} time slots thành công`,
-      result.data ?? []
+      result.data ?? [],
     );
   }
 
-  /**
-   * 🔥 FIXED: Chỉ xử lý schedules có priority cao nhất trong ngày
-   */
   private async generateSlotsForDay(
     targetDate: Date,
     sortedSchedules: DoctorSchedule[],
   ): Promise<Partial<TimeSlot>[]> {
     const dayOfWeek = targetDate.getDay();
-    
+
     // Get all schedules active on this date and day of week
-    const daySchedules = sortedSchedules.filter(s =>
-      s.dayOfWeek === dayOfWeek && this.isScheduleActiveOnDate(s, targetDate)
+    const daySchedules = sortedSchedules.filter(
+      (s) =>
+        s.dayOfWeek === dayOfWeek && this.isScheduleActiveOnDate(s, targetDate),
     );
 
     if (daySchedules.length === 0) {
@@ -136,12 +162,12 @@ export class SlotGeneratorService {
 
     // 🎯 STEP 1: Tìm priority cao nhất có trong ngày này
     const maxPriority = Math.max(
-      ...daySchedules.map(s => SCHEDULE_TYPE_PRIORITY[s.scheduleType])
+      ...daySchedules.map((s) => SCHEDULE_TYPE_PRIORITY[s.scheduleType]),
     );
 
     // 🎯 STEP 2: Lấy TẤT CẢ schedules có priority cao nhất
-    const highestPrioritySchedules = daySchedules.filter(s =>
-      SCHEDULE_TYPE_PRIORITY[s.scheduleType] === maxPriority
+    const highestPrioritySchedules = daySchedules.filter(
+      (s) => SCHEDULE_TYPE_PRIORITY[s.scheduleType] === maxPriority,
     );
 
     // Get schedule type (tất cả schedules trong group này có cùng priority)
@@ -153,93 +179,67 @@ export class SlotGeneratorService {
     }
 
     // 🎯 STEP 4: Generate slots từ TẤT CẢ schedules có priority cao nhất và isAvailable = true
-    const availableSchedules = highestPrioritySchedules.filter(s => s.isAvailable);
-
-    // Lấy hospitalId từ doctor (cache để tránh query nhiều lần)
-    const doctorId = availableSchedules[0]?.doctorId;
-    const hospitalId = doctorId ? await this.getDoctorHospitalId(doctorId) : null;
+    const availableSchedules = highestPrioritySchedules.filter(
+      (s) => s.isAvailable,
+    );
 
     const slots: Partial<TimeSlot>[] = [];
     for (const schedule of availableSchedules) {
-      slots.push(...this.generateSlotsFromSchedule(schedule, targetDate, hospitalId));
+      slots.push(...this.generateSlotsFromSchedule(schedule, targetDate));
     }
 
     return slots;
   }
 
-  /**
-   * Get doctor's primaryHospitalId with caching
-   */
-  private async getDoctorHospitalId(doctorId: string): Promise<string | null> {
-    if (this.doctorHospitalCache.has(doctorId)) {
-      return this.doctorHospitalCache.get(doctorId) ?? null;
-    }
-    const doctor = await this.doctorRepository.findOne({
-      where: { id: doctorId },
-      select: ['id', 'primaryHospitalId'],
-    });
-    const hospitalId = doctor?.primaryHospitalId ?? null;
-    this.doctorHospitalCache.set(doctorId, hospitalId);
-    return hospitalId;
-  }
-
-  /**
-   * Clear cache (call after generating slots for a batch)
-   */
-  clearDoctorHospitalCache(): void {
-    this.doctorHospitalCache.clear();
-  }
-
   generateSlotsFromSchedule(
     schedule: DoctorSchedule,
     targetDate: Date,
-    hospitalId?: string | null,
   ): Partial<TimeSlot>[] {
     // Validate slot duration to prevent infinite loop
     if (!schedule.slotDuration || schedule.slotDuration <= 0) {
       throw new BadRequestException('Thời lượng slot phải lớn hơn 0 phút');
     }
-    
+
     const slots: Partial<TimeSlot>[] = [];
-    
+
     // Parse schedule times (format: HH:mm)
     const [startHour, startMin] = schedule.startTime.split(':').map(Number);
     const [endHour, endMin] = schedule.endTime.split(':').map(Number);
-    
+
     // Create start and end timestamps for the target date
     const scheduleStart = new Date(targetDate);
     scheduleStart.setHours(startHour, startMin, 0, 0);
-    
+
     const scheduleEnd = new Date(targetDate);
     scheduleEnd.setHours(endHour, endMin, 0, 0);
-      
+
     const slotDurationMs = schedule.slotDuration * 60 * 1000;
     let currentStart = new Date(scheduleStart);
-    
+
     while (currentStart < scheduleEnd) {
       const slotEnd = new Date(currentStart.getTime() + slotDurationMs);
-      
+
       // Skip if slot exceeds schedule end
       if (slotEnd > scheduleEnd) {
         break;
       }
-      
-      // Create slot - hospitalId từ doctor.primaryHospitalId
+
+      // Create slot
       slots.push({
         doctorId: schedule.doctorId,
+        scheduleId: schedule.id,
         startTime: new Date(currentStart),
         endTime: new Date(slotEnd),
         capacity: schedule.slotCapacity,
-        locationHospitalId: hospitalId ?? null,
         allowedAppointmentTypes: [schedule.appointmentType],
         isAvailable: true,
         bookedCount: 0,
       });
-      
+
       // Move to next slot
       currentStart = slotEnd;
     }
-    
+
     return slots;
   }
 
@@ -249,39 +249,43 @@ export class SlotGeneratorService {
     endDate: Date,
   ): Partial<TimeSlot>[] {
     const allSlots: Partial<TimeSlot>[] = [];
-    
+
     // Check effective dates
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     if (schedule.effectiveUntil && schedule.effectiveUntil < today) {
       // Schedule is expired
       return [];
     }
-    
-    const effectiveStart = schedule.effectiveFrom 
-      ? (schedule.effectiveFrom > startDate ? schedule.effectiveFrom : startDate)
+
+    const effectiveStart = schedule.effectiveFrom
+      ? schedule.effectiveFrom > startDate
+        ? schedule.effectiveFrom
+        : startDate
       : startDate;
-    
+
     const effectiveEnd = schedule.effectiveUntil
-      ? (schedule.effectiveUntil < endDate ? schedule.effectiveUntil : endDate)
+      ? schedule.effectiveUntil < endDate
+        ? schedule.effectiveUntil
+        : endDate
       : endDate;
-    
+
     // Iterate through each day in range
     const currentDate = new Date(effectiveStart);
     currentDate.setHours(0, 0, 0, 0);
-    
+
     while (currentDate <= effectiveEnd) {
       // Check if this day matches the schedule's day of week
       if (currentDate.getDay() === schedule.dayOfWeek && schedule.isAvailable) {
         const daySlots = this.generateSlotsFromSchedule(schedule, currentDate);
         allSlots.push(...daySlots);
       }
-      
+
       // Move to next day
       currentDate.setDate(currentDate.getDate() + 1);
     }
-    
+
     return allSlots;
   }
 
@@ -322,7 +326,8 @@ export class SlotGeneratorService {
     }
 
     // Get ALL schedules for this doctor
-    const allSchedulesResult = await this.scheduleService.findByDoctorId(doctorId);
+    const allSchedulesResult =
+      await this.scheduleService.findByDoctorId(doctorId);
     const allSchedules = allSchedulesResult.data || [];
 
     if (allSchedules.length === 0) {
@@ -330,18 +335,32 @@ export class SlotGeneratorService {
     }
 
     // Filter active schedules that overlap with date range
-    const relevantSchedules = allSchedules.filter(s => {
+    const relevantSchedules = allSchedules.filter((s) => {
       if (s.effectiveUntil && s.effectiveUntil < startDate) return false;
       if (s.effectiveFrom && s.effectiveFrom > endDate) return false;
       return true;
     });
 
     if (relevantSchedules.length === 0) {
-      return new ResponseCommon(200, 'Không có lịch làm việc nào trong khoảng thời gian này', []);
+      return new ResponseCommon(
+        200,
+        'Không có lịch làm việc nào trong khoảng thời gian này',
+        [],
+      );
     }
 
     // Sort by priority (highest first)
-    const sortedSchedules = relevantSchedules.sort((a, b) => b.priority - a.priority);
+    const sortedSchedules = relevantSchedules.sort(
+      (a, b) => b.priority - a.priority,
+    );
+
+    // Handle slots from lower-priority schedules
+    await this.handleOverriddenSlots(
+      doctorId,
+      startDate,
+      endDate,
+      sortedSchedules,
+    );
 
     // Generate slots day by day using the same logic as generateAndSaveSlots
     const allSlots: Partial<TimeSlot>[] = [];
@@ -349,53 +368,68 @@ export class SlotGeneratorService {
     currentDate.setHours(0, 0, 0, 0);
 
     while (currentDate <= endDate) {
-      const daySlots = await this.generateSlotsForDay(currentDate, sortedSchedules);
+      const daySlots = await this.generateSlotsForDay(
+        currentDate,
+        sortedSchedules,
+      );
       allSlots.push(...daySlots);
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
     if (allSlots.length === 0) {
-      return new ResponseCommon(200, 'Không có slot nào được tạo trong khoảng thời gian này (do nghỉ hoặc không có lịch)', []);
+      return new ResponseCommon(
+        200,
+        '1 Không có slot nào được tạo trong khoảng thời gian này (do nghỉ hoặc không có lịch)',
+        [],
+      );
     }
 
     // Get existing slots to filter out overlaps
-    const existingSlots = await this.timeSlotService.findAvailableSlots(
+    const existingSlots = await this.timeSlotService.findSlotsInRange(
       doctorId,
       startDate,
       endDate,
     );
 
     // Filter out overlapping slots
-    const nonOverlapping = allSlots.filter(newSlot => {
-      return !existingSlots.some(existingSlot =>
-        newSlot.startTime! < existingSlot.endTime &&
-        newSlot.endTime! > existingSlot.startTime
+    const nonOverlapping = allSlots.filter((newSlot) => {
+      return !existingSlots.some(
+        (existingSlot) =>
+          newSlot.startTime! < existingSlot.endTime &&
+          newSlot.endTime! > existingSlot.startTime,
       );
     });
 
     if (nonOverlapping.length === 0) {
-      return new ResponseCommon(200, 'Tất cả slots đã tồn tại trong khoảng thời gian này', []);
+      return new ResponseCommon(
+        200,
+        'Tất cả slots đã tồn tại trong khoảng thời gian này',
+        [],
+      );
     }
 
     // Convert to DTOs and bulk create
-    const dtos: CreateTimeSlotDto[] = nonOverlapping.map(slot => ({
+    const dtos: CreateTimeSlotDto[] = nonOverlapping.map((slot) => ({
       startTime: slot.startTime!.toISOString(),
       endTime: slot.endTime!.toISOString(),
       capacity: slot.capacity!,
       allowedAppointmentTypes: slot.allowedAppointmentTypes!,
-      locationHospitalId: slot.locationHospitalId ?? undefined,
       isAvailable: true,
+      scheduleId: slot.scheduleId ?? undefined,
     }));
 
     const result = await this.timeSlotService.createMany(doctorId, dtos);
     return new ResponseCommon(
       201,
       `Đã tạo ${result.data?.length ?? 0} time slots thành công`,
-      result.data ?? []
+      result.data ?? [],
     );
   }
 
-  private isScheduleActiveOnDate(schedule: DoctorSchedule, date: Date): boolean {
+  private isScheduleActiveOnDate(
+    schedule: DoctorSchedule,
+    date: Date,
+  ): boolean {
     const checkDate = new Date(date);
     checkDate.setHours(0, 0, 0, 0);
 
@@ -409,12 +443,63 @@ export class SlotGeneratorService {
 
     if (schedule.effectiveUntil) {
       const effectiveUntil = new Date(schedule.effectiveUntil);
-      effectiveUntil.setHours(0, 0, 0, 0);
+      effectiveUntil.setHours(23, 59, 59, 999);
       if (checkDate > effectiveUntil) {
         return false;
       }
     }
 
     return true;
+  }
+
+  private async handleOverriddenSlots(
+    doctorId: string,
+    startDate: Date,
+    endDate: Date,
+    sortedSchedules: DoctorSchedule[],
+  ): Promise<number> {
+    let totalDisabled = 0;
+    const currentDate = new Date(startDate);
+    currentDate.setHours(0, 0, 0, 0);
+
+    const endDateCopy = new Date(endDate);
+    endDateCopy.setHours(23, 59, 59, 999);
+
+    while (currentDate <= endDateCopy) {
+      const dayOfWeek = currentDate.getDay();
+
+      // Lấy schedules active trong ngày này
+      const daySchedules = sortedSchedules.filter(
+        (s) =>
+          s.dayOfWeek === dayOfWeek && this.isScheduleActiveOnDate(s, currentDate),
+      );
+
+      if (daySchedules.length === 0) {
+        currentDate.setDate(currentDate.getDate() + 1);
+        continue;
+      }
+
+      // Tìm priority cao nhất
+      const maxPriority = Math.max(
+        ...daySchedules.map((s) => SCHEDULE_TYPE_PRIORITY[s.scheduleType]),
+      );
+
+      // Lấy tất cả schedule IDs có priority cao nhất
+      const highestPriorityScheduleIds = daySchedules
+        .filter((s) => SCHEDULE_TYPE_PRIORITY[s.scheduleType] === maxPriority)
+        .map((s) => s.id);
+
+      // Disable slots không thuộc priority cao nhất
+      const disabled = await this.timeSlotService.disableSlotsNotInSchedules(
+        doctorId,
+        currentDate,
+        highestPriorityScheduleIds,
+      );
+
+      totalDisabled += disabled;
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return totalDisabled;
   }
 }

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not, IsNull } from 'typeorm';
 import { Account } from './entities/account.entity';
@@ -33,7 +37,6 @@ export class AccountService {
     });
     return new ResponseCommon(200, 'SUCCESS', account);
   }
-
 
   async adminUpdate(
     id: string,

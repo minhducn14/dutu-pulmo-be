@@ -40,7 +40,9 @@ export class HospitalResponseDto {
   @ApiProperty()
   updatedAt: Date;
 
-  @ApiPropertyOptional({ description: 'Số lượng bác sĩ làm việc tại bệnh viện' })
+  @ApiPropertyOptional({
+    description: 'Số lượng bác sĩ làm việc tại bệnh viện',
+  })
   doctorCount?: number;
 }
 

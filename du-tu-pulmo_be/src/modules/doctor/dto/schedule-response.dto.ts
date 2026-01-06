@@ -70,13 +70,15 @@ export class DoctorScheduleResponseDto {
 
   @ApiPropertyOptional({
     example: '500000',
-    description: 'Phí khám riêng cho lịch này (VND). Nếu null sẽ dùng defaultConsultationFee của bác sĩ',
+    description:
+      'Phí khám riêng cho lịch này (VND). Nếu null sẽ dùng defaultConsultationFee của bác sĩ',
   })
   consultationFee?: string | null;
 
   @ApiPropertyOptional({
     example: '500000',
-    description: 'Phí khám thực tế (VND) - fallback từ schedule hoặc doctor.defaultConsultationFee',
+    description:
+      'Phí khám thực tế (VND) - fallback từ schedule hoặc doctor.defaultConsultationFee',
   })
   effectiveConsultationFee?: string | null;
 
@@ -132,12 +134,6 @@ export class TimeSlotResponseDto {
     description: 'ID bác sĩ',
   })
   doctorId: string;
-
-  @ApiPropertyOptional({
-    example: 'd7c1cf97-6734-43ae-9a62-0f97b48f5888',
-    description: 'ID bệnh viện/phòng khám',
-  })
-  locationHospitalId?: string | null;
 
   @ApiProperty({
     type: [String],

@@ -78,7 +78,7 @@ export class AccountController {
       roles: acc.roles,
     });
   }
-  
+
   @Patch(':id/admin')
   @ApiOperation({ summary: 'Cập nhật tài khoản (Admin only)' })
   @ApiParam({ name: 'id', description: 'Account ID to update' })
@@ -89,7 +89,11 @@ export class AccountController {
     @Body() dto: AdminUpdateAccountDto,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<AccountResponseDto>> {
-    const response = await this.accountService.adminUpdate(id, dto, user.accountId);
+    const response = await this.accountService.adminUpdate(
+      id,
+      dto,
+      user.accountId,
+    );
     const acc = response.data;
     if (!acc) {
       throw new NotFoundException(AUTH_ERRORS.ACCOUNT_NOT_FOUND);

@@ -1,6 +1,6 @@
 export enum Specialty {
-  PULMONOLOGY = 'Pulmonology',              // Hô hấp
-  THORACIC_SURGERY = 'Thoracic Surgery',    // Phẫu thuật lồng ngực
+  PULMONOLOGY = 'Pulmonology', // Hô hấp
+  THORACIC_SURGERY = 'Thoracic Surgery', // Phẫu thuật lồng ngực
   RESPIRATORY_MEDICINE = 'Respiratory Medicine', // Nội khoa hô hấp
-  TUBERCULOSIS = 'Tuberculosis',            // Lao phổi
+  TUBERCULOSIS = 'Tuberculosis', // Lao phổi
 }

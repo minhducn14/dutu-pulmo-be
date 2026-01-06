@@ -103,7 +103,7 @@ export class CreateDoctorDto {
 
   @ApiPropertyOptional({ description: 'Năm bắt đầu hành nghề', example: 2010 })
   @IsOptional()
-  @Transform(({ value }) => value ? parseInt(value, 10) : undefined)
+  @Transform(({ value }) => (value ? parseInt(value, 10) : undefined))
   @IsInt()
   @Min(1950)
   practiceStartYear?: number;
@@ -111,7 +111,7 @@ export class CreateDoctorDto {
   @ApiPropertyOptional({
     description: 'Học hàm/học vị',
     enum: DoctorTitle,
-    example: DoctorTitle.PHD_DOCTOR
+    example: DoctorTitle.PHD_DOCTOR,
   })
   @IsOptional()
   @IsEnum(DoctorTitle)
@@ -131,7 +131,7 @@ export class CreateDoctorDto {
   @ApiPropertyOptional({
     description: 'Chuyên khoa',
     enum: Specialty,
-    example: Specialty.PULMONOLOGY
+    example: Specialty.PULMONOLOGY,
   })
   @IsOptional()
   @IsEnum(Specialty)
@@ -149,12 +149,15 @@ export class CreateDoctorDto {
 
   @ApiPropertyOptional({ description: 'Số năm kinh nghiệm', example: 10 })
   @IsOptional()
-  @Transform(({ value }) => value ? parseInt(value, 10) : undefined)
+  @Transform(({ value }) => (value ? parseInt(value, 10) : undefined))
   @IsInt()
   @Min(0)
   yearsOfExperience?: number;
 
-  @ApiPropertyOptional({ description: 'ID bệnh viện công tác chính', example: 'uuid-hospital-id' })
+  @ApiPropertyOptional({
+    description: 'ID bệnh viện công tác chính',
+    example: 'uuid-hospital-id',
+  })
   @IsOptional()
   @IsUUID()
   primaryHospitalId?: string;
@@ -182,10 +185,10 @@ export class CreateDoctorDto {
       properties: {
         name: { type: 'string' },
         issuer: { type: 'string' },
-        year: { type: 'number' }
-      }
+        year: { type: 'number' },
+      },
     },
-    example: [{ name: 'Chứng chỉ Nội soi', issuer: 'BV Chợ Rẫy', year: 2020 }]
+    example: [{ name: 'Chứng chỉ Nội soi', issuer: 'BV Chợ Rẫy', year: 2020 }],
   })
   @IsOptional()
   @IsArray()
@@ -205,10 +208,12 @@ export class CreateDoctorDto {
       type: 'object',
       properties: {
         url: { type: 'string' },
-        name: { type: 'string' }
-      }
+        name: { type: 'string' },
+      },
     },
-    example: [{ url: 'https://example.com/logo.png', name: 'Đại học Y Hà Nội' }]
+    example: [
+      { url: 'https://example.com/logo.png', name: 'Đại học Y Hà Nội' },
+    ],
   })
   @IsOptional()
   @IsArray()
@@ -217,15 +222,18 @@ export class CreateDoctorDto {
   trainingUnits?: TrainingUnitDto[];
 
   @ApiPropertyOptional({
-    description: 'Phí khám mặc định (VND) - dùng khi schedule không set phí riêng',
+    description:
+      'Phí khám mặc định (VND) - dùng khi schedule không set phí riêng',
     example: 300000,
     type: Number,
   })
   @IsOptional()
-  @Type(() => Number) 
-  @IsNumber({ maxDecimalPlaces: 2 }) 
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   @Max(100000000)
-  @Transform(({ value }) => value != null ? value.toString() : null, { toClassOnly: true })
+  @Transform(({ value }) => (value != null ? value.toString() : null), {
+    toClassOnly: true,
+  })
   defaultConsultationFee?: string;
-  }
+}

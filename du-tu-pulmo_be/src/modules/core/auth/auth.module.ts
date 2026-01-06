@@ -19,7 +19,15 @@ import { RefreshToken } from './entities/refresh-token.entity';
 @Module({
   imports: [
     // SEC-01: Added DoctorSchedule and TimeSlot for DoctorOwnershipGuard injection
-    TypeOrmModule.forFeature([Account, User, Patient, Doctor, DoctorSchedule, TimeSlot, RefreshToken]),
+    TypeOrmModule.forFeature([
+      Account,
+      User,
+      Patient,
+      Doctor,
+      DoctorSchedule,
+      TimeSlot,
+      RefreshToken,
+    ]),
     PassportModule,
     ConfigModule,
     EmailModule,

@@ -14,7 +14,7 @@ export type DatabaseConfig = {
 
 export default registerAs<DatabaseConfig>('database', () => {
   const useUrl = !!process.env.DB_URL;
-  console.log("useUrl", useUrl);
+  console.log('useUrl', useUrl);
   const ssl = (process.env.DB_SSL ?? 'true').toLowerCase() === 'true';
 
   return {

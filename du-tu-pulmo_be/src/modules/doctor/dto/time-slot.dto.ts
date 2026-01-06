@@ -19,26 +19,36 @@ import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.e
  * DTO for creating a single time slot.
  */
 export class CreateTimeSlotDto {
-  @ApiProperty({ description: 'Thời gian bắt đầu (ISO 8601)', example: '2026-01-10T09:00:00+07:00' })
+  @ApiProperty({
+    description: 'Thời gian bắt đầu (ISO 8601)',
+    example: '2026-01-10T09:00:00+07:00',
+  })
   @IsDateString()
   startTime: string;
 
-  @ApiProperty({ description: 'Thời gian kết thúc (ISO 8601)', example: '2026-01-10T09:30:00+07:00' })
+  @ApiProperty({
+    description: 'Thời gian kết thúc (ISO 8601)',
+    example: '2026-01-10T09:30:00+07:00',
+  })
   @IsDateString()
   endTime: string;
 
-  @ApiPropertyOptional({ description: 'ID bệnh viện/phòng khám (bắt buộc nếu có IN_CLINIC)' })
-  @IsOptional()
-  @IsUUID()
-  locationHospitalId?: string;
-
-  @ApiProperty({ description: 'Các loại hình khám được phép', type: [String], enum: AppointmentTypeEnum })
+  @ApiProperty({
+    description: 'Các loại hình khám được phép',
+    type: [String],
+    enum: AppointmentTypeEnum,
+  })
   @IsArray()
   @ArrayMinSize(1)
   @IsEnum(AppointmentTypeEnum, { each: true })
   allowedAppointmentTypes: AppointmentTypeEnum[];
 
-  @ApiPropertyOptional({ description: 'Số lượng bệnh nhân tối đa', minimum: 1, maximum: 10, default: 1 })
+  @ApiPropertyOptional({
+    description: 'Số lượng bệnh nhân tối đa',
+    minimum: 1,
+    maximum: 10,
+    default: 1,
+  })
   @IsOptional()
   @IsInt()
   @Min(1)
@@ -49,6 +59,11 @@ export class CreateTimeSlotDto {
   @IsOptional()
   @IsBoolean()
   isAvailable?: boolean = true;
+
+  @ApiPropertyOptional({ description: 'ID của lịch làm việc liên kết' })
+  @IsOptional()
+  @IsUUID()
+  scheduleId?: string;
 }
 
 /**
@@ -56,7 +71,10 @@ export class CreateTimeSlotDto {
  * Limited to 100 slots per request for performance.
  */
 export class BulkCreateTimeSlotsDto {
-  @ApiProperty({ description: 'Danh sách time slots (tối đa 100)', type: [CreateTimeSlotDto] })
+  @ApiProperty({
+    description: 'Danh sách time slots (tối đa 100)',
+    type: [CreateTimeSlotDto],
+  })
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
@@ -78,12 +96,11 @@ export class UpdateTimeSlotDto {
   @IsDateString()
   endTime?: string;
 
-  @ApiPropertyOptional({ description: 'ID bệnh viện/phòng khám' })
-  @IsOptional()
-  @IsUUID()
-  locationHospitalId?: string | null;
-
-  @ApiPropertyOptional({ description: 'Các loại hình khám được phép', type: [String], enum: AppointmentTypeEnum })
+  @ApiPropertyOptional({
+    description: 'Các loại hình khám được phép',
+    type: [String],
+    enum: AppointmentTypeEnum,
+  })
   @IsOptional()
   @IsArray()
   @ArrayMinSize(1)
@@ -107,7 +124,10 @@ export class UpdateTimeSlotDto {
  * Query DTO for finding available slots.
  */
 export class FindAvailableSlotsQueryDto {
-  @ApiProperty({ description: 'Ngày cần tìm (YYYY-MM-DD)', example: '2026-01-10' })
+  @ApiProperty({
+    description: 'Ngày cần tìm (YYYY-MM-DD)',
+    example: '2026-01-10',
+  })
   @IsDateString()
   date: string;
 }
@@ -116,11 +136,17 @@ export class FindAvailableSlotsQueryDto {
  * DTO for auto-generating time slots from a schedule.
  */
 export class GenerateSlotsDto {
-  @ApiProperty({ description: 'Ngày bắt đầu generate (YYYY-MM-DD)', example: '2026-01-05' })
+  @ApiProperty({
+    description: 'Ngày bắt đầu generate (YYYY-MM-DD)',
+    example: '2026-01-05',
+  })
   @IsDateString()
   startDate: string;
 
-  @ApiProperty({ description: 'Ngày kết thúc generate (YYYY-MM-DD, tối đa 90 ngày)', example: '2026-01-31' })
+  @ApiProperty({
+    description: 'Ngày kết thúc generate (YYYY-MM-DD, tối đa 90 ngày)',
+    example: '2026-01-31',
+  })
   @IsDateString()
   endDate: string;
 }
@@ -138,7 +164,10 @@ export class ToggleSlotAvailabilityDto {
  * DTO for bulk toggling multiple slots' availability.
  */
 export class BulkToggleSlotsDto {
-  @ApiProperty({ description: 'Danh sách slot IDs (tối đa 100)', type: [String] })
+  @ApiProperty({
+    description: 'Danh sách slot IDs (tối đa 100)',
+    type: [String],
+  })
   @IsArray()
   @ArrayMinSize(1)
   @IsUUID('4', { each: true })
@@ -153,7 +182,10 @@ export class BulkToggleSlotsDto {
  * DTO for disabling all slots for a specific day.
  */
 export class DisableSlotsForDayDto {
-  @ApiProperty({ description: 'Ngày cần tắt slots (YYYY-MM-DD)', example: '2026-01-15' })
+  @ApiProperty({
+    description: 'Ngày cần tắt slots (YYYY-MM-DD)',
+    example: '2026-01-15',
+  })
   @IsDateString()
   date: string;
 }

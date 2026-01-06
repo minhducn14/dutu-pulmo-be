@@ -35,19 +35,28 @@ export class Patient {
   @Column({ name: 'emergency_contact_phone', length: 20, nullable: true })
   emergencyContactPhone: string;
 
-  @Column({ name: 'emergency_contact_relationship', length: 50, nullable: true })
+  @Column({
+    name: 'emergency_contact_relationship',
+    length: 50,
+    nullable: true,
+  })
   emergencyContactRelationship: string;
 
   // INSURANCE
   @Column({ name: 'insurance_provider', length: 100, nullable: true })
   insuranceProvider: string;
 
-  @Column({ name: 'insurance_number', length: 50, nullable: true, unique: true })
+  @Column({
+    name: 'insurance_number',
+    length: 50,
+    nullable: true,
+    unique: true,
+  })
   insuranceNumber: string;
 
   @Column({ name: 'insurance_expiry', type: 'date', nullable: true })
   insuranceExpiry: Date;
-  
+
   @CreateDateColumn({
     name: 'created_at',
     type: 'timestamptz',

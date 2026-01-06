@@ -96,7 +96,10 @@ describe('SlotGeneratorService', () => {
       ];
 
       const sortedSchedules = schedules.sort((a, b) => b.priority - a.priority);
-      const slots = (service as any).generateSlotsForDay(targetDate, sortedSchedules);
+      const slots = (service as any).generateSlotsForDay(
+        targetDate,
+        sortedSchedules,
+      );
 
       expect(slots.length).toBe(0);
     });
@@ -127,12 +130,15 @@ describe('SlotGeneratorService', () => {
       ];
 
       const sortedSchedules = schedules.sort((a, b) => b.priority - a.priority);
-      const slots = (service as any).generateSlotsForDay(targetDate, sortedSchedules);
+      const slots = (service as any).generateSlotsForDay(
+        targetDate,
+        sortedSchedules,
+      );
 
       // Should ONLY have slots from HOLIDAY (09:00-12:00)
       // REGULAR (13:00-17:00) should be completely ignored
       expect(slots.length).toBeGreaterThan(0);
-      
+
       slots.forEach((slot: Partial<TimeSlot>) => {
         const startHour = slot.startTime!.getHours();
         expect(startHour).toBeGreaterThanOrEqual(9);
@@ -140,7 +146,9 @@ describe('SlotGeneratorService', () => {
       });
 
       // Verification: No afternoon slots
-      const afternoonSlots = slots.filter((s: Partial<TimeSlot>) => s.startTime!.getHours() >= 13);
+      const afternoonSlots = slots.filter(
+        (s: Partial<TimeSlot>) => s.startTime!.getHours() >= 13,
+      );
       expect(afternoonSlots.length).toBe(0);
     });
 
@@ -177,14 +185,21 @@ describe('SlotGeneratorService', () => {
       ];
 
       const sortedSchedules = schedules.sort((a, b) => b.priority - a.priority);
-      const slots = (service as any).generateSlotsForDay(targetDate, sortedSchedules);
+      const slots = (service as any).generateSlotsForDay(
+        targetDate,
+        sortedSchedules,
+      );
 
       // Should have slots from both HOLIDAYs (4 slots total)
       // Regular schedule is ignored
-      expect(slots.length).toBe(4); 
-      
-      const morning = slots.filter((s: Partial<TimeSlot>) => s.startTime!.getHours() === 9);
-      const afternoon = slots.filter((s: Partial<TimeSlot>) => s.startTime!.getHours() === 14);
+      expect(slots.length).toBe(4);
+
+      const morning = slots.filter(
+        (s: Partial<TimeSlot>) => s.startTime!.getHours() === 9,
+      );
+      const afternoon = slots.filter(
+        (s: Partial<TimeSlot>) => s.startTime!.getHours() === 14,
+      );
 
       expect(morning.length).toBe(2);
       expect(afternoon.length).toBe(2);
@@ -216,7 +231,10 @@ describe('SlotGeneratorService', () => {
       ];
 
       const sortedSchedules = schedules.sort((a, b) => b.priority - a.priority);
-      const slots = (service as any).generateSlotsForDay(targetDate, sortedSchedules);
+      const slots = (service as any).generateSlotsForDay(
+        targetDate,
+        sortedSchedules,
+      );
 
       expect(slots.length).toBe(6); // 4 + 2 slots
     });
@@ -230,7 +248,7 @@ describe('SlotGeneratorService', () => {
       // NOTE: Current logic: holidays = filter(s => type==HOLIDAY && s.isAvailable)
       // If holiday has isAvailable=false, it is filtered OUT of `holidays` array.
       // If `holidays` array is empty, code proceeds to `else` block (Regular schedules).
-      
+
       const targetDate = new Date('2026-01-12'); // Monday
 
       const schedules: DoctorSchedule[] = [
@@ -252,7 +270,10 @@ describe('SlotGeneratorService', () => {
       ];
 
       const sortedSchedules = schedules.sort((a, b) => b.priority - a.priority);
-      const slots = (service as any).generateSlotsForDay(targetDate, sortedSchedules);
+      const slots = (service as any).generateSlotsForDay(
+        targetDate,
+        sortedSchedules,
+      );
 
       // Since holiday is unavailable, it is ignored basically.
       // Code falls through to REGULAR schedule.
@@ -275,7 +296,10 @@ describe('SlotGeneratorService', () => {
       ];
 
       const sortedSchedules = schedules.sort((a, b) => b.priority - a.priority);
-      const slots = (service as any).generateSlotsForDay(targetDate, sortedSchedules);
+      const slots = (service as any).generateSlotsForDay(
+        targetDate,
+        sortedSchedules,
+      );
 
       expect(slots.length).toBe(0);
     });
@@ -291,7 +315,8 @@ describe('SlotGeneratorService', () => {
         createMockSchedule({
           scheduleType: ScheduleType.REGULAR,
           effectiveFrom: new Date('2026-02-01'),
-          startTime: '09:00', endTime: '12:00',
+          startTime: '09:00',
+          endTime: '12:00',
           isAvailable: true,
           dayOfWeek: 4,
         }),
@@ -299,7 +324,8 @@ describe('SlotGeneratorService', () => {
         createMockSchedule({
           scheduleType: ScheduleType.REGULAR,
           effectiveUntil: new Date('2026-01-01'),
-          startTime: '13:00', endTime: '17:00',
+          startTime: '13:00',
+          endTime: '17:00',
           isAvailable: true,
           dayOfWeek: 4,
         }),
@@ -308,7 +334,8 @@ describe('SlotGeneratorService', () => {
           scheduleType: ScheduleType.REGULAR,
           effectiveFrom: new Date('2026-01-01'),
           effectiveUntil: new Date('2026-02-01'),
-          startTime: '18:00', endTime: '19:00',
+          startTime: '18:00',
+          endTime: '19:00',
           slotDuration: 60,
           isAvailable: true,
           dayOfWeek: 4,
@@ -316,7 +343,10 @@ describe('SlotGeneratorService', () => {
       ];
 
       const sortedSchedules = schedules.sort((a, b) => b.priority - a.priority);
-      const slots = (service as any).generateSlotsForDay(targetDate, sortedSchedules);
+      const slots = (service as any).generateSlotsForDay(
+        targetDate,
+        sortedSchedules,
+      );
 
       // Only the active one (18:00-19:00) should generate slots
       expect(slots.length).toBe(1);
@@ -345,7 +375,9 @@ describe('SlotGeneratorService', () => {
     it('should throw exception for invalid slot duration', () => {
       const schedule = createMockSchedule({ slotDuration: 0 });
       const targetDate = new Date();
-      expect(() => service.generateSlotsFromSchedule(schedule, targetDate)).toThrow();
+      expect(() =>
+        service.generateSlotsFromSchedule(schedule, targetDate),
+      ).toThrow();
     });
   });
 
@@ -357,24 +389,31 @@ describe('SlotGeneratorService', () => {
 
       // Mock Schedule: 09:00-10:00 (30m slots -> 09:00, 09:30)
       const mockSchedule = createMockSchedule({
-        startTime: '09:00', endTime: '10:00', slotDuration: 30
+        startTime: '09:00',
+        endTime: '10:00',
+        slotDuration: 30,
       });
 
-      (mockScheduleService.findById as jest.Mock).mockResolvedValue({ data: mockSchedule });
-      (mockScheduleService.findByDoctorId as jest.Mock).mockResolvedValue({ data: [mockSchedule] });
-      
+      (mockScheduleService.findById as jest.Mock).mockResolvedValue({
+        data: mockSchedule,
+      });
+      (mockScheduleService.findByDoctorId as jest.Mock).mockResolvedValue({
+        data: [mockSchedule],
+      });
+
       // Mock Exists: 09:00-09:30 already exists
       (mockTimeSlotService.findAvailableSlots as jest.Mock).mockResolvedValue([
         {
           startTime: new Date('2026-01-12T09:00:00'),
           endTime: new Date('2026-01-12T09:30:00'),
-        }
+        },
       ]);
 
       await service.generateAndSaveSlots(scheduleId, startDate, endDate);
 
       expect(mockTimeSlotService.createMany).toHaveBeenCalled();
-      const callArgs = (mockTimeSlotService.createMany as jest.Mock).mock.calls[0];
+      const callArgs = (mockTimeSlotService.createMany as jest.Mock).mock
+        .calls[0];
       const dtos = callArgs[1];
 
       // Should only create 09:30-10:00 (1 slot)
@@ -389,18 +428,33 @@ describe('SlotGeneratorService', () => {
       const startDate = new Date('2026-01-12'); // Monday
       const endDate = new Date('2026-01-13'); // Tuesday
 
-      const mockScheduleMonday = createMockSchedule({ dayOfWeek: 1, startTime: '09:00', endTime: '10:00', slotDuration: 60 });
-      const mockScheduleTuesday = createMockSchedule({ dayOfWeek: 2, startTime: '09:00', endTime: '10:00', slotDuration: 60 });
-
-      (mockScheduleService.findById as jest.Mock).mockResolvedValue({ data: mockScheduleMonday });
-      (mockScheduleService.findByDoctorId as jest.Mock).mockResolvedValue({ 
-        data: [mockScheduleMonday, mockScheduleTuesday] 
+      const mockScheduleMonday = createMockSchedule({
+        dayOfWeek: 1,
+        startTime: '09:00',
+        endTime: '10:00',
+        slotDuration: 60,
       });
-      (mockTimeSlotService.findAvailableSlots as jest.Mock).mockResolvedValue([]);
+      const mockScheduleTuesday = createMockSchedule({
+        dayOfWeek: 2,
+        startTime: '09:00',
+        endTime: '10:00',
+        slotDuration: 60,
+      });
+
+      (mockScheduleService.findById as jest.Mock).mockResolvedValue({
+        data: mockScheduleMonday,
+      });
+      (mockScheduleService.findByDoctorId as jest.Mock).mockResolvedValue({
+        data: [mockScheduleMonday, mockScheduleTuesday],
+      });
+      (mockTimeSlotService.findAvailableSlots as jest.Mock).mockResolvedValue(
+        [],
+      );
 
       await service.generateAndSaveSlots('any', startDate, endDate);
 
-      const callArgs = (mockTimeSlotService.createMany as jest.Mock).mock.calls[0];
+      const callArgs = (mockTimeSlotService.createMany as jest.Mock).mock
+        .calls[0];
       const dtos = callArgs[1];
 
       // Should generate 1 slot for Monday and 1 slot for Tuesday -> Total 2

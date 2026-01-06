@@ -39,13 +39,12 @@ import { CurrentUser } from 'src/common/decorators/user.decorator';
 import type { JwtUser } from '../core/auth/strategies/jwt.strategy';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { DoctorResponseDto } from './dto/doctor-response.dto';
-import { 
-  fileTypeConfigs, 
+import {
+  fileTypeConfigs,
   FileDefaults,
 } from 'src/common/config/file-type.config';
 import { Specialty } from '../common/enums/specialty.enum';
 import { DoctorTitle } from '../common/enums/doctor-title.enum';
-
 
 @ApiTags('Doctors')
 @Controller('doctors')
@@ -60,7 +59,9 @@ export class DoctorController {
   @Get()
   @ApiOperation({ summary: 'Lấy danh sách bác sĩ (có phân trang)' })
   @ApiResponse({ status: HttpStatus.OK, type: [DoctorResponseDto] })
-  async findAll(@Query() dto: FindDoctorsDto): Promise<ResponseCommon<DoctorResponseDto[]>> {
+  async findAll(
+    @Query() dto: FindDoctorsDto,
+  ): Promise<ResponseCommon<DoctorResponseDto[]>> {
     const response = await this.doctorService.findAllPaginated(dto);
     const doctors = response.data?.items ?? [];
     const data = doctors.map((doc) => this.toResponseDto(doc));
@@ -71,20 +72,29 @@ export class DoctorController {
   @ApiOperation({ summary: 'Lấy thông tin chi tiết bác sĩ' })
   @ApiParam({ name: 'id', description: 'Doctor ID (UUID)' })
   @ApiResponse({ status: HttpStatus.OK, type: DoctorResponseDto })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Không tìm thấy bác sĩ' })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Không tìm thấy bác sĩ',
+  })
   async findOne(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<DoctorResponseDto>> {
     if (!user.roles?.includes(RoleEnum.ADMIN) && user.doctorId !== id) {
-      throw new ForbiddenException('Bạn chỉ có thể cập nhật thông tin của mình');
+      throw new ForbiddenException(
+        'Bạn chỉ có thể cập nhật thông tin của mình',
+      );
     }
     const response = await this.doctorService.findOne(id);
     const doc = response.data;
     if (!doc) {
       throw new NotFoundException('Không tìm thấy bác sĩ');
     }
-    return new ResponseCommon(response.code, response.message, this.toResponseDto(doc));
+    return new ResponseCommon(
+      response.code,
+      response.message,
+      this.toResponseDto(doc),
+    );
   }
 
   @Post()
@@ -95,7 +105,9 @@ export class DoctorController {
       fileFilter: (req, file, callback) => {
         if (!fileTypeConfigs.image.allowedMimeTypes.includes(file.mimetype)) {
           return callback(
-            new BadRequestException('Chỉ chấp nhận file ảnh (jpg, jpeg, png, webp)'),
+            new BadRequestException(
+              'Chỉ chấp nhận file ảnh (jpg, jpeg, png, webp)',
+            ),
             false,
           );
         }
@@ -103,7 +115,9 @@ export class DoctorController {
       },
     }),
   )
-  @ApiOperation({ summary: 'Tạo hồ sơ bác sĩ mới với upload ảnh giấy phép (Admin)' })
+  @ApiOperation({
+    summary: 'Tạo hồ sơ bác sĩ mới với upload ảnh giấy phép (Admin)',
+  })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -120,25 +134,47 @@ export class DoctorController {
         },
         licenseNumber: { type: 'string', example: 'GP-12345' },
         practiceStartYear: { type: 'number', example: 2010 },
-        title: { type: 'string', example: DoctorTitle.PHD_DOCTOR, enum: Object.values(DoctorTitle) },
+        title: {
+          type: 'string',
+          example: DoctorTitle.PHD_DOCTOR,
+          enum: Object.values(DoctorTitle),
+        },
         position: { type: 'string', example: 'Trưởng khoa' },
         bio: { type: 'string' },
-        specialty: { type: 'string', example: Specialty.PULMONOLOGY, enum: Object.values(Specialty) },
+        specialty: {
+          type: 'string',
+          example: Specialty.PULMONOLOGY,
+          enum: Object.values(Specialty),
+        },
         defaultConsultationFee: { type: 'number', example: 100000 },
       },
-      required: ['email', 'password', 'fullName', 'licenseNumber', 'licenseImages'],
+      required: [
+        'email',
+        'password',
+        'fullName',
+        'licenseNumber',
+        'licenseImages',
+      ],
     },
   })
   @ApiResponse({ status: HttpStatus.CREATED, type: DoctorResponseDto })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Dữ liệu không hợp lệ' })
-  @ApiResponse({ status: HttpStatus.CONFLICT, description: 'Email hoặc số giấy phép đã tồn tại' })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Dữ liệu không hợp lệ',
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'Email hoặc số giấy phép đã tồn tại',
+  })
   async create(
     @Body() dto: CreateDoctorDto,
     @UploadedFiles() licenseImages: Express.Multer.File[],
   ): Promise<ResponseCommon<DoctorResponseDto>> {
     // Validate license images are provided
     if (!licenseImages || licenseImages.length === 0) {
-      throw new BadRequestException('Vui lòng tải lên ít nhất 1 ảnh giấy phép hành nghề');
+      throw new BadRequestException(
+        'Vui lòng tải lên ít nhất 1 ảnh giấy phép hành nghề',
+      );
     }
 
     // Upload license images to Cloudinary
@@ -146,16 +182,20 @@ export class DoctorController {
       licenseImages,
       'doctor-licenses',
     );
-    
+
     // Map upload results to licenseImageUrls format
     dto.licenseImageUrls = uploadResults.map((result) => ({
       url: result.url,
       expiry: undefined,
     }));
-    console.log(dto);
+
     const response = await this.doctorService.create(dto);
     const doc = response.data;
-    return new ResponseCommon(response.code, response.message, this.toResponseDto(doc));
+    return new ResponseCommon(
+      response.code,
+      response.message,
+      this.toResponseDto(doc),
+    );
   }
 
   @Patch(':id')
@@ -163,22 +203,34 @@ export class DoctorController {
   @ApiOperation({ summary: 'Cập nhật hồ sơ bác sĩ (Admin hoặc chính mình)' })
   @ApiParam({ name: 'id', description: 'Doctor ID (UUID)' })
   @ApiResponse({ status: HttpStatus.OK, type: DoctorResponseDto })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Không tìm thấy bác sĩ' })
-  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Không có quyền truy cập' })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Không tìm thấy bác sĩ',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Không có quyền truy cập',
+  })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateDoctorDto,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<DoctorResponseDto>> {
     if (!user.roles?.includes(RoleEnum.ADMIN) && user.doctorId !== id) {
-      throw new ForbiddenException('Bạn chỉ có thể cập nhật thông tin của mình');
+      throw new ForbiddenException(
+        'Bạn chỉ có thể cập nhật thông tin của mình',
+      );
     }
     const response = await this.doctorService.update(id, dto);
     const doc = response.data;
     if (!doc) {
       throw new NotFoundException('Không tìm thấy bác sĩ');
     }
-    return new ResponseCommon(response.code, response.message, this.toResponseDto(doc));
+    return new ResponseCommon(
+      response.code,
+      response.message,
+      this.toResponseDto(doc),
+    );
   }
 
   @Delete(':id')
@@ -221,7 +273,11 @@ export class DoctorController {
     if (!doc) {
       throw new NotFoundException('Không tìm thấy bác sĩ');
     }
-    return new ResponseCommon(response.code, response.message, this.toResponseDto(doc));
+    return new ResponseCommon(
+      response.code,
+      response.message,
+      this.toResponseDto(doc),
+    );
   }
 
   /**
@@ -229,7 +285,7 @@ export class DoctorController {
    */
   private toResponseDto(doctor: any): DoctorResponseDto {
     const user = doctor.user;
-    
+
     return {
       id: doctor.id,
       userId: doctor.userId,

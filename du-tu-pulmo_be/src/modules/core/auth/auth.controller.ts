@@ -88,7 +88,11 @@ export class AuthController {
     status: HttpStatus.BAD_REQUEST,
     description: 'Không có authorization code',
   })
-  async googleAuthCallback(@Query('code') code: string, @Query('error') error: string, @Res() res: express.Response) {
+  async googleAuthCallback(
+    @Query('code') code: string,
+    @Query('error') error: string,
+    @Res() res: express.Response,
+  ) {
     if (error || !code) {
       return res.redirect(`${process.env.FRONTEND_URL}/signin?error=${error}`);
     }
@@ -184,7 +188,10 @@ export class AuthController {
     status: HttpStatus.FOUND,
     description: 'Redirect to frontend with result',
   })
-  async verifyEmail(@Query('token') token: string, @Res() res: express.Response) {
+  async verifyEmail(
+    @Query('token') token: string,
+    @Res() res: express.Response,
+  ) {
     const frontendUrl = this.configService.get<string>('FRONTEND_URL');
 
     if (!token) {
@@ -207,7 +214,7 @@ export class AuthController {
       case 'EXPIRED_TOKEN':
         return res.redirect(
           `${frontendUrl}/verification-failed?reason=expired_token&email=${encodeURIComponent(
-            result.email!,
+            result.email,
           )}`,
         );
 
@@ -221,7 +228,6 @@ export class AuthController {
     }
   }
 
-  
   @Post('resend-verification')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 3, ttl: 300000 } })

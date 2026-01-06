@@ -1,13 +1,24 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn,
-  ManyToOne, JoinColumn, Check, Index
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Check,
+  Index,
 } from 'typeorm';
 import { Doctor } from './doctor.entity';
 import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
 import { ScheduleType } from 'src/modules/common/enums/schedule-type.enum';
 
 @Entity('doctor_schedules')
-@Index('idx_schedule_doctor_dow_type', ['doctorId', 'dayOfWeek', 'appointmentType'])
+@Index('idx_schedule_doctor_dow_type', [
+  'doctorId',
+  'dayOfWeek',
+  'appointmentType',
+])
 @Index('idx_schedule_priority', ['doctorId', 'priority', 'dayOfWeek'])
 @Check('chk_schedule_day_of_week', '"day_of_week" >= 0 AND "day_of_week" <= 6')
 @Check('chk_schedule_time_range', '"start_time" < "end_time"')
@@ -16,14 +27,15 @@ import { ScheduleType } from 'src/modules/common/enums/schedule-type.enum';
 @Check('chk_schedule_min_booking_time', '"minimum_booking_time" >= 0')
 @Check(
   'chk_schedule_effective_range',
-  `"effective_from" IS NULL OR "effective_until" IS NULL OR "effective_from" <= "effective_until"`
+  `"effective_from" IS NULL OR "effective_until" IS NULL OR "effective_from" <= "effective_until"`,
 )
-
 export class DoctorSchedule {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => Doctor, (doctor) => doctor.schedules, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Doctor, (doctor) => doctor.schedules, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'doctor_id' })
   doctor: Doctor;
 
@@ -52,7 +64,7 @@ export class DoctorSchedule {
 
   @Column({ name: 'end_time', type: 'time' })
   endTime: string;
-  
+
   @Column({ name: 'slot_duration', type: 'integer', default: 30 })
   slotDuration: number;
 
@@ -67,15 +79,19 @@ export class DoctorSchedule {
   })
   appointmentType: AppointmentTypeEnum;
 
-
-
   @Column({ name: 'minimum_booking_time', type: 'integer', default: 60 })
   minimumBookingTime: number;
 
   @Column({ name: 'max_advance_booking_days', type: 'integer', default: 30 })
   maxAdvanceBookingDays: number;
 
-  @Column({ name: 'consultation_fee', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({
+    name: 'consultation_fee',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
   consultationFee: string | null;
 
   @Column({ type: 'text', nullable: true })
@@ -90,9 +106,17 @@ export class DoctorSchedule {
   @Column({ name: 'effective_until', type: 'date', nullable: true })
   effectiveUntil: Date | null;
 
-  @CreateDateColumn({ name: 'created_at', type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn({
+    name: 'created_at',
+    type: 'timestamptz',
+    default: () => 'CURRENT_TIMESTAMP',
+  })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
+  @UpdateDateColumn({
+    name: 'updated_at',
+    type: 'timestamptz',
+    default: () => 'CURRENT_TIMESTAMP',
+  })
   updatedAt: Date;
 }

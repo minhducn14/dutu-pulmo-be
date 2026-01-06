@@ -8,7 +8,6 @@ import {
   Matches,
 } from 'class-validator';
 
-
 export class RegisterDto {
   @IsEmail()
   @ApiProperty({ example: 'user@email.com', description: 'Email đăng ký' })
@@ -44,5 +43,4 @@ export class RegisterDto {
   })
   @ApiProperty({ example: '0912345678', required: false })
   phone?: string;
-
 }

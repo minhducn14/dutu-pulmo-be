@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
@@ -29,7 +26,7 @@ export class UserService {
   async findAll(): Promise<ResponseCommon> {
     const users = await this.userRepository.find({ relations: ['account'] });
     // Loại bỏ thông tin nhạy cảm trước khi trả về
-    const safeUsers = users.map(user => this.sanitizeUser(user));
+    const safeUsers = users.map((user) => this.sanitizeUser(user));
     return new ResponseCommon(200, 'SUCCESS', safeUsers);
   }
 
@@ -41,14 +38,18 @@ export class UserService {
     if (!user) {
       throw new NotFoundException(USER_ERRORS.USER_NOT_FOUND);
     }
-        // Nếu role là doctor thì lấy thông tin doctor
+    // Nếu role là doctor thì lấy thông tin doctor
     if (user.account.roles.includes(RoleEnum.DOCTOR)) {
-      user.doctor = await this.doctorRepository.findOne({ where: { userId: id } }) ;
+      user.doctor = await this.doctorRepository.findOne({
+        where: { userId: id },
+      });
     }
 
     // Nếu role là patient thì lấy thông tin patient
     if (user.account.roles.includes(RoleEnum.PATIENT)) {
-      user.patient = await this.patientRepository.findOne({ where: { userId: id } }) ;
+      user.patient = await this.patientRepository.findOne({
+        where: { userId: id },
+      });
     }
 
     return new ResponseCommon(200, 'SUCCESS', this.sanitizeUser(user));
@@ -80,7 +81,9 @@ export class UserService {
     }
 
     await this.userRepository.softDelete(id);
-    return new ResponseCommon(200, 'SUCCESS', { message: 'Xóa user thành công' });
+    return new ResponseCommon(200, 'SUCCESS', {
+      message: 'Xóa user thành công',
+    });
   }
 
   /**
@@ -88,7 +91,7 @@ export class UserService {
    */
   private sanitizeUser(user: User): Partial<User> {
     const { account, ...safeUser } = user;
-    
+
     if (account) {
       return {
         ...safeUser,
@@ -103,7 +106,7 @@ export class UserService {
         } as any,
       };
     }
-    
+
     return safeUser;
   }
 }

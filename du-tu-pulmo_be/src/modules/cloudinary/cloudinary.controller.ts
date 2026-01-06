@@ -19,12 +19,15 @@ import {
   ApiQuery,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { CloudinaryService, CloudinaryUploadResult } from './cloudinary.service';
+import {
+  CloudinaryService,
+  CloudinaryUploadResult,
+} from './cloudinary.service';
 import { JwtAuthGuard } from '../core/auth/guards/jwt-auth.guard';
 import { CurrentUser } from 'src/common/decorators/user.decorator';
 import type { JwtUser } from '../core/auth/strategies/jwt.strategy';
-import { 
-  fileTypeConfigs, 
+import {
+  fileTypeConfigs,
   FileDefaults,
 } from 'src/common/config/file-type.config';
 
@@ -42,7 +45,9 @@ export class CloudinaryController {
       fileFilter: (req, file, callback) => {
         if (!fileTypeConfigs.image.allowedMimeTypes.includes(file.mimetype)) {
           return callback(
-            new BadRequestException('Only image files are allowed (jpg, jpeg, png, gif, webp)'),
+            new BadRequestException(
+              'Only image files are allowed (jpg, jpeg, png, gif, webp)',
+            ),
             false,
           );
         }
@@ -87,7 +92,9 @@ export class CloudinaryController {
       fileFilter: (req, file, callback) => {
         if (!fileTypeConfigs.image.allowedMimeTypes.includes(file.mimetype)) {
           return callback(
-            new BadRequestException('Only image files are allowed (jpg, jpeg, png, gif, webp)'),
+            new BadRequestException(
+              'Only image files are allowed (jpg, jpeg, png, gif, webp)',
+            ),
             false,
           );
         }
@@ -135,7 +142,9 @@ export class CloudinaryController {
       fileFilter: (req, file, callback) => {
         if (!file.mimetype.match(/^image\/(jpg|jpeg|png|webp)$/)) {
           return callback(
-            new BadRequestException('Only image files are allowed (jpg, jpeg, png, webp)'),
+            new BadRequestException(
+              'Only image files are allowed (jpg, jpeg, png, webp)',
+            ),
             false,
           );
         }

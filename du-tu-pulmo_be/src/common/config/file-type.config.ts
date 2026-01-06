@@ -3,16 +3,16 @@
  * Centralized config to avoid declaring MAX_FILE_SIZE, allowed mime types in multiple places
  */
 
-export type FileCategory = 
-  | 'image' 
-  | 'video' 
-  | 'audio' 
-  | 'pdf' 
-  | 'doc' 
-  | 'excel' 
-  | 'powerpoint' 
-  | 'archive' 
-  | 'text' 
+export type FileCategory =
+  | 'image'
+  | 'video'
+  | 'audio'
+  | 'pdf'
+  | 'doc'
+  | 'excel'
+  | 'powerpoint'
+  | 'archive'
+  | 'text'
   | 'other';
 
 export interface FileTypeConfig {
@@ -73,7 +73,10 @@ export const getFileTypeCategory = (mimetype: string): FileCategory => {
 /**
  * File type configurations with max size and allowed mime types
  */
-export const fileTypeConfigs: Record<Exclude<FileCategory, 'other'>, FileTypeConfig> = {
+export const fileTypeConfigs: Record<
+  Exclude<FileCategory, 'other'>,
+  FileTypeConfig
+> = {
   image: {
     maxSize: 10 * 1024 * 1024, // 10MB
     allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
@@ -90,7 +93,13 @@ export const fileTypeConfigs: Record<Exclude<FileCategory, 'other'>, FileTypeCon
   },
   audio: {
     maxSize: 10 * 1024 * 1024, // 10MB
-    allowedMimeTypes: ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/aac', 'audio/x-m4a'],
+    allowedMimeTypes: [
+      'audio/mpeg',
+      'audio/wav',
+      'audio/ogg',
+      'audio/aac',
+      'audio/x-m4a',
+    ],
   },
   pdf: {
     maxSize: 10 * 1024 * 1024, // 10MB
@@ -143,14 +152,16 @@ export const fileTypeConfigs: Record<Exclude<FileCategory, 'other'>, FileTypeCon
 /**
  * All allowed mime types (flattened from all configs)
  */
-export const allAllowedMimeTypes: string[] = Object.values(fileTypeConfigs).flatMap(
-  (config) => config.allowedMimeTypes,
-);
+export const allAllowedMimeTypes: string[] = Object.values(
+  fileTypeConfigs,
+).flatMap((config) => config.allowedMimeTypes);
 
 /**
  * Get config by file category
  */
-export const getFileConfig = (category: FileCategory): FileTypeConfig | null => {
+export const getFileConfig = (
+  category: FileCategory,
+): FileTypeConfig | null => {
   if (category === 'other') return null;
   return fileTypeConfigs[category];
 };
@@ -170,12 +181,20 @@ export const validateFile = (
   }
 
   if (!config.allowedMimeTypes.includes(mimetype)) {
-    return { valid: false, category, error: `Định dạng file không hợp lệ cho loại ${category}` };
+    return {
+      valid: false,
+      category,
+      error: `Định dạng file không hợp lệ cho loại ${category}`,
+    };
   }
 
   if (fileSize > config.maxSize) {
     const maxMB = config.maxSize / (1024 * 1024);
-    return { valid: false, category, error: `File vượt quá giới hạn ${maxMB}MB` };
+    return {
+      valid: false,
+      category,
+      error: `File vượt quá giới hạn ${maxMB}MB`,
+    };
   }
 
   return { valid: true, category };

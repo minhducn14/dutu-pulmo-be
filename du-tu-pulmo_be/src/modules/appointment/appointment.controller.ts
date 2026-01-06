@@ -75,12 +75,18 @@ export class AppointmentController {
   @ApiOperation({ summary: 'Lấy lịch hẹn của bệnh nhân' })
   @ApiParam({ name: 'patientId', description: 'Patient ID (UUID)' })
   @ApiResponse({ status: HttpStatus.OK, type: [AppointmentResponseDto] })
-  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Không có quyền truy cập' })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Không có quyền truy cập',
+  })
   findByPatient(
     @Param('patientId', ParseUUIDPipe) patientId: string,
     @CurrentUser() user: JwtUser,
   ) {
-    if (!user.roles?.includes(RoleEnum.ADMIN) && !user.roles?.includes(RoleEnum.DOCTOR)) {
+    if (
+      !user.roles?.includes(RoleEnum.ADMIN) &&
+      !user.roles?.includes(RoleEnum.DOCTOR)
+    ) {
       if (user.patientId !== patientId) {
         throw new ForbiddenException('Bạn chỉ có thể xem lịch hẹn của mình');
       }
@@ -92,7 +98,10 @@ export class AppointmentController {
   @ApiOperation({ summary: 'Lấy lịch hẹn của bác sĩ' })
   @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
   @ApiResponse({ status: HttpStatus.OK, type: [AppointmentResponseDto] })
-  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Không có quyền truy cập' })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Không có quyền truy cập',
+  })
   findByDoctor(
     @Param('doctorId', ParseUUIDPipe) doctorId: string,
     @CurrentUser() user: JwtUser,
@@ -112,8 +121,14 @@ export class AppointmentController {
   @ApiOperation({ summary: 'Lấy chi tiết lịch hẹn' })
   @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
   @ApiResponse({ status: HttpStatus.OK, type: AppointmentResponseDto })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Không tìm thấy lịch hẹn' })
-  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Không có quyền truy cập' })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Không tìm thấy lịch hẹn',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Không có quyền truy cập',
+  })
   async findOne(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtUser,
@@ -122,11 +137,19 @@ export class AppointmentController {
     const appointment = result.data!;
 
     if (!user.roles?.includes(RoleEnum.ADMIN)) {
-      if (user.roles?.includes(RoleEnum.PATIENT) && appointment.patientId !== user.patientId) {
+      if (
+        user.roles?.includes(RoleEnum.PATIENT) &&
+        appointment.patientId !== user.patientId
+      ) {
         throw new ForbiddenException('Bạn chỉ có thể xem lịch hẹn của mình');
       }
-      if (user.roles?.includes(RoleEnum.DOCTOR) && appointment.doctorId !== user.doctorId) {
-        throw new ForbiddenException('Bạn chỉ có thể xem lịch hẹn của bệnh nhân bạn khám');
+      if (
+        user.roles?.includes(RoleEnum.DOCTOR) &&
+        appointment.doctorId !== user.doctorId
+      ) {
+        throw new ForbiddenException(
+          'Bạn chỉ có thể xem lịch hẹn của bệnh nhân bạn khám',
+        );
       }
     }
 
@@ -137,14 +160,20 @@ export class AppointmentController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Tạo lịch hẹn mới' })
   @ApiResponse({ status: HttpStatus.CREATED, type: AppointmentResponseDto })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Dữ liệu không hợp lệ' })
-  @ApiResponse({ status: HttpStatus.CONFLICT, description: 'Trùng lịch hoặc slot đã đầy' })
-  create(
-    @Body() dto: CreateAppointmentDto,
-    @CurrentUser() user: JwtUser,
-  ) {
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Dữ liệu không hợp lệ',
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'Trùng lịch hoặc slot đã đầy',
+  })
+  create(@Body() dto: CreateAppointmentDto, @CurrentUser() user: JwtUser) {
     // Patient can only book for themselves
-    if (user.roles?.includes(RoleEnum.PATIENT) && !user.roles?.includes(RoleEnum.ADMIN)) {
+    if (
+      user.roles?.includes(RoleEnum.PATIENT) &&
+      !user.roles?.includes(RoleEnum.ADMIN)
+    ) {
       if (dto.patientId && dto.patientId !== user.patientId) {
         throw new ForbiddenException('Bạn chỉ có thể đặt lịch cho chính mình');
       }
@@ -162,16 +191,24 @@ export class AppointmentController {
   @ApiOperation({ summary: 'Cập nhật trạng thái lịch hẹn' })
   @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
   @ApiResponse({ status: HttpStatus.OK, type: AppointmentResponseDto })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Trạng thái không hợp lệ' })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Trạng thái không hợp lệ',
+  })
   async updateStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateStatusDto,
     @CurrentUser() user: JwtUser,
   ) {
-    if (user.roles?.includes(RoleEnum.DOCTOR) && !user.roles?.includes(RoleEnum.ADMIN)) {
+    if (
+      user.roles?.includes(RoleEnum.DOCTOR) &&
+      !user.roles?.includes(RoleEnum.ADMIN)
+    ) {
       const result = await this.appointmentService.findById(id);
       if (result.data!.doctorId !== user.doctorId) {
-        throw new ForbiddenException('Bạn chỉ có thể cập nhật lịch hẹn của mình');
+        throw new ForbiddenException(
+          'Bạn chỉ có thể cập nhật lịch hẹn của mình',
+        );
       }
     }
     return this.appointmentService.updateStatus(id, dto.status);
@@ -181,7 +218,10 @@ export class AppointmentController {
   @ApiOperation({ summary: 'Hủy lịch hẹn' })
   @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
   @ApiResponse({ status: HttpStatus.OK, type: AppointmentResponseDto })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Không thể hủy lịch hẹn' })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Không thể hủy lịch hẹn',
+  })
   async cancel(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CancelAppointmentDto,
@@ -191,10 +231,16 @@ export class AppointmentController {
     const appointment = result.data!;
 
     if (!user.roles?.includes(RoleEnum.ADMIN)) {
-      if (user.roles?.includes(RoleEnum.PATIENT) && appointment.patientId !== user.patientId) {
+      if (
+        user.roles?.includes(RoleEnum.PATIENT) &&
+        appointment.patientId !== user.patientId
+      ) {
         throw new ForbiddenException('Bạn chỉ có thể hủy lịch hẹn của mình');
       }
-      if (user.roles?.includes(RoleEnum.DOCTOR) && appointment.doctorId !== user.doctorId) {
+      if (
+        user.roles?.includes(RoleEnum.DOCTOR) &&
+        appointment.doctorId !== user.doctorId
+      ) {
         throw new ForbiddenException('Bạn chỉ có thể hủy lịch hẹn của mình');
       }
     }
@@ -211,8 +257,14 @@ export class AppointmentController {
   @ApiOperation({ summary: 'Đổi lịch hẹn sang time slot khác' })
   @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
   @ApiResponse({ status: HttpStatus.OK, type: AppointmentResponseDto })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Không thể đổi lịch' })
-  @ApiResponse({ status: HttpStatus.CONFLICT, description: 'Slot mới không khả dụng' })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Không thể đổi lịch',
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'Slot mới không khả dụng',
+  })
   async reschedule(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RescheduleAppointmentDto,
@@ -222,10 +274,16 @@ export class AppointmentController {
     const appointment = result.data!;
 
     if (!user.roles?.includes(RoleEnum.ADMIN)) {
-      if (user.roles?.includes(RoleEnum.PATIENT) && appointment.patientId !== user.patientId) {
+      if (
+        user.roles?.includes(RoleEnum.PATIENT) &&
+        appointment.patientId !== user.patientId
+      ) {
         throw new ForbiddenException('Bạn chỉ có thể đổi lịch của mình');
       }
-      if (user.roles?.includes(RoleEnum.DOCTOR) && appointment.doctorId !== user.doctorId) {
+      if (
+        user.roles?.includes(RoleEnum.DOCTOR) &&
+        appointment.doctorId !== user.doctorId
+      ) {
         throw new ForbiddenException('Bạn chỉ có thể đổi lịch của mình');
       }
     }
@@ -238,7 +296,10 @@ export class AppointmentController {
   @ApiOperation({ summary: 'Đánh dấu bệnh nhân không đến' })
   @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
   @ApiResponse({ status: HttpStatus.OK, type: AppointmentResponseDto })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Không thể đánh dấu no-show' })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Không thể đánh dấu no-show',
+  })
   async markNoShow(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtUser,
@@ -246,9 +307,14 @@ export class AppointmentController {
     const result = await this.appointmentService.findById(id);
     const appointment = result.data!;
 
-    if (user.roles?.includes(RoleEnum.DOCTOR) && !user.roles?.includes(RoleEnum.ADMIN)) {
+    if (
+      user.roles?.includes(RoleEnum.DOCTOR) &&
+      !user.roles?.includes(RoleEnum.ADMIN)
+    ) {
       if (appointment.doctorId !== user.doctorId) {
-        throw new ForbiddenException('Bạn chỉ có thể đánh dấu lịch hẹn của mình');
+        throw new ForbiddenException(
+          'Bạn chỉ có thể đánh dấu lịch hẹn của mình',
+        );
       }
     }
 

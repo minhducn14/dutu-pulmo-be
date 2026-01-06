@@ -48,7 +48,12 @@ export class RefreshToken {
   @Column({ name: 'revoked_at', type: 'timestamptz', nullable: true })
   revokedAt?: Date;
 
-  @Column({ name: 'revoked_reason', type: 'varchar', length: 100, nullable: true })
+  @Column({
+    name: 'revoked_reason',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
   revokedReason?: string;
 
   // Rotation tracking

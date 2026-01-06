@@ -46,7 +46,9 @@ export class DoctorOwnershipGuard implements CanActivate {
     }
 
     if (user.doctorId !== doctorIdParam) {
-      throw new ForbiddenException('Bạn chỉ được quản lý lịch làm việc của mình');
+      throw new ForbiddenException(
+        'Bạn chỉ được quản lý lịch làm việc của mình',
+      );
     }
 
     // SEC-01: Verify scheduleId belongs to doctor (for /schedules/:scheduleId/... routes)

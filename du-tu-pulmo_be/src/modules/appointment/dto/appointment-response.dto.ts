@@ -96,7 +96,9 @@ export class AppointmentResponseDto {
   @ApiPropertyOptional({ description: 'Lý do hủy' })
   cancellationReason?: string;
 
-  @ApiPropertyOptional({ description: 'Người hủy (PATIENT/DOCTOR/ADMIN/SYSTEM)' })
+  @ApiPropertyOptional({
+    description: 'Người hủy (PATIENT/DOCTOR/ADMIN/SYSTEM)',
+  })
   cancelledBy?: string;
 
   // Follow-up

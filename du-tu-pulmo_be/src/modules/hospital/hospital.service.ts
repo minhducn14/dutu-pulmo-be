@@ -1,9 +1,18 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, ILike } from 'typeorm';
 import { Hospital } from './entities/hospital.entity';
 import { Doctor } from '../doctor/entities/doctor.entity';
-import { CreateHospitalDto, UpdateHospitalDto, HospitalQueryDto } from './dto/hospital.dto';
+import {
+  CreateHospitalDto,
+  UpdateHospitalDto,
+  HospitalQueryDto,
+} from './dto/hospital.dto';
 import { ResponseCommon } from 'src/common/dto/response.dto';
 import { PaginatedResponseDto } from 'src/common/dto/pagination.dto';
 
@@ -19,7 +28,14 @@ export class HospitalService {
   /**
    * Lấy danh sách hospitals với pagination và search
    */
-  async findAll(query: HospitalQueryDto): Promise<ResponseCommon<{ data: Hospital[]; total: number; page: number; limit: number }>> {
+  async findAll(query: HospitalQueryDto): Promise<
+    ResponseCommon<{
+      data: Hospital[];
+      total: number;
+      page: number;
+      limit: number;
+    }>
+  > {
     const page = query.page || 1;
     const limit = Math.min(query.limit || 20, 100); // Max 100 per page
     const skip = (page - 1) * limit;
@@ -32,7 +48,7 @@ export class HospitalService {
     if (query.search) {
       queryBuilder.andWhere(
         '(hospital.name ILIKE :search OR hospital.hospitalCode ILIKE :search)',
-        { search: `%${query.search}%` }
+        { search: `%${query.search}%` },
       );
     }
 
@@ -79,7 +95,9 @@ export class HospitalService {
     });
 
     if (!hospital) {
-      throw new NotFoundException(`Không tìm thấy bệnh viện với mã ${hospitalCode}`);
+      throw new NotFoundException(
+        `Không tìm thấy bệnh viện với mã ${hospitalCode}`,
+      );
     }
 
     return new ResponseCommon(200, 'SUCCESS', hospital);
@@ -88,7 +106,10 @@ export class HospitalService {
   /**
    * Kiểm tra hospitalCode đã tồn tại chưa
    */
-  private async checkHospitalCodeExists(hospitalCode: string, excludeId?: string): Promise<void> {
+  private async checkHospitalCodeExists(
+    hospitalCode: string,
+    excludeId?: string,
+  ): Promise<void> {
     const queryBuilder = this.hospitalRepository
       .createQueryBuilder('hospital')
       .where('hospital.hospitalCode = :hospitalCode', { hospitalCode });
@@ -108,9 +129,13 @@ export class HospitalService {
    * Validate coordinates
    */
   private validateCoordinates(latitude?: number, longitude?: number): void {
-    if ((latitude !== undefined && longitude === undefined) || 
-        (latitude === undefined && longitude !== undefined)) {
-      throw new BadRequestException('Vĩ độ và kinh độ phải được cung cấp cùng nhau');
+    if (
+      (latitude !== undefined && longitude === undefined) ||
+      (latitude === undefined && longitude !== undefined)
+    ) {
+      throw new BadRequestException(
+        'Vĩ độ và kinh độ phải được cung cấp cùng nhau',
+      );
     }
 
     if (latitude !== undefined && (latitude < -90 || latitude > 90)) {
@@ -141,7 +166,10 @@ export class HospitalService {
   /**
    * Cập nhật hospital
    */
-  async update(id: string, dto: UpdateHospitalDto): Promise<ResponseCommon<Hospital>> {
+  async update(
+    id: string,
+    dto: UpdateHospitalDto,
+  ): Promise<ResponseCommon<Hospital>> {
     const existingResult = await this.findById(id);
     const existing = existingResult.data!;
 
@@ -152,8 +180,10 @@ export class HospitalService {
 
     // Validate coordinates if provided
     if (dto.latitude !== undefined || dto.longitude !== undefined) {
-      const newLat = dto.latitude !== undefined ? dto.latitude : existing.latitude;
-      const newLng = dto.longitude !== undefined ? dto.longitude : existing.longitude;
+      const newLat =
+        dto.latitude !== undefined ? dto.latitude : existing.latitude;
+      const newLng =
+        dto.longitude !== undefined ? dto.longitude : existing.longitude;
       this.validateCoordinates(newLat, newLng);
     }
 
@@ -168,10 +198,10 @@ export class HospitalService {
    */
   async delete(id: string): Promise<ResponseCommon<null>> {
     const hospitalResult = await this.findById(id);
-    
+
     // TODO: Check if hospital has active schedules/appointments
-    // const hasActiveSchedules = await this.scheduleRepository.count({ 
-    //   where: { hospitalId: id } 
+    // const hasActiveSchedules = await this.scheduleRepository.count({
+    //   where: { hospitalId: id }
     // });
     // if (hasActiveSchedules > 0) {
     //   throw new ConflictException('Không thể xóa bệnh viện đang có lịch làm việc');
@@ -218,7 +248,7 @@ export class HospitalService {
     return new ResponseCommon(
       200,
       'SUCCESS',
-      cities.map(c => c.city).filter(Boolean)
+      cities.map((c) => c.city).filter(Boolean),
     );
   }
 
@@ -242,7 +272,12 @@ export class HospitalService {
       order: { createdAt: 'DESC' },
     });
 
-    const paginatedData = new PaginatedResponseDto(items, totalItems, page, limit);
+    const paginatedData = new PaginatedResponseDto(
+      items,
+      totalItems,
+      page,
+      limit,
+    );
     return new ResponseCommon(200, 'SUCCESS', paginatedData);
   }
 }

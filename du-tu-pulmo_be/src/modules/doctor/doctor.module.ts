@@ -19,10 +19,24 @@ import { PublicDoctorController } from './public-doctor.controller';
     TypeOrmModule.forFeature([Doctor, DoctorSchedule, TimeSlot, Account]),
     CloudinaryModule,
   ],
-  controllers: [DoctorController, PublicDoctorController, TimeSlotController, DoctorScheduleController],
-  providers: [DoctorService, TimeSlotService, DoctorScheduleService, SlotGeneratorService],
-  exports: [DoctorService, TimeSlotService, DoctorScheduleService, SlotGeneratorService, TypeOrmModule],
+  controllers: [
+    DoctorController,
+    PublicDoctorController,
+    TimeSlotController,
+    DoctorScheduleController,
+  ],
+  providers: [
+    DoctorService,
+    TimeSlotService,
+    DoctorScheduleService,
+    SlotGeneratorService,
+  ],
+  exports: [
+    DoctorService,
+    TimeSlotService,
+    DoctorScheduleService,
+    SlotGeneratorService,
+    TypeOrmModule,
+  ],
 })
 export class DoctorModule {}
-
-

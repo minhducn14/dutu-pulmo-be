@@ -149,7 +149,11 @@ export class Appointment {
   @Column({ name: 'follow_up_required', default: false })
   followUpRequired: boolean;
 
-  @Column({ name: 'next_appointment_date', type: 'timestamptz', nullable: true })
+  @Column({
+    name: 'next_appointment_date',
+    type: 'timestamptz',
+    nullable: true,
+  })
   nextAppointmentDate: Date;
 
   @Column({ name: 'has_follow_up', default: false })

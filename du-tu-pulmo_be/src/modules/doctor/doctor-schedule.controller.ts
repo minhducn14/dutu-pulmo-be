@@ -26,9 +26,17 @@ import { RolesGuard } from '../core/auth/guards/roles.guard';
 import { DoctorOwnershipGuard } from '../core/auth/guards/doctor-ownership.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { RoleEnum } from '../common/enums/role.enum';
-import { CreateDoctorScheduleDto, UpdateDoctorScheduleDto, BulkCreateDoctorSchedulesDto, BulkHolidayScheduleDto } from './dto/doctor-schedule.dto';
+import {
+  CreateDoctorScheduleDto,
+  UpdateDoctorScheduleDto,
+  BulkCreateDoctorSchedulesDto,
+  BulkHolidayScheduleDto,
+} from './dto/doctor-schedule.dto';
 import { GenerateSlotsDto } from './dto/time-slot.dto';
-import { DoctorScheduleResponseDto, TimeSlotResponseDto } from './dto/schedule-response.dto';
+import {
+  DoctorScheduleResponseDto,
+  TimeSlotResponseDto,
+} from './dto/schedule-response.dto';
 
 @ApiTags('Doctor Schedules')
 @ApiBearerAuth()
@@ -47,11 +55,12 @@ export class DoctorScheduleController {
     description: 'Danh sách lịch làm việc',
     type: [DoctorScheduleResponseDto],
   })
-  async findByDoctor(
-    @Param('doctorId', ParseUUIDPipe) doctorId: string,
-  ) {
+  async findByDoctor(@Param('doctorId', ParseUUIDPipe) doctorId: string) {
     const result = await this.scheduleService.findByDoctorId(doctorId);
-    const enrichedSchedules = await this.scheduleService.enrichSchedulesWithEffectiveFee(result.data ?? []);
+    const enrichedSchedules =
+      await this.scheduleService.enrichSchedulesWithEffectiveFee(
+        result.data ?? [],
+      );
     result.data = enrichedSchedules;
     return result;
   }
@@ -59,7 +68,11 @@ export class DoctorScheduleController {
   @Get('available')
   @ApiOperation({ summary: 'Lấy lịch làm việc còn trống của bác sĩ' })
   @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
-  @ApiQuery({ name: 'dayOfWeek', description: 'Ngày trong tuần (0-6)', required: false })
+  @ApiQuery({
+    name: 'dayOfWeek',
+    description: 'Ngày trong tuần (0-6)',
+    required: false,
+  })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Danh sách lịch còn trống (đã filter theo effectiveDate)',
@@ -70,8 +83,14 @@ export class DoctorScheduleController {
     @Query('dayOfWeek') dayOfWeek?: string,
   ) {
     const day = dayOfWeek ? parseInt(dayOfWeek, 10) : undefined;
-    const result = await this.scheduleService.findAvailableByDoctor(doctorId, day);
-    const enrichedSchedules = await this.scheduleService.enrichSchedulesWithEffectiveFee(result.data ?? []);
+    const result = await this.scheduleService.findAvailableByDoctor(
+      doctorId,
+      day,
+    );
+    const enrichedSchedules =
+      await this.scheduleService.enrichSchedulesWithEffectiveFee(
+        result.data ?? [],
+      );
     result.data = enrichedSchedules;
     return result;
   }
@@ -92,7 +111,8 @@ export class DoctorScheduleController {
   async findOne(@Param('id', ParseUUIDPipe) id: string) {
     const result = await this.scheduleService.findById(id);
     if (result.data) {
-      const enriched = await this.scheduleService.enrichScheduleWithEffectiveFee(result.data);
+      const enriched =
+        await this.scheduleService.enrichScheduleWithEffectiveFee(result.data);
       result.data = enriched;
     }
     return result;
@@ -136,9 +156,10 @@ export class DoctorScheduleController {
   @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
   @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Thêm nhiều lịch làm việc cùng lúc (tối đa 20)',
-    description: 'Cho phép tạo nhiều lịch làm việc trong 1 request. Ví dụ: Thứ 2-6, sáng 9h-12h và chiều 13h-17h.',
+    description:
+      'Cho phép tạo nhiều lịch làm việc trong 1 request. Ví dụ: Thứ 2-6, sáng 9h-12h và chiều 13h-17h.',
   })
   @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
   @ApiResponse({
@@ -165,9 +186,10 @@ export class DoctorScheduleController {
   @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
   @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Tạo lịch nghỉ lễ/Tết cho nhiều ngày cùng lúc',
-    description: 'Hỗ trợ tạo lịch BLOCK_OUT (nghỉ hoàn toàn) hoặc HOLIDAY (làm giờ giảm) cho các ngày trong tuần'
+    description:
+      'Hỗ trợ tạo lịch BLOCK_OUT (nghỉ hoàn toàn) hoặc HOLIDAY (làm giờ giảm) cho các ngày trong tuần',
   })
   @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
   @ApiResponse({
@@ -194,9 +216,10 @@ export class DoctorScheduleController {
   @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
   @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Tự động tạo time slots từ tất cả lịch làm việc của bác sĩ',
-    description: 'Tạo time slots cho khoảng thời gian từ startDate đến endDate. Hệ thống sẽ tự động áp dụng tất cả lịch làm việc có hiệu lực, ưu tiên theo priority cao nhất cho mỗi ngày.'
+    description:
+      'Tạo time slots cho khoảng thời gian từ startDate đến endDate. Hệ thống sẽ tự động áp dụng tất cả lịch làm việc có hiệu lực, ưu tiên theo priority cao nhất cho mỗi ngày.',
   })
   @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
   @ApiResponse({
@@ -229,7 +252,10 @@ export class DoctorScheduleController {
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Tự động tạo time slots từ schedule template' })
   @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
-  @ApiParam({ name: 'scheduleId', description: 'Schedule ID dùng làm template' })
+  @ApiParam({
+    name: 'scheduleId',
+    description: 'Schedule ID dùng làm template',
+  })
   @ApiResponse({
     status: HttpStatus.CREATED,
     description: 'Tạo các time slots thành công',
@@ -237,7 +263,8 @@ export class DoctorScheduleController {
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
-    description: 'Dữ liệu không hợp lệ, schedule không khả dụng, hoặc vượt quá 90 ngày',
+    description:
+      'Dữ liệu không hợp lệ, schedule không khả dụng, hoặc vượt quá 90 ngày',
   })
   @ApiResponse({
     status: HttpStatus.FORBIDDEN,

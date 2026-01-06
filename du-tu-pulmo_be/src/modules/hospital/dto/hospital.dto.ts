@@ -1,5 +1,15 @@
 import { ApiProperty, PartialType } from '@nestjs/swagger';
-import { IsString, IsEmail, IsOptional, IsNotEmpty, MaxLength, IsNumber, Min, Max, Matches } from 'class-validator';
+import {
+  IsString,
+  IsEmail,
+  IsOptional,
+  IsNotEmpty,
+  MaxLength,
+  IsNumber,
+  Min,
+  Max,
+  Matches,
+} from 'class-validator';
 
 export class CreateHospitalDto {
   @ApiProperty({ example: 'Bệnh viện Đa khoa Tâm Anh' })
@@ -12,7 +22,9 @@ export class CreateHospitalDto {
   @IsString()
   @IsNotEmpty({ message: 'Mã bệnh viện không được để trống' })
   @MaxLength(50)
-  @Matches(/^[A-Z0-9-]+$/, { message: 'Mã bệnh viện chỉ chứa chữ hoa, số và dấu gạch ngang' })
+  @Matches(/^[A-Z0-9-]+$/, {
+    message: 'Mã bệnh viện chỉ chứa chữ hoa, số và dấu gạch ngang',
+  })
   hospitalCode: string;
 
   @ApiProperty({ example: '0281234567' })

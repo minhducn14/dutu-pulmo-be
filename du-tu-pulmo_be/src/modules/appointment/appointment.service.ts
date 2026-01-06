@@ -27,7 +27,11 @@ export class AppointmentService {
     const appointments = await this.appointmentRepository.find({
       relations: ['patient', 'doctor', 'hospital'],
     });
-    return new ResponseCommon(200, 'SUCCESS', appointments.map(a => this.toDto(a)));
+    return new ResponseCommon(
+      200,
+      'SUCCESS',
+      appointments.map((a) => this.toDto(a)),
+    );
   }
 
   async findById(id: string): Promise<ResponseCommon<AppointmentResponseDto>> {
@@ -41,25 +45,39 @@ export class AppointmentService {
     return new ResponseCommon(200, 'SUCCESS', this.toDto(appointment));
   }
 
-  async findByPatient(patientId: string): Promise<ResponseCommon<AppointmentResponseDto[]>> {
+  async findByPatient(
+    patientId: string,
+  ): Promise<ResponseCommon<AppointmentResponseDto[]>> {
     const appointments = await this.appointmentRepository.find({
       where: { patientId },
       relations: ['doctor', 'hospital'],
       order: { scheduledAt: 'DESC' },
     });
-    return new ResponseCommon(200, 'SUCCESS', appointments.map(a => this.toDto(a)));
+    return new ResponseCommon(
+      200,
+      'SUCCESS',
+      appointments.map((a) => this.toDto(a)),
+    );
   }
 
-  async findByDoctor(doctorId: string): Promise<ResponseCommon<AppointmentResponseDto[]>> {
+  async findByDoctor(
+    doctorId: string,
+  ): Promise<ResponseCommon<AppointmentResponseDto[]>> {
     const appointments = await this.appointmentRepository.find({
       where: { doctorId },
       relations: ['patient', 'hospital'],
       order: { scheduledAt: 'DESC' },
     });
-    return new ResponseCommon(200, 'SUCCESS', appointments.map(a => this.toDto(a)));
+    return new ResponseCommon(
+      200,
+      'SUCCESS',
+      appointments.map((a) => this.toDto(a)),
+    );
   }
 
-  async create(data: Partial<Appointment>): Promise<ResponseCommon<AppointmentResponseDto>> {
+  async create(
+    data: Partial<Appointment>,
+  ): Promise<ResponseCommon<AppointmentResponseDto>> {
     if (!data.timeSlotId || !data.patientId || !data.doctorId) {
       throw new BadRequestException('Missing required fields');
     }
@@ -89,9 +107,12 @@ export class AppointmentService {
       }
 
       // Validate appointment type
-      if (data.appointmentType && !slot.allowedAppointmentTypes.includes(data.appointmentType)) {
+      if (
+        data.appointmentType &&
+        !slot.allowedAppointmentTypes.includes(data.appointmentType)
+      ) {
         throw new BadRequestException(
-          `Loại hình ${data.appointmentType} không được hỗ trợ cho slot này`
+          `Loại hình ${data.appointmentType} không được hỗ trợ cho slot này`,
         );
       }
 
@@ -100,7 +121,12 @@ export class AppointmentService {
         where: {
           patientId: data.patientId,
           timeSlotId: data.timeSlotId,
-          status: Not(In([AppointmentStatusEnum.CANCELLED, AppointmentStatusEnum.NO_SHOW])),
+          status: Not(
+            In([
+              AppointmentStatusEnum.CANCELLED,
+              AppointmentStatusEnum.NO_SHOW,
+            ]),
+          ),
         },
       });
 
@@ -126,15 +152,19 @@ export class AppointmentService {
         .update(TimeSlot)
         .set({
           bookedCount: () => 'booked_count + 1',
-          isAvailable: () => `CASE WHEN booked_count + 1 >= capacity THEN false ELSE is_available END`,
+          isAvailable: () =>
+            `CASE WHEN booked_count + 1 >= capacity THEN false ELSE is_available END`,
         })
         .where('id = :id', { id: slot.id })
         .execute();
 
-      return new ResponseCommon(201, 'Tạo lịch hẹn thành công', this.toDto(saved));
+      return new ResponseCommon(
+        201,
+        'Tạo lịch hẹn thành công',
+        this.toDto(saved),
+      );
     });
   }
-
 
   async updateStatus(
     id: string,
@@ -144,7 +174,10 @@ export class AppointmentService {
     const appointment = appointmentResponse.data!;
 
     // Validate state transition
-    const validTransitions: Record<AppointmentStatusEnum, AppointmentStatusEnum[]> = {
+    const validTransitions: Record<
+      AppointmentStatusEnum,
+      AppointmentStatusEnum[]
+    > = {
       [AppointmentStatusEnum.PENDING_PAYMENT]: [
         AppointmentStatusEnum.CONFIRMED,
         AppointmentStatusEnum.CANCELLED,
@@ -227,7 +260,9 @@ export class AppointmentService {
       }
 
       if (appointment.status === AppointmentStatusEnum.NO_SHOW) {
-        throw new BadRequestException('Không thể hủy lịch hẹn đã đánh dấu no-show');
+        throw new BadRequestException(
+          'Không thể hủy lịch hẹn đã đánh dấu no-show',
+        );
       }
 
       // Release the time slot if exists
@@ -251,7 +286,11 @@ export class AppointmentService {
 
       return manager.save(appointment);
     });
-    return new ResponseCommon(200, 'Hủy lịch hẹn thành công', this.toDto(result));
+    return new ResponseCommon(
+      200,
+      'Hủy lịch hẹn thành công',
+      this.toDto(result),
+    );
   }
 
   /**
@@ -272,11 +311,13 @@ export class AppointmentService {
         throw new NotFoundException('Appointment không tồn tại');
       }
 
-      if (![
-        AppointmentStatusEnum.CONFIRMED,
-        AppointmentStatusEnum.PENDING,
-        AppointmentStatusEnum.PENDING_PAYMENT,
-      ].includes(appointment.status)) {
+      if (
+        ![
+          AppointmentStatusEnum.CONFIRMED,
+          AppointmentStatusEnum.PENDING,
+          AppointmentStatusEnum.PENDING_PAYMENT,
+        ].includes(appointment.status)
+      ) {
         throw new BadRequestException('Không thể đổi lịch ở trạng thái này');
       }
 
@@ -301,10 +342,12 @@ export class AppointmentService {
         throw new BadRequestException('Slot mới phải cùng bác sĩ');
       }
 
-      if (appointment.appointmentType && 
-          !newSlot.allowedAppointmentTypes.includes(appointment.appointmentType)) {
+      if (
+        appointment.appointmentType &&
+        !newSlot.allowedAppointmentTypes.includes(appointment.appointmentType)
+      ) {
         throw new BadRequestException(
-          `Slot mới không hỗ trợ loại hình ${appointment.appointmentType}`
+          `Slot mới không hỗ trợ loại hình ${appointment.appointmentType}`,
         );
       }
 
@@ -312,10 +355,12 @@ export class AppointmentService {
         where: {
           patientId: appointment.patientId,
           timeSlotId: newTimeSlotId,
-          status: Not(In([
-            AppointmentStatusEnum.CANCELLED, 
-            AppointmentStatusEnum.NO_SHOW
-          ])),
+          status: Not(
+            In([
+              AppointmentStatusEnum.CANCELLED,
+              AppointmentStatusEnum.NO_SHOW,
+            ]),
+          ),
         },
       });
 
@@ -354,7 +399,8 @@ export class AppointmentService {
         .update(TimeSlot)
         .set({
           bookedCount: () => 'booked_count + 1',
-          isAvailable: () => `CASE WHEN booked_count + 1 >= capacity THEN false ELSE is_available END`,
+          isAvailable: () =>
+            `CASE WHEN booked_count + 1 >= capacity THEN false ELSE is_available END`,
         })
         .where('id = :id', { id: newSlot.id })
         .execute();
@@ -366,13 +412,20 @@ export class AppointmentService {
 
       return manager.save(appointment);
     });
-    return new ResponseCommon(200, 'Đổi lịch hẹn thành công', this.toDto(result));
+    return new ResponseCommon(
+      200,
+      'Đổi lịch hẹn thành công',
+      this.toDto(result),
+    );
   }
 
   /**
    * Mark appointment as no-show and release the slot
    */
-  async markNoShow(id: string, markedBy: string = 'SYSTEM'): Promise<ResponseCommon<AppointmentResponseDto>> {
+  async markNoShow(
+    id: string,
+    markedBy: string = 'SYSTEM',
+  ): Promise<ResponseCommon<AppointmentResponseDto>> {
     const result = await this.dataSource.transaction(async (manager) => {
       const appointment = await manager.findOne(Appointment, {
         where: { id },
@@ -383,9 +436,13 @@ export class AppointmentService {
         throw new NotFoundException('Appointment không tồn tại');
       }
 
-      if (appointment.status !== AppointmentStatusEnum.CONFIRMED &&
-          appointment.status !== AppointmentStatusEnum.CHECKED_IN) {
-        throw new BadRequestException('Chỉ có thể mark no-show cho lịch hẹn đã confirm');
+      if (
+        appointment.status !== AppointmentStatusEnum.CONFIRMED &&
+        appointment.status !== AppointmentStatusEnum.CHECKED_IN
+      ) {
+        throw new BadRequestException(
+          'Chỉ có thể mark no-show cho lịch hẹn đã confirm',
+        );
       }
 
       // Release slot
@@ -406,7 +463,11 @@ export class AppointmentService {
       appointment.cancelledBy = markedBy;
       return manager.save(appointment);
     });
-    return new ResponseCommon(200, 'Đánh dấu no-show thành công', this.toDto(result));
+    return new ResponseCommon(
+      200,
+      'Đánh dấu no-show thành công',
+      this.toDto(result),
+    );
   }
 
   /**

@@ -40,11 +40,14 @@ export class DoctorService {
     return new ResponseCommon(200, 'SUCCESS', doctors);
   }
 
-  async findAllPaginated(dto: FindDoctorsDto): Promise<ResponseCommon<PaginatedResponseDto<Doctor>>> {
+  async findAllPaginated(
+    dto: FindDoctorsDto,
+  ): Promise<ResponseCommon<PaginatedResponseDto<Doctor>>> {
     const { page = 1, limit = 10, search, specialty, hospitalId } = dto;
     const skip = (page - 1) * limit;
 
-    const queryBuilder = this.doctorRepository.createQueryBuilder('doctor')
+    const queryBuilder = this.doctorRepository
+      .createQueryBuilder('doctor')
       .leftJoinAndSelect('doctor.user', 'user')
       .leftJoinAndSelect('user.account', 'account')
       .leftJoinAndSelect('doctor.primaryHospital', 'primaryHospital');
@@ -53,7 +56,7 @@ export class DoctorService {
     if (search) {
       queryBuilder.andWhere(
         '(user.fullName ILIKE :search OR doctor.bio ILIKE :search)',
-        { search: `%${search}%` }
+        { search: `%${search}%` },
       );
     }
 
@@ -64,18 +67,22 @@ export class DoctorService {
 
     // Lọc theo bệnh viện
     if (hospitalId) {
-      queryBuilder.andWhere('doctor.primaryHospitalId = :hospitalId', { hospitalId });
+      queryBuilder.andWhere('doctor.primaryHospitalId = :hospitalId', {
+        hospitalId,
+      });
     }
 
     // Sắp xếp và phân trang
-    queryBuilder
-      .orderBy('doctor.createdAt', 'DESC')
-      .skip(skip)
-      .take(limit);
+    queryBuilder.orderBy('doctor.createdAt', 'DESC').skip(skip).take(limit);
 
     const [items, totalItems] = await queryBuilder.getManyAndCount();
 
-    const paginatedData = new PaginatedResponseDto(items, totalItems, page, limit);
+    const paginatedData = new PaginatedResponseDto(
+      items,
+      totalItems,
+      page,
+      limit,
+    );
     return new ResponseCommon(200, 'SUCCESS', paginatedData);
   }
 
@@ -186,7 +193,9 @@ export class DoctorService {
       });
       await manager.save(newDoctor);
 
-      this.logger.log(`Doctor created: ${normalizedEmail} - License: ${dto.licenseNumber}`);
+      this.logger.log(
+        `Doctor created: ${normalizedEmail} - License: ${dto.licenseNumber}`,
+      );
 
       return newDoctor;
     });
@@ -194,8 +203,11 @@ export class DoctorService {
     return new ResponseCommon(201, 'Tạo bác sĩ thành công', doctor);
   }
 
-  async update(id: string, dto: UpdateDoctorDto): Promise<ResponseCommon<Doctor | null>> {
-    const doctor = await this.doctorRepository.findOne({ 
+  async update(
+    id: string,
+    dto: UpdateDoctorDto,
+  ): Promise<ResponseCommon<Doctor | null>> {
+    const doctor = await this.doctorRepository.findOne({
       where: { id },
       relations: ['user'],
     });
@@ -221,10 +233,12 @@ export class DoctorService {
       const userUpdateData: Partial<User> = {};
       if (fullName !== undefined) userUpdateData.fullName = fullName;
       if (phone !== undefined) userUpdateData.phone = phone;
-      if (dateOfBirth !== undefined) userUpdateData.dateOfBirth = new Date(dateOfBirth);
+      if (dateOfBirth !== undefined)
+        userUpdateData.dateOfBirth = new Date(dateOfBirth);
       if (gender !== undefined) userUpdateData.gender = gender;
       if (CCCD !== undefined) userUpdateData.CCCD = CCCD;
-      if (provinceCode !== undefined) userUpdateData.provinceCode = provinceCode;
+      if (provinceCode !== undefined)
+        userUpdateData.provinceCode = provinceCode;
       if (province !== undefined) userUpdateData.province = province;
       if (wardCode !== undefined) userUpdateData.wardCode = wardCode;
       if (ward !== undefined) userUpdateData.ward = ward;
@@ -260,7 +274,9 @@ export class DoctorService {
       throw new NotFoundException(`Không tìm thấy bác sĩ với ID ${id}`);
     }
 
-    this.logger.log(`Admin ${deletedBy} deleting doctor ${id}, reason: ${reason || 'No reason provided'}`);
+    this.logger.log(
+      `Admin ${deletedBy} deleting doctor ${id}, reason: ${reason || 'No reason provided'}`,
+    );
 
     await this.doctorRepository.softDelete(id);
 

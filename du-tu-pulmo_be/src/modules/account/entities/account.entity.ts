@@ -31,13 +31,24 @@ export class Account {
   @Column({ select: false })
   password: string;
 
-  @Column({ name: 'reset_password_token', type: 'varchar', length: 500, nullable: true, select: false })
+  @Column({
+    name: 'reset_password_token',
+    type: 'varchar',
+    length: 500,
+    nullable: true,
+    select: false,
+  })
   resetPasswordToken: string | null;
 
   @Column({ name: 'is_verified', default: false })
   isVerified: boolean;
 
-  @Column({ name: 'status', type: 'enum', enum: AccountStatusEnum, default: AccountStatusEnum.ACTIVE })
+  @Column({
+    name: 'status',
+    type: 'enum',
+    enum: AccountStatusEnum,
+    default: AccountStatusEnum.ACTIVE,
+  })
   status: AccountStatusEnum; // Authentication status
 
   @Column({ name: 'suspended_until', type: 'timestamptz', nullable: true })
@@ -74,7 +85,7 @@ export class Account {
 
   @Column({ name: 'last_login_at', type: 'timestamptz', nullable: true })
   lastLoginAt?: Date;
-  
+
   @OneToOne(() => User, (user) => user.account, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User;

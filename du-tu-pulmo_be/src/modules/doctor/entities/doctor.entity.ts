@@ -51,14 +51,14 @@ export class Doctor {
     nullable: true,
   })
   title: DoctorTitle; // Học hàm/học vị
-  
+
   @Column({ length: 100, nullable: true })
   position: string; // Chức vụ
 
   @Column({
     type: 'enum',
     enum: Specialty,
-    nullable: true
+    nullable: true,
   })
   specialty: Specialty;
 
@@ -72,7 +72,6 @@ export class Doctor {
 
   @Column({ name: 'primary_hospital_id', type: 'uuid', nullable: true })
   primaryHospitalId: string | null;
-
 
   // Mô tả trình độ chuyên môn
   @Column({ name: 'expertise_description', type: 'text', nullable: true })
@@ -99,14 +98,26 @@ export class Doctor {
   trainingUnits: { url: string; name: string }[];
 
   // Rating
-  @Column({ name: 'average_rating', type: 'decimal', precision: 3, scale: 2, default: 0 })
+  @Column({
+    name: 'average_rating',
+    type: 'decimal',
+    precision: 3,
+    scale: 2,
+    default: 0,
+  })
   averageRating: string;
 
   @Column({ name: 'total_reviews', type: 'integer', default: 0 })
   totalReviews: number;
 
   // Default consultation fee - used when schedule.consultationFee is null
-  @Column({ name: 'default_consultation_fee', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({
+    name: 'default_consultation_fee',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
   defaultConsultationFee: string | null;
 
   @Column({

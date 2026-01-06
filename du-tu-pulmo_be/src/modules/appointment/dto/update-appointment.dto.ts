@@ -19,7 +19,10 @@ export class UpdateStatusDto {
  * DTO for cancelling an appointment
  */
 export class CancelAppointmentDto {
-  @ApiProperty({ description: 'Lý do hủy', example: 'Bệnh nhân bận việc đột xuất' })
+  @ApiProperty({
+    description: 'Lý do hủy',
+    example: 'Bệnh nhân bận việc đột xuất',
+  })
   @IsString()
   @IsNotEmpty()
   reason: string;

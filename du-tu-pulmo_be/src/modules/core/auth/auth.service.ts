@@ -57,7 +57,6 @@ export class AuthService {
     return `${maskedLocal}@${domain}`;
   }
 
-
   private maskPhone(phone: string): string {
     if (phone.length < 6) return '***';
     return phone.slice(0, 3) + '***' + phone.slice(-4);
@@ -84,7 +83,8 @@ export class AuthService {
     }
 
     // Validate password strength
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     if (!passwordRegex.test(dto.password)) {
       throw new BadRequestException(
         'Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt',
@@ -100,18 +100,19 @@ export class AuthService {
         .where('a.email = :email', { email: normalizedEmail });
 
       if (dto.phone) {
-        qb.orWhere(`
+        qb.orWhere(
+          `
           EXISTS (
             SELECT 1 FROM users u
             WHERE u.id = a.user_id
             AND u.phone = :phone
           )
-        `, { phone: dto.phone });
+        `,
+          { phone: dto.phone },
+        );
       }
 
-      const exist = await qb
-        .setLock('pessimistic_write')
-        .getOne();
+      const exist = await qb.setLock('pessimistic_write').getOne();
 
       if (exist) {
         throw new ConflictException(AUTH_ERRORS.EMAIL_ALREADY_REGISTERED);
@@ -151,7 +152,11 @@ export class AuthService {
       await manager.save(account);
 
       this.emailService
-        .sendVerificationEmail(normalizedEmail, verificationToken, dto.fullName!)
+        .sendVerificationEmail(
+          normalizedEmail,
+          verificationToken,
+          dto.fullName!,
+        )
         .catch((error) => {
           this.logger.error(
             `Failed to send verification email to ${this.maskEmail(normalizedEmail)}`,
@@ -162,7 +167,8 @@ export class AuthService {
       this.logger.log(`User registered: ${this.maskEmail(normalizedEmail)}`);
 
       return new ResponseCommon(200, 'SUCCESS', {
-        message: 'Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.',
+        message:
+          'Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.',
       });
     });
   }
@@ -194,7 +200,7 @@ export class AuthService {
 
         // Update account
         account.isVerified = true;
-        account.verificationToken = null; 
+        account.verificationToken = null;
         account.verificationExpiry = null;
         account.verifiedAt = new Date();
         await accountRepo.save(account);
@@ -202,7 +208,9 @@ export class AuthService {
         // Fire-and-forget welcome email (không làm fail transaction)
         this.emailService
           .sendWelcomeEmail(account.email, account.user?.fullName ?? '')
-          .catch((err) => this.logger.error('Failed to send welcome email', err));
+          .catch((err) =>
+            this.logger.error('Failed to send welcome email', err),
+          );
 
         return { status: 'SUCCESS' };
       });
@@ -220,34 +228,38 @@ export class AuthService {
     const normalizedEmail = dto.email.toLowerCase().trim();
 
     const acc = await this.accountRepo
-    .createQueryBuilder('acc')
-    .leftJoinAndSelect('acc.user', 'user')
-    .addSelect('acc.password') 
-    .where('acc.email = :email', { email: normalizedEmail })
-    .getOne();
+      .createQueryBuilder('acc')
+      .leftJoinAndSelect('acc.user', 'user')
+      .addSelect('acc.password')
+      .where('acc.email = :email', { email: normalizedEmail })
+      .getOne();
 
     if (!acc) {
-      this.logger.debug(`Login attempt for non-existent email: ${this.maskEmail(normalizedEmail)}`);
+      this.logger.debug(
+        `Login attempt for non-existent email: ${this.maskEmail(normalizedEmail)}`,
+      );
       throw new UnauthorizedException(AUTH_ERRORS.INVALID_CREDENTIALS);
     }
 
     if (!(await bcrypt.compare(dto.password, acc.password))) {
-      this.logger.debug(`Invalid password for email: ${this.maskEmail(normalizedEmail)}`);
+      this.logger.debug(
+        `Invalid password for email: ${this.maskEmail(normalizedEmail)}`,
+      );
       throw new UnauthorizedException(AUTH_ERRORS.INVALID_CREDENTIALS);
     }
 
     if (!acc.isVerified) {
-      this.logger.debug(`Email not verified for email: ${this.maskEmail(normalizedEmail)}`);
-      throw new UnauthorizedException(
-        AUTH_ERRORS.EMAIL_NOT_VERIFIED,
+      this.logger.debug(
+        `Email not verified for email: ${this.maskEmail(normalizedEmail)}`,
       );
+      throw new UnauthorizedException(AUTH_ERRORS.EMAIL_NOT_VERIFIED);
     }
 
     if (acc.deletedAt) {
-      this.logger.debug(`Account deleted for email: ${this.maskEmail(normalizedEmail)}`);
-      throw new UnauthorizedException(
-        AUTH_ERRORS.ACCOUNT_DELETED,
+      this.logger.debug(
+        `Account deleted for email: ${this.maskEmail(normalizedEmail)}`,
       );
+      throw new UnauthorizedException(AUTH_ERRORS.ACCOUNT_DELETED);
     }
 
     let patientId: string | undefined;
@@ -267,9 +279,9 @@ export class AuthService {
     }
 
     const payload = {
-      sub: acc.id,              // accountId for auth
-      accountId: acc.id,        // explicit for clarity
-      userId: acc.user.id,      // user entity id for data ownership
+      sub: acc.id, // accountId for auth
+      accountId: acc.id, // explicit for clarity
+      userId: acc.user.id, // user entity id for data ownership
       email: acc.email,
       roles: acc.roles,
       fullName: acc.user.fullName,
@@ -279,16 +291,16 @@ export class AuthService {
 
     const tokenJti = `rt_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
-    const accessToken = this.jwtService.sign(payload, { 
+    const accessToken = this.jwtService.sign(payload, {
       expiresIn: '1d',
       jwtid: `at_${Date.now()}_${Math.random().toString(36).substring(7)}`,
     });
 
     const refreshToken = this.jwtService.sign(
-      { 
+      {
         sub: acc.id,
         userId: acc.user.id,
-        email: acc.email, 
+        email: acc.email,
         type: 'refresh',
         jti: tokenJti,
       },
@@ -384,9 +396,9 @@ export class AuthService {
 
       // Sinh JWT (đồng nhất với login thường)
       const payload = {
-        sub: result.account.id,              // accountId for auth
-        accountId: result.account.id,        // explicit for clarity
-        userId: result.user.id,              // user entity id for data ownership
+        sub: result.account.id, // accountId for auth
+        accountId: result.account.id, // explicit for clarity
+        userId: result.user.id, // user entity id for data ownership
         email: result.account.email,
         roles: result.account.roles,
         fullName: result.user.fullName,
@@ -397,17 +409,17 @@ export class AuthService {
       const tokenJti = `rt_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
       // Generate access token (1d giống login thường)
-      const accessToken = this.jwtService.sign(payload, { 
+      const accessToken = this.jwtService.sign(payload, {
         expiresIn: '1d',
         jwtid: `at_${Date.now()}_${Math.random().toString(36).substring(7)}`,
       });
 
       // Generate refresh token (7 days)
       const refreshToken = this.jwtService.sign(
-        { 
+        {
           sub: result.account.id,
           userId: result.user.id,
-          email: result.account.email, 
+          email: result.account.email,
           type: 'refresh',
           jti: tokenJti,
         },
@@ -472,7 +484,11 @@ export class AuthService {
         existingAccount.user.avatarUrl = picture;
         await this.userRepo.save(existingAccount.user);
       }
-      return { account: existingAccount, user: existingAccount.user, isNew: false };
+      return {
+        account: existingAccount,
+        user: existingAccount.user,
+        isNew: false,
+      };
     }
 
     // Tạo mới với transaction để đảm bảo data consistency
@@ -489,7 +505,11 @@ export class AuthService {
           where: { email: normalizedEmail },
           relations: ['user'],
         });
-        return { account: existWithUser!, user: existWithUser!.user, isNew: false };
+        return {
+          account: existWithUser!,
+          user: existWithUser!.user,
+          isNew: false,
+        };
       }
 
       // Tạo user mới
@@ -509,7 +529,10 @@ export class AuthService {
 
       const defaultRole = RoleEnum.PATIENT;
       // Tạo password random cho Google OAuth user (họ sẽ không dùng password này)
-      const randomPassword = await bcrypt.hash(`google_oauth_${Date.now()}`, 12);
+      const randomPassword = await bcrypt.hash(
+        `google_oauth_${Date.now()}`,
+        12,
+      );
 
       const account = manager.create(Account, {
         email: normalizedEmail,
@@ -521,12 +544,13 @@ export class AuthService {
       });
       await manager.save(account);
 
-      this.logger.log(`Google OAuth user registered: ${this.maskEmail(normalizedEmail)}`);
+      this.logger.log(
+        `Google OAuth user registered: ${this.maskEmail(normalizedEmail)}`,
+      );
 
       return { account, user, isNew: true };
     });
   }
-
 
   /**
    * Send forgot password email with reset token
@@ -582,7 +606,7 @@ export class AuthService {
           const existingToken = this.jwtService.decode(
             account.resetPasswordToken,
           );
-          
+
           if (existingToken?.timestamp) {
             const tokenAge = Date.now() - (existingToken.timestamp as number);
             const minTokenAge = 60000; // 1 minute cooldown
@@ -732,7 +756,6 @@ export class AuthService {
     }
   }
 
-
   async refreshAccessToken(
     refreshToken: string,
   ): Promise<ResponseCommon<{ accessToken: string; refreshToken: string }>> {
@@ -779,7 +802,11 @@ export class AuthService {
         // Possible token theft - revoke all tokens for this account
         await this.refreshTokenRepo.update(
           { accountId: decoded.sub, isRevoked: false },
-          { isRevoked: true, revokedAt: new Date(), revokedReason: 'security_breach' },
+          {
+            isRevoked: true,
+            revokedAt: new Date(),
+            revokedReason: 'security_breach',
+          },
         );
         throw new UnauthorizedException(AUTH_ERRORS.TOKEN_REVOKED);
       }
@@ -874,8 +901,8 @@ export class AuthService {
       this.logger.error('Refresh token error:', error);
       if (
         error instanceof UnauthorizedException ||
-        (error as any).name === 'JsonWebTokenError' ||
-        (error as any).name === 'TokenExpiredError'
+        error.name === 'JsonWebTokenError' ||
+        error.name === 'TokenExpiredError'
       ) {
         throw new UnauthorizedException(AUTH_ERRORS.INVALID_TOKEN);
       }
@@ -918,7 +945,9 @@ export class AuthService {
     }
   }
 
-  async resendVerificationEmail(email: string): Promise<ResendVerificationResult> {
+  async resendVerificationEmail(
+    email: string,
+  ): Promise<ResendVerificationResult> {
     const normalizedEmail = email.toLowerCase().trim();
 
     try {

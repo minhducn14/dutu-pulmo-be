@@ -51,6 +51,5 @@ export const ERROR_MESSAGES = {
   ...USER_ERRORS,
 } as const;
 
-
 // Type for all error messages
 export type ErrorMessage = (typeof ERROR_MESSAGES)[keyof typeof ERROR_MESSAGES];

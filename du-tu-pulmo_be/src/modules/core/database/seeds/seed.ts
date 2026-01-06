@@ -103,17 +103,77 @@ const sampleDoctors = [
 // Lịch làm việc mẫu: Thứ 2 - Thứ 6, sáng 08:00-12:00, chiều 13:30-17:30
 const scheduleTemplate = [
   // Buổi sáng: T2-T6 (dayOfWeek: 1-5)
-  { dayOfWeek: 1, startTime: '08:00', endTime: '12:00', breakStartTime: null, breakEndTime: null },
-  { dayOfWeek: 2, startTime: '08:00', endTime: '12:00', breakStartTime: null, breakEndTime: null },
-  { dayOfWeek: 3, startTime: '08:00', endTime: '12:00', breakStartTime: null, breakEndTime: null },
-  { dayOfWeek: 4, startTime: '08:00', endTime: '12:00', breakStartTime: null, breakEndTime: null },
-  { dayOfWeek: 5, startTime: '08:00', endTime: '12:00', breakStartTime: null, breakEndTime: null },
+  {
+    dayOfWeek: 1,
+    startTime: '08:00',
+    endTime: '12:00',
+    breakStartTime: null,
+    breakEndTime: null,
+  },
+  {
+    dayOfWeek: 2,
+    startTime: '08:00',
+    endTime: '12:00',
+    breakStartTime: null,
+    breakEndTime: null,
+  },
+  {
+    dayOfWeek: 3,
+    startTime: '08:00',
+    endTime: '12:00',
+    breakStartTime: null,
+    breakEndTime: null,
+  },
+  {
+    dayOfWeek: 4,
+    startTime: '08:00',
+    endTime: '12:00',
+    breakStartTime: null,
+    breakEndTime: null,
+  },
+  {
+    dayOfWeek: 5,
+    startTime: '08:00',
+    endTime: '12:00',
+    breakStartTime: null,
+    breakEndTime: null,
+  },
   // Buổi chiều: T2-T6
-  { dayOfWeek: 1, startTime: '13:30', endTime: '17:30', breakStartTime: null, breakEndTime: null },
-  { dayOfWeek: 2, startTime: '13:30', endTime: '17:30', breakStartTime: null, breakEndTime: null },
-  { dayOfWeek: 3, startTime: '13:30', endTime: '17:30', breakStartTime: null, breakEndTime: null },
-  { dayOfWeek: 4, startTime: '13:30', endTime: '17:30', breakStartTime: null, breakEndTime: null },
-  { dayOfWeek: 5, startTime: '13:30', endTime: '17:30', breakStartTime: null, breakEndTime: null },
+  {
+    dayOfWeek: 1,
+    startTime: '13:30',
+    endTime: '17:30',
+    breakStartTime: null,
+    breakEndTime: null,
+  },
+  {
+    dayOfWeek: 2,
+    startTime: '13:30',
+    endTime: '17:30',
+    breakStartTime: null,
+    breakEndTime: null,
+  },
+  {
+    dayOfWeek: 3,
+    startTime: '13:30',
+    endTime: '17:30',
+    breakStartTime: null,
+    breakEndTime: null,
+  },
+  {
+    dayOfWeek: 4,
+    startTime: '13:30',
+    endTime: '17:30',
+    breakStartTime: null,
+    breakEndTime: null,
+  },
+  {
+    dayOfWeek: 5,
+    startTime: '13:30',
+    endTime: '17:30',
+    breakStartTime: null,
+    breakEndTime: null,
+  },
 ];
 
 async function seed() {
@@ -249,7 +309,7 @@ async function seed() {
 
     // ========== SEED DOCTOR SCHEDULES ==========
     console.log('\n📅 Seeding Doctor Schedules...');
-    
+
     // Get tomorrow's date as effectiveFrom
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);

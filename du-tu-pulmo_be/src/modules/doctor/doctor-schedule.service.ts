@@ -1,12 +1,24 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { DoctorSchedule } from './entities/doctor-schedule.entity';
 import { Doctor } from './entities/doctor.entity';
-import { CreateDoctorScheduleDto, UpdateDoctorScheduleDto, BulkHolidayScheduleDto } from './dto/doctor-schedule.dto';
+import {
+  CreateDoctorScheduleDto,
+  UpdateDoctorScheduleDto,
+  BulkHolidayScheduleDto,
+} from './dto/doctor-schedule.dto';
 import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
 import { ResponseCommon } from 'src/common/dto/response.dto';
-import { SCHEDULE_TYPE_PRIORITY, ScheduleType } from 'src/modules/common/enums/schedule-type.enum';
+import {
+  SCHEDULE_TYPE_PRIORITY,
+  ScheduleType,
+} from 'src/modules/common/enums/schedule-type.enum';
 
 @Injectable()
 export class DoctorScheduleService {
@@ -18,7 +30,9 @@ export class DoctorScheduleService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async findByDoctorId(doctorId: string): Promise<ResponseCommon<DoctorSchedule[]>> {
+  async findByDoctorId(
+    doctorId: string,
+  ): Promise<ResponseCommon<DoctorSchedule[]>> {
     const schedules = await this.scheduleRepository.find({
       where: { doctorId },
       order: { dayOfWeek: 'ASC', startTime: 'ASC' },
@@ -36,7 +50,9 @@ export class DoctorScheduleService {
     return new ResponseCommon(200, 'SUCCESS', schedule);
   }
 
-  private validateTimeRange(dto: CreateDoctorScheduleDto | UpdateDoctorScheduleDto): void {
+  private validateTimeRange(
+    dto: CreateDoctorScheduleDto | UpdateDoctorScheduleDto,
+  ): void {
     if (dto.slotDuration !== undefined) {
       if (dto.slotDuration <= 0) {
         throw new BadRequestException('Thời lượng slot phải lớn hơn 0 phút');
@@ -45,7 +61,9 @@ export class DoctorScheduleService {
         throw new BadRequestException('Thời lượng slot tối thiểu 5 phút');
       }
       if (dto.slotDuration > 480) {
-        throw new BadRequestException('Thời lượng slot tối đa 480 phút (8 giờ)');
+        throw new BadRequestException(
+          'Thời lượng slot tối đa 480 phút (8 giờ)',
+        );
       }
     }
 
@@ -58,11 +76,11 @@ export class DoctorScheduleService {
       if (dto.slotDuration) {
         const [startH, startM] = dto.startTime.split(':').map(Number);
         const [endH, endM] = dto.endTime.split(':').map(Number);
-        const workingMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+        const workingMinutes = endH * 60 + endM - (startH * 60 + startM);
 
         if (workingMinutes < dto.slotDuration) {
           throw new BadRequestException(
-            `Khoảng thời gian làm việc (${workingMinutes} phút) không đủ cho 1 slot (${dto.slotDuration} phút)`
+            `Khoảng thời gian làm việc (${workingMinutes} phút) không đủ cho 1 slot (${dto.slotDuration} phút)`,
           );
         }
       }
@@ -74,13 +92,10 @@ export class DoctorScheduleService {
       const until = new Date(dto.effectiveUntil);
 
       if (from >= until) {
-        throw new BadRequestException(
-          'Ngày bắt đầu phải trước ngày kết thúc'
-        );
+        throw new BadRequestException('Ngày bắt đầu phải trước ngày kết thúc');
       }
     }
   }
-
 
   private async checkOverlap(
     doctorId: string,
@@ -102,18 +117,18 @@ export class DoctorScheduleService {
       .andWhere('s.priority >= :priority', { priority })
       // Effective Date overlap check
       .andWhere(
-        effectiveUntil 
-          ? '(s.effectiveFrom <= :effectiveUntil OR s.effectiveFrom IS NULL)' 
-          : '1=1', 
-        { effectiveUntil }
+        effectiveUntil
+          ? '(s.effectiveFrom <= :effectiveUntil OR s.effectiveFrom IS NULL)'
+          : '1=1',
+        { effectiveUntil },
       )
       // Condition 2: input.Start <= s.End
       // in.from <= s.until OR s.until IS NULL
       .andWhere(
-         effectiveFrom
+        effectiveFrom
           ? '(s.effectiveUntil >= :effectiveFrom OR s.effectiveUntil IS NULL)'
           : '1=1',
-        { effectiveFrom }
+        { effectiveFrom },
       );
 
     if (excludeId) {
@@ -121,23 +136,30 @@ export class DoctorScheduleService {
     }
 
     const overlapping = await queryBuilder.getOne();
-    
+
     if (overlapping) {
-      const status = overlapping.isAvailable ? 'đang hoạt động' : 'không hoạt động';
+      const status = overlapping.isAvailable
+        ? 'đang hoạt động'
+        : 'không hoạt động';
       const effectiveStr = `(Hiệu lực: ${overlapping.effectiveFrom ? new Date(overlapping.effectiveFrom).toISOString().split('T')[0] : '...'} -> ${overlapping.effectiveUntil ? new Date(overlapping.effectiveUntil).toISOString().split('T')[0] : '...'})`;
       throw new ConflictException(
         `Lịch trùng với lịch ${status} ưu tiên cao hơn (priority: ${overlapping.priority}) ${effectiveStr} khung giờ (${overlapping.startTime} - ${overlapping.endTime}). ` +
-        `Lịch hiện tại có priority ${priority}. Chỉ có thể tạo lịch với priority cao hơn hoặc bằng.`
+          `Lịch hiện tại có priority ${priority}. Chỉ có thể tạo lịch với priority cao hơn hoặc bằng.`,
       );
     }
   }
 
-  async create(doctorId: string, dto: CreateDoctorScheduleDto): Promise<ResponseCommon<DoctorSchedule>> {
+  async create(
+    doctorId: string,
+    dto: CreateDoctorScheduleDto,
+  ): Promise<ResponseCommon<DoctorSchedule>> {
     const scheduleType = dto.scheduleType || ScheduleType.REGULAR;
     const priority = SCHEDULE_TYPE_PRIORITY[scheduleType];
 
     if (dto.dayOfWeek < 0 || dto.dayOfWeek > 6) {
-      throw new BadRequestException('Ngày trong tuần phải từ 0 (Chủ nhật) đến 6 (Thứ 7)');
+      throw new BadRequestException(
+        'Ngày trong tuần phải từ 0 (Chủ nhật) đến 6 (Thứ 7)',
+      );
     }
 
     // Validate time ranges and slot duration (SKIP for BLOCK_OUT)
@@ -155,25 +177,34 @@ export class DoctorScheduleService {
     }
 
     // Check for overlapping schedules
-    const effectiveFromDate = dto.effectiveFrom ? new Date(dto.effectiveFrom) : null;
-    const effectiveUntilDate = dto.effectiveUntil ? new Date(dto.effectiveUntil) : null;
-    
+    const effectiveFromDate = dto.effectiveFrom
+      ? new Date(dto.effectiveFrom)
+      : null;
+    const effectiveUntilDate = dto.effectiveUntil
+      ? new Date(dto.effectiveUntil)
+      : null;
+
     await this.checkOverlap(
-      doctorId, 
-      dto.dayOfWeek, 
-      dto.startTime, 
-      dto.endTime, 
+      doctorId,
+      dto.dayOfWeek,
+      dto.startTime,
+      dto.endTime,
       effectiveFromDate,
       effectiveUntilDate,
-      priority
+      priority,
     );
 
     // Validate IN_CLINIC requires doctor.primaryHospitalId (SKIP for BLOCK_OUT)
     if (scheduleType !== ScheduleType.BLOCK_OUT) {
       if (dto.appointmentType === AppointmentTypeEnum.IN_CLINIC) {
-        const doctor = await this.doctorRepository.findOne({ where: { id: doctorId }, select: ['id', 'primaryHospitalId'] });
+        const doctor = await this.doctorRepository.findOne({
+          where: { id: doctorId },
+          select: ['id', 'primaryHospitalId'],
+        });
         if (!doctor?.primaryHospitalId) {
-          throw new BadRequestException('Khám tại phòng khám yêu cầu bác sĩ có bệnh viện/phòng khám chính (primaryHospitalId)');
+          throw new BadRequestException(
+            'Khám tại phòng khám yêu cầu bác sĩ có bệnh viện/phòng khám chính (primaryHospitalId)',
+          );
         }
       }
     }
@@ -190,7 +221,7 @@ export class DoctorScheduleService {
     });
 
     const saved = await this.scheduleRepository.save(schedule);
-    
+
     let message = 'Tạo lịch làm việc thành công';
     if (scheduleType === ScheduleType.BLOCK_OUT) {
       message = `Tạo lịch nghỉ thành công (${dto.note || 'không có ghi chú'})`;
@@ -207,25 +238,33 @@ export class DoctorScheduleService {
    * Bulk create multiple schedules in one request.
    * Wrapped in transaction for atomicity - all succeed or all fail.
    */
-  async createMany(doctorId: string, dtos: CreateDoctorScheduleDto[]): Promise<ResponseCommon<DoctorSchedule[]>> {
+  async createMany(
+    doctorId: string,
+    dtos: CreateDoctorScheduleDto[],
+  ): Promise<ResponseCommon<DoctorSchedule[]>> {
     if (dtos.length === 0) {
       throw new BadRequestException('Danh sách lịch làm việc không được rỗng');
     }
 
-    const dtosWithPriority = dtos.map(dto => {
+    const dtosWithPriority = dtos.map((dto) => {
       const scheduleType = dto.scheduleType || ScheduleType.REGULAR;
       return {
         ...dto,
         scheduleType,
         priority: SCHEDULE_TYPE_PRIORITY[scheduleType],
-        isAvailable: scheduleType === ScheduleType.BLOCK_OUT ? false : (dto.isAvailable ?? true),
+        isAvailable:
+          scheduleType === ScheduleType.BLOCK_OUT
+            ? false
+            : (dto.isAvailable ?? true),
       };
     });
 
     // Validate all schedules first
     for (const dto of dtosWithPriority) {
       if (dto.dayOfWeek < 0 || dto.dayOfWeek > 6) {
-        throw new BadRequestException(`Ngày trong tuần phải từ 0 (Chủ nhật) đến 6 (Thứ 7). Nhận được: ${dto.dayOfWeek}`);
+        throw new BadRequestException(
+          `Ngày trong tuần phải từ 0 (Chủ nhật) đến 6 (Thứ 7). Nhận được: ${dto.dayOfWeek}`,
+        );
       }
 
       // Validate time ranges and slot duration (skip for BLOCK_OUT)
@@ -236,17 +275,21 @@ export class DoctorScheduleService {
 
     // Check overlaps with existing schedules AND between new schedules
     for (const dto of dtosWithPriority) {
-      const effectiveFromDate = dto.effectiveFrom ? new Date(dto.effectiveFrom) : null;
-      const effectiveUntilDate = dto.effectiveUntil ? new Date(dto.effectiveUntil) : null;
+      const effectiveFromDate = dto.effectiveFrom
+        ? new Date(dto.effectiveFrom)
+        : null;
+      const effectiveUntilDate = dto.effectiveUntil
+        ? new Date(dto.effectiveUntil)
+        : null;
 
       await this.checkOverlap(
-        doctorId, 
-        dto.dayOfWeek, 
-        dto.startTime, 
+        doctorId,
+        dto.dayOfWeek,
+        dto.startTime,
         dto.endTime,
         effectiveFromDate,
         effectiveUntilDate,
-        dto.priority
+        dto.priority,
       );
     }
 
@@ -255,23 +298,33 @@ export class DoctorScheduleService {
       for (let j = i + 1; j < dtosWithPriority.length; j++) {
         if (dtosWithPriority[i].dayOfWeek === dtosWithPriority[j].dayOfWeek) {
           // Check time overlap
-          const timeOverlap = dtosWithPriority[i].startTime < dtosWithPriority[j].endTime && dtosWithPriority[i].endTime > dtosWithPriority[j].startTime;
-          
+          const timeOverlap =
+            dtosWithPriority[i].startTime < dtosWithPriority[j].endTime &&
+            dtosWithPriority[i].endTime > dtosWithPriority[j].startTime;
+
           if (timeOverlap) {
             // Only check overlap if SAME priority
             if (dtosWithPriority[i].priority === dtosWithPriority[j].priority) {
-              const iFrom = dtosWithPriority[i].effectiveFrom ? new Date(dtosWithPriority[i].effectiveFrom!) : null;
-              const iUntil = dtosWithPriority[i].effectiveUntil ? new Date(dtosWithPriority[i].effectiveUntil!) : null;
-              const jFrom = dtosWithPriority[j].effectiveFrom ? new Date(dtosWithPriority[j].effectiveFrom!) : null;
-              const jUntil = dtosWithPriority[j].effectiveUntil ? new Date(dtosWithPriority[j].effectiveUntil!) : null;
+              const iFrom = dtosWithPriority[i].effectiveFrom
+                ? new Date(dtosWithPriority[i].effectiveFrom!)
+                : null;
+              const iUntil = dtosWithPriority[i].effectiveUntil
+                ? new Date(dtosWithPriority[i].effectiveUntil!)
+                : null;
+              const jFrom = dtosWithPriority[j].effectiveFrom
+                ? new Date(dtosWithPriority[j].effectiveFrom!)
+                : null;
+              const jUntil = dtosWithPriority[j].effectiveUntil
+                ? new Date(dtosWithPriority[j].effectiveUntil!)
+                : null;
 
-              const dateOverlap = 
+              const dateOverlap =
                 (iFrom === null || jUntil === null || iFrom <= jUntil) &&
                 (jFrom === null || iUntil === null || jFrom <= iUntil);
 
               if (dateOverlap) {
                 throw new ConflictException(
-                  `Lịch ${i + 1} trùng với lịch ${j + 1} trong cùng ngày ${dtosWithPriority[i].dayOfWeek} và khoảng thời gian hiệu lực (cùng priority)`
+                  `Lịch ${i + 1} trùng với lịch ${j + 1} trong cùng ngày ${dtosWithPriority[i].dayOfWeek} và khoảng thời gian hiệu lực (cùng priority)`,
                 );
               }
             }
@@ -282,28 +335,36 @@ export class DoctorScheduleService {
 
     // Create all schedules in transaction
     const result = await this.dataSource.transaction(async (manager) => {
-      const entities = dtosWithPriority.map(dto => manager.create(DoctorSchedule, {
-        ...dto,
-        doctorId,
-        consultationFee: dto.consultationFee?.toString() ?? null,
-        effectiveFrom: dto.effectiveFrom ? new Date(dto.effectiveFrom) : null,
-        effectiveUntil: dto.effectiveUntil ? new Date(dto.effectiveUntil) : null,
-      }));
+      const entities = dtosWithPriority.map((dto) =>
+        manager.create(DoctorSchedule, {
+          ...dto,
+          doctorId,
+          consultationFee: dto.consultationFee?.toString() ?? null,
+          effectiveFrom: dto.effectiveFrom ? new Date(dto.effectiveFrom) : null,
+          effectiveUntil: dto.effectiveUntil
+            ? new Date(dto.effectiveUntil)
+            : null,
+        }),
+      );
 
       return manager.save(DoctorSchedule, entities);
     });
 
-    return new ResponseCommon(201, `Tạo ${result.length} lịch làm việc thành công`, result);
+    return new ResponseCommon(
+      201,
+      `Tạo ${result.length} lịch làm việc thành công`,
+      result,
+    );
   }
 
   async createBulkHoliday(
-    doctorId: string, 
-    dto: BulkHolidayScheduleDto
+    doctorId: string,
+    dto: BulkHolidayScheduleDto,
   ): Promise<ResponseCommon<DoctorSchedule[]>> {
     // Validate date range
     const startDate = new Date(dto.startDate);
     const endDate = new Date(dto.endDate);
-    
+
     if (startDate >= endDate) {
       throw new BadRequestException('Ngày bắt đầu phải trước ngày kết thúc');
     }
@@ -313,36 +374,40 @@ export class DoctorScheduleService {
     }
 
     const isBlockOut = dto.scheduleType === ScheduleType.BLOCK_OUT;
-    const isHoliday = dto.scheduleType === ScheduleType.HOLIDAY;
-    const isBlockingSchedule = isBlockOut || isHoliday;
-    
-    const startTime = isBlockOut ? '00:00' : (dto.startTime || '09:00');
-    const endTime = isBlockOut ? '23:59' : (dto.endTime || '17:00');
+    const isBlockingSchedule = isBlockOut;
+
+    const startTime = isBlockOut ? '00:00' : dto.startTime || '09:00';
+    const endTime = isBlockOut ? '23:59' : dto.endTime || '17:00';
 
     // For BLOCK_OUT/HOLIDAY, use ONLINE to avoid hospital_id requirement
-    const appointmentType = isBlockingSchedule 
-      ? AppointmentTypeEnum.VIDEO 
-      : (dto.appointmentType || AppointmentTypeEnum.IN_CLINIC);
+    const appointmentType = isBlockingSchedule
+      ? AppointmentTypeEnum.VIDEO
+      : dto.appointmentType || AppointmentTypeEnum.IN_CLINIC;
 
-    const scheduleDtos: CreateDoctorScheduleDto[] = dto.daysOfWeek.map(dayOfWeek => ({
-      dayOfWeek,
-      startTime,
-      endTime,
-      slotDuration: dto.slotDuration || 30,
-      slotCapacity: dto.slotCapacity || 1,
-      appointmentType,
-      effectiveFrom: dto.startDate,
-      effectiveUntil: dto.endDate,
-      scheduleType: dto.scheduleType,
-      note: dto.note,
-      consultationFee: dto.consultationFee,
-      isAvailable: !isBlockingSchedule,
-    }));
+    const scheduleDtos: CreateDoctorScheduleDto[] = dto.daysOfWeek.map(
+      (dayOfWeek) => ({
+        dayOfWeek,
+        startTime,
+        endTime,
+        slotDuration: dto.slotDuration || 30,
+        slotCapacity: dto.slotCapacity || 1,
+        appointmentType,
+        effectiveFrom: dto.startDate,
+        effectiveUntil: dto.endDate,
+        scheduleType: dto.scheduleType,
+        note: dto.note,
+        consultationFee: dto.consultationFee,
+        isAvailable: !isBlockingSchedule,
+      }),
+    );
 
     return this.createMany(doctorId, scheduleDtos);
   }
 
-  async update(id: string, dto: UpdateDoctorScheduleDto): Promise<ResponseCommon<DoctorSchedule>> {
+  async update(
+    id: string,
+    dto: UpdateDoctorScheduleDto,
+  ): Promise<ResponseCommon<DoctorSchedule>> {
     const existingResult = await this.findById(id);
     const existing = existingResult.data!;
 
@@ -353,7 +418,7 @@ export class DoctorScheduleService {
     const newDayOfWeek = dto.dayOfWeek ?? existing.dayOfWeek;
     const newStartTime = dto.startTime ?? existing.startTime;
     const newEndTime = dto.endTime ?? existing.endTime;
-    
+
     // Recalculate priority if scheduleType changed
     let newPriority = existing.priority;
     if (dto.scheduleType !== undefined) {
@@ -375,26 +440,28 @@ export class DoctorScheduleService {
 
     let newEffectiveUntil: Date | null = existing.effectiveUntil;
     if (dto.effectiveUntil !== undefined) {
-      newEffectiveUntil = dto.effectiveUntil ? new Date(dto.effectiveUntil) : null;
+      newEffectiveUntil = dto.effectiveUntil
+        ? new Date(dto.effectiveUntil)
+        : null;
     }
 
     if (
-      dto.dayOfWeek !== undefined || 
-      dto.startTime !== undefined || 
+      dto.dayOfWeek !== undefined ||
+      dto.startTime !== undefined ||
       dto.endTime !== undefined ||
       dto.effectiveFrom !== undefined ||
       dto.effectiveUntil !== undefined ||
       dto.scheduleType !== undefined
     ) {
       await this.checkOverlap(
-        existing.doctorId, 
-        newDayOfWeek, 
-        newStartTime, 
-        newEndTime, 
+        existing.doctorId,
+        newDayOfWeek,
+        newStartTime,
+        newEndTime,
         newEffectiveFrom,
         newEffectiveUntil,
         newPriority,
-        id
+        id,
       );
     }
 
@@ -402,9 +469,14 @@ export class DoctorScheduleService {
     const newAppointmentType = dto.appointmentType ?? existing.appointmentType;
     if (newScheduleType !== ScheduleType.BLOCK_OUT) {
       if (newAppointmentType === AppointmentTypeEnum.IN_CLINIC) {
-        const doctor = await this.doctorRepository.findOne({ where: { id: existing.doctorId }, select: ['id', 'primaryHospitalId'] });
+        const doctor = await this.doctorRepository.findOne({
+          where: { id: existing.doctorId },
+          select: ['id', 'primaryHospitalId'],
+        });
         if (!doctor?.primaryHospitalId) {
-          throw new BadRequestException('Khám tại phòng khám yêu cầu bác sĩ có bệnh viện/phòng khám chính (primaryHospitalId)');
+          throw new BadRequestException(
+            'Khám tại phòng khám yêu cầu bác sĩ có bệnh viện/phòng khám chính (primaryHospitalId)',
+          );
         }
       }
     }
@@ -413,19 +485,26 @@ export class DoctorScheduleService {
       ...dto,
       priority: newPriority,
       isAvailable: newIsAvailable,
-      consultationFee: dto.consultationFee !== undefined 
-        ? (dto.consultationFee?.toString() ?? null)
-        : undefined,
-      effectiveFrom: dto.effectiveFrom !== undefined 
-        ? (dto.effectiveFrom ? new Date(dto.effectiveFrom) : null)
-        : undefined,
-      effectiveUntil: dto.effectiveUntil !== undefined 
-        ? (dto.effectiveUntil ? new Date(dto.effectiveUntil) : null)
-        : undefined,
+      consultationFee:
+        dto.consultationFee !== undefined
+          ? (dto.consultationFee?.toString() ?? null)
+          : undefined,
+      effectiveFrom:
+        dto.effectiveFrom !== undefined
+          ? dto.effectiveFrom
+            ? new Date(dto.effectiveFrom)
+            : null
+          : undefined,
+      effectiveUntil:
+        dto.effectiveUntil !== undefined
+          ? dto.effectiveUntil
+            ? new Date(dto.effectiveUntil)
+            : null
+          : undefined,
     };
 
     // Remove undefined fields
-    Object.keys(updateData).forEach(key => {
+    Object.keys(updateData).forEach((key) => {
       if (updateData[key as keyof typeof updateData] === undefined) {
         delete updateData[key as keyof typeof updateData];
       }
@@ -433,7 +512,11 @@ export class DoctorScheduleService {
 
     await this.scheduleRepository.update(id, updateData);
     const updated = await this.scheduleRepository.findOne({ where: { id } });
-    return new ResponseCommon(200, 'Cập nhật lịch làm việc thành công', updated!);
+    return new ResponseCommon(
+      200,
+      'Cập nhật lịch làm việc thành công',
+      updated!,
+    );
   }
 
   async delete(id: string): Promise<ResponseCommon<null>> {
@@ -459,8 +542,14 @@ export class DoctorScheduleService {
       .where('schedule.doctorId = :doctorId', { doctorId })
       .andWhere('schedule.isAvailable = :isAvailable', { isAvailable: true })
       // Filter by effective dates - include schedules effective within next 7 days
-      .andWhere('(schedule.effectiveFrom IS NULL OR schedule.effectiveFrom <= :lookAheadDate)', { lookAheadDate })
-      .andWhere('(schedule.effectiveUntil IS NULL OR schedule.effectiveUntil >= :today)', { today });
+      .andWhere(
+        '(schedule.effectiveFrom IS NULL OR schedule.effectiveFrom <= :lookAheadDate)',
+        { lookAheadDate },
+      )
+      .andWhere(
+        '(schedule.effectiveUntil IS NULL OR schedule.effectiveUntil >= :today)',
+        { today },
+      );
 
     if (dayOfWeek !== undefined) {
       queryBuilder.andWhere('schedule.dayOfWeek = :dayOfWeek', { dayOfWeek });
@@ -478,7 +567,9 @@ export class DoctorScheduleService {
    * Get effective consultation fee for a schedule
    * Fallback: schedule.consultationFee → doctor.defaultConsultationFee
    */
-  async getEffectiveConsultationFee(schedule: DoctorSchedule): Promise<string | null> {
+  async getEffectiveConsultationFee(
+    schedule: DoctorSchedule,
+  ): Promise<string | null> {
     // If schedule has its own fee, use it
     if (schedule.consultationFee) {
       return schedule.consultationFee;
@@ -499,7 +590,8 @@ export class DoctorScheduleService {
   async enrichScheduleWithEffectiveFee(
     schedule: DoctorSchedule,
   ): Promise<DoctorSchedule & { effectiveConsultationFee: string | null }> {
-    const effectiveConsultationFee = await this.getEffectiveConsultationFee(schedule);
+    const effectiveConsultationFee =
+      await this.getEffectiveConsultationFee(schedule);
     return {
       ...schedule,
       effectiveConsultationFee,
@@ -515,8 +607,8 @@ export class DoctorScheduleService {
     if (schedules.length === 0) return [];
 
     // Get unique doctorIds
-    const doctorIds = [...new Set(schedules.map(s => s.doctorId))];
-    
+    const doctorIds = [...new Set(schedules.map((s) => s.doctorId))];
+
     // Batch fetch doctors
     const doctors = await this.doctorRepository
       .createQueryBuilder('doctor')
@@ -524,11 +616,14 @@ export class DoctorScheduleService {
       .whereInIds(doctorIds)
       .getMany();
 
-    const doctorFeeMap = new Map(doctors.map(d => [d.id, d.defaultConsultationFee]));
+    const doctorFeeMap = new Map(
+      doctors.map((d) => [d.id, d.defaultConsultationFee]),
+    );
 
-    return schedules.map(schedule => ({
+    return schedules.map((schedule) => ({
       ...schedule,
-      effectiveConsultationFee: schedule.consultationFee ?? doctorFeeMap.get(schedule.doctorId) ?? null,
+      effectiveConsultationFee:
+        schedule.consultationFee ?? doctorFeeMap.get(schedule.doctorId) ?? null,
     }));
   }
 }

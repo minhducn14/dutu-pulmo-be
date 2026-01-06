@@ -1,7 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, MaxLength, IsBoolean } from 'class-validator';
 
-
 /**
  * For admin to update account roles
  */

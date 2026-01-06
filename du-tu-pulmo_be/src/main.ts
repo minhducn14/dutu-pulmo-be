@@ -23,7 +23,9 @@ async function bootstrap() {
   // Swagger configuration
   const config = new DocumentBuilder()
     .setTitle('DuTu Pulmo API')
-    .setDescription('API documentation for DuTu Pulmo - Lung Disease Diagnosis System')
+    .setDescription(
+      'API documentation for DuTu Pulmo - Lung Disease Diagnosis System',
+    )
     .setVersion('1.0')
     .addBasicAuth()
     .addBearerAuth()

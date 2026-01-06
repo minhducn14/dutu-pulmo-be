@@ -65,7 +65,10 @@ export class DoctorResponseDto {
   CCCD?: string;
 
   // ====== Address (thường từ user) ======
-  @ApiPropertyOptional({ example: 'Hồ Chí Minh', description: 'Tỉnh/Thành phố' })
+  @ApiPropertyOptional({
+    example: 'Hồ Chí Minh',
+    description: 'Tỉnh/Thành phố',
+  })
   province?: string;
 
   @ApiPropertyOptional({ example: 'Quận 1', description: 'Quận/Huyện' })
@@ -74,7 +77,10 @@ export class DoctorResponseDto {
   @ApiPropertyOptional({ example: 'Phường Bến Nghé', description: 'Phường/Xã' })
   ward?: string;
 
-  @ApiPropertyOptional({ example: '123 Đường Nguyễn Huệ', description: 'Địa chỉ chi tiết' })
+  @ApiPropertyOptional({
+    example: '123 Đường Nguyễn Huệ',
+    description: 'Địa chỉ chi tiết',
+  })
   address?: string;
 
   // ====== Doctor professional info (từ entity Doctor) ======
@@ -92,7 +98,9 @@ export class DoctorResponseDto {
 
   @ApiPropertyOptional({
     description: 'Danh sách URL ảnh chứng chỉ hành nghề',
-    example: [{ url: 'https://example.com/license-1.jpg', expiry: '2028-12-31' }],
+    example: [
+      { url: 'https://example.com/license-1.jpg', expiry: '2028-12-31' },
+    ],
     type: 'array',
   })
   licenseImageUrls?: { url: string; expiry?: string }[];
@@ -100,7 +108,7 @@ export class DoctorResponseDto {
   @ApiPropertyOptional({
     enum: DoctorTitle,
     example: DoctorTitle.SPECIALIST_DOCTOR_2,
-    description: 'Học hàm/học vị'
+    description: 'Học hàm/học vị',
   })
   title?: DoctorTitle;
 
@@ -145,13 +153,22 @@ export class DoctorResponseDto {
   })
   expertiseDescription?: string;
 
-  @ApiPropertyOptional({ example: 'Giới thiệu bác sĩ...', description: 'Bio/giới thiệu' })
+  @ApiPropertyOptional({
+    example: 'Giới thiệu bác sĩ...',
+    description: 'Bio/giới thiệu',
+  })
   bio?: string;
 
-  @ApiPropertyOptional({ example: '2016-2020 ...', description: 'Kinh nghiệm làm việc' })
+  @ApiPropertyOptional({
+    example: '2016-2020 ...',
+    description: 'Kinh nghiệm làm việc',
+  })
   workExperience?: string;
 
-  @ApiPropertyOptional({ example: 'ĐH Y Dược TP.HCM...', description: 'Học vấn' })
+  @ApiPropertyOptional({
+    example: 'ĐH Y Dược TP.HCM...',
+    description: 'Học vấn',
+  })
   education?: string;
 
   @ApiPropertyOptional({
@@ -191,15 +208,22 @@ export class DoctorResponseDto {
 
   @ApiPropertyOptional({
     example: '300000',
-    description: 'Phí khám mặc định (VND) - dùng khi schedule không set phí riêng',
+    description:
+      'Phí khám mặc định (VND) - dùng khi schedule không set phí riêng',
     nullable: true,
   })
   defaultConsultationFee?: string | null;
-  
+
   // ====== timestamps ======
-  @ApiProperty({ example: '2023-01-01T00:00:00.000Z', description: 'Thời gian tạo tài khoản bác sĩ' })
+  @ApiProperty({
+    example: '2023-01-01T00:00:00.000Z',
+    description: 'Thời gian tạo tài khoản bác sĩ',
+  })
   createdAt: Date;
 
-  @ApiProperty({ example: '2023-01-01T00:00:00.000Z', description: 'Thời gian cập nhật cuối' })
+  @ApiProperty({
+    example: '2023-01-01T00:00:00.000Z',
+    description: 'Thời gian cập nhật cuối',
+  })
   updatedAt: Date;
 }

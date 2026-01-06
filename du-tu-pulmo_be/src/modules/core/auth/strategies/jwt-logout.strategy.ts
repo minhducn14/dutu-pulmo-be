@@ -24,7 +24,10 @@ const bearerTokenExtractor = (req: Request): string | null => {
  * Ignores token expiration - allows logout even with expired access token
  */
 @Injectable()
-export class JwtLogoutStrategy extends PassportStrategy(Strategy, 'jwt-logout') {
+export class JwtLogoutStrategy extends PassportStrategy(
+  Strategy,
+  'jwt-logout',
+) {
   constructor() {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     super({

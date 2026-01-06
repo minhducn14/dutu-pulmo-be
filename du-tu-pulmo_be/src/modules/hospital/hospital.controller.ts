@@ -20,8 +20,15 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { HospitalService } from './hospital.service';
-import { CreateHospitalDto, UpdateHospitalDto, HospitalQueryDto } from './dto/hospital.dto';
-import { HospitalResponseDto, PaginatedHospitalResponseDto } from './dto/hospital-response.dto';
+import {
+  CreateHospitalDto,
+  UpdateHospitalDto,
+  HospitalQueryDto,
+} from './dto/hospital.dto';
+import {
+  HospitalResponseDto,
+  PaginatedHospitalResponseDto,
+} from './dto/hospital-response.dto';
 import { JwtAuthGuard } from '../core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../core/auth/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
@@ -33,12 +40,20 @@ export class HospitalController {
   constructor(private readonly hospitalService: HospitalService) {}
 
   @Get()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Lấy danh sách bệnh viện/phòng khám',
-    description: 'Hỗ trợ pagination, search theo tên/mã, filter theo thành phố'
+    description: 'Hỗ trợ pagination, search theo tên/mã, filter theo thành phố',
   })
-  @ApiQuery({ name: 'search', required: false, description: 'Tìm kiếm theo tên hoặc mã' })
-  @ApiQuery({ name: 'city', required: false, description: 'Lọc theo thành phố' })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description: 'Tìm kiếm theo tên hoặc mã',
+  })
+  @ApiQuery({
+    name: 'city',
+    required: false,
+    description: 'Lọc theo thành phố',
+  })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   @ApiResponse({
@@ -79,7 +94,10 @@ export class HospitalController {
 
   @Get('code/:hospitalCode')
   @ApiOperation({ summary: 'Lấy bệnh viện theo mã' })
-  @ApiParam({ name: 'hospitalCode', description: 'Mã bệnh viện (ví dụ: BVTA-001)' })
+  @ApiParam({
+    name: 'hospitalCode',
+    description: 'Mã bệnh viện (ví dụ: BVTA-001)',
+  })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Thông tin bệnh viện',
@@ -153,9 +171,10 @@ export class HospitalController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleEnum.ADMIN)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Xóa bệnh viện (Soft delete - Admin only)',
-    description: 'Thực hiện soft delete, dữ liệu vẫn tồn tại trong database nhưng bị ẩn'
+    description:
+      'Thực hiện soft delete, dữ liệu vẫn tồn tại trong database nhưng bị ẩn',
   })
   @ApiParam({ name: 'id', description: 'Hospital ID (UUID)' })
   @ApiResponse({
@@ -194,9 +213,10 @@ export class HospitalController {
   }
 
   @Get(':id/doctors')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Lấy danh sách bác sĩ của bệnh viện',
-    description: 'Trả về danh sách bác sĩ làm việc tại bệnh viện với pagination'
+    description:
+      'Trả về danh sách bác sĩ làm việc tại bệnh viện với pagination',
   })
   @ApiParam({ name: 'id', description: 'Hospital ID (UUID)' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
@@ -214,6 +234,10 @@ export class HospitalController {
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    return this.hospitalService.getDoctorsByHospitalId(id, page || 1, limit || 20);
+    return this.hospitalService.getDoctorsByHospitalId(
+      id,
+      page || 1,
+      limit || 20,
+    );
   }
 }
