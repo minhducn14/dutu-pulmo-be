@@ -1,5 +1,8 @@
 import { Injectable, BadRequestException, Inject, forwardRef } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { DoctorSchedule } from './entities/doctor-schedule.entity';
+import { Doctor } from './entities/doctor.entity';
 import { TimeSlot } from './entities/time-slot.entity';
 import { DoctorScheduleService } from './doctor-schedule.service';
 import { TimeSlotService } from './time-slot.service';
@@ -9,11 +12,15 @@ import { ScheduleType, SCHEDULE_TYPE_PRIORITY } from 'src/modules/common/enums/s
 
 @Injectable()
 export class SlotGeneratorService {
+  private doctorHospitalCache = new Map<string, string | null>();
+
   constructor(
     @Inject(forwardRef(() => DoctorScheduleService))
     private readonly scheduleService: DoctorScheduleService,
     @Inject(forwardRef(() => TimeSlotService))
     private readonly timeSlotService: TimeSlotService,
+    @InjectRepository(Doctor)
+    private readonly doctorRepository: Repository<Doctor>,
   ) {}
 
   async generateAndSaveSlots(
@@ -63,7 +70,7 @@ export class SlotGeneratorService {
     currentDate.setHours(0, 0, 0, 0);
 
     while (currentDate <= endDate) {
-      const daySlots = this.generateSlotsForDay(currentDate, sortedSchedules);
+      const daySlots = await this.generateSlotsForDay(currentDate, sortedSchedules);
       allSlots.push(...daySlots);
       currentDate.setDate(currentDate.getDate() + 1);
     }
@@ -112,10 +119,10 @@ export class SlotGeneratorService {
   /**
    * 🔥 FIXED: Chỉ xử lý schedules có priority cao nhất trong ngày
    */
-  private generateSlotsForDay(
+  private async generateSlotsForDay(
     targetDate: Date,
     sortedSchedules: DoctorSchedule[],
-  ): Partial<TimeSlot>[] {
+  ): Promise<Partial<TimeSlot>[]> {
     const dayOfWeek = targetDate.getDay();
     
     // Get all schedules active on this date and day of week
@@ -148,17 +155,45 @@ export class SlotGeneratorService {
     // 🎯 STEP 4: Generate slots từ TẤT CẢ schedules có priority cao nhất và isAvailable = true
     const availableSchedules = highestPrioritySchedules.filter(s => s.isAvailable);
 
+    // Lấy hospitalId từ doctor (cache để tránh query nhiều lần)
+    const doctorId = availableSchedules[0]?.doctorId;
+    const hospitalId = doctorId ? await this.getDoctorHospitalId(doctorId) : null;
+
     const slots: Partial<TimeSlot>[] = [];
     for (const schedule of availableSchedules) {
-      slots.push(...this.generateSlotsFromSchedule(schedule, targetDate));
+      slots.push(...this.generateSlotsFromSchedule(schedule, targetDate, hospitalId));
     }
 
     return slots;
   }
 
+  /**
+   * Get doctor's primaryHospitalId with caching
+   */
+  private async getDoctorHospitalId(doctorId: string): Promise<string | null> {
+    if (this.doctorHospitalCache.has(doctorId)) {
+      return this.doctorHospitalCache.get(doctorId) ?? null;
+    }
+    const doctor = await this.doctorRepository.findOne({
+      where: { id: doctorId },
+      select: ['id', 'primaryHospitalId'],
+    });
+    const hospitalId = doctor?.primaryHospitalId ?? null;
+    this.doctorHospitalCache.set(doctorId, hospitalId);
+    return hospitalId;
+  }
+
+  /**
+   * Clear cache (call after generating slots for a batch)
+   */
+  clearDoctorHospitalCache(): void {
+    this.doctorHospitalCache.clear();
+  }
+
   generateSlotsFromSchedule(
     schedule: DoctorSchedule,
     targetDate: Date,
+    hospitalId?: string | null,
   ): Partial<TimeSlot>[] {
     // Validate slot duration to prevent infinite loop
     if (!schedule.slotDuration || schedule.slotDuration <= 0) {
@@ -189,13 +224,13 @@ export class SlotGeneratorService {
         break;
       }
       
-      // Create slot
+      // Create slot - hospitalId từ doctor.primaryHospitalId
       slots.push({
         doctorId: schedule.doctorId,
         startTime: new Date(currentStart),
         endTime: new Date(slotEnd),
         capacity: schedule.slotCapacity,
-        locationHospitalId: schedule.hospitalId,
+        locationHospitalId: hospitalId ?? null,
         allowedAppointmentTypes: [schedule.appointmentType],
         isAvailable: true,
         bookedCount: 0,
@@ -314,7 +349,7 @@ export class SlotGeneratorService {
     currentDate.setHours(0, 0, 0, 0);
 
     while (currentDate <= endDate) {
-      const daySlots = this.generateSlotsForDay(currentDate, sortedSchedules);
+      const daySlots = await this.generateSlotsForDay(currentDate, sortedSchedules);
       allSlots.push(...daySlots);
       currentDate.setDate(currentDate.getDate() + 1);
     }

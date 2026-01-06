@@ -94,10 +94,7 @@ export class BulkHolidayScheduleDto {
   @IsEnum(AppointmentTypeEnum)
   appointmentType?: AppointmentTypeEnum;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsUUID()
-  hospitalId?: string;
+
 
   @ApiProperty({ 
     example: 'Nghỉ Tết Nguyên Đán 2026',
@@ -167,11 +164,6 @@ export class CreateDoctorScheduleDto {
   @ApiProperty({ description: 'Loại hình khám', enum: AppointmentTypeEnum })
   @IsEnum(AppointmentTypeEnum)
   appointmentType: AppointmentTypeEnum;
-
-  @ApiPropertyOptional({ description: 'ID bệnh viện/phòng khám (bắt buộc nếu IN_CLINIC)' })
-  @IsOptional()
-  @IsUUID()
-  hospitalId?: string;
 
   @ApiPropertyOptional({ description: 'Thời gian đặt trước tối thiểu (phút)', default: 60 })
   @IsOptional()
@@ -285,10 +277,7 @@ export class UpdateDoctorScheduleDto {
   @IsEnum(AppointmentTypeEnum)
   appointmentType?: AppointmentTypeEnum;
 
-  @ApiPropertyOptional({ description: 'ID bệnh viện/phòng khám' })
-  @IsOptional()
-  @IsUUID()
-  hospitalId?: string | null;
+
 
   @ApiPropertyOptional({ description: 'Thời gian đặt trước tối thiểu (phút)' })
   @IsOptional()

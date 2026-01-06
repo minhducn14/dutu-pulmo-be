@@ -168,10 +168,13 @@ export class DoctorScheduleService {
       priority
     );
 
-    // Validate IN_CLINIC requires hospitalId (SKIP for BLOCK_OUT)
+    // Validate IN_CLINIC requires doctor.primaryHospitalId (SKIP for BLOCK_OUT)
     if (scheduleType !== ScheduleType.BLOCK_OUT) {
-      if (dto.appointmentType === AppointmentTypeEnum.IN_CLINIC && !dto.hospitalId) {
-        throw new BadRequestException('Khám tại phòng khám yêu cầu chọn bệnh viện/phòng khám');
+      if (dto.appointmentType === AppointmentTypeEnum.IN_CLINIC) {
+        const doctor = await this.doctorRepository.findOne({ where: { id: doctorId }, select: ['id', 'primaryHospitalId'] });
+        if (!doctor?.primaryHospitalId) {
+          throw new BadRequestException('Khám tại phòng khám yêu cầu bác sĩ có bệnh viện/phòng khám chính (primaryHospitalId)');
+        }
       }
     }
 
@@ -228,10 +231,6 @@ export class DoctorScheduleService {
       // Validate time ranges and slot duration (skip for BLOCK_OUT)
       if (dto.scheduleType !== ScheduleType.BLOCK_OUT) {
         this.validateTimeRange(dto);
-
-        if (dto.appointmentType === AppointmentTypeEnum.IN_CLINIC && !dto.hospitalId) {
-          throw new BadRequestException(`Lịch ${dto.dayOfWeek} (${dto.startTime}-${dto.endTime}): Khám tại phòng khám yêu cầu chọn bệnh viện`);
-        }
       }
     }
 
@@ -332,7 +331,6 @@ export class DoctorScheduleService {
       slotDuration: dto.slotDuration || 30,
       slotCapacity: dto.slotCapacity || 1,
       appointmentType,
-      hospitalId: isBlockingSchedule ? undefined : dto.hospitalId,
       effectiveFrom: dto.startDate,
       effectiveUntil: dto.endDate,
       scheduleType: dto.scheduleType,
@@ -400,12 +398,14 @@ export class DoctorScheduleService {
       );
     }
 
-    // Validate IN_CLINIC requires hospitalId (skip for BLOCK_OUT)
+    // Validate IN_CLINIC requires doctor.primaryHospitalId (skip for BLOCK_OUT)
     const newAppointmentType = dto.appointmentType ?? existing.appointmentType;
-    const newHospitalId = dto.hospitalId !== undefined ? dto.hospitalId : existing.hospitalId;
     if (newScheduleType !== ScheduleType.BLOCK_OUT) {
-      if (newAppointmentType === AppointmentTypeEnum.IN_CLINIC && !newHospitalId) {
-        throw new BadRequestException('Khám tại phòng khám yêu cầu chọn bệnh viện/phòng khám');
+      if (newAppointmentType === AppointmentTypeEnum.IN_CLINIC) {
+        const doctor = await this.doctorRepository.findOne({ where: { id: existing.doctorId }, select: ['id', 'primaryHospitalId'] });
+        if (!doctor?.primaryHospitalId) {
+          throw new BadRequestException('Khám tại phòng khám yêu cầu bác sĩ có bệnh viện/phòng khám chính (primaryHospitalId)');
+        }
       }
     }
 

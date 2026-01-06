@@ -128,6 +128,18 @@ export class DoctorResponseDto {
   primaryHospitalId?: string | null;
 
   @ApiPropertyOptional({
+    description: 'Thông tin bệnh viện chính',
+    nullable: true,
+  })
+  primaryHospital?: {
+    id: string;
+    name: string;
+    hospitalCode: string;
+    address: string;
+    phone: string;
+  } | null;
+
+  @ApiPropertyOptional({
     example: 'Chuyên sâu nội hô hấp, COPD, hen phế quản...',
     description: 'Mô tả trình độ chuyên môn',
   })

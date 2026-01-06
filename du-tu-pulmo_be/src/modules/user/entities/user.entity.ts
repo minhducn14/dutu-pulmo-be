@@ -103,12 +103,23 @@ export class User {
     this.updatedAt = new Date();
     this.avatarUrl = this.avatarUrl || this.generateDefaultAvatarUrl();
   }
-
-  private generateDefaultAvatarUrl(): string {
-    const firstChar = this.fullName ? this.fullName.charAt(0).toUpperCase() : 'A';
+    private generateDefaultAvatarUrl(): string {
     const width = 150;
     const height = 150;
     const format = 'png';
+
+    const safeName = (this.fullName || '')
+      .trim()
+      .replace(/\s+/g, ' '); // gộp nhiều space
+
+    let firstChar = 'A';
+
+    if (safeName.length > 0) {
+      const nameParts = safeName.split(' ');
+      firstChar = nameParts[nameParts.length - 1]
+        .charAt(0)
+        .toUpperCase();
+    }
 
     const lightColors = [
       'F0F8FF', 'FAEBD7', 'F5F5DC', 'FFFACD', 'FAF0E6',
@@ -116,8 +127,9 @@ export class User {
       'F0FFFF', 'F8F8FF', 'F5F5F5', 'FFFFE0', 'FFFFF0',
       'FFFAFA', '7FFFD4', 'ADD8E6', 'B0E0E6', 'AFEEEE',
       'E0FFFF', '87CEFA', 'B0C4DE', 'D3D3D3', '98FB98',
-      'F5F5DC', 'FAF0E6', 'FFF8DC', 'FFEBCD', 'FFF5EE',
+      'FFF8DC', 'FFEBCD', 'FFF5EE',
     ];
+
     const darkColors = [
       '8B0000', 'A0522D', '800000', '8B4513', '4682B4',
       '00008B', '191970', '008080', '006400', '556B2F',
@@ -127,19 +139,20 @@ export class User {
     ];
 
     const allColors = [...lightColors, ...darkColors];
-    const randomIndex = Math.floor(Math.random() * allColors.length);
-    const backgroundColor = allColors[randomIndex];
+    const backgroundColor =
+      allColors[Math.floor(Math.random() * allColors.length)];
 
-    const getRelativeLuminance = (hexColor) => {
-      const r = parseInt(hexColor.slice(0, 2), 16) / 255;
-      const g = parseInt(hexColor.slice(2, 4), 16) / 255;
-      const b = parseInt(hexColor.slice(4, 6), 16) / 255;
+    const getRelativeLuminance = (hex: string) => {
+      const r = parseInt(hex.slice(0, 2), 16) / 255;
+      const g = parseInt(hex.slice(2, 4), 16) / 255;
+      const b = parseInt(hex.slice(4, 6), 16) / 255;
       return 0.2126 * r + 0.7152 * g + 0.0722 * b;
     };
 
     const luminance = getRelativeLuminance(backgroundColor);
     const textColor = luminance > 0.5 ? '000000' : 'ffffff';
 
-    return `https://placehold.jp/70/${backgroundColor}/${textColor}/${width}x${height}.${format}?text=${firstChar}&css=%7B%22font-weight%22%3A%22%20bold%22%7D`;
+    return `https://placehold.jp/70/${backgroundColor}/${textColor}/${width}x${height}.${format}?text=${encodeURIComponent(firstChar)}&css=%7B%22font-weight%22%3A%22bold%22%7D`;
   }
+
 }

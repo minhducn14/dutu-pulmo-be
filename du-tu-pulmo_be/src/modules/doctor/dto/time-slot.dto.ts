@@ -133,3 +133,36 @@ export class GenerateSlotsDto {
   @IsDateString()
   endDate: string;
 }
+
+/**
+ * DTO for toggling a single slot's availability.
+ */
+export class ToggleSlotAvailabilityDto {
+  @ApiProperty({ description: 'Trạng thái có thể đặt', example: false })
+  @IsBoolean()
+  isAvailable: boolean;
+}
+
+/**
+ * DTO for bulk toggling multiple slots' availability.
+ */
+export class BulkToggleSlotsDto {
+  @ApiProperty({ description: 'Danh sách slot IDs (tối đa 100)', type: [String] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsUUID('4', { each: true })
+  slotIds: string[];
+
+  @ApiProperty({ description: 'Trạng thái có thể đặt', example: false })
+  @IsBoolean()
+  isAvailable: boolean;
+}
+
+/**
+ * DTO for disabling all slots for a specific day.
+ */
+export class DisableSlotsForDayDto {
+  @ApiProperty({ description: 'Ngày cần tắt slots (YYYY-MM-DD)', example: '2026-01-15' })
+  @IsDateString()
+  date: string;
+}

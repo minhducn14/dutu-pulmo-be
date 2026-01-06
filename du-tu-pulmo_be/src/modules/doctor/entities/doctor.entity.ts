@@ -18,6 +18,7 @@ import { Specialty } from 'src/modules/common/enums/specialty.enum';
 import { DoctorTitle } from 'src/modules/common/enums/doctor-title.enum';
 import { VerificationStatus } from 'src/modules/common/enums/doctor-verification-status.enum';
 import { DoctorSchedule } from './doctor-schedule.entity';
+import { Hospital } from '../../hospital/entities/hospital.entity';
 
 @Entity('doctors')
 @Index(['verificationStatus'])
@@ -65,6 +66,10 @@ export class Doctor {
   yearsOfExperience: number;
 
   // Nơi công tác
+  @ManyToOne(() => Hospital, (hospital) => hospital.doctors, { nullable: true })
+  @JoinColumn({ name: 'primary_hospital_id' })
+  primaryHospital: Hospital | null;
+
   @Column({ name: 'primary_hospital_id', type: 'uuid', nullable: true })
   primaryHospitalId: string | null;
 

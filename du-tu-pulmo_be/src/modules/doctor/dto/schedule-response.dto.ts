@@ -56,12 +56,6 @@ export class DoctorScheduleResponseDto {
   })
   appointmentType: AppointmentTypeEnum;
 
-  @ApiPropertyOptional({
-    example: 'd7c1cf97-6734-43ae-9a62-0f97b48f5888',
-    description: 'ID bệnh viện/phòng khám',
-  })
-  hospitalId?: string | null;
-
   @ApiProperty({
     example: 60,
     description: 'Thời gian đặt trước tối thiểu (phút)',

@@ -35,7 +35,7 @@ export class DoctorService {
 
   async findAll(): Promise<ResponseCommon<Doctor[]>> {
     const doctors = await this.doctorRepository.find({
-      relations: ['user'],
+      relations: ['user', 'primaryHospital'],
     });
     return new ResponseCommon(200, 'SUCCESS', doctors);
   }
@@ -47,8 +47,7 @@ export class DoctorService {
     const queryBuilder = this.doctorRepository.createQueryBuilder('doctor')
       .leftJoinAndSelect('doctor.user', 'user')
       .leftJoinAndSelect('user.account', 'account')
-      .leftJoinAndSelect('doctor.user', 'user')
-      .leftJoinAndSelect('user.account', 'account');
+      .leftJoinAndSelect('doctor.primaryHospital', 'primaryHospital');
 
     // Tìm kiếm theo tên bác sĩ (từ user.fullName) hoặc bio
     if (search) {
@@ -83,7 +82,7 @@ export class DoctorService {
   async findOne(id: string): Promise<ResponseCommon<Doctor | null>> {
     const doctor = await this.doctorRepository.findOne({
       where: { id },
-      relations: ['user'],
+      relations: ['user', 'primaryHospital'],
     });
     return new ResponseCommon(200, 'SUCCESS', doctor);
   }
@@ -91,7 +90,7 @@ export class DoctorService {
   async findByUserId(userId: string): Promise<ResponseCommon<Doctor | null>> {
     const doctor = await this.doctorRepository.findOne({
       where: { userId },
-      relations: ['user'],
+      relations: ['user', 'primaryHospital'],
     });
     return new ResponseCommon(200, 'SUCCESS', doctor);
   }

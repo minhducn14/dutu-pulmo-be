@@ -18,10 +18,7 @@ import { ScheduleType } from 'src/modules/common/enums/schedule-type.enum';
   'chk_schedule_effective_range',
   `"effective_from" IS NULL OR "effective_until" IS NULL OR "effective_from" <= "effective_until"`
 )
-@Check(
-  'chk_schedule_inclinic_requires_hospital',
-  `"appointment_type" <> 'IN_CLINIC' OR "hospital_id" IS NOT NULL`
-)
+
 export class DoctorSchedule {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -70,8 +67,7 @@ export class DoctorSchedule {
   })
   appointmentType: AppointmentTypeEnum;
 
-  @Column({ name: 'hospital_id', type: 'uuid', nullable: true })
-  hospitalId: string | null;
+
 
   @Column({ name: 'minimum_booking_time', type: 'integer', default: 60 })
   minimumBookingTime: number;

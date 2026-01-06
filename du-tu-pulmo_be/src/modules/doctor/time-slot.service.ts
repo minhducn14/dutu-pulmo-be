@@ -423,6 +423,47 @@ export class TimeSlotService {
     return new ResponseCommon(200, message, { success, failed, errors });
   }
 
+  /**
+   * Helper - Tắt tất cả slots của bác sĩ trong 1 ngày
+   */
+  async disableSlotsForDay(
+    doctorId: string,
+    dateStr: string,
+  ): Promise<ResponseCommon<{ success: number; failed: number; errors: string[] }>> {
+    const targetDate = new Date(dateStr);
+    
+    if (isNaN(targetDate.getTime())) {
+      throw new BadRequestException('Ngày không hợp lệ');
+    }
+
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Get all slots for that day
+    const slots = await this.timeSlotRepository.find({
+      where: {
+        doctorId,
+        startTime: Between(startOfDay, endOfDay),
+      },
+      select: ['id'],
+    });
+
+    const slotIds = slots.map(s => s.id);
+
+    if (slotIds.length === 0) {
+      return new ResponseCommon(200, 'Không có slot nào trong ngày này', {
+        success: 0,
+        failed: 0,
+        errors: [],
+      });
+    }
+
+    return this.bulkToggleSlots(slotIds, false);
+  }
+
   async update(id: string, dto: UpdateTimeSlotDto): Promise<ResponseCommon<TimeSlot>> {
     const existingResult = await this.findById(id);
     const existing = existingResult.data!;
