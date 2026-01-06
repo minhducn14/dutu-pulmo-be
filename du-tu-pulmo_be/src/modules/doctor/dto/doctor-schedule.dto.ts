@@ -32,16 +32,6 @@ export class CreateDoctorScheduleDto {
   @Max(6)
   dayOfWeek: number;
 
-  @ApiProperty({
-    enum: ScheduleType,
-    example: ScheduleType.REGULAR,
-    required: false,
-    description: 'Loại lịch: REGULAR (cố định), FLEXIBLE (linh hoạt), TIME_OFF (nghỉ)',
-  })
-  @IsOptional()
-  @IsEnum(ScheduleType)
-  scheduleType?: ScheduleType = ScheduleType.REGULAR;
-
   @ApiPropertyOptional({
     example: 'Ghi chú lịch làm việc',
     maxLength: 500,

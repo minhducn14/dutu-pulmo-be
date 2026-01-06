@@ -51,6 +51,17 @@ export class DoctorScheduleService {
     return new ResponseCommon(200, 'SUCCESS', schedules);
   }
 
+  async findByDoctorIdAndType(
+    doctorId: string,
+    scheduleType: ScheduleType,
+  ): Promise<ResponseCommon<DoctorSchedule[]>> {
+    const schedules = await this.scheduleRepository.find({
+      where: { doctorId, scheduleType },
+      order: { dayOfWeek: 'ASC', startTime: 'ASC' },
+    });
+    return new ResponseCommon(200, 'SUCCESS', schedules);
+  }
+
   async findById(id: string): Promise<ResponseCommon<DoctorSchedule>> {
     const schedule = await this.scheduleRepository.findOne({
       where: { id },
@@ -160,11 +171,15 @@ export class DoctorScheduleService {
     }
   }
 
-  async create(
+  /**
+   * Create a REGULAR schedule (fixed weekly schedule)
+   * Lịch cố định - lặp lại theo tuần
+   */
+  async createRegular(
     doctorId: string,
     dto: CreateDoctorScheduleDto,
   ): Promise<ResponseCommon<DoctorSchedule>> {
-    const scheduleType = dto.scheduleType || ScheduleType.REGULAR;
+    const scheduleType = ScheduleType.REGULAR;
     const priority = SCHEDULE_TYPE_PRIORITY[scheduleType];
 
     if (dto.dayOfWeek < 0 || dto.dayOfWeek > 6) {
@@ -173,19 +188,10 @@ export class DoctorScheduleService {
       );
     }
 
-    // Validate time ranges and slot duration (SKIP for TIME_OFF)
-    if (scheduleType !== ScheduleType.TIME_OFF) {
-      this.validateTimeRange(dto);
-    }
+    // Validate time ranges and slot duration
+    this.validateTimeRange(dto);
 
-    // TIME_OFF must have isAvailable=false
-    let isAvailable = dto.isAvailable ?? true;
-    if (scheduleType === ScheduleType.TIME_OFF) {
-      isAvailable = false;
-      // For time-off, defaults if not provided
-      if (!dto.startTime) dto.startTime = '00:00';
-      if (!dto.endTime) dto.endTime = '23:59';
-    }
+    const isAvailable = dto.isAvailable ?? true;
 
     // Check for overlapping schedules
     const effectiveFromDate = dto.effectiveFrom
@@ -205,18 +211,16 @@ export class DoctorScheduleService {
       priority,
     );
 
-    // Validate IN_CLINIC requires doctor.primaryHospitalId (SKIP for TIME_OFF)
-    if (scheduleType !== ScheduleType.TIME_OFF) {
-      if (dto.appointmentType === AppointmentTypeEnum.IN_CLINIC) {
-        const doctor = await this.doctorRepository.findOne({
-          where: { id: doctorId },
-          select: ['id', 'primaryHospitalId'],
-        });
-        if (!doctor?.primaryHospitalId) {
-          throw new BadRequestException(
-            'Khám tại phòng khám yêu cầu bác sĩ có bệnh viện/phòng khám chính (primaryHospitalId)',
-          );
-        }
+    // Validate IN_CLINIC requires doctor.primaryHospitalId
+    if (dto.appointmentType === AppointmentTypeEnum.IN_CLINIC) {
+      const doctor = await this.doctorRepository.findOne({
+        where: { id: doctorId },
+        select: ['id', 'primaryHospitalId'],
+      });
+      if (!doctor?.primaryHospitalId) {
+        throw new BadRequestException(
+          'Khám tại phòng khám yêu cầu bác sĩ có bệnh viện/phòng khám chính (primaryHospitalId)',
+        );
       }
     }
 
@@ -227,18 +231,14 @@ export class DoctorScheduleService {
       scheduleType,
       isAvailable,
       consultationFee: dto.consultationFee?.toString() ?? null,
-      effectiveFrom: dto.effectiveFrom ? new Date(dto.effectiveFrom) : null,
-      effectiveUntil: dto.effectiveUntil ? new Date(dto.effectiveUntil) : null,
+      effectiveFrom: effectiveFromDate,
+      effectiveUntil: effectiveUntilDate,
     });
 
     const saved = await this.scheduleRepository.save(schedule);
 
-    let message = 'Tạo lịch làm việc thành công';
-    if (scheduleType === ScheduleType.TIME_OFF) {
-      message = `Tạo lịch nghỉ thành công (${dto.note || 'không có ghi chú'})`;
-    } else if (scheduleType === ScheduleType.FLEXIBLE) {
-      message = 'Tạo lịch linh hoạt thành công';
-    } else if (!effectiveUntilDate) {
+    let message = 'Tạo lịch làm việc cố định thành công';
+    if (!effectiveUntilDate) {
       message += ' (lịch vô thời hạn)';
     }
 
@@ -246,10 +246,11 @@ export class DoctorScheduleService {
   }
 
   /**
-   * Bulk create multiple schedules in one request.
+   * Bulk create multiple REGULAR schedules in one request.
+   * REGULAR schedules are fixed weekly schedules that repeat every week.
    * Wrapped in transaction for atomicity - all succeed or all fail.
    */
-  async createMany(
+  async createManyRegular(
     doctorId: string,
     dtos: CreateDoctorScheduleDto[],
   ): Promise<ResponseCommon<DoctorSchedule[]>> {
@@ -257,18 +258,15 @@ export class DoctorScheduleService {
       throw new BadRequestException('Danh sách lịch làm việc không được rỗng');
     }
 
-    const dtosWithPriority = dtos.map((dto) => {
-      const scheduleType = dto.scheduleType || ScheduleType.REGULAR;
-      return {
-        ...dto,
-        scheduleType,
-        priority: SCHEDULE_TYPE_PRIORITY[scheduleType],
-        isAvailable:
-          scheduleType === ScheduleType.TIME_OFF
-            ? false
-            : (dto.isAvailable ?? true),
-      };
-    });
+    const scheduleType = ScheduleType.REGULAR;
+    const priority = SCHEDULE_TYPE_PRIORITY[scheduleType];
+
+    const dtosWithPriority = dtos.map((dto) => ({
+      ...dto,
+      scheduleType,
+      priority,
+      isAvailable: dto.isAvailable ?? true,
+    }));
 
     // Validate all schedules first
     for (const dto of dtosWithPriority) {
@@ -278,10 +276,8 @@ export class DoctorScheduleService {
         );
       }
 
-      // Validate time ranges and slot duration (skip for TIME_OFF)
-      if (dto.scheduleType !== ScheduleType.TIME_OFF) {
-        this.validateTimeRange(dto);
-      }
+      // Validate time ranges and slot duration
+      this.validateTimeRange(dto);
     }
 
     // Check overlaps with existing schedules AND between new schedules
@@ -314,30 +310,27 @@ export class DoctorScheduleService {
             dtosWithPriority[i].endTime > dtosWithPriority[j].startTime;
 
           if (timeOverlap) {
-            // Only check overlap if SAME priority
-            if (dtosWithPriority[i].priority === dtosWithPriority[j].priority) {
-              const iFrom = dtosWithPriority[i].effectiveFrom
-                ? new Date(dtosWithPriority[i].effectiveFrom!)
-                : null;
-              const iUntil = dtosWithPriority[i].effectiveUntil
-                ? new Date(dtosWithPriority[i].effectiveUntil!)
-                : null;
-              const jFrom = dtosWithPriority[j].effectiveFrom
-                ? new Date(dtosWithPriority[j].effectiveFrom!)
-                : null;
-              const jUntil = dtosWithPriority[j].effectiveUntil
-                ? new Date(dtosWithPriority[j].effectiveUntil!)
-                : null;
+            const iFrom = dtosWithPriority[i].effectiveFrom
+              ? new Date(dtosWithPriority[i].effectiveFrom!)
+              : null;
+            const iUntil = dtosWithPriority[i].effectiveUntil
+              ? new Date(dtosWithPriority[i].effectiveUntil!)
+              : null;
+            const jFrom = dtosWithPriority[j].effectiveFrom
+              ? new Date(dtosWithPriority[j].effectiveFrom!)
+              : null;
+            const jUntil = dtosWithPriority[j].effectiveUntil
+              ? new Date(dtosWithPriority[j].effectiveUntil!)
+              : null;
 
-              const dateOverlap =
-                (iFrom === null || jUntil === null || iFrom <= jUntil) &&
-                (jFrom === null || iUntil === null || jFrom <= iUntil);
+            const dateOverlap =
+              (iFrom === null || jUntil === null || iFrom <= jUntil) &&
+              (jFrom === null || iUntil === null || jFrom <= iUntil);
 
-              if (dateOverlap) {
-                throw new ConflictException(
-                  `Lịch ${i + 1} trùng với lịch ${j + 1} trong cùng ngày ${dtosWithPriority[i].dayOfWeek} và khoảng thời gian hiệu lực (cùng priority)`,
-                );
-              }
+            if (dateOverlap) {
+              throw new ConflictException(
+                `Lịch ${i + 1} trùng với lịch ${j + 1} trong cùng ngày ${dtosWithPriority[i].dayOfWeek} và khoảng thời gian hiệu lực`,
+              );
             }
           }
         }
@@ -368,12 +361,23 @@ export class DoctorScheduleService {
     );
   }
 
-  async update(
+  /**
+   * Update a REGULAR schedule.
+   * Cannot change scheduleType - use specific methods for other schedule types.
+   */
+  async updateRegular(
     id: string,
     dto: UpdateDoctorScheduleDto,
   ): Promise<ResponseCommon<DoctorSchedule>> {
     const existingResult = await this.findById(id);
     const existing = existingResult.data!;
+
+    // Ensure this is a REGULAR schedule
+    if (existing.scheduleType !== ScheduleType.REGULAR) {
+      throw new BadRequestException(
+        `Lịch này không phải là lịch cố định (REGULAR). Sử dụng API phù hợp để cập nhật loại lịch ${existing.scheduleType}`,
+      );
+    }
 
     // Validate time ranges
     this.validateTimeRange(dto);
@@ -383,18 +387,10 @@ export class DoctorScheduleService {
     const newStartTime = dto.startTime ?? existing.startTime;
     const newEndTime = dto.endTime ?? existing.endTime;
 
-    // Recalculate priority if scheduleType changed
-    let newPriority = existing.priority;
-    if (dto.scheduleType !== undefined) {
-      newPriority = SCHEDULE_TYPE_PRIORITY[dto.scheduleType];
-    }
+    // Priority stays the same for REGULAR schedules
+    const priority = SCHEDULE_TYPE_PRIORITY[ScheduleType.REGULAR];
 
-    // Force isAvailable=false if changing to TIME_OFF
-    let newIsAvailable = dto.isAvailable ?? existing.isAvailable;
-    const newScheduleType = dto.scheduleType ?? existing.scheduleType;
-    if (newScheduleType === ScheduleType.TIME_OFF) {
-      newIsAvailable = false;
-    }
+    const newIsAvailable = dto.isAvailable ?? existing.isAvailable;
 
     // Resolve effecitve dates: if in DTO use it (could be null), else use existing
     let newEffectiveFrom: Date | null = existing.effectiveFrom;
@@ -414,8 +410,7 @@ export class DoctorScheduleService {
       dto.startTime !== undefined ||
       dto.endTime !== undefined ||
       dto.effectiveFrom !== undefined ||
-      dto.effectiveUntil !== undefined ||
-      dto.scheduleType !== undefined
+      dto.effectiveUntil !== undefined
     ) {
       await this.checkOverlap(
         existing.doctorId,
@@ -424,30 +419,29 @@ export class DoctorScheduleService {
         newEndTime,
         newEffectiveFrom,
         newEffectiveUntil,
-        newPriority,
+        priority,
         id,
       );
     }
 
-    // Validate IN_CLINIC requires doctor.primaryHospitalId (skip for TIME_OFF)
+    // Validate IN_CLINIC requires doctor.primaryHospitalId
     const newAppointmentType = dto.appointmentType ?? existing.appointmentType;
-    if (newScheduleType !== ScheduleType.TIME_OFF) {
-      if (newAppointmentType === AppointmentTypeEnum.IN_CLINIC) {
-        const doctor = await this.doctorRepository.findOne({
-          where: { id: existing.doctorId },
-          select: ['id', 'primaryHospitalId'],
-        });
-        if (!doctor?.primaryHospitalId) {
-          throw new BadRequestException(
-            'Khám tại phòng khám yêu cầu bác sĩ có bệnh viện/phòng khám chính (primaryHospitalId)',
-          );
-        }
+    if (newAppointmentType === AppointmentTypeEnum.IN_CLINIC) {
+      const doctor = await this.doctorRepository.findOne({
+        where: { id: existing.doctorId },
+        select: ['id', 'primaryHospitalId'],
+      });
+      if (!doctor?.primaryHospitalId) {
+        throw new BadRequestException(
+          'Khám tại phòng khám yêu cầu bác sĩ có bệnh viện/phòng khám chính (primaryHospitalId)',
+        );
       }
     }
 
     const updateData: Partial<DoctorSchedule> = {
       ...dto,
-      priority: newPriority,
+      scheduleType: undefined, // Cannot change scheduleType
+      priority,
       isAvailable: newIsAvailable,
       consultationFee:
         dto.consultationFee !== undefined
@@ -478,15 +472,117 @@ export class DoctorScheduleService {
     const updated = await this.scheduleRepository.findOne({ where: { id } });
     return new ResponseCommon(
       200,
-      'Cập nhật lịch làm việc thành công',
+      'Cập nhật lịch làm việc cố định thành công',
       updated!,
     );
   }
 
-  async delete(id: string): Promise<ResponseCommon<null>> {
+  /**
+   * Internal method to update any schedule type.
+   * Used by updateFlexibleSchedule and updateTimeOff.
+   */
+  private async updateScheduleInternal(
+    id: string,
+    dto: UpdateDoctorScheduleDto,
+  ): Promise<ResponseCommon<DoctorSchedule>> {
+    const existingResult = await this.findById(id);
+    const existing = existingResult.data!;
+
+    // Validate time ranges
+    this.validateTimeRange(dto);
+
+    // Check overlap if time or day changed
+    const newDayOfWeek = dto.dayOfWeek ?? existing.dayOfWeek;
+    const newStartTime = dto.startTime ?? existing.startTime;
+    const newEndTime = dto.endTime ?? existing.endTime;
+
+    const priority = existing.priority;
+    const newIsAvailable = dto.isAvailable ?? existing.isAvailable;
+
+    // Resolve effective dates
+    let newEffectiveFrom: Date | null = existing.effectiveFrom;
+    if (dto.effectiveFrom !== undefined) {
+      newEffectiveFrom = dto.effectiveFrom ? new Date(dto.effectiveFrom) : null;
+    }
+
+    let newEffectiveUntil: Date | null = existing.effectiveUntil;
+    if (dto.effectiveUntil !== undefined) {
+      newEffectiveUntil = dto.effectiveUntil
+        ? new Date(dto.effectiveUntil)
+        : null;
+    }
+
+    if (
+      dto.dayOfWeek !== undefined ||
+      dto.startTime !== undefined ||
+      dto.endTime !== undefined ||
+      dto.effectiveFrom !== undefined ||
+      dto.effectiveUntil !== undefined
+    ) {
+      await this.checkOverlap(
+        existing.doctorId,
+        newDayOfWeek,
+        newStartTime,
+        newEndTime,
+        newEffectiveFrom,
+        newEffectiveUntil,
+        priority,
+        id,
+      );
+    }
+
+    const updateData: Partial<DoctorSchedule> = {
+      ...dto,
+      scheduleType: undefined,
+      priority: undefined,
+      isAvailable: newIsAvailable,
+      consultationFee:
+        dto.consultationFee !== undefined
+          ? (dto.consultationFee?.toString() ?? null)
+          : undefined,
+      effectiveFrom:
+        dto.effectiveFrom !== undefined
+          ? dto.effectiveFrom
+            ? new Date(dto.effectiveFrom)
+            : null
+          : undefined,
+      effectiveUntil:
+        dto.effectiveUntil !== undefined
+          ? dto.effectiveUntil
+            ? new Date(dto.effectiveUntil)
+            : null
+          : undefined,
+    };
+
+    // Remove undefined fields
+    Object.keys(updateData).forEach((key) => {
+      if (updateData[key as keyof typeof updateData] === undefined) {
+        delete updateData[key as keyof typeof updateData];
+      }
+    });
+
+    await this.scheduleRepository.update(id, updateData);
+    const updated = await this.scheduleRepository.findOne({ where: { id } });
+    return new ResponseCommon(
+      200,
+      'Cập nhật lịch thành công',
+      updated!,
+    );
+  }
+
+
+  async deleteRegular(id: string): Promise<ResponseCommon<null>> {
     const scheduleResult = await this.findById(id);
-    await this.scheduleRepository.remove(scheduleResult.data!);
-    return new ResponseCommon(200, 'Xóa lịch làm việc thành công', null);
+    const schedule = scheduleResult.data!;
+
+    if (schedule.scheduleType !== ScheduleType.REGULAR) {
+      throw new BadRequestException(
+        `Lịch này không phải là lịch cố định (REGULAR). Sử dụng API phù hợp để xóa loại lịch ${schedule.scheduleType}`,
+      );
+    }
+
+    await this.scheduleRepository.remove(schedule);
+    return new ResponseCommon(200, 'Xóa lịch làm việc cố định thành công', null);
   }
 
   async findAvailableByDoctor(
@@ -717,9 +813,27 @@ export class DoctorScheduleService {
       isAvailable: dto.isAvailable,
     };
 
-    return this.update(id, updateDto);
+    return this.updateScheduleInternal(id, updateDto);
   }
-  
+
+  /**
+   * Delete a flexible schedule
+   * Xóa lịch làm việc linh hoạt
+   */
+  async deleteFlexibleSchedule(id: string): Promise<ResponseCommon<null>> {
+    const existingResult = await this.findById(id);
+    const schedule = existingResult.data!;
+
+    if (schedule.scheduleType !== ScheduleType.FLEXIBLE) {
+      throw new BadRequestException(
+        `Lịch này không phải là lịch linh hoạt (FLEXIBLE). Sử dụng API phù hợp để xóa loại lịch ${schedule.scheduleType}`,
+      );
+    }
+
+    await this.scheduleRepository.remove(schedule);
+    return new ResponseCommon(200, 'Xóa lịch làm việc linh hoạt thành công', null);
+  }
+
   async createTimeOff(
     doctorId: string,
     dto: CreateTimeOffDto,
@@ -829,7 +943,25 @@ export class DoctorScheduleService {
       isAvailable: dto.isAvailable,
     };
 
-    return this.update(id, updateDto);
+    return this.updateScheduleInternal(id, updateDto);
+  }
+
+  /**
+   * Delete a time-off schedule
+   * Xóa lịch nghỉ
+   */
+  async deleteTimeOff(id: string): Promise<ResponseCommon<null>> {
+    const existingResult = await this.findById(id);
+    const schedule = existingResult.data!;
+
+    if (schedule.scheduleType !== ScheduleType.TIME_OFF) {
+      throw new BadRequestException(
+        `Lịch này không phải là lịch nghỉ (TIME_OFF). Sử dụng API phù hợp để xóa loại lịch ${schedule.scheduleType}`,
+      );
+    }
+
+    await this.scheduleRepository.remove(schedule);
+    return new ResponseCommon(200, 'Xóa lịch nghỉ thành công', null);
   }
 
   private async cancelConflictingAppointments(
