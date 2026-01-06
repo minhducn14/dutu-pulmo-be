@@ -1,15 +1,11 @@
 export enum ScheduleType {
-  REGULAR = 'REGULAR', // Lịch thường ngày (priority 0)
-  TEMPORARY = 'TEMPORARY', // Lịch tạm thời, đột xuất (priority 50)
-  HOLIDAY = 'HOLIDAY', // Lịch ngày lễ - giờ giảm (priority 100)
-  BLOCK_OUT = 'BLOCK_OUT', // Nghỉ hoàn toàn cả ngày (priority 200)
-  EMERGENCY = 'EMERGENCY', // Khẩn cấp (priority 300)
+  REGULAR = 'REGULAR', // Lịch cố định - lặp lại theo tuần (priority 0)
+  FLEXIBLE = 'FLEXIBLE', // Lịch làm việc linh hoạt - ngày cụ thể (priority 50)
+  TIME_OFF = 'TIME_OFF', // Lịch nghỉ - block khung giờ cụ thể của ngày cụ thể (priority 100)
 }
 
 export const SCHEDULE_TYPE_PRIORITY: Record<ScheduleType, number> = {
   [ScheduleType.REGULAR]: 0,
-  [ScheduleType.TEMPORARY]: 50,
-  [ScheduleType.HOLIDAY]: 100,
-  [ScheduleType.BLOCK_OUT]: 200,
-  [ScheduleType.EMERGENCY]: 300,
+  [ScheduleType.FLEXIBLE]: 50,
+  [ScheduleType.TIME_OFF]: 100,
 };

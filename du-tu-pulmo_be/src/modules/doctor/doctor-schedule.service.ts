@@ -5,15 +5,22 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, Between, In } from 'typeorm';
 import { DoctorSchedule } from './entities/doctor-schedule.entity';
 import { Doctor } from './entities/doctor.entity';
+import { TimeSlot } from './entities/time-slot.entity';
+import { Appointment } from '../appointment/entities/appointment.entity';
 import {
   CreateDoctorScheduleDto,
   UpdateDoctorScheduleDto,
-  BulkHolidayScheduleDto,
 } from './dto/doctor-schedule.dto';
+import {
+  CreateFlexibleScheduleDto,
+  UpdateFlexibleScheduleDto,
+} from './dto/flexible-schedule.dto';
+import { CreateTimeOffDto, UpdateTimeOffDto } from './dto/time-off.dto';
 import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
+import { AppointmentStatusEnum } from 'src/modules/common/enums/appointment-status.enum';
 import { ResponseCommon } from 'src/common/dto/response.dto';
 import {
   SCHEDULE_TYPE_PRIORITY,
@@ -27,6 +34,10 @@ export class DoctorScheduleService {
     private readonly scheduleRepository: Repository<DoctorSchedule>,
     @InjectRepository(Doctor)
     private readonly doctorRepository: Repository<Doctor>,
+    @InjectRepository(TimeSlot)
+    private readonly timeSlotRepository: Repository<TimeSlot>,
+    @InjectRepository(Appointment)
+    private readonly appointmentRepository: Repository<Appointment>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -162,16 +173,16 @@ export class DoctorScheduleService {
       );
     }
 
-    // Validate time ranges and slot duration (SKIP for BLOCK_OUT)
-    if (scheduleType !== ScheduleType.BLOCK_OUT) {
+    // Validate time ranges and slot duration (SKIP for TIME_OFF)
+    if (scheduleType !== ScheduleType.TIME_OFF) {
       this.validateTimeRange(dto);
     }
 
-    // BLOCK_OUT must have isAvailable=false
+    // TIME_OFF must have isAvailable=false
     let isAvailable = dto.isAvailable ?? true;
-    if (scheduleType === ScheduleType.BLOCK_OUT) {
+    if (scheduleType === ScheduleType.TIME_OFF) {
       isAvailable = false;
-      // For block-out, defaults if not provided
+      // For time-off, defaults if not provided
       if (!dto.startTime) dto.startTime = '00:00';
       if (!dto.endTime) dto.endTime = '23:59';
     }
@@ -194,8 +205,8 @@ export class DoctorScheduleService {
       priority,
     );
 
-    // Validate IN_CLINIC requires doctor.primaryHospitalId (SKIP for BLOCK_OUT)
-    if (scheduleType !== ScheduleType.BLOCK_OUT) {
+    // Validate IN_CLINIC requires doctor.primaryHospitalId (SKIP for TIME_OFF)
+    if (scheduleType !== ScheduleType.TIME_OFF) {
       if (dto.appointmentType === AppointmentTypeEnum.IN_CLINIC) {
         const doctor = await this.doctorRepository.findOne({
           where: { id: doctorId },
@@ -223,10 +234,10 @@ export class DoctorScheduleService {
     const saved = await this.scheduleRepository.save(schedule);
 
     let message = 'Tạo lịch làm việc thành công';
-    if (scheduleType === ScheduleType.BLOCK_OUT) {
+    if (scheduleType === ScheduleType.TIME_OFF) {
       message = `Tạo lịch nghỉ thành công (${dto.note || 'không có ghi chú'})`;
-    } else if (scheduleType === ScheduleType.HOLIDAY) {
-      message = `Tạo lịch ngày lễ thành công (${dto.note || 'không có ghi chú'})`;
+    } else if (scheduleType === ScheduleType.FLEXIBLE) {
+      message = 'Tạo lịch linh hoạt thành công';
     } else if (!effectiveUntilDate) {
       message += ' (lịch vô thời hạn)';
     }
@@ -253,7 +264,7 @@ export class DoctorScheduleService {
         scheduleType,
         priority: SCHEDULE_TYPE_PRIORITY[scheduleType],
         isAvailable:
-          scheduleType === ScheduleType.BLOCK_OUT
+          scheduleType === ScheduleType.TIME_OFF
             ? false
             : (dto.isAvailable ?? true),
       };
@@ -267,8 +278,8 @@ export class DoctorScheduleService {
         );
       }
 
-      // Validate time ranges and slot duration (skip for BLOCK_OUT)
-      if (dto.scheduleType !== ScheduleType.BLOCK_OUT) {
+      // Validate time ranges and slot duration (skip for TIME_OFF)
+      if (dto.scheduleType !== ScheduleType.TIME_OFF) {
         this.validateTimeRange(dto);
       }
     }
@@ -357,53 +368,6 @@ export class DoctorScheduleService {
     );
   }
 
-  async createBulkHoliday(
-    doctorId: string,
-    dto: BulkHolidayScheduleDto,
-  ): Promise<ResponseCommon<DoctorSchedule[]>> {
-    // Validate date range
-    const startDate = new Date(dto.startDate);
-    const endDate = new Date(dto.endDate);
-
-    if (startDate >= endDate) {
-      throw new BadRequestException('Ngày bắt đầu phải trước ngày kết thúc');
-    }
-
-    if (dto.daysOfWeek.length === 0) {
-      throw new BadRequestException('Phải chọn ít nhất 1 ngày trong tuần');
-    }
-
-    const isBlockOut = dto.scheduleType === ScheduleType.BLOCK_OUT;
-    const isBlockingSchedule = isBlockOut;
-
-    const startTime = isBlockOut ? '00:00' : dto.startTime || '09:00';
-    const endTime = isBlockOut ? '23:59' : dto.endTime || '17:00';
-
-    // For BLOCK_OUT/HOLIDAY, use ONLINE to avoid hospital_id requirement
-    const appointmentType = isBlockingSchedule
-      ? AppointmentTypeEnum.VIDEO
-      : dto.appointmentType || AppointmentTypeEnum.IN_CLINIC;
-
-    const scheduleDtos: CreateDoctorScheduleDto[] = dto.daysOfWeek.map(
-      (dayOfWeek) => ({
-        dayOfWeek,
-        startTime,
-        endTime,
-        slotDuration: dto.slotDuration || 30,
-        slotCapacity: dto.slotCapacity || 1,
-        appointmentType,
-        effectiveFrom: dto.startDate,
-        effectiveUntil: dto.endDate,
-        scheduleType: dto.scheduleType,
-        note: dto.note,
-        consultationFee: dto.consultationFee,
-        isAvailable: !isBlockingSchedule,
-      }),
-    );
-
-    return this.createMany(doctorId, scheduleDtos);
-  }
-
   async update(
     id: string,
     dto: UpdateDoctorScheduleDto,
@@ -425,10 +389,10 @@ export class DoctorScheduleService {
       newPriority = SCHEDULE_TYPE_PRIORITY[dto.scheduleType];
     }
 
-    // Force isAvailable=false if changing to BLOCK_OUT
+    // Force isAvailable=false if changing to TIME_OFF
     let newIsAvailable = dto.isAvailable ?? existing.isAvailable;
     const newScheduleType = dto.scheduleType ?? existing.scheduleType;
-    if (newScheduleType === ScheduleType.BLOCK_OUT) {
+    if (newScheduleType === ScheduleType.TIME_OFF) {
       newIsAvailable = false;
     }
 
@@ -465,9 +429,9 @@ export class DoctorScheduleService {
       );
     }
 
-    // Validate IN_CLINIC requires doctor.primaryHospitalId (skip for BLOCK_OUT)
+    // Validate IN_CLINIC requires doctor.primaryHospitalId (skip for TIME_OFF)
     const newAppointmentType = dto.appointmentType ?? existing.appointmentType;
-    if (newScheduleType !== ScheduleType.BLOCK_OUT) {
+    if (newScheduleType !== ScheduleType.TIME_OFF) {
       if (newAppointmentType === AppointmentTypeEnum.IN_CLINIC) {
         const doctor = await this.doctorRepository.findOne({
           where: { id: existing.doctorId },
@@ -625,5 +589,350 @@ export class DoctorScheduleService {
       effectiveConsultationFee:
         schedule.consultationFee ?? doctorFeeMap.get(schedule.doctorId) ?? null,
     }));
+  }
+
+  // ========================================
+  // FLEXIBLE SCHEDULE METHODS
+  // ========================================
+
+  /**
+   * Create a flexible working schedule for a specific date
+   * Lịch làm việc linh hoạt - chỉ áp dụng cho ngày đã chọn, không lặp lại
+   */
+  async createFlexibleSchedule(
+    doctorId: string,
+    dto: CreateFlexibleScheduleDto,
+  ): Promise<ResponseCommon<DoctorSchedule & { cancelledAppointments: number }>> {
+    const specificDate = new Date(dto.specificDate);
+    const dayOfWeek = specificDate.getDay();
+    const priority = SCHEDULE_TYPE_PRIORITY[ScheduleType.FLEXIBLE];
+
+    // Validate time
+    if (dto.startTime >= dto.endTime) {
+      throw new BadRequestException('Giờ bắt đầu phải trước giờ kết thúc');
+    }
+
+    // Validate date is not in the past
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (specificDate < today) {
+      throw new BadRequestException('Không thể tạo lịch cho ngày trong quá khứ');
+    }
+
+    // Validate doctor exists
+    const doctor = await this.doctorRepository.findOne({
+      where: { id: doctorId },
+      select: ['id', 'primaryHospitalId'],
+    });
+    if (!doctor) {
+      throw new NotFoundException(`Không tìm thấy bác sĩ với ID ${doctorId}`);
+    }
+
+    // Validate IN_CLINIC requires doctor.primaryHospitalId
+    if (dto.appointmentType === AppointmentTypeEnum.IN_CLINIC) {
+      if (!doctor.primaryHospitalId) {
+        throw new BadRequestException(
+          'Khám tại phòng khám yêu cầu bác sĩ có bệnh viện/phòng khám chính (primaryHospitalId)',
+        );
+      }
+    }
+
+    // Check overlap with existing schedules for this specific date
+    await this.checkOverlap(
+      doctorId,
+      dayOfWeek,
+      dto.startTime,
+      dto.endTime,
+      specificDate,
+      specificDate,
+      priority,
+    );
+
+    // Cancel conflicting appointments
+    const cancelledCount = await this.cancelConflictingAppointments(
+      doctorId,
+      specificDate,
+      dto.startTime,
+      dto.endTime,
+    );
+
+    // Create the schedule
+    const schedule = this.scheduleRepository.create({
+      doctorId,
+      scheduleType: ScheduleType.FLEXIBLE,
+      priority,
+      dayOfWeek,
+      specificDate,
+      startTime: dto.startTime,
+      endTime: dto.endTime,
+      slotCapacity: dto.slotCapacity,
+      slotDuration: dto.slotDuration,
+      appointmentType: dto.appointmentType,
+      minimumBookingTime: dto.minimumBookingDays
+        ? dto.minimumBookingDays * 24 * 60
+        : 60,
+      maxAdvanceBookingDays: dto.maxAdvanceBookingDays ?? 30,
+      consultationFee: dto.consultationFee?.toString() ?? null,
+      discountPercent: dto.discountPercent ?? 0,
+      isAvailable: dto.isAvailable ?? true,
+      effectiveFrom: specificDate,
+      effectiveUntil: specificDate,
+    });
+
+    const saved = await this.scheduleRepository.save(schedule);
+
+    const message =
+      cancelledCount > 0
+        ? `Tạo lịch làm việc linh hoạt thành công. ${cancelledCount} lịch hẹn đã được hủy tự động.`
+        : 'Tạo lịch làm việc linh hoạt thành công';
+
+    return new ResponseCommon(201, message, {
+      ...saved,
+      cancelledAppointments: cancelledCount,
+    });
+  }
+
+  /**
+   * Update a flexible schedule
+   */
+  async updateFlexibleSchedule(
+    id: string,
+    dto: UpdateFlexibleScheduleDto,
+  ): Promise<ResponseCommon<DoctorSchedule>> {
+    const existingResult = await this.findById(id);
+    const existing = existingResult.data!;
+
+    if (existing.scheduleType !== ScheduleType.FLEXIBLE) {
+      throw new BadRequestException('Lịch này không phải là lịch linh hoạt');
+    }
+
+    // Use existing update logic
+    const updateDto: UpdateDoctorScheduleDto = {
+      startTime: dto.startTime,
+      endTime: dto.endTime,
+      slotCapacity: dto.slotCapacity,
+      slotDuration: dto.slotDuration,
+      appointmentType: dto.appointmentType,
+      consultationFee: dto.consultationFee,
+      isAvailable: dto.isAvailable,
+    };
+
+    return this.update(id, updateDto);
+  }
+  
+  async createTimeOff(
+    doctorId: string,
+    dto: CreateTimeOffDto,
+  ): Promise<ResponseCommon<DoctorSchedule & { cancelledAppointments: number }>> {
+    const specificDate = new Date(dto.specificDate);
+    const dayOfWeek = specificDate.getDay();
+    const priority = SCHEDULE_TYPE_PRIORITY[ScheduleType.TIME_OFF];
+
+    // Validate time
+    if (dto.startTime >= dto.endTime) {
+      throw new BadRequestException('Giờ bắt đầu phải trước giờ kết thúc');
+    }
+
+    // Validate date is not in the past
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (specificDate < today) {
+      throw new BadRequestException('Không thể tạo lịch nghỉ cho ngày trong quá khứ');
+    }
+
+    // Validate doctor exists
+    const doctor = await this.doctorRepository.findOne({
+      where: { id: doctorId },
+      select: ['id'],
+    });
+    if (!doctor) {
+      throw new NotFoundException(`Không tìm thấy bác sĩ với ID ${doctorId}`);
+    }
+
+    // Check overlap with existing schedules
+    await this.checkOverlap(
+      doctorId,
+      dayOfWeek,
+      dto.startTime,
+      dto.endTime,
+      specificDate,
+      specificDate,
+      priority,
+    );
+
+    // Cancel conflicting appointments
+    const cancelledCount = await this.cancelConflictingAppointments(
+      doctorId,
+      specificDate,
+      dto.startTime,
+      dto.endTime,
+    );
+
+    // Disable conflicting time slots
+    await this.disableConflictingTimeSlots(
+      doctorId,
+      specificDate,
+      dto.startTime,
+      dto.endTime,
+    );
+
+    // Create the schedule
+    const schedule = this.scheduleRepository.create({
+      doctorId,
+      scheduleType: ScheduleType.TIME_OFF,
+      priority,
+      dayOfWeek,
+      specificDate,
+      startTime: dto.startTime,
+      endTime: dto.endTime,
+      // TIME_OFF doesn't need slot settings, use defaults
+      slotCapacity: 1,
+      slotDuration: 30,
+      appointmentType: AppointmentTypeEnum.VIDEO, // Doesn't matter for TIME_OFF
+      isAvailable: false, // TIME_OFF is always unavailable
+      note: dto.note ?? null,
+      effectiveFrom: specificDate,
+      effectiveUntil: specificDate,
+    });
+
+    const saved = await this.scheduleRepository.save(schedule);
+
+    const message =
+      cancelledCount > 0
+        ? `Tạo lịch nghỉ thành công. ${cancelledCount} lịch hẹn đã được hủy tự động.`
+        : 'Tạo lịch nghỉ thành công';
+
+    return new ResponseCommon(201, message, {
+      ...saved,
+      cancelledAppointments: cancelledCount,
+    });
+  }
+
+  /**
+   * Update a time-off schedule
+   */
+  async updateTimeOff(
+    id: string,
+    dto: UpdateTimeOffDto,
+  ): Promise<ResponseCommon<DoctorSchedule>> {
+    const existingResult = await this.findById(id);
+    const existing = existingResult.data!;
+
+    if (existing.scheduleType !== ScheduleType.TIME_OFF) {
+      throw new BadRequestException('Lịch này không phải là lịch nghỉ');
+    }
+
+    const updateDto: UpdateDoctorScheduleDto = {
+      startTime: dto.startTime,
+      endTime: dto.endTime,
+      note: dto.note,
+      isAvailable: dto.isAvailable,
+    };
+
+    return this.update(id, updateDto);
+  }
+
+  private async cancelConflictingAppointments(
+    doctorId: string,
+    specificDate: Date,
+    startTime: string,
+    endTime: string,
+  ): Promise<number> {
+    const startOfDay = new Date(specificDate);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(specificDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Parse time strings
+    const [startH, startM] = startTime.split(':').map(Number);
+    const [endH, endM] = endTime.split(':').map(Number);
+
+    const scheduleStart = new Date(specificDate);
+    scheduleStart.setHours(startH, startM, 0, 0);
+
+    const scheduleEnd = new Date(specificDate);
+    scheduleEnd.setHours(endH, endM, 0, 0);
+
+    // Find appointments that overlap with the time range
+    // Include both CONFIRMED and PENDING_PAYMENT statuses
+    const appointments = await this.appointmentRepository.find({
+      where: {
+        doctorId,
+        scheduledAt: Between(startOfDay, endOfDay),
+        status: In([
+          AppointmentStatusEnum.CONFIRMED,
+          AppointmentStatusEnum.PENDING_PAYMENT,
+        ]),
+      },
+    });
+
+    // Filter to only those that overlap with the schedule time
+    const conflicting = appointments.filter((apt) => {
+      const aptEnd = new Date(
+        apt.scheduledAt.getTime() + apt.durationMinutes * 60 * 1000,
+      );
+      return apt.scheduledAt < scheduleEnd && aptEnd > scheduleStart;
+    });
+
+    if (conflicting.length === 0) {
+      return 0;
+    }
+
+    // Cancel each conflicting appointment
+    await this.dataSource.transaction(async (manager) => {
+      for (const apt of conflicting) {
+        apt.status = AppointmentStatusEnum.CANCELLED;
+        apt.cancelledAt = new Date();
+        apt.cancellationReason = 'SCHEDULE_CHANGE';
+        apt.cancelledBy = 'SYSTEM';
+
+        await manager.save(apt);
+
+        // Release the time slot if exists
+        if (apt.timeSlotId) {
+          await manager
+            .createQueryBuilder()
+            .update(TimeSlot)
+            .set({
+              bookedCount: () => 'GREATEST(booked_count - 1, 0)',
+              isAvailable: true,
+            })
+            .where('id = :id', { id: apt.timeSlotId })
+            .execute();
+        }
+      }
+    });
+
+    return conflicting.length;
+  }
+
+  private async disableConflictingTimeSlots(
+    doctorId: string,
+    specificDate: Date,
+    startTime: string,
+    endTime: string,
+  ): Promise<number> {
+    const [startH, startM] = startTime.split(':').map(Number);
+    const [endH, endM] = endTime.split(':').map(Number);
+
+    const scheduleStart = new Date(specificDate);
+    scheduleStart.setHours(startH, startM, 0, 0);
+
+    const scheduleEnd = new Date(specificDate);
+    scheduleEnd.setHours(endH, endM, 0, 0);
+
+    // Disable overlapping slots that have no bookings
+    const result = await this.timeSlotRepository
+      .createQueryBuilder()
+      .update(TimeSlot)
+      .set({ isAvailable: false })
+      .where('doctorId = :doctorId', { doctorId })
+      .andWhere('startTime >= :scheduleStart', { scheduleStart })
+      .andWhere('endTime <= :scheduleEnd', { scheduleEnd })
+      .andWhere('bookedCount = 0')
+      .execute();
+
+    return result.affected || 0;
   }
 }

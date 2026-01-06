@@ -106,6 +106,12 @@ export class DoctorSchedule {
   @Column({ name: 'effective_until', type: 'date', nullable: true })
   effectiveUntil: Date | null;
 
+  @Column({ name: 'specific_date', type: 'date', nullable: true })
+  specificDate: Date | null;
+
+  @Column({ name: 'discount_percent', type: 'integer', default: 0 })
+  discountPercent: number;
+
   @CreateDateColumn({
     name: 'created_at',
     type: 'timestamptz',

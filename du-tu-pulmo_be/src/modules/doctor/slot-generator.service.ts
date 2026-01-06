@@ -149,43 +149,96 @@ export class SlotGeneratorService {
     sortedSchedules: DoctorSchedule[],
   ): Promise<Partial<TimeSlot>[]> {
     const dayOfWeek = targetDate.getDay();
+    const targetDateStr = targetDate.toISOString().split('T')[0];
 
-    // Get all schedules active on this date and day of week
-    const daySchedules = sortedSchedules.filter(
-      (s) =>
-        s.dayOfWeek === dayOfWeek && this.isScheduleActiveOnDate(s, targetDate),
-    );
+    // Get all schedules active on this date
+    // For FLEXIBLE/TIME_OFF: match by specificDate
+    // For REGULAR/others: match by dayOfWeek
+    const daySchedules = sortedSchedules.filter((s) => {
+      if (!this.isScheduleActiveOnDate(s, targetDate)) {
+        return false;
+      }
+
+      // FLEXIBLE and TIME_OFF use specificDate
+      if (
+        s.scheduleType === ScheduleType.FLEXIBLE ||
+        s.scheduleType === ScheduleType.TIME_OFF
+      ) {
+        if (s.specificDate) {
+          const specificDateStr = new Date(s.specificDate)
+            .toISOString()
+            .split('T')[0];
+          return specificDateStr === targetDateStr;
+        }
+        return false;
+      }
+
+      // REGULAR and other types use dayOfWeek
+      return s.dayOfWeek === dayOfWeek;
+    });
 
     if (daySchedules.length === 0) {
       return [];
     }
 
-    // 🎯 STEP 1: Tìm priority cao nhất có trong ngày này
-    const maxPriority = Math.max(
-      ...daySchedules.map((s) => SCHEDULE_TYPE_PRIORITY[s.scheduleType]),
+    // Separate TIME_OFF schedules (blocking periods) from working schedules
+    const timeOffSchedules = daySchedules.filter(
+      (s) => s.scheduleType === ScheduleType.TIME_OFF,
+    );
+    const workingSchedules = daySchedules.filter(
+      (s) => s.scheduleType !== ScheduleType.TIME_OFF,
     );
 
-    // 🎯 STEP 2: Lấy TẤT CẢ schedules có priority cao nhất
-    const highestPrioritySchedules = daySchedules.filter(
-      (s) => SCHEDULE_TYPE_PRIORITY[s.scheduleType] === maxPriority,
-    );
-
-    // Get schedule type (tất cả schedules trong group này có cùng priority)
-    const scheduleType = highestPrioritySchedules[0].scheduleType;
-
-    // 🎯 STEP 3: Nếu là BLOCK_OUT → nghỉ hoàn toàn
-    if (scheduleType === ScheduleType.BLOCK_OUT) {
+    // If no working schedules, no slots
+    if (workingSchedules.length === 0) {
       return [];
     }
 
-    // 🎯 STEP 4: Generate slots từ TẤT CẢ schedules có priority cao nhất và isAvailable = true
-    const availableSchedules = highestPrioritySchedules.filter(
-      (s) => s.isAvailable,
+    // 🎯 STEP 1: Tìm priority cao nhất trong working schedules
+    const maxPriority = Math.max(
+      ...workingSchedules.map((s) => SCHEDULE_TYPE_PRIORITY[s.scheduleType]),
     );
 
-    const slots: Partial<TimeSlot>[] = [];
-    for (const schedule of availableSchedules) {
+    // 🎯 STEP 2: Lấy TẤT CẢ schedules có priority cao nhất và isAvailable = true
+    const highestPrioritySchedules = workingSchedules.filter(
+      (s) =>
+        SCHEDULE_TYPE_PRIORITY[s.scheduleType] === maxPriority && s.isAvailable,
+    );
+
+    if (highestPrioritySchedules.length === 0) {
+      return [];
+    }
+
+    // 🎯 STEP 3: Generate slots từ working schedules
+    let slots: Partial<TimeSlot>[] = [];
+    for (const schedule of highestPrioritySchedules) {
       slots.push(...this.generateSlotsFromSchedule(schedule, targetDate));
+    }
+
+    // 🎯 STEP 4: Filter out slots that overlap with TIME_OFF periods
+    if (timeOffSchedules.length > 0) {
+      slots = slots.filter((slot) => {
+        const slotStart = slot.startTime as Date;
+        const slotEnd = slot.endTime as Date;
+
+        // Check if slot overlaps with any TIME_OFF period
+        for (const timeOff of timeOffSchedules) {
+          const [offStartH, offStartM] = timeOff.startTime.split(':').map(Number);
+          const [offEndH, offEndM] = timeOff.endTime.split(':').map(Number);
+
+          const offStart = new Date(targetDate);
+          offStart.setHours(offStartH, offStartM, 0, 0);
+
+          const offEnd = new Date(targetDate);
+          offEnd.setHours(offEndH, offEndM, 0, 0);
+
+          // Check overlap: slot overlaps if slotStart < offEnd AND slotEnd > offStart
+          if (slotStart < offEnd && slotEnd > offStart) {
+            return false; // Exclude this slot
+          }
+        }
+        return true; // Keep this slot
+      });
     }
 
     return slots;
@@ -468,10 +521,13 @@ export class SlotGeneratorService {
     while (currentDate <= endDateCopy) {
       const dayOfWeek = currentDate.getDay();
 
-      // Lấy schedules active trong ngày này
+      // Lấy schedules active trong ngày này (EXCLUDE TIME_OFF)
+      // TIME_OFF chỉ block khung giờ, không override schedules khác
       const daySchedules = sortedSchedules.filter(
         (s) =>
-          s.dayOfWeek === dayOfWeek && this.isScheduleActiveOnDate(s, currentDate),
+          s.dayOfWeek === dayOfWeek &&
+          s.scheduleType !== ScheduleType.TIME_OFF &&
+          this.isScheduleActiveOnDate(s, currentDate),
       );
 
       if (daySchedules.length === 0) {
@@ -479,7 +535,7 @@ export class SlotGeneratorService {
         continue;
       }
 
-      // Tìm priority cao nhất
+      // Tìm priority cao nhất (không bao gồm TIME_OFF)
       const maxPriority = Math.max(
         ...daySchedules.map((s) => SCHEDULE_TYPE_PRIORITY[s.scheduleType]),
       );

@@ -4,6 +4,7 @@ import { Doctor } from './entities/doctor.entity';
 import { DoctorSchedule } from './entities/doctor-schedule.entity';
 import { TimeSlot } from './entities/time-slot.entity';
 import { Account } from '../account/entities/account.entity';
+import { Appointment } from '../appointment/entities/appointment.entity';
 import { DoctorService } from './doctor.service';
 import { DoctorController } from './doctor.controller';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
@@ -16,7 +17,7 @@ import { PublicDoctorController } from './public-doctor.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Doctor, DoctorSchedule, TimeSlot, Account]),
+    TypeOrmModule.forFeature([Doctor, DoctorSchedule, TimeSlot, Account, Appointment]),
     CloudinaryModule,
   ],
   controllers: [

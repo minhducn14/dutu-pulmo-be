@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
+import { ScheduleType } from 'src/modules/common/enums/schedule-type.enum';
 
 /**
  * Response DTO for DoctorSchedule entity
@@ -117,6 +118,25 @@ export class DoctorScheduleResponseDto {
     description: 'Thời gian cập nhật',
   })
   updatedAt: Date;
+
+  @ApiProperty({
+    enum: ScheduleType,
+    example: ScheduleType.REGULAR,
+    description: 'Loại lịch: REGULAR (cố định), FLEXIBLE (linh hoạt), TIME_OFF (nghỉ)',
+  })
+  scheduleType: ScheduleType;
+
+  @ApiPropertyOptional({
+    example: '2026-01-07',
+    description: 'Ngày cụ thể (chỉ dùng cho FLEXIBLE/TIME_OFF)',
+  })
+  specificDate?: Date | null;
+
+  @ApiPropertyOptional({
+    example: 10,
+    description: 'Giảm giá (%)',
+  })
+  discountPercent?: number;
 }
 
 /**

@@ -30,8 +30,12 @@ import {
   CreateDoctorScheduleDto,
   UpdateDoctorScheduleDto,
   BulkCreateDoctorSchedulesDto,
-  BulkHolidayScheduleDto,
 } from './dto/doctor-schedule.dto';
+import {
+  CreateFlexibleScheduleDto,
+  UpdateFlexibleScheduleDto,
+} from './dto/flexible-schedule.dto';
+import { CreateTimeOffDto, UpdateTimeOffDto } from './dto/time-off.dto';
 import { GenerateSlotsDto } from './dto/time-slot.dto';
 import {
   DoctorScheduleResponseDto,
@@ -182,35 +186,7 @@ export class DoctorScheduleController {
     return this.scheduleService.createMany(doctorId, dto.schedules);
   }
 
-  @Post('bulk-holiday')
-  @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
-  @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({
-    summary: 'Tạo lịch nghỉ lễ/Tết cho nhiều ngày cùng lúc',
-    description:
-      'Hỗ trợ tạo lịch BLOCK_OUT (nghỉ hoàn toàn) hoặc HOLIDAY (làm giờ giảm) cho các ngày trong tuần',
-  })
-  @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
-  @ApiResponse({
-    status: HttpStatus.CREATED,
-    description: 'Tạo lịch nghỉ lễ thành công',
-    type: [DoctorScheduleResponseDto],
-  })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Dữ liệu không hợp lệ',
-  })
-  @ApiResponse({
-    status: HttpStatus.CONFLICT,
-    description: 'Trùng lịch với lịch ưu tiên cao hơn',
-  })
-  createBulkHoliday(
-    @Param('doctorId', ParseUUIDPipe) doctorId: string,
-    @Body() dto: BulkHolidayScheduleDto,
-  ) {
-    return this.scheduleService.createBulkHoliday(doctorId, dto);
-  }
+
 
   @Post('generate-slots')
   @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
@@ -337,5 +313,123 @@ export class DoctorScheduleController {
   })
   delete(@Param('id', ParseUUIDPipe) id: string) {
     return this.scheduleService.delete(id);
+  }
+
+  @Post('flexible')
+  @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
+  @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Thêm lịch làm việc linh hoạt cho ngày cụ thể',
+    description:
+      'Lịch này chỉ áp dụng cho ngày đã chọn, không lặp lại. Nếu có lịch hẹn trùng, chúng sẽ bị hủy tự động.',
+  })
+  @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Tạo lịch linh hoạt thành công',
+    type: DoctorScheduleResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Dữ liệu không hợp lệ',
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'Trùng lịch với lịch hiện có',
+  })
+  createFlexibleSchedule(
+    @Param('doctorId', ParseUUIDPipe) doctorId: string,
+    @Body() dto: CreateFlexibleScheduleDto,
+  ) {
+    return this.scheduleService.createFlexibleSchedule(doctorId, dto);
+  }
+
+  @Put('flexible/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
+  @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Cập nhật lịch làm việc linh hoạt' })
+  @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
+  @ApiParam({ name: 'id', description: 'Schedule ID (UUID)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Cập nhật thành công',
+    type: DoctorScheduleResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Không tìm thấy lịch',
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Lịch này không phải là lịch linh hoạt',
+  })
+  updateFlexibleSchedule(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateFlexibleScheduleDto,
+  ) {
+    return this.scheduleService.updateFlexibleSchedule(id, dto);
+  }
+
+  // ========================================
+  // TIME-OFF SCHEDULE ENDPOINTS
+  // ========================================
+
+  @Post('time-off')
+  @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
+  @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Thêm lịch nghỉ',
+    description:
+      'Khách hàng sẽ không thể đặt lịch khám hoặc tư vấn vào khung giờ nghỉ. Các lịch đã được bệnh nhân đặt trước đó cũng sẽ bị hủy.',
+  })
+  @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Tạo lịch nghỉ thành công',
+    type: DoctorScheduleResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Dữ liệu không hợp lệ',
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'Trùng lịch với lịch hiện có',
+  })
+  createTimeOff(
+    @Param('doctorId', ParseUUIDPipe) doctorId: string,
+    @Body() dto: CreateTimeOffDto,
+  ) {
+    return this.scheduleService.createTimeOff(doctorId, dto);
+  }
+
+  @Put('time-off/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
+  @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Cập nhật lịch nghỉ' })
+  @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
+  @ApiParam({ name: 'id', description: 'Schedule ID (UUID)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Cập nhật thành công',
+    type: DoctorScheduleResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Không tìm thấy lịch',
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Lịch này không phải là lịch nghỉ',
+  })
+  updateTimeOff(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateTimeOffDto,
+  ) {
+    return this.scheduleService.updateTimeOff(id, dto);
   }
 }

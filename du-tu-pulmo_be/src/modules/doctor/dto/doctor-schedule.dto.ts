@@ -6,111 +6,21 @@ import {
   IsEnum,
   Min,
   Max,
-  IsUUID,
   IsNumber,
   IsBoolean,
   IsDateString,
-  ValidateIf,
   MaxLength,
-  IsArray,
-  ArrayNotEmpty,
-  IsIn,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ArrayMaxSize, ArrayMinSize, ValidateNested } from 'class-validator';
 import { ScheduleType } from 'src/modules/common/enums/schedule-type.enum';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
 
-export class BulkHolidayScheduleDto {
-  @ApiProperty({
-    example: '2026-01-29',
-    description: 'Ngày bắt đầu (YYYY-MM-DD)',
-  })
-  @IsDateString()
-  startDate: string;
-
-  @ApiProperty({
-    example: '2026-02-04',
-    description: 'Ngày kết thúc (YYYY-MM-DD)',
-  })
-  @IsDateString()
-  endDate: string;
-
-  @ApiProperty({
-    enum: ScheduleType,
-    example: ScheduleType.BLOCK_OUT,
-    description: 'HOLIDAY (làm giờ giảm) hoặc BLOCK_OUT (nghỉ hoàn toàn)',
-  })
-  @IsEnum(ScheduleType)
-  @IsIn([ScheduleType.HOLIDAY, ScheduleType.BLOCK_OUT, ScheduleType.TEMPORARY])
-  scheduleType: ScheduleType;
-
-  @ApiProperty({
-    example: [1, 2, 3, 4, 5],
-    description: 'Các ngày trong tuần áp dụng (1=Mon, 5=Fri)',
-  })
-  @IsArray()
-  @ArrayNotEmpty()
-  @IsInt({ each: true })
-  @Min(0, { each: true })
-  @Max(6, { each: true })
-  daysOfWeek: number[];
-
-  @ApiPropertyOptional({
-    example: '09:00',
-    description: 'Giờ làm việc (bỏ trống nếu BLOCK_OUT)',
-  })
-  @IsOptional()
-  @IsString()
-  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
-  startTime?: string;
-
-  @ApiPropertyOptional({
-    example: '12:00',
-  })
-  @IsOptional()
-  @IsString()
-  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
-  endTime?: string;
-
-  @ApiPropertyOptional({ example: 30 })
-  @IsOptional()
-  @IsInt()
-  @Min(15)
-  @Max(120)
-  slotDuration?: number;
-
-  @ApiPropertyOptional({ example: 1 })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(20)
-  slotCapacity?: number;
-
-  @ApiPropertyOptional({
-    enum: AppointmentTypeEnum,
-    example: AppointmentTypeEnum.IN_CLINIC,
-  })
-  @IsOptional()
-  @IsEnum(AppointmentTypeEnum)
-  appointmentType?: AppointmentTypeEnum;
-
-  @ApiProperty({
-    example: 'Nghỉ Tết Nguyên Đán 2026',
-    maxLength: 500,
-  })
-  @IsString()
-  @MaxLength(500)
-  note: string;
-
-  @ApiPropertyOptional({
-    example: 800000,
-    description: 'Phí khám (VD: Tết cao hơn)',
-  })
-  @IsOptional()
-  @IsNumber()
-  consultationFee?: number;
-}
-
+/**
+ * DTO for creating a regular (fixed) doctor schedule.
+ * Lịch cố định - lặp lại theo thứ trong tuần.
+ */
 export class CreateDoctorScheduleDto {
   @ApiProperty({
     description: 'Ngày trong tuần (0=CN, 1=T2, ..., 6=T7)',
@@ -126,15 +36,14 @@ export class CreateDoctorScheduleDto {
     enum: ScheduleType,
     example: ScheduleType.REGULAR,
     required: false,
-    description: 'Loại lịch: REGULAR (thường), HOLIDAY (lễ), BLOCK_OUT (nghỉ)',
+    description: 'Loại lịch: REGULAR (cố định), FLEXIBLE (linh hoạt), TIME_OFF (nghỉ)',
   })
   @IsOptional()
   @IsEnum(ScheduleType)
   scheduleType?: ScheduleType = ScheduleType.REGULAR;
 
-  @ApiProperty({
-    example: 'Nghỉ Tết Nguyên Đán 2026',
-    required: false,
+  @ApiPropertyOptional({
+    example: 'Ghi chú lịch làm việc',
     maxLength: 500,
   })
   @IsOptional()
@@ -248,14 +157,14 @@ export class UpdateDoctorScheduleDto {
   @ApiPropertyOptional({
     enum: ScheduleType,
     example: ScheduleType.REGULAR,
-    description: 'Loại lịch: REGULAR (thường), HOLIDAY (lễ), BLOCK_OUT (nghỉ)',
+    description: 'Loại lịch',
   })
   @IsOptional()
   @IsEnum(ScheduleType)
   scheduleType?: ScheduleType;
 
   @ApiPropertyOptional({
-    example: 'Nghỉ Tết Nguyên Đán 2026',
+    example: 'Ghi chú',
     maxLength: 500,
   })
   @IsOptional()
@@ -281,22 +190,6 @@ export class UpdateDoctorScheduleDto {
     message: 'endTime phải đúng format HH:mm',
   })
   endTime?: string;
-
-  @ApiPropertyOptional({ description: 'Giờ bắt đầu nghỉ (HH:mm)' })
-  @IsOptional()
-  @IsString()
-  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, {
-    message: 'breakStartTime phải đúng format HH:mm',
-  })
-  breakStartTime?: string | null;
-
-  @ApiPropertyOptional({ description: 'Giờ kết thúc nghỉ (HH:mm)' })
-  @IsOptional()
-  @IsString()
-  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, {
-    message: 'breakEndTime phải đúng format HH:mm',
-  })
-  breakEndTime?: string | null;
 
   @ApiPropertyOptional({ description: 'Thời gian mỗi slot (phút)' })
   @IsOptional()
@@ -360,9 +253,6 @@ export class UpdateDoctorScheduleDto {
   effectiveUntil?: string | null;
 }
 
-import { Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, ValidateNested } from 'class-validator';
-
 /**
  * DTO for bulk creating multiple doctor schedules in one request.
  * Useful for setting up weekly schedules with multiple time slots per day.
@@ -383,12 +273,6 @@ export class BulkCreateDoctorSchedulesDto {
         startTime: '13:00',
         endTime: '17:00',
         appointmentType: 'IN_CLINIC',
-      },
-      {
-        dayOfWeek: 2,
-        startTime: '09:00',
-        endTime: '12:00',
-        appointmentType: 'ONLINE',
       },
     ],
   })
