@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   ManyToOne,
   OneToMany,
   JoinColumn,
@@ -16,13 +17,16 @@ import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.e
 import { ScheduleType } from 'src/modules/common/enums/schedule-type.enum';
 
 @Entity('doctor_schedules')
-@Index('idx_schedule_doctor_dow_type', [
-  'doctorId',
-  'dayOfWeek',
-  'appointmentType',
-])
-@Index('idx_schedule_priority', ['doctorId', 'priority', 'dayOfWeek'])
-@Index('idx_schedule_specific_date', ['doctorId', 'specificDate'])
+// Partial indexes: only check non-deleted records
+@Index('idx_schedule_doctor_dow_type', ['doctorId', 'dayOfWeek', 'appointmentType'], {
+  where: '"deleted_at" IS NULL',
+})
+@Index('idx_schedule_priority', ['doctorId', 'priority', 'dayOfWeek'], {
+  where: '"deleted_at" IS NULL',
+})
+@Index('idx_schedule_specific_date', ['doctorId', 'specificDate'], {
+  where: '"deleted_at" IS NULL',
+})
 @Check('chk_schedule_day_of_week', '"day_of_week" >= 0 AND "day_of_week" <= 6')
 @Check('chk_schedule_time_range', '"start_time" < "end_time"')
 @Check('chk_schedule_slot_duration', '"slot_duration" > 0')
@@ -115,6 +119,15 @@ export class DoctorSchedule {
   @Column({ name: 'discount_percent', type: 'integer', default: 0 })
   discountPercent: number;
 
+  // ========================================
+  // AUDIT FIELDS
+  // ========================================
+  @Column({ name: 'deleted_by', type: 'uuid', nullable: true })
+  deletedBy: string | null;
+
+  @Column({ name: 'deletion_reason', type: 'text', nullable: true })
+  deletionReason: string | null;
+
   @CreateDateColumn({
     name: 'created_at',
     type: 'timestamptz',
@@ -129,11 +142,20 @@ export class DoctorSchedule {
   })
   updatedAt: Date;
 
+  @DeleteDateColumn({
+    name: 'deleted_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  deletedAt: Date | null;
+
   // ========================================
   // RELATIONS
   // ========================================
 
-  @OneToMany(() => TimeSlot, (timeSlot) => timeSlot.schedule)
+  @OneToMany(() => TimeSlot, (timeSlot) => timeSlot.schedule, {
+    cascade: ['soft-remove'],
+  })
   timeSlots: TimeSlot[];
 }
 

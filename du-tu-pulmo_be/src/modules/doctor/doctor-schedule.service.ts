@@ -1000,13 +1000,12 @@ export class DoctorScheduleService {
         apt.cancelledBy = 'DOCTOR';
         await manager.save(apt);
 
-        if (apt.timeSlotId) {
-          await manager.createQueryBuilder()
-            .update(TimeSlot)
-            .set({ bookedCount: () => 'GREATEST(booked_count - 1, 0)' })
-            .where('id = :id', { id: apt.timeSlotId })
-            .execute();
-        }
+        
+        await manager.createQueryBuilder()
+          .softDelete()
+          .from(TimeSlot)
+          .where('id = :id', { id: apt.timeSlotId })
+          .execute();
       }
 
       // ========================================
@@ -1017,6 +1016,7 @@ export class DoctorScheduleService {
         .from(TimeSlot)
         .where('scheduleId = :scheduleId', { scheduleId: id })
         .andWhere('startTime >= :now', { now })
+        .andWhere('bookedCount = 0')
         .execute();
 
       // ========================================
@@ -1378,19 +1378,15 @@ export class DoctorScheduleService {
 
         // Giải phóng time slot nếu tồn tại
         if (apt.timeSlotId) {
-          await manager
-            .createQueryBuilder()
-            .update(TimeSlot)
-            .set({
-              bookedCount: () => 'GREATEST(booked_count - 1, 0)',
-              isAvailable: true,
-            })
+          await manager.createQueryBuilder()
+            .softDelete()
+            .from(TimeSlot)
             .where('id = :id', { id: apt.timeSlotId })
             .execute();
         }
       }
 
-      // ✅ SỬA: Xóa TẤT CẢ slots chưa book trong khung giờ thay vì chỉ disable
+      // SỬA: Xóa TẤT CẢ slots chưa book trong khung giờ thay vì chỉ disable
       await manager
         .createQueryBuilder()
         .delete()
@@ -1426,7 +1422,7 @@ export class DoctorScheduleService {
 
       const savedSchedule = await manager.save(schedule);
 
-      // ✅ SỬA: Kiểm tra các slots còn lại trước khi tạo mới
+      // SỬA: Kiểm tra các slots còn lại trước khi tạo mới
       const existingSlots = await manager.find(TimeSlot, {
         where: {
           doctorId,
@@ -1443,7 +1439,7 @@ export class DoctorScheduleService {
         const slotEnd = new Date(currentStart.getTime() + slotDurationMs);
         if (slotEnd > scheduleEnd) break;
 
-        // ✅ SỬA: Kiểm tra không trùng lặp với slots hiện có
+        // SỬA: Kiểm tra không trùng lặp với slots hiện có
         const hasOverlap = existingSlots.some(
           (existingSlot) =>
             currentStart < existingSlot.endTime && slotEnd > existingSlot.startTime,
@@ -1478,7 +1474,7 @@ export class DoctorScheduleService {
       };
     });
 
-    // ✅ Gửi thông báo sau khi transaction thành công
+    // Gửi thông báo sau khi transaction thành công
     this.sendFlexibleScheduleNotifications(result.cancelledAppointments);
 
     const message =
@@ -1595,6 +1591,7 @@ export class DoctorScheduleService {
         .delete()
         .from(TimeSlot)
         .where('scheduleId = :scheduleId', { scheduleId: id })
+        .andWhere('bookedCount = 0')
         .execute();
 
       // 2. Hủy các cuộc hẹn xung đột trong khung giờ MỚI
@@ -1633,11 +1630,8 @@ export class DoctorScheduleService {
         if (apt.timeSlotId) {
           await manager
             .createQueryBuilder()
-            .update(TimeSlot)
-            .set({
-              bookedCount: () => 'GREATEST(booked_count - 1, 0)',
-              isAvailable: true,
-            })
+            .softDelete()
+            .from(TimeSlot) 
             .where('id = :id', { id: apt.timeSlotId })
             .execute();
         }
@@ -1820,13 +1814,12 @@ export class DoctorScheduleService {
         apt.cancelledBy = 'DOCTOR';
         await manager.save(apt);
 
-        if (apt.timeSlotId) {
-          await manager.createQueryBuilder()
-            .update(TimeSlot)
-            .set({ bookedCount: () => 'GREATEST(booked_count - 1, 0)' })
-            .where('id = :id', { id: apt.timeSlotId })
-            .execute();
-        }
+        await manager.createQueryBuilder()
+          .softDelete()
+          .from(TimeSlot)
+          .where('id = :id', { id: apt.timeSlotId })
+          .execute();
+
       }
 
       // ========================================
@@ -1836,6 +1829,7 @@ export class DoctorScheduleService {
         .delete()
         .from(TimeSlot)
         .where('scheduleId = :scheduleId', { scheduleId: id })
+        .andWhere('bookedCount = 0')
         .execute();
 
       // ========================================
@@ -1990,11 +1984,8 @@ export class DoctorScheduleService {
         if (apt.timeSlotId) {
           await manager
             .createQueryBuilder()
-            .update(TimeSlot)
-            .set({
-              bookedCount: () => 'GREATEST(booked_count - 1, 0)',
-              isAvailable: true,
-            })
+            .softDelete()
+            .from(TimeSlot)
             .where('id = :id', { id: apt.timeSlotId })
             .execute();
         }
@@ -2039,7 +2030,7 @@ export class DoctorScheduleService {
       };
     });
 
-    // ✅ Gửi thông báo sau khi transaction thành công
+    // Gửi thông báo sau khi transaction thành công
     if (result.cancelledAppointments.length > 0) {
       this.notificationService
         .notifyCancelledAppointments(result.cancelledAppointments, 'TIME_OFF')
@@ -2177,7 +2168,7 @@ export class DoctorScheduleService {
         .andWhere('bookedCount = 0')
         .execute();
 
-      // ✅ LOGIC MỚI: Khôi phục slots trong các khoảng bị THU HẸP
+      // LOGIC MỚI: Khôi phục slots trong các khoảng bị THU HẸP
       let restoredSlots = 0;
 
       // Tính toán các khoảng KHÔNG CÒN bị chặn
@@ -2243,7 +2234,7 @@ export class DoctorScheduleService {
   }
 
   /**
-   * ✅ ĐÃ REFACTOR: Xóa TIME_OFF sử dụng helper khôi phục chung
+   * ĐÃ REFACTOR: Xóa TIME_OFF sử dụng helper khôi phục chung
    */
   async deleteTimeOff(id: string): Promise<ResponseCommon<{
     restoredSlots: number;
@@ -2278,7 +2269,7 @@ export class DoctorScheduleService {
       // 1. Xóa schedule trước
       await manager.remove(schedule);
 
-      // ✅ 2. Sử dụng helper khôi phục chung để khôi phục TOÀN BỘ khung giờ
+      // 2. Sử dụng helper khôi phục chung để khôi phục TOÀN BỘ khung giờ
       const restoredSlots = await this.restoreSlotsFromRegularSchedules(
         manager,
         schedule.doctorId,
@@ -2359,11 +2350,8 @@ export class DoctorScheduleService {
         if (apt.timeSlotId) {
           await manager
             .createQueryBuilder()
-            .update(TimeSlot)
-            .set({
-              bookedCount: () => 'GREATEST(booked_count - 1, 0)',
-              isAvailable: true,
-            })
+            .softDelete()
+            .from(TimeSlot)
             .where('id = :id', { id: apt.timeSlotId })
             .execute();
         }
@@ -2845,13 +2833,13 @@ export class DoctorScheduleService {
 
                   // Giải phóng time slot nếu tồn tại
                   if (apt.timeSlotId) {
-                    await manager.createQueryBuilder()
-                      .update(TimeSlot)
-                      .set({ bookedCount: () => 'GREATEST(booked_count - 1, 0)' })
+                    await manager
+                      .createQueryBuilder()
+                      .softDelete()
+                      .from(TimeSlot)
                       .where('id = :id', { id: apt.timeSlotId })
                       .execute();
                   }
-
                   cancelledAppointments.push(apt);
                 }
               }
@@ -2910,11 +2898,11 @@ export class DoctorScheduleService {
       // ========================================
       let totalGeneratedSlots = 0;
       let skippedDaysByHigherPriority = 0;
-      const slotGenDate = new Date(tomorrow); // ✅ Bắt đầu từ ngày mai
+      const slotGenDate = new Date(tomorrow); // Bắt đầu từ ngày mai
       const regularPriority = SCHEDULE_TYPE_PRIORITY[ScheduleType.REGULAR];
 
       while (slotGenDate <= actualRangeEnd) {
-        // ✅ Chỉ tạo slot cho ngày MỚI (theo newDayOfWeek)
+        // Chỉ tạo slot cho ngày MỚI (theo newDayOfWeek)
         if (slotGenDate.getDay() === newDayOfWeek) {
           
           // Kiểm tra có schedule priority cao hơn không (TIME_OFF, FLEXIBLE)
@@ -2948,7 +2936,7 @@ export class DoctorScheduleService {
           const scheduleEnd = new Date(slotGenDate);
           scheduleEnd.setHours(endH, endM, 0, 0);
 
-          // ✅ Tìm slots hiện có để tránh trùng lặp (có thể từ schedule khác hoặc đã book)
+          // Tìm slots hiện có để tránh trùng lặp (có thể từ schedule khác hoặc đã book)
           const existingSlots = await manager.find(TimeSlot, {
             where: {
               doctorId: existing.doctorId,

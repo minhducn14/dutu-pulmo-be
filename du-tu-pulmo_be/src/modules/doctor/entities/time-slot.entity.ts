@@ -4,11 +4,11 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   ManyToOne,
   OneToMany,
   JoinColumn,
   Index,
-  Unique,
   Check,
 } from 'typeorm';
 import { Doctor } from './doctor.entity';
@@ -17,9 +17,17 @@ import { Appointment } from '../../appointment/entities/appointment.entity';
 import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
 
 @Entity('time_slots')
-@Unique('uk_timeslot_doctor_start', ['doctorId', 'startTime'])
-@Index('idx_timeslots_doctor_time', ['doctorId', 'startTime', 'isAvailable'])
-@Index('idx_timeslots_available', ['isAvailable', 'startTime'])
+// Partial unique index: only check non-deleted records
+@Index('uk_timeslot_doctor_start', ['doctorId', 'startTime'], {
+  unique: true,
+  where: '"deleted_at" IS NULL',
+})
+@Index('idx_timeslots_doctor_time', ['doctorId', 'startTime', 'isAvailable'], {
+  where: '"deleted_at" IS NULL',
+})
+@Index('idx_timeslots_available', ['isAvailable', 'startTime'], {
+  where: '"deleted_at" IS NULL',
+})
 @Check('chk_timeslot_time_range', '"start_time" < "end_time"')
 @Check('chk_timeslot_capacity', '"capacity" > 0')
 @Check(
@@ -73,6 +81,15 @@ export class TimeSlot {
   @Column({ name: 'is_available', default: true })
   isAvailable: boolean;
 
+  // ========================================
+  // AUDIT FIELDS
+  // ========================================
+  @Column({ name: 'deleted_by', type: 'uuid', nullable: true })
+  deletedBy: string | null;
+
+  @Column({ name: 'deletion_reason', type: 'text', nullable: true })
+  deletionReason: string | null;
+
   @CreateDateColumn({
     name: 'created_at',
     type: 'timestamptz',
@@ -86,6 +103,13 @@ export class TimeSlot {
     default: () => 'CURRENT_TIMESTAMP',
   })
   updatedAt: Date;
+
+  @DeleteDateColumn({
+    name: 'deleted_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  deletedAt: Date | null;
 
   // ========================================
   // RELATIONS
