@@ -20,13 +20,26 @@ export class TimeSlotService {
   constructor(
     @InjectRepository(TimeSlot)
     private readonly timeSlotRepository: Repository<TimeSlot>,
+    @InjectRepository(DoctorSchedule)
+    private readonly scheduleRepository: Repository<DoctorSchedule>,
     private readonly dataSource: DataSource,
   ) {}
 
   async findById(id: string): Promise<ResponseCommon<TimeSlot>> {
     const slot = await this.timeSlotRepository.findOne({
       where: { id },
-      relations: ['doctor'],
+      relations: ['doctor', 'schedule'],
+    });
+    if (!slot) {
+      throw new NotFoundException(`Không tìm thấy time slot với ID ${id}`);
+    }
+    return new ResponseCommon(200, 'SUCCESS', slot);
+  }
+
+  async findByIdWithRelations(id: string): Promise<ResponseCommon<TimeSlot>> {
+    const slot = await this.timeSlotRepository.findOne({
+      where: { id },
+      relations: ['doctor', 'schedule', 'appointments'],
     });
     if (!slot) {
       throw new NotFoundException(`Không tìm thấy time slot với ID ${id}`);
@@ -56,8 +69,8 @@ export class TimeSlotService {
     endDate: Date,
   ): Promise<TimeSlot[]> {
     const now = new Date();
+    now.setHours(0, 0, 0, 0);
     const effectiveStart = startDate > now ? startDate : now;
-
     const slots = await this.timeSlotRepository.find({
       where: {
         doctorId,
@@ -201,7 +214,16 @@ export class TimeSlotService {
     doctorId: string,
     dto: CreateTimeSlotDto,
   ): Promise<ResponseCommon<TimeSlot>> {
-    this.validateSlot(dto);
+    // Fetch schedule if scheduleId is provided to use its settings
+    let doctorSchedule: DoctorSchedule | null = null;
+    if (dto.scheduleId) {
+      doctorSchedule = await this.scheduleRepository.findOne({
+        where: { id: dto.scheduleId },
+        select: ['id', 'minimumBookingTime', 'maxAdvanceBookingDays'],
+      });
+    }
+
+    this.validateSlot(dto, doctorSchedule ?? undefined);
 
     const startTime = new Date(dto.startTime);
     const endTime = new Date(dto.endTime);
@@ -247,8 +269,23 @@ export class TimeSlotService {
     const slotsByDate = new Map<string, number>();
     const seenSlots = new Set<string>();
 
+    // Collect unique scheduleIds from DTOs
+    const scheduleIds = [...new Set(dtos.map(dto => dto.scheduleId).filter(Boolean))] as string[];
+    
+    // Batch fetch all schedules
+    const scheduleMap = new Map<string, DoctorSchedule>();
+    if (scheduleIds.length > 0) {
+      const schedules = await this.scheduleRepository.find({
+        where: { id: In(scheduleIds) },
+        select: ['id', 'minimumBookingTime', 'maxAdvanceBookingDays'],
+      });
+      schedules.forEach(s => scheduleMap.set(s.id, s));
+    }
+
     for (const dto of dtos) {
-      this.validateSlot(dto);
+      // Get schedule for this DTO if it has scheduleId
+      const schedule = dto.scheduleId ? scheduleMap.get(dto.scheduleId) : undefined;
+      this.validateSlot(dto, schedule);
 
       const startTime = new Date(dto.startTime);
       const endTime = new Date(dto.endTime);

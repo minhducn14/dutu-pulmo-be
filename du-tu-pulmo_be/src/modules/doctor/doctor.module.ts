@@ -14,11 +14,13 @@ import { DoctorScheduleController } from './doctor-schedule.controller';
 import { TimeSlotController } from './time-slot.controller';
 import { SlotGeneratorService } from './slot-generator.service';
 import { PublicDoctorController } from './public-doctor.controller';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Doctor, DoctorSchedule, TimeSlot, Account, Appointment]),
     CloudinaryModule,
+    NotificationModule,
   ],
   controllers: [
     DoctorController,
@@ -41,3 +43,6 @@ import { PublicDoctorController } from './public-doctor.controller';
   ],
 })
 export class DoctorModule {}
+
+
+

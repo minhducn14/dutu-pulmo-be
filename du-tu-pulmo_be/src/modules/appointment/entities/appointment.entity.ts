@@ -54,7 +54,7 @@ export class Appointment {
   @Column({ name: 'screening_id', type: 'uuid', nullable: true })
   screeningId: string;
 
-  @ManyToOne(() => TimeSlot, { onDelete: 'SET NULL', nullable: true })
+  @ManyToOne(() => TimeSlot, (timeSlot) => timeSlot.appointments, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'time_slot_id' })
   timeSlot: TimeSlot;
 

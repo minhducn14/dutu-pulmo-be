@@ -332,6 +332,8 @@ export class AuthService {
           fullName: acc.user.fullName,
           avatarUrl: acc.user.avatarUrl,
           status: acc.user.status,
+          doctorId: acc.roles?.includes(RoleEnum.DOCTOR) ? doctorId : undefined,
+          patientId: acc.roles?.includes(RoleEnum.PATIENT) ? patientId : undefined,
         },
         createdAt: acc.user.createdAt,
         updatedAt: acc.user.updatedAt,

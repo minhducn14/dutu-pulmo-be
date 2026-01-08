@@ -2,7 +2,7 @@ import {
   Controller,
   Get,
   Post,
-  Put,
+  Patch,
   Delete,
   Param,
   Body,
@@ -30,12 +30,18 @@ import {
   CreateDoctorScheduleDto,
   UpdateDoctorScheduleDto,
   BulkCreateDoctorSchedulesDto,
+  BulkUpdateDoctorSchedulesDto,
 } from './dto/doctor-schedule.dto';
 import {
   CreateFlexibleScheduleDto,
   UpdateFlexibleScheduleDto,
 } from './dto/flexible-schedule.dto';
 import { CreateTimeOffDto, UpdateTimeOffDto } from './dto/time-off.dto';
+import {
+  PreviewFlexibleScheduleConflictsDto,
+  PreviewTimeOffConflictsDto,
+  PreviewConflictsResponseDto,
+} from './dto/preview-conflicts.dto';
 import { GenerateSlotsDto } from './dto/time-slot.dto';
 import {
   DoctorScheduleResponseDto,
@@ -45,6 +51,7 @@ import { ScheduleType } from 'src/modules/common/enums/schedule-type.enum';
 
 @ApiTags('Doctor Schedules')
 @ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
 @Controller('doctors/:doctorId/schedules')
 export class DoctorScheduleController {
   constructor(
@@ -71,6 +78,7 @@ export class DoctorScheduleController {
   }
 
   @Get('available')
+  @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
   @ApiOperation({ summary: 'Lấy lịch làm việc còn trống của bác sĩ' })
   @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
   @ApiQuery({
@@ -100,35 +108,13 @@ export class DoctorScheduleController {
     return result;
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Lấy chi tiết một lịch làm việc' })
-  @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
-  @ApiParam({ name: 'id', description: 'Schedule ID (UUID)' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Chi tiết lịch làm việc',
-    type: DoctorScheduleResponseDto,
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Không tìm thấy lịch',
-  })
-  async findOne(@Param('id', ParseUUIDPipe) id: string) {
-    const result = await this.scheduleService.findById(id);
-    if (result.data) {
-      const enriched =
-        await this.scheduleService.enrichScheduleWithEffectiveFee(result.data);
-      result.data = enriched;
-    }
-    return result;
-  }
+  
 
   // ========================================
   // REGULAR SCHEDULE ENDPOINTS
   // ========================================
 
   @Post('regular')
-  @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
   @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({
@@ -167,7 +153,6 @@ export class DoctorScheduleController {
   }
 
   @Post('regular/bulk')
-  @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
   @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({
@@ -196,6 +181,34 @@ export class DoctorScheduleController {
     return this.scheduleService.createManyRegular(doctorId, dto.schedules);
   }
 
+  @Patch('regular/bulk')
+  @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Cập nhật nhiều lịch làm việc cố định cùng lúc (tối đa 20)',
+    description:
+      'Cho phép cập nhật nhiều lịch REGULAR trong 1 request. Mỗi item cần có id và các trường cần cập nhật. Thay đổi về thời gian/ngày sẽ tự động đồng bộ lại time slots.',
+  })
+  @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Cập nhật các lịch thành công',
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Dữ liệu không hợp lệ hoặc lịch không phải REGULAR',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Không tìm thấy một hoặc nhiều lịch',
+  })
+  updateManyRegular(
+    @Param('doctorId', ParseUUIDPipe) doctorId: string,
+    @Body() dto: BulkUpdateDoctorSchedulesDto,
+  ) {
+    return this.scheduleService.updateManyRegular(doctorId, dto.schedules);
+  }
+
   @Get('regular')
   @ApiOperation({ summary: 'Lấy danh sách lịch làm việc cố định (REGULAR)' })
   @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
@@ -208,8 +221,7 @@ export class DoctorScheduleController {
     return this.scheduleService.findByDoctorIdAndType(doctorId, ScheduleType.REGULAR);
   }
 
-  @Put('regular/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
+  @Patch('regular/:id')
   @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Cập nhật lịch làm việc cố định (REGULAR)' })
@@ -236,7 +248,6 @@ export class DoctorScheduleController {
   }
 
   @Delete('regular/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
   @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Xóa lịch làm việc cố định (REGULAR)' })
@@ -258,9 +269,7 @@ export class DoctorScheduleController {
     return this.scheduleService.deleteRegular(id);
   }
 
-
   @Post('generate-slots')
-  @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
   @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({
@@ -293,113 +302,6 @@ export class DoctorScheduleController {
     );
   }
 
-  @Post(':scheduleId/generate-slots')
-  @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
-  @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Tự động tạo time slots từ schedule template' })
-  @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
-  @ApiParam({
-    name: 'scheduleId',
-    description: 'Schedule ID dùng làm template',
-  })
-  @ApiResponse({
-    status: HttpStatus.CREATED,
-    description: 'Tạo các time slots thành công',
-    type: [TimeSlotResponseDto],
-  })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description:
-      'Dữ liệu không hợp lệ, schedule không khả dụng, hoặc vượt quá 90 ngày',
-  })
-  @ApiResponse({
-    status: HttpStatus.FORBIDDEN,
-    description: 'Không có quyền hoặc không phải lịch của mình',
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Không tìm thấy schedule',
-  })
-  generateSlots(
-    @Param('scheduleId', ParseUUIDPipe) scheduleId: string,
-    @Body() dto: GenerateSlotsDto,
-  ) {
-    return this.slotGeneratorService.generateAndSaveSlots(
-      scheduleId,
-      new Date(dto.startDate),
-      new Date(dto.endDate),
-    );
-  }
-
-  @Put(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
-  @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({
-    summary: 'Cập nhật lịch làm việc cố định (REGULAR)',
-    description: 'Chỉ cập nhật được lịch loại REGULAR.',
-  })
-  @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
-  @ApiParam({ name: 'id', description: 'Schedule ID (UUID)' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Cập nhật thành công',
-    type: DoctorScheduleResponseDto,
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Không tìm thấy lịch',
-  })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Lịch này không phải là lịch cố định (REGULAR)',
-  })
-  @ApiResponse({
-    status: HttpStatus.FORBIDDEN,
-    description: 'Không có quyền hoặc không phải lịch của mình',
-  })
-  @ApiResponse({
-    status: HttpStatus.CONFLICT,
-    description: 'Trùng lịch với lịch hiện có',
-  })
-  updateRegular(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateDoctorScheduleDto,
-  ) {
-    return this.scheduleService.updateRegular(id, dto);
-  }
-
-  @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
-  @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({
-    summary: 'Xóa lịch làm việc cố định (REGULAR)',
-    description: 'Chỉ xóa được lịch loại REGULAR.',
-  })
-  @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
-  @ApiParam({ name: 'id', description: 'Schedule ID (UUID)' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Xóa thành công',
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Không tìm thấy lịch',
-  })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Lịch này không phải là lịch cố định (REGULAR)',
-  })
-  @ApiResponse({
-    status: HttpStatus.FORBIDDEN,
-    description: 'Không có quyền hoặc không phải lịch của mình',
-  })
-  deleteRegular(@Param('id', ParseUUIDPipe) id: string) {
-    return this.scheduleService.deleteRegular(id);
-  }
-
   // ========================================
   // FLEXIBLE SCHEDULE ENDPOINTS
   // ========================================
@@ -412,12 +314,12 @@ export class DoctorScheduleController {
     description: 'Danh sách lịch linh hoạt',
     type: [DoctorScheduleResponseDto],
   })
+  @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
   async findFlexibleSchedules(@Param('doctorId', ParseUUIDPipe) doctorId: string) {
     return this.scheduleService.findByDoctorIdAndType(doctorId, ScheduleType.FLEXIBLE);
   }
 
   @Post('flexible')
-  @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
   @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({
@@ -446,8 +348,28 @@ export class DoctorScheduleController {
     return this.scheduleService.createFlexibleSchedule(doctorId, dto);
   }
 
-  @Put('flexible/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
+  @Post('flexible/preview-conflicts')
+  @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Xem trước các lịch hẹn sẽ bị ảnh hưởng khi tạo lịch linh hoạt',
+    description:
+      'API này cho phép doctor xem trước appointments nào sẽ bị hủy và bao nhiêu slots sẽ bị thay thế trước khi tạo lịch linh hoạt.',
+  })
+  @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Danh sách appointments và slots bị ảnh hưởng',
+    type: PreviewConflictsResponseDto,
+  })
+  previewFlexibleConflicts(
+    @Param('doctorId', ParseUUIDPipe) doctorId: string,
+    @Body() dto: PreviewFlexibleScheduleConflictsDto,
+  ) {
+    return this.scheduleService.previewFlexibleScheduleConflicts(doctorId, dto);
+  }
+
+  @Patch('flexible/:id')
   @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Cập nhật lịch làm việc linh hoạt' })
@@ -474,7 +396,6 @@ export class DoctorScheduleController {
   }
 
   @Delete('flexible/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
   @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Xóa lịch làm việc linh hoạt (FLEXIBLE)' })
@@ -501,6 +422,7 @@ export class DoctorScheduleController {
   // ========================================
 
   @Get('time-off')
+  @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
   @ApiOperation({ summary: 'Lấy danh sách lịch nghỉ (TIME_OFF)' })
   @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
   @ApiResponse({
@@ -513,7 +435,6 @@ export class DoctorScheduleController {
   }
 
   @Post('time-off')
-  @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
   @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({
@@ -542,8 +463,28 @@ export class DoctorScheduleController {
     return this.scheduleService.createTimeOff(doctorId, dto);
   }
 
-  @Put('time-off/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
+  @Post('time-off/preview-conflicts')
+  @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Xem trước các lịch hẹn sẽ bị ảnh hưởng khi tạo lịch nghỉ',
+    description:
+      'API này cho phép doctor xem trước appointments nào sẽ bị hủy và bao nhiêu slots sẽ bị tắt trước khi tạo lịch nghỉ.',
+  })
+  @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Danh sách appointments và slots bị ảnh hưởng',
+    type: PreviewConflictsResponseDto,
+  })
+  previewTimeOffConflicts(
+    @Param('doctorId', ParseUUIDPipe) doctorId: string,
+    @Body() dto: PreviewTimeOffConflictsDto,
+  ) {
+    return this.scheduleService.previewTimeOffConflicts(doctorId, dto);
+  }
+
+  @Patch('time-off/:id')
   @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Cập nhật lịch nghỉ' })
@@ -570,7 +511,6 @@ export class DoctorScheduleController {
   }
 
   @Delete('time-off/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
   @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Xóa lịch nghỉ (TIME_OFF)' })

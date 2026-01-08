@@ -12,6 +12,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
+import { IsValidBookingWindow } from '../validators/is-valid-booking-window.decorator';
 
 /**
  * DTO for creating a flexible working schedule (single date, non-recurring)
@@ -72,22 +73,28 @@ export class CreateFlexibleScheduleDto {
   @ApiPropertyOptional({
     description: 'Số ngày phải đặt khám trước (ngày)',
     example: 1,
+    minimum: 0,
+    maximum: 30,
   })
   @IsOptional()
   @IsInt()
   @Min(0)
-  minimumBookingDays?: number;
+  @Max(30)
+  minimumBookingDays?: number = 0;
 
   @ApiPropertyOptional({
     description: 'Số ngày đặt khám xa nhất',
     default: 30,
     example: 30,
+    minimum: 1,
+    maximum: 365,
   })
   @IsOptional()
   @IsInt()
   @Min(1)
   @Max(365)
-  maxAdvanceBookingDays?: number;
+  @IsValidBookingWindow()
+  maxAdvanceBookingDays?: number = 30;
 
   @ApiPropertyOptional({
     description: 'Phí khám (VND)',

@@ -5,11 +5,13 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  OneToMany,
   JoinColumn,
   Check,
   Index,
 } from 'typeorm';
 import { Doctor } from './doctor.entity';
+import { TimeSlot } from './time-slot.entity';
 import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
 import { ScheduleType } from 'src/modules/common/enums/schedule-type.enum';
 
@@ -20,6 +22,7 @@ import { ScheduleType } from 'src/modules/common/enums/schedule-type.enum';
   'appointmentType',
 ])
 @Index('idx_schedule_priority', ['doctorId', 'priority', 'dayOfWeek'])
+@Index('idx_schedule_specific_date', ['doctorId', 'specificDate'])
 @Check('chk_schedule_day_of_week', '"day_of_week" >= 0 AND "day_of_week" <= 6')
 @Check('chk_schedule_time_range', '"start_time" < "end_time"')
 @Check('chk_schedule_slot_duration', '"slot_duration" > 0')
@@ -125,4 +128,12 @@ export class DoctorSchedule {
     default: () => 'CURRENT_TIMESTAMP',
   })
   updatedAt: Date;
+
+  // ========================================
+  // RELATIONS
+  // ========================================
+
+  @OneToMany(() => TimeSlot, (timeSlot) => timeSlot.schedule)
+  timeSlots: TimeSlot[];
 }
+

@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import AppDataSourcePromise from './modules/core/database/data-source';
 
 // Configurations
@@ -24,6 +25,7 @@ import { DoctorModule } from './modules/doctor/doctor.module';
 import { EmailModule } from './modules/email/email.module';
 import { PatientModule } from './modules/patient/patient.module';
 import { UserModule } from './modules/user/user.module';
+import { CronModule } from './cron/cron.module';
 
 @Module({
   imports: [
@@ -54,6 +56,7 @@ import { UserModule } from './modules/user/user.module';
         limit: 1000, // 1000 requests per minute
       },
     ]),
+    ScheduleModule.forRoot(),
     AuthModule,
     AccountModule,
     CloudinaryModule,
@@ -61,6 +64,7 @@ import { UserModule } from './modules/user/user.module';
     EmailModule,
     PatientModule,
     UserModule,
+    CronModule,
   ],
   controllers: [AppController],
   providers: [AppService],
@@ -70,3 +74,4 @@ export class AppModule implements NestModule {
     consumer.apply(LoggerMiddleware).forRoutes('*');
   }
 }
+

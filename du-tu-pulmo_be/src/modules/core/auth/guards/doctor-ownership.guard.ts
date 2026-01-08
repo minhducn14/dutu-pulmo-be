@@ -11,13 +11,7 @@ import { RoleEnum } from 'src/modules/common/enums/role.enum';
 import { DoctorSchedule } from 'src/modules/doctor/entities/doctor-schedule.entity';
 import { TimeSlot } from 'src/modules/doctor/entities/time-slot.entity';
 
-/**
- * SEC-01: Guard to verify doctor ownership of schedules and time slots
- * Validates that:
- * 1. User is admin (bypass) or has matching doctorId
- * 2. Any scheduleId in params belongs to the doctorId
- * 3. Any timeSlotId in params belongs to the doctorId
- */
+
 @Injectable()
 export class DoctorOwnershipGuard implements CanActivate {
   constructor(
@@ -36,7 +30,6 @@ export class DoctorOwnershipGuard implements CanActivate {
       throw new ForbiddenException('Không tìm thấy thông tin người dùng');
     }
 
-    // Admin can access anything
     if (user.roles?.includes(RoleEnum.ADMIN)) {
       return true;
     }
@@ -44,14 +37,12 @@ export class DoctorOwnershipGuard implements CanActivate {
     if (!user.doctorId) {
       throw new ForbiddenException('Bạn không phải bác sĩ');
     }
-
     if (user.doctorId !== doctorIdParam) {
       throw new ForbiddenException(
         'Bạn chỉ được quản lý lịch làm việc của mình',
       );
     }
 
-    // SEC-01: Verify scheduleId belongs to doctor (for /schedules/:scheduleId/... routes)
     const scheduleId = request.params.scheduleId;
     if (scheduleId) {
       const schedule = await this.scheduleRepository.findOne({
@@ -66,8 +57,6 @@ export class DoctorOwnershipGuard implements CanActivate {
       }
     }
 
-    // SEC-01: Verify timeSlotId belongs to doctor (for /time-slots/:id routes)
-    // Note: Only check if route contains 'time-slots' and has :id param
     const slotId = request.params.id;
     if (slotId && request.path.includes('/time-slots/')) {
       const slot = await this.timeSlotRepository.findOne({

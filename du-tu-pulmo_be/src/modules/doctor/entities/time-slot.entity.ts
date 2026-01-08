@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  OneToMany,
   JoinColumn,
   Index,
   Unique,
@@ -12,6 +13,7 @@ import {
 } from 'typeorm';
 import { Doctor } from './doctor.entity';
 import { DoctorSchedule } from './doctor-schedule.entity';
+import { Appointment } from '../../appointment/entities/appointment.entity';
 import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
 
 @Entity('time_slots')
@@ -39,7 +41,7 @@ export class TimeSlot {
   @Column({ name: 'doctor_id', type: 'uuid' })
   doctorId: string;
 
-  @ManyToOne(() => DoctorSchedule, { onDelete: 'CASCADE' })
+  @ManyToOne(() => DoctorSchedule, (schedule) => schedule.timeSlots, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'schedule_id' })
   schedule: DoctorSchedule;
 
@@ -71,9 +73,6 @@ export class TimeSlot {
   @Column({ name: 'is_available', default: true })
   isAvailable: boolean;
 
-  // @OneToMany(() => Appointment, ap => ap.timeSlot)
-  // appointments: Appointment[];
-
   @CreateDateColumn({
     name: 'created_at',
     type: 'timestamptz',
@@ -87,4 +86,12 @@ export class TimeSlot {
     default: () => 'CURRENT_TIMESTAMP',
   })
   updatedAt: Date;
+
+  // ========================================
+  // RELATIONS
+  // ========================================
+
+  @OneToMany(() => Appointment, (appointment) => appointment.timeSlot)
+  appointments: Appointment[];
 }
+
