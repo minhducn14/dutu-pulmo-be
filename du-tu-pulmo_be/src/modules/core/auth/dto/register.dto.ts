@@ -6,7 +6,11 @@ import {
   IsOptional,
   MaxLength,
   Matches,
+  IsEnum,
 } from 'class-validator';
+import { CountryEnum } from 'src/modules/common/enums/country.enum';
+import { EthnicityEnum } from 'src/modules/common/enums/ethnicity.enum';
+import { OccupationEnum } from 'src/modules/common/enums/job.enum';
 
 export class RegisterDto {
   @IsEmail()
@@ -43,4 +47,34 @@ export class RegisterDto {
   })
   @ApiProperty({ example: '0912345678', required: false })
   phone?: string;
+
+  @IsOptional()
+  @IsEnum(CountryEnum, { message: 'Quốc tịch không hợp lệ' })
+  @ApiProperty({
+    example: CountryEnum.VIET_NAM,
+    description: 'Quốc tịch',
+    required: false,
+    enum: CountryEnum,
+  })
+  nationality?: CountryEnum;
+
+  @IsOptional()
+  @IsEnum(EthnicityEnum, { message: 'Dân tộc không hợp lệ' })
+  @ApiProperty({
+    example: EthnicityEnum.KINH,
+    description: 'Dân tộc',
+    required: false,
+    enum: EthnicityEnum,
+  })
+  ethnicity?: EthnicityEnum;
+
+  @IsOptional()
+  @IsEnum(OccupationEnum, { message: 'Nghề nghiệp không hợp lệ' })
+  @ApiProperty({
+    example: OccupationEnum.JOB_22110,
+    description: 'Nghề nghiệp',
+    required: false,
+    enum: OccupationEnum,
+  })
+  occupation?: OccupationEnum;
 }

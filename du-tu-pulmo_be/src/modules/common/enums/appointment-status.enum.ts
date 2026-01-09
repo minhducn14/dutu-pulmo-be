@@ -6,6 +6,5 @@ export enum AppointmentStatusEnum {
   IN_PROGRESS = 'IN_PROGRESS',
   COMPLETED = 'COMPLETED',
   CANCELLED = 'CANCELLED',
-  NO_SHOW = 'NO_SHOW',
   RESCHEDULED = 'RESCHEDULED',
 }

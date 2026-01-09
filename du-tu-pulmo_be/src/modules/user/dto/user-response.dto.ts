@@ -1,6 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserStatusEnum } from '../../common/enums/user-status.enum';
 import { GenderEnum } from '../../common/enums/gender.enum';
+import { CountryEnum } from '../../common/enums/country.enum';
+import { EthnicityEnum } from '../../common/enums/ethnicity.enum';
+import { OccupationEnum } from '../../common/enums/job.enum';
 
 export class UserResponseDto {
   @ApiProperty({
@@ -52,6 +55,27 @@ export class UserResponseDto {
     description: 'Số CCCD',
   })
   CCCD?: string;
+
+  @ApiPropertyOptional({
+    enum: CountryEnum,
+    example: CountryEnum.VIET_NAM,
+    description: 'Quốc tịch',
+  })
+  nationality?: CountryEnum;
+
+  @ApiPropertyOptional({
+    enum: EthnicityEnum,
+    example: EthnicityEnum.KINH,
+    description: 'Dân tộc',
+  })
+  ethnicity?: EthnicityEnum;
+
+  @ApiPropertyOptional({
+    enum: OccupationEnum,
+    example: OccupationEnum.JOB_22110,
+    description: 'Nghề nghiệp',
+  })
+  occupation?: OccupationEnum;
 
   // Địa chỉ
   @ApiPropertyOptional({

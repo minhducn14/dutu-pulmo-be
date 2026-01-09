@@ -992,7 +992,14 @@ export class DoctorScheduleService {
             AppointmentStatusEnum.PENDING,
           ]),
         },
-        relations: ['patient', 'patient.user', 'doctor', 'doctor.user', 'timeSlot', 'timeSlot.schedule'],
+        relations: [
+          'patient',
+          'patient.user',
+          'doctor',
+          'doctor.user',
+          'timeSlot',
+          'timeSlot.schedule',
+        ],
       });
 
       // Lọc appointments vào đúng ngày trong tuần và khung giờ của schedule
@@ -1395,7 +1402,14 @@ export class DoctorScheduleService {
             AppointmentStatusEnum.PENDING_PAYMENT,
           ]),
         },
-        relations: ['patient', 'patient.user', 'doctor', 'doctor.user', 'timeSlot', 'timeSlot.schedule'],
+        relations: [
+          'patient',
+          'patient.user',
+          'doctor',
+          'doctor.user',
+          'timeSlot',
+          'timeSlot.schedule',
+        ],
       });
 
       const conflicting = appointments.filter((apt) => {
@@ -1650,7 +1664,14 @@ export class DoctorScheduleService {
             AppointmentStatusEnum.PENDING,
           ]),
         },
-        relations: ['patient', 'patient.user', 'doctor', 'doctor.user', 'timeSlot', 'timeSlot.schedule'],
+        relations: [
+          'patient',
+          'patient.user',
+          'doctor',
+          'doctor.user',
+          'timeSlot',
+          'timeSlot.schedule',
+        ],
       });
 
       const conflicting = appointments.filter((apt) => {
@@ -1841,7 +1862,14 @@ export class DoctorScheduleService {
             AppointmentStatusEnum.PENDING,
           ]),
         },
-        relations: ['patient', 'patient.user', 'doctor', 'doctor.user', 'timeSlot', 'timeSlot.schedule'],
+        relations: [
+          'patient',
+          'patient.user',
+          'doctor',
+          'doctor.user',
+          'timeSlot',
+          'timeSlot.schedule',
+        ],
       });
 
       // Lọc appointments trong khung giờ của schedule
@@ -2015,7 +2043,14 @@ export class DoctorScheduleService {
             AppointmentStatusEnum.PENDING_PAYMENT,
           ]),
         },
-        relations: ['patient', 'patient.user', 'doctor', 'doctor.user', 'timeSlot', 'timeSlot.schedule'],
+        relations: [
+          'patient',
+          'patient.user',
+          'doctor',
+          'doctor.user',
+          'timeSlot',
+          'timeSlot.schedule',
+        ],
       });
 
       const conflicting = appointments.filter((apt) => {
@@ -2892,7 +2927,14 @@ export class DoctorScheduleService {
                   AppointmentStatusEnum.PENDING,
                 ]),
               },
-              relations: ['patient', 'patient.user', 'doctor', 'doctor.user', 'timeSlot', 'timeSlot.schedule'],
+              relations: [
+                'patient',
+                'patient.user',
+                'doctor',
+                'doctor.user',
+                'timeSlot',
+                'timeSlot.schedule',
+              ],
             });
 
             if (dayAppointments.length > 0) {

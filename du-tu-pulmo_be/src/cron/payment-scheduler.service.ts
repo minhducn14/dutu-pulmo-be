@@ -29,11 +29,11 @@ export class PaymentSchedulerService {
 
   //   try {
   //     this.logger.log('🚀 Starting payment expiration job...');
-      
+
   //     const count = await this.paymentService.expireOldPayments();
-      
+
   //     const duration = Date.now() - startTime;
-      
+
   //     if (count > 0) {
   //       this.logger.log(
   //         `Expired ${count} old payments in ${duration}ms`,
@@ -48,7 +48,7 @@ export class PaymentSchedulerService {
   //     this.logger.error(
   //       `❌ Error expiring old payments after ${duration}ms: ${error instanceof Error ? error.message : String(error)}`,
   //     );
-      
+
   //     // this.monitoringService.captureException(error);
   //   } finally {
   //     this.isExpireJobRunning = false;
@@ -67,9 +67,9 @@ export class PaymentSchedulerService {
   async syncPendingPayments() {
     try {
       this.logger.log('Starting payment sync job...');
-      
+
       const count = await this.paymentService.syncPendingPayments();
-      
+
       if (count > 0) {
         this.logger.log(`Synced ${count} pending payments`);
       }
@@ -92,9 +92,9 @@ export class PaymentSchedulerService {
   // async anonymizeExpiredData() {
   //   try {
   //     this.logger.log('🔐 Starting data anonymization job...');
-      
+
   //     const count = await this.paymentService.anonymizeExpiredData();
-      
+
   //     if (count > 0) {
   //       this.logger.log(`✅ Anonymized ${count} expired payment records`);
   //     }
@@ -117,9 +117,9 @@ export class PaymentSchedulerService {
   // async archiveOldPayments() {
   //   try {
   //     this.logger.log('📦 Starting payment archival job...');
-      
+
   //     const count = await this.paymentService.archiveOldPayments();
-      
+
   //     if (count > 0) {
   //       this.logger.log(`✅ Archived ${count} old payment records`);
   //     }

@@ -11,12 +11,16 @@ import { User } from '../user/entities/user.entity';
 import { Account } from '../account/entities/account.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Payment,
+  imports: [
+    TypeOrmModule.forFeature([
+      Payment,
       Appointment,
       Patient,
       Doctor,
       User,
-      Account,])],
+      Account,
+    ]),
+  ],
   controllers: [PaymentController],
   providers: [PaymentService, PayosService],
   exports: [PaymentService, PayosService],

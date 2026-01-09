@@ -127,6 +127,9 @@ export class AuthService {
         email: normalizedEmail,
         phone: dto.phone,
         fullName: dto.fullName,
+        nationality: dto.nationality,
+        ethnicity: dto.ethnicity,
+        occupation: dto.occupation,
       });
       await manager.save(user);
 

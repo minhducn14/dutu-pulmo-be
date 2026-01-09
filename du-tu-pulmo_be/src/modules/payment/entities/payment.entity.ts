@@ -271,12 +271,14 @@ export class Payment {
 
     let browserType = 'other';
     if (ua.includes('chrome') && !ua.includes('edge')) browserType = 'chrome';
-    else if (ua.includes('safari') && !ua.includes('chrome')) browserType = 'safari';
+    else if (ua.includes('safari') && !ua.includes('chrome'))
+      browserType = 'safari';
     else if (ua.includes('firefox')) browserType = 'firefox';
     else if (ua.includes('edge')) browserType = 'edge';
     else if (ua.includes('opera')) browserType = 'opera';
 
-    const deviceType = ua.includes('mobile') || ua.includes('android') ? 'mobile' : 'desktop';
+    const deviceType =
+      ua.includes('mobile') || ua.includes('android') ? 'mobile' : 'desktop';
 
     return { browserType, deviceType };
   }

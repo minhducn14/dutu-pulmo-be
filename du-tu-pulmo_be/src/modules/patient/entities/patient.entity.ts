@@ -8,6 +8,7 @@ import {
   JoinColumn,
   OneToOne,
   OneToMany,
+  BeforeInsert,
 } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { GenderEnum } from '../../common/enums/gender.enum';
@@ -20,6 +21,9 @@ export class Patient {
   @OneToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User;
+
+  @Column({ name: 'profile_code', length: 50, nullable: true })
+  profileCode: string;
 
   @Column({ name: 'user_id', type: 'uuid', unique: true })
   userId: string;
@@ -70,4 +74,14 @@ export class Patient {
     default: () => 'CURRENT_TIMESTAMP',
   })
   updatedAt: Date;
+
+  @BeforeInsert()
+  generateProfileCode() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const random = Math.random().toString(36).substring(2, 12).toUpperCase();
+    this.profileCode = `DTPM${year}${month}${day}${random}`;
+  }
 }

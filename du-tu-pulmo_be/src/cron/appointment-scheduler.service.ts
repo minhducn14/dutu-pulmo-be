@@ -38,7 +38,6 @@ export class AppointmentSchedulerService {
           status: In([
             AppointmentStatusEnum.COMPLETED,
             AppointmentStatusEnum.CANCELLED,
-            AppointmentStatusEnum.NO_SHOW,
           ]),
           endedAt: LessThan(yesterday),
           dailyCoChannel: Not(IsNull()),
@@ -49,18 +48,22 @@ export class AppointmentSchedulerService {
         return;
       }
 
-      this.logger.log(`🧹 Found ${oldAppointments.length} old video rooms to cleanup`);
+      this.logger.log(
+        `🧹 Found ${oldAppointments.length} old video rooms to cleanup`,
+      );
 
       for (const appointment of oldAppointments) {
         try {
-          await this.dailyService.deleteRoom(appointment.dailyCoChannel!);
+          await this.dailyService.deleteRoom(appointment.dailyCoChannel);
 
           // Clear the channel name to prevent re-processing
           await this.appointmentRepository.update(appointment.id, {
             dailyCoChannel: undefined,
           });
 
-          this.logger.log(`✅ Cleaned up video room for appointment ${appointment.id}`);
+          this.logger.log(
+            `✅ Cleaned up video room for appointment ${appointment.id}`,
+          );
         } catch (error) {
           this.logger.warn(
             `⚠️ Failed to cleanup room for appointment ${appointment.id}: ${error}`,
@@ -69,82 +72,6 @@ export class AppointmentSchedulerService {
       }
     } catch (error) {
       this.logger.error(`❌ Error in cleanupOldVideoRooms: ${error}`);
-    }
-  }
-
-  /**
-   * Auto mark no-show for appointments 30+ minutes late
-   * Runs every 30 minutes at minute 0 and 30
-   */
-  @Cron('0,30 * * * *', {
-    name: 'auto-noshow',
-    timeZone: 'Asia/Ho_Chi_Minh',
-  })
-  async autoMarkNoShow() {
-    const threshold = new Date(Date.now() - 30 * 60 * 1000); // 30 min ago
-
-    try {
-      const lateAppointments = await this.appointmentRepository.find({
-        where: {
-          status: In([
-            AppointmentStatusEnum.CONFIRMED,
-            AppointmentStatusEnum.CHECKED_IN,
-          ]),
-          scheduledAt: LessThan(threshold),
-        },
-      });
-
-      if (lateAppointments.length === 0) {
-        return;
-      }
-
-      this.logger.log(
-        `⏰ Found ${lateAppointments.length} late appointments to mark as no-show`,
-      );
-
-      for (const appointment of lateAppointments) {
-        try {
-          // Update appointment status
-          await this.appointmentRepository.update(appointment.id, {
-            status: AppointmentStatusEnum.NO_SHOW,
-            cancelledAt: new Date(),
-            cancelledBy: 'SYSTEM',
-          });
-
-          // Release slot
-          if (appointment.timeSlotId) {
-            await this.timeSlotRepository
-              .createQueryBuilder()
-              .update(TimeSlot)
-              .set({
-                bookedCount: () => 'GREATEST(booked_count - 1, 0)',
-                isAvailable: true,
-              })
-              .where('id = :id', { id: appointment.timeSlotId })
-              .execute();
-          }
-
-          // Cleanup video room if exists
-          if (
-            appointment.appointmentType === AppointmentTypeEnum.VIDEO &&
-            appointment.dailyCoChannel
-          ) {
-            try {
-              await this.dailyService.deleteRoom(appointment.dailyCoChannel);
-            } catch (e) {
-              this.logger.warn(`Failed to delete video room: ${e}`);
-            }
-          }
-
-          this.logger.log(`✅ Auto marked no-show for appointment ${appointment.id}`);
-        } catch (error) {
-          this.logger.warn(
-            `⚠️ Failed to mark no-show for appointment ${appointment.id}: ${error}`,
-          );
-        }
-      }
-    } catch (error) {
-      this.logger.error(`❌ Error in autoMarkNoShow: ${error}`);
     }
   }
 
@@ -180,7 +107,9 @@ export class AppointmentSchedulerService {
         return;
       }
 
-      this.logger.log(`📨 Sending 24h reminders for ${toRemind.length} appointments`);
+      this.logger.log(
+        `📨 Sending 24h reminders for ${toRemind.length} appointments`,
+      );
 
       for (const appointment of toRemind) {
         try {
@@ -191,7 +120,9 @@ export class AppointmentSchedulerService {
             reminder24hSent: true,
           });
 
-          this.logger.log(`✅ Sent 24h reminder for appointment ${appointment.id}`);
+          this.logger.log(
+            `✅ Sent 24h reminder for appointment ${appointment.id}`,
+          );
         } catch (error) {
           this.logger.warn(
             `⚠️ Failed to send reminder for appointment ${appointment.id}: ${error}`,
@@ -235,7 +166,9 @@ export class AppointmentSchedulerService {
         return;
       }
 
-      this.logger.log(`📨 Sending 1h reminders for ${toRemind.length} appointments`);
+      this.logger.log(
+        `📨 Sending 1h reminders for ${toRemind.length} appointments`,
+      );
 
       for (const appointment of toRemind) {
         try {
@@ -246,7 +179,9 @@ export class AppointmentSchedulerService {
             reminder1hSent: true,
           });
 
-          this.logger.log(`✅ Sent 1h reminder for appointment ${appointment.id}`);
+          this.logger.log(
+            `✅ Sent 1h reminder for appointment ${appointment.id}`,
+          );
         } catch (error) {
           this.logger.warn(
             `⚠️ Failed to send reminder for appointment ${appointment.id}: ${error}`,

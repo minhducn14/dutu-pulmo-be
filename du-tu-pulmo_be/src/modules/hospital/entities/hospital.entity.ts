@@ -26,6 +26,14 @@ export class Hospital {
   @Column({ length: 100, nullable: true })
   email: string;
 
+  // Logo
+  @Column({
+    name: 'logo_url',
+    nullable: true,
+    default: 'https://picsum.photos/800/600',
+  })
+  logoUrl: string;
+
   // ===== ĐỊA CHỈ =====
   @Column({ type: 'text' })
   address: string;

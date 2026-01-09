@@ -12,6 +12,9 @@ import {
 import { Account } from 'src/modules/account/entities/account.entity';
 import { UserStatusEnum } from '../../common/enums/user-status.enum';
 import { GenderEnum } from 'src/modules/common/enums/gender.enum';
+import { CountryEnum } from 'src/modules/common/enums/country.enum';
+import { EthnicityEnum } from 'src/modules/common/enums/ethnicity.enum';
+import { OccupationEnum } from 'src/modules/common/enums/job.enum';
 import { Patient } from 'src/modules/patient/entities/patient.entity';
 import { Doctor } from 'src/modules/doctor/entities/doctor.entity';
 
@@ -66,6 +69,32 @@ export class User {
     nullable: true,
   })
   gender: GenderEnum;
+
+  // Quốc tịch (Nationality)
+  @Column({
+    type: 'enum',
+    enum: CountryEnum,
+    nullable: true,
+    default: CountryEnum.VIET_NAM,
+  })
+  nationality: CountryEnum;
+
+  // Dân tộc (Ethnicity)
+  @Column({
+    type: 'enum',
+    enum: EthnicityEnum,
+    nullable: true,
+    default: EthnicityEnum.KINH,
+  })
+  ethnicity: EthnicityEnum;
+
+  // Nghề nghiệp (Occupation)
+  @Column({
+    type: 'enum',
+    enum: OccupationEnum,
+    nullable: true,
+  })
+  occupation: OccupationEnum;
 
   @CreateDateColumn({
     name: 'created_at',

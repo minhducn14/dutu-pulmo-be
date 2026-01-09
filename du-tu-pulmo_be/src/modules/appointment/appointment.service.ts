@@ -16,6 +16,8 @@ import { AppointmentStatusEnum } from '../common/enums/appointment-status.enum';
 import { ResponseCommon } from 'src/common/dto/response.dto';
 import { AppointmentResponseDto } from './dto/appointment-response.dto';
 import { AppointmentTypeEnum } from '../common/enums/appointment-type.enum';
+import { AppointmentSubTypeEnum } from '../common/enums/appointment-sub-type.enum';
+import { SourceTypeEnum } from '../common/enums/source-type.enum';
 import { DailyService } from '../video_call/daily.service';
 import { CallStateService } from '../video_call/call-state.service';
 
@@ -137,18 +139,21 @@ export class AppointmentService {
     data: Partial<Appointment>,
   ): Promise<ResponseCommon<AppointmentResponseDto>> {
     if (!data.timeSlotId || !data.patientId) {
-      throw new BadRequestException('Missing required fields: timeSlotId, patientId');
+      throw new BadRequestException(
+        'Missing required fields: timeSlotId, patientId',
+      );
     }
 
     return this.dataSource.transaction(async (manager) => {
       // 1. Lock slot WITHOUT relation
-      const slot = await manager.createQueryBuilder(TimeSlot, 'slot')
-        .setLock('pessimistic_write', undefined, ['slot']) 
+      const slot = await manager
+        .createQueryBuilder(TimeSlot, 'slot')
+        .setLock('pessimistic_write', undefined, ['slot'])
         .leftJoinAndSelect('slot.doctor', 'doctor')
         .leftJoinAndSelect('slot.schedule', 'schedule')
         .where('slot.id = :id', { id: data.timeSlotId })
         .getOne();
-      
+
       console.log('slot1', slot);
       if (!slot) {
         throw new NotFoundException('Time slot không tồn tại');
@@ -180,10 +185,7 @@ export class AppointmentService {
         where: {
           patientId: data.patientId,
           timeSlotId: data.timeSlotId,
-          status: Not(In([
-            AppointmentStatusEnum.CANCELLED,
-            AppointmentStatusEnum.NO_SHOW,
-          ])),
+          status: Not(In([AppointmentStatusEnum.CANCELLED])),
         },
         lock: { mode: 'pessimistic_read' },
       });
@@ -194,14 +196,17 @@ export class AppointmentService {
 
       // 5. Validate and determine appointment type
       if (!slot.allowedAppointmentTypes?.length) {
-        throw new BadRequestException('Slot chưa được cấu hình appointment type');
+        throw new BadRequestException(
+          'Slot chưa được cấu hình appointment type',
+        );
       }
 
-      const appointmentType = data.appointmentType || slot.allowedAppointmentTypes[0];
+      const appointmentType =
+        data.appointmentType || slot.allowedAppointmentTypes[0];
 
       if (!slot.allowedAppointmentTypes.includes(appointmentType)) {
         throw new BadRequestException(
-          `Slot không hỗ trợ ${appointmentType}. Chỉ hỗ trợ: ${slot.allowedAppointmentTypes.join(', ')}`
+          `Slot không hỗ trợ ${appointmentType}. Chỉ hỗ trợ: ${slot.allowedAppointmentTypes.join(', ')}`,
         );
       }
 
@@ -254,6 +259,8 @@ export class AppointmentService {
         durationMinutes,
         timezone: slot.timezone || 'Asia/Ho_Chi_Minh',
         appointmentType,
+        subType: data.subType || AppointmentSubTypeEnum.SCHEDULED,
+        sourceType: data.sourceType || SourceTypeEnum.EXTERNAL,
         feeAmount,
         paidAmount: '0',
         status: isFree
@@ -282,7 +289,9 @@ export class AppointmentService {
           saved.meetingUrl = room.url;
           saved.dailyCoChannel = room.name;
           await manager.save(saved);
-          this.logger.log(`Auto-generated meeting URL for free appointment ${saved.id}`);
+          this.logger.log(
+            `Auto-generated meeting URL for free appointment ${saved.id}`,
+          );
         } catch (error) {
           this.logger.error(`Failed to generate meeting URL: ${error}`);
           // Don't fail the entire booking if video creation fails
@@ -328,12 +337,10 @@ export class AppointmentService {
         AppointmentStatusEnum.CHECKED_IN,
         AppointmentStatusEnum.IN_PROGRESS,
         AppointmentStatusEnum.CANCELLED,
-        AppointmentStatusEnum.NO_SHOW,
       ],
       [AppointmentStatusEnum.CHECKED_IN]: [
         AppointmentStatusEnum.IN_PROGRESS,
         AppointmentStatusEnum.CANCELLED,
-        AppointmentStatusEnum.NO_SHOW,
       ],
       [AppointmentStatusEnum.IN_PROGRESS]: [
         AppointmentStatusEnum.COMPLETED,
@@ -341,7 +348,6 @@ export class AppointmentService {
       ],
       [AppointmentStatusEnum.COMPLETED]: [],
       [AppointmentStatusEnum.CANCELLED]: [],
-      [AppointmentStatusEnum.NO_SHOW]: [],
       [AppointmentStatusEnum.RESCHEDULED]: [
         AppointmentStatusEnum.CONFIRMED,
         AppointmentStatusEnum.CANCELLED,
@@ -361,12 +367,17 @@ export class AppointmentService {
     // Handle status-specific logic
     if (status === AppointmentStatusEnum.CONFIRMED) {
       // Generate meeting URL for VIDEO appointments
-      if (appointment.appointmentType === AppointmentTypeEnum.VIDEO && !appointment.meetingUrl) {
+      if (
+        appointment.appointmentType === AppointmentTypeEnum.VIDEO &&
+        !appointment.meetingUrl
+      ) {
         try {
           const room = await this.dailyService.getOrCreateRoom(appointment.id);
           updateData.meetingUrl = room.url;
           updateData.dailyCoChannel = room.name;
-          this.logger.log(`Generated meeting URL for appointment ${appointment.id}`);
+          this.logger.log(
+            `Generated meeting URL for appointment ${appointment.id}`,
+          );
         } catch (error) {
           this.logger.error(`Failed to generate meeting URL: ${error}`);
           throw new BadRequestException('Không thể tạo phòng họp video');
@@ -378,11 +389,16 @@ export class AppointmentService {
       updateData.endedAt = new Date();
 
       // Clean up video room after completion
-      if (appointment.appointmentType === AppointmentTypeEnum.VIDEO && appointment.dailyCoChannel) {
+      if (
+        appointment.appointmentType === AppointmentTypeEnum.VIDEO &&
+        appointment.dailyCoChannel
+      ) {
         try {
           await this.dailyService.deleteRoom(appointment.dailyCoChannel);
           await this.callStateService.clearCallsForAppointment(appointment.id);
-          this.logger.log(`Cleaned up video room for appointment ${appointment.id}`);
+          this.logger.log(
+            `Cleaned up video room for appointment ${appointment.id}`,
+          );
         } catch (error) {
           this.logger.warn(`Failed to cleanup video room: ${error}`);
         }
@@ -419,12 +435,6 @@ export class AppointmentService {
         throw new BadRequestException('Lịch hẹn đã được hủy trước đó');
       }
 
-      if (appointment.status === AppointmentStatusEnum.NO_SHOW) {
-        throw new BadRequestException(
-          'Không thể hủy lịch hẹn đã đánh dấu no-show',
-        );
-      }
-
       // Release the time slot
       if (appointment.timeSlotId) {
         await manager.decrement(
@@ -439,7 +449,11 @@ export class AppointmentService {
         });
 
         if (slot && slot.bookedCount < slot.capacity) {
-          await manager.update(TimeSlot, { id: slot.id }, { isAvailable: true });
+          await manager.update(
+            TimeSlot,
+            { id: slot.id },
+            { isAvailable: true },
+          );
         }
       }
 
@@ -452,11 +466,16 @@ export class AppointmentService {
       const saved = await manager.save(appointment);
 
       // Cleanup video room if exists
-      if (appointment.appointmentType === AppointmentTypeEnum.VIDEO && appointment.dailyCoChannel) {
+      if (
+        appointment.appointmentType === AppointmentTypeEnum.VIDEO &&
+        appointment.dailyCoChannel
+      ) {
         try {
           await this.dailyService.deleteRoom(appointment.dailyCoChannel);
           await this.callStateService.clearCallsForAppointment(appointment.id);
-          this.logger.log(`Cleaned up video room for cancelled appointment ${appointment.id}`);
+          this.logger.log(
+            `Cleaned up video room for cancelled appointment ${appointment.id}`,
+          );
         } catch (error) {
           this.logger.warn(`Failed to cleanup video room: ${error}`);
         }
@@ -524,10 +543,14 @@ export class AppointmentService {
       }
 
       if (!newSlot.allowedAppointmentTypes?.length) {
-        throw new BadRequestException('Slot mới chưa được cấu hình appointment type');
+        throw new BadRequestException(
+          'Slot mới chưa được cấu hình appointment type',
+        );
       }
 
-      if (!newSlot.allowedAppointmentTypes.includes(appointment.appointmentType)) {
+      if (
+        !newSlot.allowedAppointmentTypes.includes(appointment.appointmentType)
+      ) {
         throw new BadRequestException(
           `Slot mới không hỗ trợ ${appointment.appointmentType}. ` +
             `Chỉ hỗ trợ: ${newSlot.allowedAppointmentTypes.join(', ')}`,
@@ -539,10 +562,7 @@ export class AppointmentService {
         where: {
           patientId: appointment.patientId,
           timeSlotId: newTimeSlotId,
-          status: Not(In([
-            AppointmentStatusEnum.CANCELLED,
-            AppointmentStatusEnum.NO_SHOW,
-          ])),
+          status: Not(In([AppointmentStatusEnum.CANCELLED])),
         },
         lock: { mode: 'pessimistic_read' },
       });
@@ -563,14 +583,22 @@ export class AppointmentService {
       if (oldSlot) {
         await manager.decrement(TimeSlot, { id: oldSlot.id }, 'bookedCount', 1);
         if (oldSlot.bookedCount - 1 < oldSlot.capacity) {
-          await manager.update(TimeSlot, { id: oldSlot.id }, { isAvailable: true });
+          await manager.update(
+            TimeSlot,
+            { id: oldSlot.id },
+            { isAvailable: true },
+          );
         }
       }
 
       // Book new slot
       await manager.increment(TimeSlot, { id: newSlot.id }, 'bookedCount', 1);
       if (newSlot.bookedCount + 1 >= newSlot.capacity) {
-        await manager.update(TimeSlot, { id: newSlot.id }, { isAvailable: false });
+        await manager.update(
+          TimeSlot,
+          { id: newSlot.id },
+          { isAvailable: false },
+        );
       }
 
       // SYNC scheduledAt and durationMinutes from new slot
@@ -586,77 +614,6 @@ export class AppointmentService {
     return new ResponseCommon(
       200,
       'Đổi lịch hẹn thành công',
-      this.toDto(result),
-    );
-  }
-
-  /**
-   * Mark appointment as no-show and release the slot
-   */
-  async markNoShow(
-    id: string,
-    markedBy: string = 'SYSTEM',
-  ): Promise<ResponseCommon<AppointmentResponseDto>> {
-    const result = await this.dataSource.transaction(async (manager) => {
-      const appointment = await manager.findOne(Appointment, {
-        where: { id },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!appointment) {
-        throw new NotFoundException('Appointment không tồn tại');
-      }
-
-      if (
-        appointment.status !== AppointmentStatusEnum.CONFIRMED &&
-        appointment.status !== AppointmentStatusEnum.CHECKED_IN
-      ) {
-        throw new BadRequestException(
-          'Chỉ có thể mark no-show cho lịch hẹn đã confirm',
-        );
-      }
-
-      // Release slot
-      if (appointment.timeSlotId) {
-        await manager.decrement(
-          TimeSlot,
-          { id: appointment.timeSlotId },
-          'bookedCount',
-          1,
-        );
-
-        const slot = await manager.findOne(TimeSlot, {
-          where: { id: appointment.timeSlotId },
-        });
-
-        if (slot && slot.bookedCount < slot.capacity) {
-          await manager.update(TimeSlot, { id: slot.id }, { isAvailable: true });
-        }
-      }
-
-      appointment.status = AppointmentStatusEnum.NO_SHOW;
-      appointment.cancelledAt = new Date();
-      appointment.cancelledBy = markedBy;
-
-      const saved = await manager.save(appointment);
-
-      // Cleanup video room if exists
-      if (appointment.appointmentType === AppointmentTypeEnum.VIDEO && appointment.dailyCoChannel) {
-        try {
-          await this.dailyService.deleteRoom(appointment.dailyCoChannel);
-          await this.callStateService.clearCallsForAppointment(appointment.id);
-          this.logger.log(`Cleaned up video room for no-show appointment ${appointment.id}`);
-        } catch (error) {
-          this.logger.warn(`Failed to cleanup video room: ${error}`);
-        }
-      }
-
-      return saved;
-    });
-
-    return new ResponseCommon(
-      200,
-      'Đánh dấu no-show thành công',
       this.toDto(result),
     );
   }
@@ -680,12 +637,19 @@ export class AppointmentService {
     if (isDoctor) {
       // For doctor, verify via doctor.userId (need to check doctor relation)
       if (!appointment.doctor?.userId || appointment.doctor.userId !== userId) {
-        throw new ForbiddenException('Bạn không phải là bác sĩ của cuộc hẹn này');
+        throw new ForbiddenException(
+          'Bạn không phải là bác sĩ của cuộc hẹn này',
+        );
       }
     } else {
       // For patient
-      if (!appointment.patient?.userId || appointment.patient.userId !== userId) {
-        throw new ForbiddenException('Bạn không phải là bệnh nhân của cuộc hẹn này');
+      if (
+        !appointment.patient?.userId ||
+        appointment.patient.userId !== userId
+      ) {
+        throw new ForbiddenException(
+          'Bạn không phải là bệnh nhân của cuộc hẹn này',
+        );
       }
     }
 
@@ -727,7 +691,7 @@ export class AppointmentService {
 
     return {
       token: tokenData.token,
-      url: appointment.meetingUrl!,
+      url: appointment.meetingUrl,
     };
   }
 
@@ -760,7 +724,9 @@ export class AppointmentService {
     }
 
     await this.callStateService.clearCurrentCall(userId);
-    this.logger.log(`User ${userId} left call for appointment ${appointmentId}`);
+    this.logger.log(
+      `User ${userId} left call for appointment ${appointmentId}`,
+    );
   }
 
   /**
@@ -796,7 +762,9 @@ export class AppointmentService {
         const room = await this.dailyService.getOrCreateRoom(appointmentId);
         updateData.meetingUrl = room.url;
         updateData.dailyCoChannel = room.name;
-        this.logger.log(`Generated meeting URL for paid appointment ${appointmentId}`);
+        this.logger.log(
+          `Generated meeting URL for paid appointment ${appointmentId}`,
+        );
       } catch (error) {
         this.logger.error(`Failed to generate meeting URL: ${error}`);
         throw new BadRequestException('Không thể tạo phòng họp video');
@@ -805,7 +773,9 @@ export class AppointmentService {
 
     await this.appointmentRepository.update(appointmentId, updateData);
 
-    this.logger.log(`Payment confirmed for appointment ${appointmentId}, paymentId: ${paymentId}`);
+    this.logger.log(
+      `Payment confirmed for appointment ${appointmentId}, paymentId: ${paymentId}`,
+    );
 
     return this.findById(appointmentId);
   }
@@ -833,7 +803,6 @@ export class AppointmentService {
     const terminalStates = [
       AppointmentStatusEnum.COMPLETED,
       AppointmentStatusEnum.CANCELLED,
-      AppointmentStatusEnum.NO_SHOW,
     ];
 
     if (terminalStates.includes(appointment.status)) {
@@ -865,6 +834,8 @@ export class AppointmentService {
       timezone: entity.timezone,
       status: entity.status,
       appointmentType: entity.appointmentType,
+      subType: entity.subType,
+      sourceType: entity.sourceType,
       feeAmount: entity.feeAmount,
       paidAmount: entity.paidAmount,
       paymentId: entity.paymentId,

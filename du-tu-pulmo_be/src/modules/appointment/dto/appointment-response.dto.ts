@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
 import { AppointmentStatusEnum } from 'src/modules/common/enums/appointment-status.enum';
+import { AppointmentSubTypeEnum } from 'src/modules/common/enums/appointment-sub-type.enum';
+import { SourceTypeEnum } from 'src/modules/common/enums/source-type.enum';
 
 /**
  * Response DTO for appointment data
@@ -30,6 +32,20 @@ export class AppointmentResponseDto {
     example: AppointmentTypeEnum.IN_CLINIC,
   })
   appointmentType: AppointmentTypeEnum;
+
+  @ApiProperty({
+    description: 'Loại con (INSTANT/SCHEDULED/RE_EXAM)',
+    enum: AppointmentSubTypeEnum,
+    example: AppointmentSubTypeEnum.SCHEDULED,
+  })
+  subType: AppointmentSubTypeEnum;
+
+  @ApiProperty({
+    description: 'Nguồn đặt lịch (INTERNAL/EXTERNAL)',
+    enum: SourceTypeEnum,
+    example: SourceTypeEnum.EXTERNAL,
+  })
+  sourceType: SourceTypeEnum;
 
   @ApiProperty({ description: 'Thời gian hẹn' })
   scheduledAt: Date;

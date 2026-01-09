@@ -302,37 +302,6 @@ export class AppointmentController {
     return this.appointmentService.reschedule(id, dto.newTimeSlotId);
   }
 
-  @Put(':id/no-show')
-  @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
-  @ApiOperation({ summary: 'Đánh dấu bệnh nhân không đến' })
-  @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
-  @ApiResponse({ status: HttpStatus.OK, type: AppointmentResponseDto })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Không thể đánh dấu no-show',
-  })
-  async markNoShow(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: JwtUser,
-  ) {
-    const result = await this.appointmentService.findById(id);
-    const appointment = result.data!;
-
-    if (
-      user.roles?.includes(RoleEnum.DOCTOR) &&
-      !user.roles?.includes(RoleEnum.ADMIN)
-    ) {
-      if (appointment.doctorId !== user.doctorId) {
-        throw new ForbiddenException(
-          'Bạn chỉ có thể đánh dấu lịch hẹn của mình',
-        );
-      }
-    }
-
-    const markedBy = user.roles?.includes(RoleEnum.ADMIN) ? 'ADMIN' : 'DOCTOR';
-    return this.appointmentService.markNoShow(id, markedBy);
-  }
-
   // ============================================================================
   // VIDEO CALL ENDPOINTS
   // ============================================================================

@@ -8,6 +8,8 @@ import {
   IsNotEmpty,
 } from 'class-validator';
 import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
+import { AppointmentSubTypeEnum } from 'src/modules/common/enums/appointment-sub-type.enum';
+import { SourceTypeEnum } from 'src/modules/common/enums/source-type.enum';
 
 /**
  * DTO for creating a new appointment
@@ -32,10 +34,32 @@ export class CreateAppointmentDto {
   @IsEnum(AppointmentTypeEnum)
   appointmentType?: AppointmentTypeEnum;
 
-  @ApiPropertyOptional({ description: 'ID bệnh viện (dùng cho IN_CLINIC)', format: 'uuid' })
+  @ApiPropertyOptional({
+    description: 'ID bệnh viện (dùng cho IN_CLINIC)',
+    format: 'uuid',
+  })
   @IsOptional()
   @IsUUID()
   hospitalId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Loại con (INSTANT: Khám ngay, SCHEDULED: Đặt lịch, RE_EXAM: Tái khám)',
+    enum: AppointmentSubTypeEnum,
+    default: AppointmentSubTypeEnum.SCHEDULED,
+  })
+  @IsOptional()
+  @IsEnum(AppointmentSubTypeEnum)
+  subType?: AppointmentSubTypeEnum;
+
+  @ApiPropertyOptional({
+    description: 'Nguồn đặt lịch (INTERNAL: Tại cơ sở, EXTERNAL: Online)',
+    enum: SourceTypeEnum,
+    default: SourceTypeEnum.EXTERNAL,
+  })
+  @IsOptional()
+  @IsEnum(SourceTypeEnum)
+  sourceType?: SourceTypeEnum;
 
   @ApiPropertyOptional({ description: 'Lý do khám chính' })
   @IsOptional()

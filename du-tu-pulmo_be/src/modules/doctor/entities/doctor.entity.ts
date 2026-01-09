@@ -66,7 +66,9 @@ export class Doctor {
   yearsOfExperience: number;
 
   // Nơi công tác
-  @ManyToOne(() => Hospital, (hospital) => hospital.doctors, { nullable: false })
+  @ManyToOne(() => Hospital, (hospital) => hospital.doctors, {
+    nullable: false,
+  })
   @JoinColumn({ name: 'primary_hospital_id' })
   primaryHospital: Hospital;
 

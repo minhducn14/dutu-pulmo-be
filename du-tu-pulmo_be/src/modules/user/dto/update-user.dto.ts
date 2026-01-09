@@ -9,6 +9,9 @@ import {
 } from 'class-validator';
 import { UserStatusEnum } from '../../common/enums/user-status.enum';
 import { GenderEnum } from '../../common/enums/gender.enum';
+import { CountryEnum } from '../../common/enums/country.enum';
+import { EthnicityEnum } from '../../common/enums/ethnicity.enum';
+import { OccupationEnum } from '../../common/enums/job.enum';
 
 export class UpdateUserDto {
   @ApiPropertyOptional({
@@ -59,6 +62,33 @@ export class UpdateUserDto {
   @Length(12, 12, { message: 'CCCD phải có đúng 12 số' })
   @Matches(/^[0-9]{12}$/, { message: 'CCCD phải là 12 chữ số' })
   CCCD?: string;
+
+  @ApiPropertyOptional({
+    description: 'Quốc tịch',
+    enum: CountryEnum,
+    example: CountryEnum.VIET_NAM,
+  })
+  @IsOptional()
+  @IsEnum(CountryEnum, { message: 'Quốc tịch không hợp lệ' })
+  nationality?: CountryEnum;
+
+  @ApiPropertyOptional({
+    description: 'Dân tộc',
+    enum: EthnicityEnum,
+    example: EthnicityEnum.KINH,
+  })
+  @IsOptional()
+  @IsEnum(EthnicityEnum, { message: 'Dân tộc không hợp lệ' })
+  ethnicity?: EthnicityEnum;
+
+  @ApiPropertyOptional({
+    description: 'Nghề nghiệp',
+    enum: OccupationEnum,
+    example: OccupationEnum.JOB_22110,
+  })
+  @IsOptional()
+  @IsEnum(OccupationEnum, { message: 'Nghề nghiệp không hợp lệ' })
+  occupation?: OccupationEnum;
 
   // Địa chỉ
   @ApiPropertyOptional({

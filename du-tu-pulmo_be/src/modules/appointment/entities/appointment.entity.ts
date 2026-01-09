@@ -15,6 +15,8 @@ import { Hospital } from '../../hospital/entities/hospital.entity';
 import { TimeSlot } from '../../doctor/entities/time-slot.entity';
 import { AppointmentTypeEnum } from '../../common/enums/appointment-type.enum';
 import { AppointmentStatusEnum } from '../../common/enums/appointment-status.enum';
+import { AppointmentSubTypeEnum } from '../../common/enums/appointment-sub-type.enum';
+import { SourceTypeEnum } from '../../common/enums/source-type.enum';
 
 @Entity('appointments')
 @Index('idx_appointment_patient_slot', ['patientId', 'timeSlotId'])
@@ -96,6 +98,22 @@ export class Appointment {
   appointmentType: AppointmentTypeEnum;
 
   @Column({
+    name: 'sub_type',
+    type: 'enum',
+    enum: AppointmentSubTypeEnum,
+    default: AppointmentSubTypeEnum.SCHEDULED,
+  })
+  subType: AppointmentSubTypeEnum;
+
+  @Column({
+    name: 'source_type',
+    type: 'enum',
+    enum: SourceTypeEnum,
+    default: SourceTypeEnum.EXTERNAL,
+  })
+  sourceType: SourceTypeEnum;
+
+  @Column({
     name: 'fee_amount',
     type: 'decimal',
     precision: 10,
@@ -165,13 +183,13 @@ export class Appointment {
   floor: string;
 
   // ========================================
-  // CLINICAL INFO
+  // CLINICAL INFO ( Thông tin y tế)
   // ========================================
   @Column({ name: 'chief_complaint', type: 'text', nullable: true })
-  chiefComplaint: string;
+  chiefComplaint: string; // Lý do thăm khám
 
   @Column({ type: 'text', array: true, nullable: true })
-  symptoms: string[];
+  symptoms: string[]; // triệu chứng
 
   @Column({ name: 'patient_notes', type: 'text', nullable: true })
   patientNotes: string;

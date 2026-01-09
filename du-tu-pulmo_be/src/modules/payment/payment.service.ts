@@ -102,7 +102,7 @@ export class PaymentService {
 
     // Get URLs from config
     const frontendUrl =
-    this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
     const returnUrl = dto.returnUrl || `${frontendUrl}/payment/success`;
     const cancelUrl = dto.cancelUrl || `${frontendUrl}/payment/cancel`;
 
@@ -200,10 +200,7 @@ export class PaymentService {
     if (!payment) {
       throw new NotFoundException('Payment not found');
     }
-    this.cancelPaymentByAppointmentId(
-      payment.appointmentId,
-      '',
-    );
+    this.cancelPaymentByAppointmentId(payment.appointmentId, '');
     if (!payment) {
       throw new NotFoundException('Payment not found');
     }
@@ -301,7 +298,7 @@ export class PaymentService {
 
     // Find payment
     const payment = await this.paymentRepository.findOne({
-      where: { orderCode: orderCode as any }
+      where: { orderCode: orderCode as any },
     });
 
     if (!payment) {
@@ -345,7 +342,8 @@ export class PaymentService {
     } catch (error) {
       // Track errors
       payment.lastErrorAt = new Date();
-      payment.errorMessage = error instanceof Error ? error.message : String(error);
+      payment.errorMessage =
+        error instanceof Error ? error.message : String(error);
       await this.paymentRepository.save(payment);
       throw error;
     }
@@ -386,9 +384,7 @@ export class PaymentService {
           appointment.paidAmount = payment.amount;
           await manager.save(appointment);
 
-          this.logger.log(
-            `Updated appointment ${appointment.id} to CONFIRMED`,
-          );
+          this.logger.log(`Updated appointment ${appointment.id} to CONFIRMED`);
         }
       }
 
@@ -526,7 +522,10 @@ export class PaymentService {
     };
 
     // Add counter account info if paid (SECURITY: masked account number)
-    if (payment.status === PaymentStatus.PAID && payment.counterAccountBankName) {
+    if (
+      payment.status === PaymentStatus.PAID &&
+      payment.counterAccountBankName
+    ) {
       dto.counterAccount = {
         bankId: payment.counterAccountBankId,
         bankName: payment.counterAccountBankName,
@@ -560,7 +559,10 @@ export class PaymentService {
 
         let statusChanged = false;
 
-        if (payosInfo.status === 'PAID' && payment.status !== PaymentStatus.PAID) {
+        if (
+          payosInfo.status === 'PAID' &&
+          payment.status !== PaymentStatus.PAID
+        ) {
           payment.status = PaymentStatus.PAID;
           payment.paidAt = new Date();
           statusChanged = true;
@@ -626,7 +628,8 @@ export class PaymentService {
       payment.deviceType = undefined as unknown as string;
       payment.requestCountry = undefined as unknown as string;
       payment.counterAccountNumberMasked = '****';
-      payment.webhookMetadata = undefined as unknown as Payment['webhookMetadata'];
+      payment.webhookMetadata =
+        undefined as unknown as Payment['webhookMetadata'];
       payment.sensitiveDataExpiresAt = undefined as unknown as Date;
 
       await this.paymentRepository.save(payment);
@@ -649,7 +652,11 @@ export class PaymentService {
 
     const oldPayments = await this.paymentRepository.find({
       where: {
-        status: In([PaymentStatus.PAID, PaymentStatus.CANCELLED, PaymentStatus.EXPIRED]),
+        status: In([
+          PaymentStatus.PAID,
+          PaymentStatus.CANCELLED,
+          PaymentStatus.EXPIRED,
+        ]),
         createdAt: LessThan(oneYearAgo),
       },
     });
@@ -660,7 +667,7 @@ export class PaymentService {
       // TODO: Move to archive table when implemented
       // await this.archivedPaymentRepository.save(payment);
       // await this.paymentRepository.remove(payment);
-      
+
       this.logger.debug(`Would archive payment ${payment.id}`);
       count++;
     }

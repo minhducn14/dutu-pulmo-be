@@ -65,7 +65,7 @@ export class CancelPaymentDto {
     example: 'Khách hàng đổi ý',
     required: false,
   })
-  @IsOptional() 
-  @IsString()   
+  @IsOptional()
+  @IsString()
   reason?: string;
 }

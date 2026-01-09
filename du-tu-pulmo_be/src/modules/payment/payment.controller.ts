@@ -24,7 +24,10 @@ import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from '../core/auth/guards/jwt-auth.guard';
 import { PaymentService } from './payment.service';
 import type { WebhookData } from './payos.service';
-import { CancelPaymentDto, PaymentResponseDto } from './dto/payment-response.dto';
+import {
+  CancelPaymentDto,
+  PaymentResponseDto,
+} from './dto/payment-response.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { RolesGuard } from '../core/auth/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
@@ -148,16 +151,13 @@ export class PaymentController {
 
     // Sync payment status by orderCode (from PayOS callback)
     try {
-      await this.paymentService.syncPaymentStatusByorderCode(
-        orderCode,
-      );
+      await this.paymentService.syncPaymentStatusByorderCode(orderCode);
     } catch {
       // Ignore errors, redirect anyway
     }
 
     // Get appointmentId for the redirect
-    const payment =
-      await this.paymentService.getPaymentByorderCode(orderCode);
+    const payment = await this.paymentService.getPaymentByorderCode(orderCode);
     res.redirect(
       `${frontendUrl}/payment/success?appointmentId=${payment.appointmentId}`,
     );
@@ -194,5 +194,4 @@ export class PaymentController {
     await this.paymentService.syncPendingPayments();
     return { success: true };
   }
-  
 }
