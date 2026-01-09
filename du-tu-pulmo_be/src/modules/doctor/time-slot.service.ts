@@ -5,7 +5,15 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, DataSource, MoreThanOrEqual, Not, In, IsNull } from 'typeorm';
+import {
+  Repository,
+  Between,
+  DataSource,
+  MoreThanOrEqual,
+  Not,
+  In,
+  IsNull,
+} from 'typeorm';
 import { TimeSlot } from './entities/time-slot.entity';
 import { CreateTimeSlotDto, UpdateTimeSlotDto } from './dto/time-slot.dto';
 import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
@@ -270,8 +278,10 @@ export class TimeSlotService {
     const seenSlots = new Set<string>();
 
     // Collect unique scheduleIds from DTOs
-    const scheduleIds = [...new Set(dtos.map(dto => dto.scheduleId).filter(Boolean))] as string[];
-    
+    const scheduleIds = [
+      ...new Set(dtos.map((dto) => dto.scheduleId).filter(Boolean)),
+    ] as string[];
+
     // Batch fetch all schedules
     const scheduleMap = new Map<string, DoctorSchedule>();
     if (scheduleIds.length > 0) {
@@ -279,12 +289,14 @@ export class TimeSlotService {
         where: { id: In(scheduleIds) },
         select: ['id', 'minimumBookingTime', 'maxAdvanceBookingDays'],
       });
-      schedules.forEach(s => scheduleMap.set(s.id, s));
+      schedules.forEach((s) => scheduleMap.set(s.id, s));
     }
 
     for (const dto of dtos) {
       // Get schedule for this DTO if it has scheduleId
-      const schedule = dto.scheduleId ? scheduleMap.get(dto.scheduleId) : undefined;
+      const schedule = dto.scheduleId
+        ? scheduleMap.get(dto.scheduleId)
+        : undefined;
       this.validateSlot(dto, schedule);
 
       const startTime = new Date(dto.startTime);

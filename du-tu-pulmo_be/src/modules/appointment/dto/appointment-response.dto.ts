@@ -66,6 +66,19 @@ export class AppointmentResponseDto {
   @ApiPropertyOptional({ description: 'URL phòng họp' })
   meetingUrl?: string;
 
+  @ApiPropertyOptional({ description: 'Daily.co channel' })
+  dailyCoChannel?: string;
+
+  // In-clinic fields
+  @ApiPropertyOptional({ description: 'Số phòng khám' })
+  roomNumber?: string;
+
+  @ApiPropertyOptional({ description: 'Số thứ tự' })
+  queueNumber?: number;
+
+  @ApiPropertyOptional({ description: 'Tầng' })
+  floor?: string;
+
   // Clinical info
   @ApiPropertyOptional({ description: 'Lý do khám chính' })
   chiefComplaint?: string;

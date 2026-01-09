@@ -6,9 +6,7 @@ import { DoctorScheduleService } from '../modules/doctor/doctor-schedule.service
 export class SlotSchedulerService {
   private readonly logger = new Logger(SlotSchedulerService.name);
 
-  constructor(
-    private readonly doctorScheduleService: DoctorScheduleService,
-  ) {}
+  constructor(private readonly doctorScheduleService: DoctorScheduleService) {}
 
   /**
    * Cron job chạy lúc 00:05 mỗi ngày
@@ -37,7 +35,7 @@ export class SlotSchedulerService {
       const duration = Date.now() - startTime;
       this.logger.log(
         `🎉 Daily slot maintenance completed in ${duration}ms. ` +
-        `Disabled: ${disabledCount}, Generated: ${result.slotsGenerated}`,
+          `Disabled: ${disabledCount}, Generated: ${result.slotsGenerated}`,
       );
     } catch (error) {
       this.logger.error('❌ Daily slot maintenance failed:', error);

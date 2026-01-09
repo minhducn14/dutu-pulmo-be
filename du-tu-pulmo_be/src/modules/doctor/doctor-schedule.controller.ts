@@ -108,8 +108,6 @@ export class DoctorScheduleController {
     return result;
   }
 
-  
-
   // ========================================
   // REGULAR SCHEDULE ENDPOINTS
   // ========================================
@@ -217,8 +215,13 @@ export class DoctorScheduleController {
     description: 'Danh sách lịch cố định',
     type: [DoctorScheduleResponseDto],
   })
-  async findRegularSchedules(@Param('doctorId', ParseUUIDPipe) doctorId: string) {
-    return this.scheduleService.findByDoctorIdAndType(doctorId, ScheduleType.REGULAR);
+  async findRegularSchedules(
+    @Param('doctorId', ParseUUIDPipe) doctorId: string,
+  ) {
+    return this.scheduleService.findByDoctorIdAndType(
+      doctorId,
+      ScheduleType.REGULAR,
+    );
   }
 
   @Patch('regular/:id')
@@ -315,8 +318,13 @@ export class DoctorScheduleController {
     type: [DoctorScheduleResponseDto],
   })
   @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
-  async findFlexibleSchedules(@Param('doctorId', ParseUUIDPipe) doctorId: string) {
-    return this.scheduleService.findByDoctorIdAndType(doctorId, ScheduleType.FLEXIBLE);
+  async findFlexibleSchedules(
+    @Param('doctorId', ParseUUIDPipe) doctorId: string,
+  ) {
+    return this.scheduleService.findByDoctorIdAndType(
+      doctorId,
+      ScheduleType.FLEXIBLE,
+    );
   }
 
   @Post('flexible')
@@ -430,8 +438,13 @@ export class DoctorScheduleController {
     description: 'Danh sách lịch nghỉ',
     type: [DoctorScheduleResponseDto],
   })
-  async findTimeOffSchedules(@Param('doctorId', ParseUUIDPipe) doctorId: string) {
-    return this.scheduleService.findByDoctorIdAndType(doctorId, ScheduleType.TIME_OFF);
+  async findTimeOffSchedules(
+    @Param('doctorId', ParseUUIDPipe) doctorId: string,
+  ) {
+    return this.scheduleService.findByDoctorIdAndType(
+      doctorId,
+      ScheduleType.TIME_OFF,
+    );
   }
 
   @Post('time-off')

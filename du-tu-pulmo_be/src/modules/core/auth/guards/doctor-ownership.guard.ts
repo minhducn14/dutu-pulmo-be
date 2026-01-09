@@ -11,7 +11,6 @@ import { RoleEnum } from 'src/modules/common/enums/role.enum';
 import { DoctorSchedule } from 'src/modules/doctor/entities/doctor-schedule.entity';
 import { TimeSlot } from 'src/modules/doctor/entities/time-slot.entity';
 
-
 @Injectable()
 export class DoctorOwnershipGuard implements CanActivate {
   constructor(

@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Param,
   Body,
   HttpStatus,
@@ -71,6 +72,13 @@ export class AppointmentController {
     return this.appointmentService.findByDoctor(user.doctorId);
   }
 
+  @Get('me/call-status')
+  @ApiOperation({ summary: 'Kiểm tra trạng thái cuộc gọi hiện tại của user' })
+  @ApiResponse({ status: HttpStatus.OK })
+  async getMyCallStatus(@CurrentUser() user: JwtUser) {
+    return this.appointmentService.getUserCallStatus(user.id);
+  }
+
   @Get('patient/:patientId')
   @ApiOperation({ summary: 'Lấy lịch hẹn của bệnh nhân' })
   @ApiParam({ name: 'patientId', description: 'Patient ID (UUID)' })
@@ -107,11 +115,12 @@ export class AppointmentController {
     @CurrentUser() user: JwtUser,
   ) {
     if (!user.roles?.includes(RoleEnum.ADMIN)) {
-      if (user.roles?.includes(RoleEnum.DOCTOR) && user.doctorId !== doctorId) {
-        throw new ForbiddenException('Bạn chỉ có thể xem lịch hẹn của mình');
-      }
-      if (user.roles?.includes(RoleEnum.PATIENT)) {
-        throw new ForbiddenException('Bệnh nhân không có quyền truy cập');
+      if (user.roles?.includes(RoleEnum.DOCTOR)) {
+        if (user.doctorId !== doctorId) {
+          throw new ForbiddenException('Bạn chỉ có thể xem lịch hẹn của mình');
+        }
+      } else {
+        throw new ForbiddenException('Không có quyền truy cập');
       }
     }
     return this.appointmentService.findByDoctor(doctorId);
@@ -169,20 +178,22 @@ export class AppointmentController {
     description: 'Trùng lịch hoặc slot đã đầy',
   })
   create(@Body() dto: CreateAppointmentDto, @CurrentUser() user: JwtUser) {
-    // Patient can only book for themselves
     if (
       user.roles?.includes(RoleEnum.PATIENT) &&
       !user.roles?.includes(RoleEnum.ADMIN)
     ) {
-      if (dto.patientId && dto.patientId !== user.patientId) {
-        throw new ForbiddenException('Bạn chỉ có thể đặt lịch cho chính mình');
+      if (!user.patientId) {
+        throw new ForbiddenException('Không tìm thấy thông tin bệnh nhân');
       }
-      dto.patientId = user.patientId;
+      if (!dto.patientId) {
+        console.log(user);
+        dto.patientId = user.patientId;
+      }
     }
-
+    console.log(user.id);
     return this.appointmentService.create({
       ...dto,
-      bookedByUserId: user.id,
+      bookedByUserId: user.userId,
     });
   }
 
@@ -320,5 +331,113 @@ export class AppointmentController {
 
     const markedBy = user.roles?.includes(RoleEnum.ADMIN) ? 'ADMIN' : 'DOCTOR';
     return this.appointmentService.markNoShow(id, markedBy);
+  }
+
+  // ============================================================================
+  // VIDEO CALL ENDPOINTS
+  // ============================================================================
+
+  @Post(':id/video/join')
+  @ApiOperation({ summary: 'Lấy token để join video call' })
+  @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
+  @ApiResponse({ status: HttpStatus.OK })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Không phải video appointment hoặc chưa tạo phòng',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Không có quyền truy cập',
+  })
+  async joinVideoCall(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    const isDoctor = user.roles?.includes(RoleEnum.DOCTOR) ?? false;
+    const userName = user.fullName || user.email || 'User';
+
+    return this.appointmentService.generateMeetingToken(
+      id,
+      user.id,
+      userName,
+      isDoctor,
+    );
+  }
+
+  @Post(':id/video/leave')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Rời khỏi video call' })
+  @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
+  @ApiResponse({ status: HttpStatus.OK })
+  async leaveVideoCall(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    await this.appointmentService.leaveCall(user.id, id);
+    return { message: 'Left call successfully' };
+  }
+
+  // ============================================================================
+  // PAYMENT ENDPOINTS
+  // ============================================================================
+
+  @Post(':id/payment/confirm')
+  @Roles(RoleEnum.ADMIN)
+  @ApiOperation({ summary: 'Xác nhận thanh toán (Admin/Webhook)' })
+  @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
+  @ApiResponse({ status: HttpStatus.OK, type: AppointmentResponseDto })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Không thể xác nhận thanh toán',
+  })
+  async confirmPayment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: { paymentId: string; paidAmount?: string },
+  ) {
+    return this.appointmentService.confirmPayment(
+      id,
+      dto.paymentId,
+      dto.paidAmount,
+    );
+  }
+
+  // ============================================================================
+  // CLINICAL INFO ENDPOINTS
+  // ============================================================================
+
+  @Patch(':id/clinical')
+  @Roles(RoleEnum.DOCTOR, RoleEnum.ADMIN)
+  @ApiOperation({ summary: 'Cập nhật thông tin lâm sàng' })
+  @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
+  @ApiResponse({ status: HttpStatus.OK, type: AppointmentResponseDto })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Không thể cập nhật',
+  })
+  async updateClinicalInfo(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body()
+    dto: {
+      chiefComplaint?: string;
+      symptoms?: string[];
+      patientNotes?: string;
+      doctorNotes?: string;
+    },
+    @CurrentUser() user: JwtUser,
+  ) {
+    // Doctor can only update their own appointments
+    if (
+      user.roles?.includes(RoleEnum.DOCTOR) &&
+      !user.roles?.includes(RoleEnum.ADMIN)
+    ) {
+      const result = await this.appointmentService.findById(id);
+      if (result.data!.doctorId !== user.doctorId) {
+        throw new ForbiddenException(
+          'Bạn chỉ có thể cập nhật lịch hẹn của mình',
+        );
+      }
+    }
+
+    return this.appointmentService.updateClinicalInfo(id, dto);
   }
 }

@@ -3,29 +3,59 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, Not, In } from 'typeorm';
 import { Appointment } from './entities/appointment.entity';
 import { TimeSlot } from '../doctor/entities/time-slot.entity';
+import { Doctor } from '../doctor/entities/doctor.entity';
+import { DoctorSchedule } from '../doctor/entities/doctor-schedule.entity';
 import { AppointmentStatusEnum } from '../common/enums/appointment-status.enum';
 import { ResponseCommon } from 'src/common/dto/response.dto';
-import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { AppointmentResponseDto } from './dto/appointment-response.dto';
+import { AppointmentTypeEnum } from '../common/enums/appointment-type.enum';
+import { DailyService } from '../video_call/daily.service';
+import { CallStateService } from '../video_call/call-state.service';
+
+const BASE_RELATIONS = ['patient', 'doctor', 'hospital', 'timeSlot'];
+
+const AUTH_RELATIONS = [
+  'patient',
+  'patient.user',
+  'doctor',
+  'doctor.user',
+  'hospital',
+  'timeSlot',
+];
 
 @Injectable()
 export class AppointmentService {
+  private readonly logger = new Logger(AppointmentService.name);
+
   constructor(
     @InjectRepository(Appointment)
     private readonly appointmentRepository: Repository<Appointment>,
     @InjectRepository(TimeSlot)
     private readonly timeSlotRepository: Repository<TimeSlot>,
     private readonly dataSource: DataSource,
+    private readonly dailyService: DailyService,
+    private readonly callStateService: CallStateService,
   ) {}
+
+  /**
+   * Helper: Parse fee value safely
+   */
+  private getFee(value: string | number | null | undefined): number {
+    if (value === null || value === undefined) return 0;
+    const num = Number(value);
+    return isNaN(num) ? 0 : num;
+  }
 
   async findAll(): Promise<ResponseCommon<AppointmentResponseDto[]>> {
     const appointments = await this.appointmentRepository.find({
-      relations: ['patient', 'doctor', 'hospital'],
+      relations: BASE_RELATIONS,
     });
     return new ResponseCommon(
       200,
@@ -37,7 +67,7 @@ export class AppointmentService {
   async findById(id: string): Promise<ResponseCommon<AppointmentResponseDto>> {
     const appointment = await this.appointmentRepository.findOne({
       where: { id },
-      relations: ['patient', 'doctor', 'hospital', 'department'],
+      relations: BASE_RELATIONS,
     });
     if (!appointment) {
       throw new NotFoundException(`Appointment with ID ${id} not found`);
@@ -45,12 +75,37 @@ export class AppointmentService {
     return new ResponseCommon(200, 'SUCCESS', this.toDto(appointment));
   }
 
+  /**
+   * Find appointment by ID (returns entity for internal use)
+   * Uses AUTH_RELATIONS for authorization checks
+   */
+  async findOne(id: string): Promise<Appointment | null> {
+    return this.appointmentRepository.findOne({
+      where: { id },
+      relations: AUTH_RELATIONS,
+    });
+  }
+
+  /**
+   * Update appointment fields (for internal use)
+   */
+  async update(id: string, data: Partial<Appointment>): Promise<Appointment> {
+    await this.appointmentRepository.update(id, data);
+    const updated = await this.appointmentRepository.findOne({
+      where: { id },
+    });
+    if (!updated) {
+      throw new NotFoundException(`Appointment with ID ${id} not found`);
+    }
+    return updated;
+  }
+
   async findByPatient(
     patientId: string,
   ): Promise<ResponseCommon<AppointmentResponseDto[]>> {
     const appointments = await this.appointmentRepository.find({
       where: { patientId },
-      relations: ['doctor', 'hospital'],
+      relations: BASE_RELATIONS,
       order: { scheduledAt: 'DESC' },
     });
     return new ResponseCommon(
@@ -65,7 +120,7 @@ export class AppointmentService {
   ): Promise<ResponseCommon<AppointmentResponseDto[]>> {
     const appointments = await this.appointmentRepository.find({
       where: { doctorId },
-      relations: ['patient', 'hospital'],
+      relations: BASE_RELATIONS,
       order: { scheduledAt: 'DESC' },
     });
     return new ResponseCommon(
@@ -75,29 +130,38 @@ export class AppointmentService {
     );
   }
 
+  /**
+   * CREATE APPOINTMENT - With all bug fixes and video integration
+   */
   async create(
     data: Partial<Appointment>,
   ): Promise<ResponseCommon<AppointmentResponseDto>> {
-    if (!data.timeSlotId || !data.patientId || !data.doctorId) {
-      throw new BadRequestException('Missing required fields');
+    if (!data.timeSlotId || !data.patientId) {
+      throw new BadRequestException('Missing required fields: timeSlotId, patientId');
     }
 
     return this.dataSource.transaction(async (manager) => {
-      const slot = await manager.findOne(TimeSlot, {
-        where: { id: data.timeSlotId },
-        relations: ['doctor'],
-        lock: { mode: 'pessimistic_write' },
-      });
-
+      // 1. Lock slot WITHOUT relation
+      const slot = await manager.createQueryBuilder(TimeSlot, 'slot')
+        .setLock('pessimistic_write', undefined, ['slot']) 
+        .leftJoinAndSelect('slot.doctor', 'doctor')
+        .leftJoinAndSelect('slot.schedule', 'schedule')
+        .where('slot.id = :id', { id: data.timeSlotId })
+        .getOne();
+      
+      console.log('slot1', slot);
       if (!slot) {
         throw new NotFoundException('Time slot không tồn tại');
       }
 
-      // Validate doctor match
-      if (slot.doctorId !== data.doctorId) {
-        throw new BadRequestException('Time slot không thuộc về bác sĩ này');
-      }
+      // 2. Fetch schedule separately (after lock)
+      const schedule = slot.scheduleId
+        ? await manager.findOne(DoctorSchedule, {
+            where: { id: slot.scheduleId },
+          })
+        : null;
 
+      // 3. Validate slot availability
       if (!slot.isAvailable) {
         throw new ConflictException('Khung giờ không khả dụng');
       }
@@ -106,57 +170,124 @@ export class AppointmentService {
         throw new ConflictException('Khung giờ đã hết chỗ');
       }
 
-      // Validate appointment type
-      if (
-        data.appointmentType &&
-        !slot.allowedAppointmentTypes.includes(data.appointmentType)
-      ) {
-        throw new BadRequestException(
-          `Loại hình ${data.appointmentType} không được hỗ trợ cho slot này`,
-        );
+      // 3. Validate not in the past
+      if (slot.startTime < new Date()) {
+        throw new BadRequestException('Không thể đặt lịch cho slot quá khứ');
       }
 
-      // Check duplicate booking
+      // 4. Check duplicate with lock (FIXED RACE CONDITION)
       const existingAppointment = await manager.findOne(Appointment, {
         where: {
           patientId: data.patientId,
           timeSlotId: data.timeSlotId,
-          status: Not(
-            In([
-              AppointmentStatusEnum.CANCELLED,
-              AppointmentStatusEnum.NO_SHOW,
-            ]),
-          ),
+          status: Not(In([
+            AppointmentStatusEnum.CANCELLED,
+            AppointmentStatusEnum.NO_SHOW,
+          ])),
         },
+        lock: { mode: 'pessimistic_read' },
       });
 
       if (existingAppointment) {
         throw new ConflictException('Bạn đã đặt lịch slot này rồi');
       }
 
-      // Create appointment
+      // 5. Validate and determine appointment type
+      if (!slot.allowedAppointmentTypes?.length) {
+        throw new BadRequestException('Slot chưa được cấu hình appointment type');
+      }
+
+      const appointmentType = data.appointmentType || slot.allowedAppointmentTypes[0];
+
+      if (!slot.allowedAppointmentTypes.includes(appointmentType)) {
+        throw new BadRequestException(
+          `Slot không hỗ trợ ${appointmentType}. Chỉ hỗ trợ: ${slot.allowedAppointmentTypes.join(', ')}`
+        );
+      }
+
+      // Fetch doctor for fee calculation and hospitalId
+      const doctor = await manager.findOne(Doctor, {
+        where: { id: slot.doctorId },
+      });
+
+      // 6. Handle IN_CLINIC specific logic - auto-assign hospitalId
+      let hospitalId = data.hospitalId;
+      if (appointmentType === AppointmentTypeEnum.IN_CLINIC && !hospitalId) {
+        hospitalId = doctor?.primaryHospitalId || undefined;
+      }
+
+      // 7. Calculate fee with robust parsing (use separately fetched schedule)
+      let baseFee = this.getFee(schedule?.consultationFee);
+      if (baseFee === 0) {
+        baseFee = this.getFee(doctor?.defaultConsultationFee);
+      }
+
+      const discountPercent = schedule?.discountPercent || 0;
+      let finalFee = baseFee;
+
+      if (discountPercent > 0 && baseFee > 0) {
+        finalFee = baseFee * ((100 - discountPercent) / 100);
+      }
+
+      finalFee = Math.floor(finalFee);
+      const feeAmount = String(finalFee);
+      const isFree = finalFee === 0;
+
+      // 8. Sync time from slot
+      const scheduledAt = slot.startTime;
+      const durationMinutes = Math.floor(
+        (slot.endTime.getTime() - slot.startTime.getTime()) / 60000,
+      );
+
+      if (durationMinutes <= 0) {
+        throw new BadRequestException('Slot có thời gian không hợp lệ');
+      }
+      console.log('slot', slot.doctor);
+      // 9. Create appointment
       const appointment = manager.create(Appointment, {
-        ...data,
         appointmentNumber: this.generateAppointmentNumber(),
-        scheduledAt: slot.startTime,
-        durationMinutes: data.durationMinutes || 30,
-        status: data.status || AppointmentStatusEnum.PENDING_PAYMENT,
-        timezone: 'Asia/Ho_Chi_Minh',
+        patientId: data.patientId,
+        doctorId: slot.doctorId,
+        hospitalId: slot.doctor.primaryHospitalId,
+        timeSlotId: slot.id,
+        scheduledAt,
+        durationMinutes,
+        timezone: slot.timezone || 'Asia/Ho_Chi_Minh',
+        appointmentType,
+        feeAmount,
+        paidAmount: '0',
+        status: isFree
+          ? AppointmentStatusEnum.CONFIRMED
+          : AppointmentStatusEnum.PENDING_PAYMENT,
+        chiefComplaint: data.chiefComplaint,
+        symptoms: data.symptoms,
+        patientNotes: data.patientNotes,
+        bookedByUserId: data.bookedByUserId,
       });
 
       const saved = await manager.save(appointment);
 
-      // Update slot - auto-disable when full
-      await manager
-        .createQueryBuilder()
-        .update(TimeSlot)
-        .set({
-          bookedCount: () => 'booked_count + 1',
-          isAvailable: () =>
-            `CASE WHEN booked_count + 1 >= capacity THEN false ELSE is_available END`,
-        })
-        .where('id = :id', { id: slot.id })
-        .execute();
+      // 10. Update slot - increment count
+      await manager.increment(TimeSlot, { id: slot.id }, 'bookedCount', 1);
+
+      // 11. Auto-disable if full
+      if (slot.bookedCount + 1 >= slot.capacity) {
+        await manager.update(TimeSlot, { id: slot.id }, { isAvailable: false });
+      }
+
+      // 12. Auto-generate meeting URL if FREE VIDEO appointment
+      if (isFree && appointmentType === AppointmentTypeEnum.VIDEO) {
+        try {
+          const room = await this.dailyService.getOrCreateRoom(saved.id);
+          saved.meetingUrl = room.url;
+          saved.dailyCoChannel = room.name;
+          await manager.save(saved);
+          this.logger.log(`Auto-generated meeting URL for free appointment ${saved.id}`);
+        } catch (error) {
+          this.logger.error(`Failed to generate meeting URL: ${error}`);
+          // Don't fail the entire booking if video creation fails
+        }
+      }
 
       return new ResponseCommon(
         201,
@@ -166,12 +297,18 @@ export class AppointmentService {
     });
   }
 
+  /**
+   * UPDATE STATUS - Generate meeting URL when CONFIRMED for VIDEO appointments
+   */
   async updateStatus(
     id: string,
     status: AppointmentStatusEnum,
   ): Promise<ResponseCommon<AppointmentResponseDto>> {
-    const appointmentResponse = await this.findById(id);
-    const appointment = appointmentResponse.data!;
+    const appointment = await this.findOne(id);
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
 
     // Validate state transition
     const validTransitions: Record<
@@ -192,7 +329,6 @@ export class AppointmentService {
         AppointmentStatusEnum.IN_PROGRESS,
         AppointmentStatusEnum.CANCELLED,
         AppointmentStatusEnum.NO_SHOW,
-        AppointmentStatusEnum.RESCHEDULED,
       ],
       [AppointmentStatusEnum.CHECKED_IN]: [
         AppointmentStatusEnum.IN_PROGRESS,
@@ -203,9 +339,9 @@ export class AppointmentService {
         AppointmentStatusEnum.COMPLETED,
         AppointmentStatusEnum.CANCELLED,
       ],
-      [AppointmentStatusEnum.COMPLETED]: [], // Terminal state
-      [AppointmentStatusEnum.CANCELLED]: [], // Terminal state
-      [AppointmentStatusEnum.NO_SHOW]: [], // Terminal state
+      [AppointmentStatusEnum.COMPLETED]: [],
+      [AppointmentStatusEnum.CANCELLED]: [],
+      [AppointmentStatusEnum.NO_SHOW]: [],
       [AppointmentStatusEnum.RESCHEDULED]: [
         AppointmentStatusEnum.CONFIRMED,
         AppointmentStatusEnum.CANCELLED,
@@ -219,12 +355,38 @@ export class AppointmentService {
       );
     }
 
-    // Update timestamps based on status
+    // Prepare update data
     const updateData: Partial<Appointment> = { status };
-    if (status === AppointmentStatusEnum.IN_PROGRESS) {
+
+    // Handle status-specific logic
+    if (status === AppointmentStatusEnum.CONFIRMED) {
+      // Generate meeting URL for VIDEO appointments
+      if (appointment.appointmentType === AppointmentTypeEnum.VIDEO && !appointment.meetingUrl) {
+        try {
+          const room = await this.dailyService.getOrCreateRoom(appointment.id);
+          updateData.meetingUrl = room.url;
+          updateData.dailyCoChannel = room.name;
+          this.logger.log(`Generated meeting URL for appointment ${appointment.id}`);
+        } catch (error) {
+          this.logger.error(`Failed to generate meeting URL: ${error}`);
+          throw new BadRequestException('Không thể tạo phòng họp video');
+        }
+      }
+    } else if (status === AppointmentStatusEnum.IN_PROGRESS) {
       updateData.startedAt = new Date();
     } else if (status === AppointmentStatusEnum.COMPLETED) {
       updateData.endedAt = new Date();
+
+      // Clean up video room after completion
+      if (appointment.appointmentType === AppointmentTypeEnum.VIDEO && appointment.dailyCoChannel) {
+        try {
+          await this.dailyService.deleteRoom(appointment.dailyCoChannel);
+          await this.callStateService.clearCallsForAppointment(appointment.id);
+          this.logger.log(`Cleaned up video room for appointment ${appointment.id}`);
+        } catch (error) {
+          this.logger.warn(`Failed to cleanup video room: ${error}`);
+        }
+      }
     }
 
     await this.appointmentRepository.update(id, updateData);
@@ -232,7 +394,7 @@ export class AppointmentService {
   }
 
   /**
-   * Cancel appointment with slot release
+   * Cancel appointment with slot release and video cleanup
    */
   async cancel(
     id: string,
@@ -249,12 +411,10 @@ export class AppointmentService {
         throw new NotFoundException(`Appointment not found`);
       }
 
-      // Cannot cancel completed appointments
       if (appointment.status === AppointmentStatusEnum.COMPLETED) {
         throw new BadRequestException('Không thể hủy lịch hẹn đã hoàn thành');
       }
 
-      // Cannot cancel already cancelled appointments
       if (appointment.status === AppointmentStatusEnum.CANCELLED) {
         throw new BadRequestException('Lịch hẹn đã được hủy trước đó');
       }
@@ -265,17 +425,22 @@ export class AppointmentService {
         );
       }
 
-      // Release the time slot if exists
+      // Release the time slot
       if (appointment.timeSlotId) {
-        await manager
-          .createQueryBuilder()
-          .update(TimeSlot)
-          .set({
-            bookedCount: () => 'GREATEST(booked_count - 1, 0)',
-            isAvailable: true,
-          })
-          .where('id = :id', { id: appointment.timeSlotId })
-          .execute();
+        await manager.decrement(
+          TimeSlot,
+          { id: appointment.timeSlotId },
+          'bookedCount',
+          1,
+        );
+
+        const slot = await manager.findOne(TimeSlot, {
+          where: { id: appointment.timeSlotId },
+        });
+
+        if (slot && slot.bookedCount < slot.capacity) {
+          await manager.update(TimeSlot, { id: slot.id }, { isAvailable: true });
+        }
       }
 
       // Update appointment status
@@ -284,8 +449,22 @@ export class AppointmentService {
       appointment.cancellationReason = reason;
       appointment.cancelledBy = cancelledBy;
 
-      return manager.save(appointment);
+      const saved = await manager.save(appointment);
+
+      // Cleanup video room if exists
+      if (appointment.appointmentType === AppointmentTypeEnum.VIDEO && appointment.dailyCoChannel) {
+        try {
+          await this.dailyService.deleteRoom(appointment.dailyCoChannel);
+          await this.callStateService.clearCallsForAppointment(appointment.id);
+          this.logger.log(`Cleaned up video room for cancelled appointment ${appointment.id}`);
+        } catch (error) {
+          this.logger.warn(`Failed to cleanup video room: ${error}`);
+        }
+      }
+
+      return saved;
     });
+
     return new ResponseCommon(
       200,
       'Hủy lịch hẹn thành công',
@@ -301,7 +480,6 @@ export class AppointmentService {
     newTimeSlotId: string,
   ): Promise<ResponseCommon<AppointmentResponseDto>> {
     const result = await this.dataSource.transaction(async (manager) => {
-      // Lock appointment and both slots
       const appointment = await manager.findOne(Appointment, {
         where: { id: appointmentId },
         lock: { mode: 'pessimistic_write' },
@@ -337,31 +515,36 @@ export class AppointmentService {
         throw new NotFoundException('Time slot mới không tồn tại');
       }
 
-      // Validate new slot
       if (newSlot.doctorId !== appointment.doctorId) {
         throw new BadRequestException('Slot mới phải cùng bác sĩ');
       }
 
-      if (
-        appointment.appointmentType &&
-        !newSlot.allowedAppointmentTypes.includes(appointment.appointmentType)
-      ) {
+      if (newSlot.startTime < new Date()) {
+        throw new BadRequestException('Không thể đặt slot quá khứ');
+      }
+
+      if (!newSlot.allowedAppointmentTypes?.length) {
+        throw new BadRequestException('Slot mới chưa được cấu hình appointment type');
+      }
+
+      if (!newSlot.allowedAppointmentTypes.includes(appointment.appointmentType)) {
         throw new BadRequestException(
-          `Slot mới không hỗ trợ loại hình ${appointment.appointmentType}`,
+          `Slot mới không hỗ trợ ${appointment.appointmentType}. ` +
+            `Chỉ hỗ trợ: ${newSlot.allowedAppointmentTypes.join(', ')}`,
         );
       }
 
+      // Check duplicate with lock
       const duplicateInNewSlot = await manager.findOne(Appointment, {
         where: {
           patientId: appointment.patientId,
           timeSlotId: newTimeSlotId,
-          status: Not(
-            In([
-              AppointmentStatusEnum.CANCELLED,
-              AppointmentStatusEnum.NO_SHOW,
-            ]),
-          ),
+          status: Not(In([
+            AppointmentStatusEnum.CANCELLED,
+            AppointmentStatusEnum.NO_SHOW,
+          ])),
         },
+        lock: { mode: 'pessimistic_read' },
       });
 
       if (duplicateInNewSlot) {
@@ -376,42 +559,30 @@ export class AppointmentService {
         throw new ConflictException('Slot mới đã đầy');
       }
 
-      if (newSlot.startTime < new Date()) {
-        throw new BadRequestException('Không thể đặt slot quá khứ');
-      }
-
       // Release old slot
       if (oldSlot) {
-        await manager
-          .createQueryBuilder()
-          .update(TimeSlot)
-          .set({
-            bookedCount: () => 'GREATEST(booked_count - 1, 0)',
-            isAvailable: true,
-          })
-          .where('id = :id', { id: oldSlot.id })
-          .execute();
+        await manager.decrement(TimeSlot, { id: oldSlot.id }, 'bookedCount', 1);
+        if (oldSlot.bookedCount - 1 < oldSlot.capacity) {
+          await manager.update(TimeSlot, { id: oldSlot.id }, { isAvailable: true });
+        }
       }
 
       // Book new slot
-      await manager
-        .createQueryBuilder()
-        .update(TimeSlot)
-        .set({
-          bookedCount: () => 'booked_count + 1',
-          isAvailable: () =>
-            `CASE WHEN booked_count + 1 >= capacity THEN false ELSE is_available END`,
-        })
-        .where('id = :id', { id: newSlot.id })
-        .execute();
+      await manager.increment(TimeSlot, { id: newSlot.id }, 'bookedCount', 1);
+      if (newSlot.bookedCount + 1 >= newSlot.capacity) {
+        await manager.update(TimeSlot, { id: newSlot.id }, { isAvailable: false });
+      }
 
-      // Update appointment
+      // SYNC scheduledAt and durationMinutes from new slot
       appointment.timeSlotId = newTimeSlotId;
       appointment.scheduledAt = newSlot.startTime;
-      appointment.status = AppointmentStatusEnum.RESCHEDULED;
+      appointment.durationMinutes = Math.floor(
+        (newSlot.endTime.getTime() - newSlot.startTime.getTime()) / 60000,
+      );
 
       return manager.save(appointment);
     });
+
     return new ResponseCommon(
       200,
       'Đổi lịch hẹn thành công',
@@ -447,27 +618,235 @@ export class AppointmentService {
 
       // Release slot
       if (appointment.timeSlotId) {
-        await manager
-          .createQueryBuilder()
-          .update(TimeSlot)
-          .set({
-            bookedCount: () => 'GREATEST(booked_count - 1, 0)',
-            isAvailable: true,
-          })
-          .where('id = :id', { id: appointment.timeSlotId })
-          .execute();
+        await manager.decrement(
+          TimeSlot,
+          { id: appointment.timeSlotId },
+          'bookedCount',
+          1,
+        );
+
+        const slot = await manager.findOne(TimeSlot, {
+          where: { id: appointment.timeSlotId },
+        });
+
+        if (slot && slot.bookedCount < slot.capacity) {
+          await manager.update(TimeSlot, { id: slot.id }, { isAvailable: true });
+        }
       }
 
       appointment.status = AppointmentStatusEnum.NO_SHOW;
       appointment.cancelledAt = new Date();
       appointment.cancelledBy = markedBy;
-      return manager.save(appointment);
+
+      const saved = await manager.save(appointment);
+
+      // Cleanup video room if exists
+      if (appointment.appointmentType === AppointmentTypeEnum.VIDEO && appointment.dailyCoChannel) {
+        try {
+          await this.dailyService.deleteRoom(appointment.dailyCoChannel);
+          await this.callStateService.clearCallsForAppointment(appointment.id);
+          this.logger.log(`Cleaned up video room for no-show appointment ${appointment.id}`);
+        } catch (error) {
+          this.logger.warn(`Failed to cleanup video room: ${error}`);
+        }
+      }
+
+      return saved;
     });
+
     return new ResponseCommon(
       200,
       'Đánh dấu no-show thành công',
       this.toDto(result),
     );
+  }
+
+  /**
+   * Generate meeting token for user to join video call
+   */
+  async generateMeetingToken(
+    appointmentId: string,
+    userId: string,
+    userName: string,
+    isDoctor: boolean,
+  ): Promise<{ token: string; url: string }> {
+    const appointment = await this.findOne(appointmentId);
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    // Authorization check - verify user is doctor or patient of this appointment
+    if (isDoctor) {
+      // For doctor, verify via doctor.userId (need to check doctor relation)
+      if (!appointment.doctor?.userId || appointment.doctor.userId !== userId) {
+        throw new ForbiddenException('Bạn không phải là bác sĩ của cuộc hẹn này');
+      }
+    } else {
+      // For patient
+      if (!appointment.patient?.userId || appointment.patient.userId !== userId) {
+        throw new ForbiddenException('Bạn không phải là bệnh nhân của cuộc hẹn này');
+      }
+    }
+
+    if (appointment.appointmentType !== AppointmentTypeEnum.VIDEO) {
+      throw new BadRequestException('This is not a video appointment');
+    }
+
+    if (!appointment.dailyCoChannel) {
+      throw new BadRequestException('Video room not created yet');
+    }
+
+    // Check if appointment is in valid state for joining
+    const validStates = [
+      AppointmentStatusEnum.CONFIRMED,
+      AppointmentStatusEnum.CHECKED_IN,
+      AppointmentStatusEnum.IN_PROGRESS,
+    ];
+
+    if (!validStates.includes(appointment.status)) {
+      throw new BadRequestException(
+        `Cannot join meeting in status: ${appointment.status}`,
+      );
+    }
+
+    // Generate token
+    const tokenData = await this.dailyService.createMeetingToken(
+      appointment.dailyCoChannel,
+      userId,
+      userName,
+      isDoctor, // Doctor is owner
+    );
+
+    // Track user joining
+    await this.callStateService.setCurrentCall(
+      userId,
+      appointmentId,
+      appointment.dailyCoChannel,
+    );
+
+    return {
+      token: tokenData.token,
+      url: appointment.meetingUrl!,
+    };
+  }
+
+  /**
+   * Check user's current call status
+   */
+  async getUserCallStatus(userId: string): Promise<{
+    inCall: boolean;
+    currentCall?: {
+      appointmentId: string;
+      roomName: string;
+      joinedAt: Date;
+    };
+  }> {
+    const currentCall = await this.callStateService.getCurrentCall(userId);
+    return {
+      inCall: !!currentCall,
+      currentCall: currentCall || undefined,
+    };
+  }
+
+  /**
+   * Leave call - cleanup user's call state
+   */
+  async leaveCall(userId: string, appointmentId: string): Promise<void> {
+    const currentCall = await this.callStateService.getCurrentCall(userId);
+
+    if (!currentCall || currentCall.appointmentId !== appointmentId) {
+      throw new BadRequestException('User is not in this call');
+    }
+
+    await this.callStateService.clearCurrentCall(userId);
+    this.logger.log(`User ${userId} left call for appointment ${appointmentId}`);
+  }
+
+  /**
+   * Confirm payment and transition to CONFIRMED status
+   * Generates video URL for VIDEO appointments
+   */
+  async confirmPayment(
+    appointmentId: string,
+    paymentId: string,
+    paidAmount?: string,
+  ): Promise<ResponseCommon<AppointmentResponseDto>> {
+    const appointment = await this.findOne(appointmentId);
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    if (appointment.status !== AppointmentStatusEnum.PENDING_PAYMENT) {
+      throw new BadRequestException(
+        `Không thể xác nhận thanh toán cho lịch hẹn ở trạng thái ${appointment.status}`,
+      );
+    }
+
+    const updateData: Partial<Appointment> = {
+      paymentId,
+      paidAmount: paidAmount || appointment.feeAmount,
+      status: AppointmentStatusEnum.CONFIRMED,
+    };
+
+    // Generate video URL for VIDEO appointments
+    if (appointment.appointmentType === AppointmentTypeEnum.VIDEO) {
+      try {
+        const room = await this.dailyService.getOrCreateRoom(appointmentId);
+        updateData.meetingUrl = room.url;
+        updateData.dailyCoChannel = room.name;
+        this.logger.log(`Generated meeting URL for paid appointment ${appointmentId}`);
+      } catch (error) {
+        this.logger.error(`Failed to generate meeting URL: ${error}`);
+        throw new BadRequestException('Không thể tạo phòng họp video');
+      }
+    }
+
+    await this.appointmentRepository.update(appointmentId, updateData);
+
+    this.logger.log(`Payment confirmed for appointment ${appointmentId}, paymentId: ${paymentId}`);
+
+    return this.findById(appointmentId);
+  }
+
+  /**
+   * Update clinical information for an appointment
+   * Separate from status updates for cleaner API design
+   */
+  async updateClinicalInfo(
+    appointmentId: string,
+    data: {
+      chiefComplaint?: string;
+      symptoms?: string[];
+      patientNotes?: string;
+      doctorNotes?: string;
+    },
+  ): Promise<ResponseCommon<AppointmentResponseDto>> {
+    const appointment = await this.findOne(appointmentId);
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    // Cannot update clinical info for completed/cancelled appointments
+    const terminalStates = [
+      AppointmentStatusEnum.COMPLETED,
+      AppointmentStatusEnum.CANCELLED,
+      AppointmentStatusEnum.NO_SHOW,
+    ];
+
+    if (terminalStates.includes(appointment.status)) {
+      throw new BadRequestException(
+        `Không thể cập nhật thông tin lâm sàng cho lịch hẹn ở trạng thái ${appointment.status}`,
+      );
+    }
+
+    await this.appointmentRepository.update(appointmentId, data);
+
+    this.logger.log(`Updated clinical info for appointment ${appointmentId}`);
+
+    return this.findById(appointmentId);
   }
 
   /**
@@ -481,17 +860,21 @@ export class AppointmentService {
       doctorId: entity.doctorId,
       hospitalId: entity.hospitalId,
       timeSlotId: entity.timeSlotId,
-      appointmentType: entity.appointmentType,
       scheduledAt: entity.scheduledAt,
       durationMinutes: entity.durationMinutes,
       timezone: entity.timezone,
       status: entity.status,
+      appointmentType: entity.appointmentType,
       feeAmount: entity.feeAmount,
       paidAmount: entity.paidAmount,
       paymentId: entity.paymentId,
       refunded: entity.refunded,
       meetingRoomId: entity.meetingRoomId,
       meetingUrl: entity.meetingUrl,
+      dailyCoChannel: entity.dailyCoChannel,
+      roomNumber: entity.roomNumber,
+      queueNumber: entity.queueNumber,
+      floor: entity.floor,
       chiefComplaint: entity.chiefComplaint,
       symptoms: entity.symptoms,
       patientNotes: entity.patientNotes,

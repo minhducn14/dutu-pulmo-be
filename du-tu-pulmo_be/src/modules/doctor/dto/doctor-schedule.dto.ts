@@ -416,4 +416,3 @@ export class BulkUpdateDoctorSchedulesDto {
   @ArrayMaxSize(20, { message: 'Tối đa 20 lịch làm việc mỗi request' })
   schedules: BulkUpdateItemDto[];
 }
-

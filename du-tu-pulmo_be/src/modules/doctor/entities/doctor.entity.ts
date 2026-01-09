@@ -66,12 +66,12 @@ export class Doctor {
   yearsOfExperience: number;
 
   // Nơi công tác
-  @ManyToOne(() => Hospital, (hospital) => hospital.doctors, { nullable: true })
+  @ManyToOne(() => Hospital, (hospital) => hospital.doctors, { nullable: false })
   @JoinColumn({ name: 'primary_hospital_id' })
-  primaryHospital: Hospital | null;
+  primaryHospital: Hospital;
 
-  @Column({ name: 'primary_hospital_id', type: 'uuid', nullable: true })
-  primaryHospitalId: string | null;
+  @Column({ name: 'primary_hospital_id', type: 'uuid', nullable: false })
+  primaryHospitalId: string;
 
   // Mô tả trình độ chuyên môn
   @Column({ name: 'expertise_description', type: 'text', nullable: true })

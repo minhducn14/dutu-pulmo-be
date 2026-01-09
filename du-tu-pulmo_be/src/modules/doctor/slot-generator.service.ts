@@ -223,7 +223,9 @@ export class SlotGeneratorService {
 
         // Check if slot overlaps with any TIME_OFF period
         for (const timeOff of timeOffSchedules) {
-          const [offStartH, offStartM] = timeOff.startTime.split(':').map(Number);
+          const [offStartH, offStartM] = timeOff.startTime
+            .split(':')
+            .map(Number);
           const [offEndH, offEndM] = timeOff.endTime.split(':').map(Number);
 
           const offStart = new Date(targetDate);

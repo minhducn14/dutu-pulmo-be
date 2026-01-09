@@ -12,6 +12,7 @@ import AppDataSourcePromise from './modules/core/database/data-source';
 import vnpayConfig from './config/vnpay.config';
 import frontendConfig from './config/frontend.config';
 import cloudinaryConfig from './config/cloudinary.config';
+import payosConfig from './config/payos.config';
 import * as Joi from 'joi';
 import { ConfigModule } from '@nestjs/config';
 
@@ -26,6 +27,8 @@ import { EmailModule } from './modules/email/email.module';
 import { PatientModule } from './modules/patient/patient.module';
 import { UserModule } from './modules/user/user.module';
 import { CronModule } from './cron/cron.module';
+import { VideoCallModule } from './modules/video_call/video-call.module';
+import { PaymentModule } from './modules/payment/payment.module';
 
 @Module({
   imports: [
@@ -34,7 +37,7 @@ import { CronModule } from './cron/cron.module';
     }),
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [vnpayConfig, frontendConfig, cloudinaryConfig],
+      load: [vnpayConfig, frontendConfig, cloudinaryConfig, payosConfig],
       validationSchema: Joi.object({
         FRONTEND_URL: Joi.string().required().uri(),
 
@@ -48,6 +51,14 @@ import { CronModule } from './cron/cron.module';
         CLOUDINARY_CLOUD_NAME: Joi.string().required(),
         CLOUDINARY_API_KEY: Joi.string().required(),
         CLOUDINARY_API_SECRET: Joi.string().required(),
+
+        // Daily.co configuration for Video Call
+        DAILY_API_KEY: Joi.string().optional(),
+
+        // PayOS configuration for Payment
+        PAYOS_CLIENT_ID: Joi.string().optional(),
+        PAYOS_API_KEY: Joi.string().optional(),
+        PAYOS_CHECKSUM_KEY: Joi.string().optional(),
       }),
     }),
     ThrottlerModule.forRoot([
@@ -65,6 +76,8 @@ import { CronModule } from './cron/cron.module';
     PatientModule,
     UserModule,
     CronModule,
+    VideoCallModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [AppService],
@@ -74,4 +87,3 @@ export class AppModule implements NestModule {
     consumer.apply(LoggerMiddleware).forRoutes('*');
   }
 }
-

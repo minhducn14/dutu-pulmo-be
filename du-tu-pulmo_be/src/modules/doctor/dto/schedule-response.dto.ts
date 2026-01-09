@@ -122,7 +122,8 @@ export class DoctorScheduleResponseDto {
   @ApiProperty({
     enum: ScheduleType,
     example: ScheduleType.REGULAR,
-    description: 'Loại lịch: REGULAR (cố định), FLEXIBLE (linh hoạt), TIME_OFF (nghỉ)',
+    description:
+      'Loại lịch: REGULAR (cố định), FLEXIBLE (linh hoạt), TIME_OFF (nghỉ)',
   })
   scheduleType: ScheduleType;
 

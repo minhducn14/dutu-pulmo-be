@@ -49,7 +49,9 @@ export class TimeSlot {
   @Column({ name: 'doctor_id', type: 'uuid' })
   doctorId: string;
 
-  @ManyToOne(() => DoctorSchedule, (schedule) => schedule.timeSlots, { onDelete: 'CASCADE' })
+  @ManyToOne(() => DoctorSchedule, (schedule) => schedule.timeSlots, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'schedule_id' })
   schedule: DoctorSchedule;
 
@@ -71,6 +73,9 @@ export class TimeSlot {
 
   @Column({ name: 'end_time', type: 'timestamptz' })
   endTime: Date;
+
+  @Column({ length: 50, default: 'Asia/Ho_Chi_Minh' })
+  timezone: string;
 
   @Column({ type: 'integer', default: 1 })
   capacity: number;
@@ -115,7 +120,8 @@ export class TimeSlot {
   // RELATIONS
   // ========================================
 
-  @OneToMany(() => Appointment, (appointment) => appointment.timeSlot)
+  @OneToMany(() => Appointment, (appointment) => appointment.timeSlot, {
+    cascade: ['soft-remove'],
+  })
   appointments: Appointment[];
 }
-

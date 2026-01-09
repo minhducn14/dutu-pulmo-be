@@ -48,12 +48,8 @@ export class NotificationService {
     try {
       // Get patient email from relation
       const patientEmail = appointment.patient?.user?.account?.email;
-      const patientName =
-        appointment.patient?.user?.fullName ||
-        'Quý khách';
-      const doctorName =
-        appointment.doctor?.user?.fullName ||
-        'Bác sĩ';
+      const patientName = appointment.patient?.user?.fullName || 'Quý khách';
+      const doctorName = appointment.doctor?.user?.fullName || 'Bác sĩ';
 
       if (!patientEmail) {
         this.logger.warn(
@@ -292,7 +288,9 @@ export class NotificationService {
     );
 
     const results = await Promise.allSettled(
-      appointments.map((apt) => this.sendScheduleChangeWarningEmail(apt, changeInfo)),
+      appointments.map((apt) =>
+        this.sendScheduleChangeWarningEmail(apt, changeInfo),
+      ),
     );
 
     const succeeded = results.filter((r) => r.status === 'fulfilled').length;
@@ -343,8 +341,17 @@ export class NotificationService {
         minute: '2-digit',
       });
 
-      const dayNames = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-      const effectiveFromStr = changeInfo.effectiveFrom.toLocaleDateString('vi-VN');
+      const dayNames = [
+        'Chủ nhật',
+        'Thứ 2',
+        'Thứ 3',
+        'Thứ 4',
+        'Thứ 5',
+        'Thứ 6',
+        'Thứ 7',
+      ];
+      const effectiveFromStr =
+        changeInfo.effectiveFrom.toLocaleDateString('vi-VN');
 
       const html = this.getScheduleChangeWarningEmailTemplate(
         patientName,

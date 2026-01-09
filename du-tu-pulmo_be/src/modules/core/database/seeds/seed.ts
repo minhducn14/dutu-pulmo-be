@@ -305,7 +305,15 @@ async function seed() {
     username: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    entities: [Doctor, DoctorSchedule, TimeSlot, Account, User, Patient, Hospital],
+    entities: [
+      Doctor,
+      DoctorSchedule,
+      TimeSlot,
+      Account,
+      User,
+      Patient,
+      Hospital,
+    ],
     ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
     synchronize: true, // Sync schema before seeding
   });
@@ -394,7 +402,10 @@ async function seed() {
           where: { userId: existingAccount.userId },
         });
         if (existingDoctor) {
-          createdDoctors.push({ doctor: existingDoctor, hospitalIndex: docData.hospitalIndex });
+          createdDoctors.push({
+            doctor: existingDoctor,
+            hospitalIndex: docData.hospitalIndex,
+          });
         }
         continue;
       }
@@ -411,7 +422,10 @@ async function seed() {
           where: { userId: existingUserByPhone.id },
         });
         if (existingDoctor) {
-          createdDoctors.push({ doctor: existingDoctor, hospitalIndex: docData.hospitalIndex });
+          createdDoctors.push({
+            doctor: existingDoctor,
+            hospitalIndex: docData.hospitalIndex,
+          });
         }
         continue;
       }
@@ -455,7 +469,9 @@ async function seed() {
       await doctorRepo.save(doctor);
       createdDoctors.push({ doctor, hospitalIndex: docData.hospitalIndex });
 
-      console.log(`  ✅ Created: ${docData.fullName} tại ${hospital?.name || 'N/A'}`);
+      console.log(
+        `  ✅ Created: ${docData.fullName} tại ${hospital?.name || 'N/A'}`,
+      );
     }
 
     // ========== SEED DOCTOR SCHEDULES ==========
@@ -504,189 +520,219 @@ async function seed() {
 
       console.log(`  ✅ Created 10 schedules for doctor: ${doctor.id}`);
     }
-  // ========== SEED TEST CASES FOR FLEXIBLE & TIME_OFF ==========
-  console.log('\n🧪 Seeding Test Cases (FLEXIBLE & TIME_OFF)...');
+    // ========== SEED TEST CASES FOR FLEXIBLE & TIME_OFF ==========
+    console.log('\n🧪 Seeding Test Cases (FLEXIBLE & TIME_OFF)...');
 
-  // Lấy 3 bác sĩ đầu tiên để test
-  const testDoctors = createdDoctors.slice(0, 3);
+    // Lấy 3 bác sĩ đầu tiên để test
+    const testDoctors = createdDoctors.slice(0, 3);
 
-  if (testDoctors.length >= 3) {
-    const testDate1 = new Date(tomorrow);
-    testDate1.setDate(testDate1.getDate() + 7); // Ngày cụ thể +7 ngày
+    if (testDoctors.length >= 3) {
+      const testDate1 = new Date(tomorrow);
+      testDate1.setDate(testDate1.getDate() + 7); // Ngày cụ thể +7 ngày
 
-    const testDate2 = new Date(tomorrow);
-    testDate2.setDate(testDate2.getDate() + 8); // Ngày cụ thể +8 ngày
+      const testDate2 = new Date(tomorrow);
+      testDate2.setDate(testDate2.getDate() + 8); // Ngày cụ thể +8 ngày
 
-    // ==========================================
-    // TEST DOCTOR 1: REGULAR + TIME_OFF (Cases 1-4)
-    // ==========================================
-    const doctor1 = testDoctors[0].doctor;
-    
-    // Thứ 2: TIME_OFF nghỉ trưa 12:00-13:00
-    await scheduleRepo.save(scheduleRepo.create({
-      doctorId: doctor1.id,
-      dayOfWeek: testDate1.getDay(), // Calculate from specificDate
-      specificDate: testDate1,
-      startTime: '12:00',
-      endTime: '13:00',
-      slotDuration: 30,
-      slotCapacity: 1,
-      appointmentType: AppointmentTypeEnum.VIDEO,
-      scheduleType: ScheduleType.TIME_OFF,
-      priority: 100,
-      isAvailable: true,
-      effectiveFrom: testDate1,
-      effectiveUntil: testDate1,
-      consultationFee: '0',
-    }));
+      // ==========================================
+      // TEST DOCTOR 1: REGULAR + TIME_OFF (Cases 1-4)
+      // ==========================================
+      const doctor1 = testDoctors[0].doctor;
 
-    // Thứ 3: TIME_OFF về sớm 15:00-18:00
-    await scheduleRepo.save(scheduleRepo.create({
-      doctorId: doctor1.id,
-      dayOfWeek: testDate2.getDay(), // Calculate from specificDate
-      specificDate: testDate2,
-      startTime: '15:00',
-      endTime: '18:00',
-      slotDuration: 30,
-      slotCapacity: 1,
-      appointmentType: AppointmentTypeEnum.VIDEO,
-      scheduleType: ScheduleType.TIME_OFF,
-      priority: 100,
-      isAvailable: true,
-      effectiveFrom: testDate2,
-      effectiveUntil: testDate2,
-      consultationFee: '0',
-    }));
+      // Thứ 2: TIME_OFF nghỉ trưa 12:00-13:00
+      await scheduleRepo.save(
+        scheduleRepo.create({
+          doctorId: doctor1.id,
+          dayOfWeek: testDate1.getDay(), // Calculate from specificDate
+          specificDate: testDate1,
+          startTime: '12:00',
+          endTime: '13:00',
+          slotDuration: 30,
+          slotCapacity: 1,
+          appointmentType: AppointmentTypeEnum.VIDEO,
+          scheduleType: ScheduleType.TIME_OFF,
+          priority: 100,
+          isAvailable: true,
+          effectiveFrom: testDate1,
+          effectiveUntil: testDate1,
+          consultationFee: '0',
+        }),
+      );
 
-    console.log(`  ✅ Doctor 1 (${doctor1.id}): REGULAR + TIME_OFF`);
-    console.log(`     - ${testDate1.toISOString().split('T')[0]}: TIME_OFF 12:00-13:00 (Nghỉ trưa)`);
-    console.log(`     - ${testDate2.toISOString().split('T')[0]}: TIME_OFF 15:00-18:00 (Về sớm)`);
+      // Thứ 3: TIME_OFF về sớm 15:00-18:00
+      await scheduleRepo.save(
+        scheduleRepo.create({
+          doctorId: doctor1.id,
+          dayOfWeek: testDate2.getDay(), // Calculate from specificDate
+          specificDate: testDate2,
+          startTime: '15:00',
+          endTime: '18:00',
+          slotDuration: 30,
+          slotCapacity: 1,
+          appointmentType: AppointmentTypeEnum.VIDEO,
+          scheduleType: ScheduleType.TIME_OFF,
+          priority: 100,
+          isAvailable: true,
+          effectiveFrom: testDate2,
+          effectiveUntil: testDate2,
+          consultationFee: '0',
+        }),
+      );
 
-    // ==========================================
-    // TEST DOCTOR 2: REGULAR + FLEXIBLE + TIME_OFF (Cases 5-6)
-    // ==========================================
-    const doctor2 = testDoctors[1].doctor;
+      console.log(`  ✅ Doctor 1 (${doctor1.id}): REGULAR + TIME_OFF`);
+      console.log(
+        `     - ${testDate1.toISOString().split('T')[0]}: TIME_OFF 12:00-13:00 (Nghỉ trưa)`,
+      );
+      console.log(
+        `     - ${testDate2.toISOString().split('T')[0]}: TIME_OFF 15:00-18:00 (Về sớm)`,
+      );
 
-    // Thứ 2: FLEXIBLE 10:00-14:00 (đè lên REGULAR 08:00-17:00)
-    await scheduleRepo.save(scheduleRepo.create({
-      doctorId: doctor2.id,
-      dayOfWeek: testDate1.getDay(),
-      specificDate: testDate1,
-      startTime: '10:00',
-      endTime: '14:00',
-      slotDuration: 30,
-      slotCapacity: 2, // Tăng capacity để dễ phân biệt
-      appointmentType: AppointmentTypeEnum.VIDEO,
-      scheduleType: ScheduleType.FLEXIBLE,
-      priority: 50,
-      isAvailable: true,
-      effectiveFrom: testDate1,
-      effectiveUntil: testDate1,
-      consultationFee: '400000',
-    }));
+      // ==========================================
+      // TEST DOCTOR 2: REGULAR + FLEXIBLE + TIME_OFF (Cases 5-6)
+      // ==========================================
+      const doctor2 = testDoctors[1].doctor;
 
-    // Thứ 3: FLEXIBLE 10:00-16:00
-    await scheduleRepo.save(scheduleRepo.create({
-      doctorId: doctor2.id,
-      dayOfWeek: testDate2.getDay(),
-      specificDate: testDate2,
-      startTime: '10:00',
-      endTime: '16:00',
-      slotDuration: 30,
-      slotCapacity: 2,
-      appointmentType: AppointmentTypeEnum.VIDEO,
-      scheduleType: ScheduleType.FLEXIBLE,
-      priority: 50,
-      isAvailable: true,
-      effectiveFrom: testDate2,
-      effectiveUntil: testDate2,
-      consultationFee: '400000',
-    }));
+      // Thứ 2: FLEXIBLE 10:00-14:00 (đè lên REGULAR 08:00-17:00)
+      await scheduleRepo.save(
+        scheduleRepo.create({
+          doctorId: doctor2.id,
+          dayOfWeek: testDate1.getDay(),
+          specificDate: testDate1,
+          startTime: '10:00',
+          endTime: '14:00',
+          slotDuration: 30,
+          slotCapacity: 2, // Tăng capacity để dễ phân biệt
+          appointmentType: AppointmentTypeEnum.VIDEO,
+          scheduleType: ScheduleType.FLEXIBLE,
+          priority: 50,
+          isAvailable: true,
+          effectiveFrom: testDate1,
+          effectiveUntil: testDate1,
+          consultationFee: '400000',
+        }),
+      );
 
-    // Thứ 3: TIME_OFF 12:00-13:00 (nghỉ giữa giờ FLEXIBLE)
-    await scheduleRepo.save(scheduleRepo.create({
-      doctorId: doctor2.id,
-      dayOfWeek: testDate2.getDay(),
-      specificDate: testDate2,
-      startTime: '12:00',
-      endTime: '13:00',
-      slotDuration: 30,
-      slotCapacity: 1,
-      appointmentType: AppointmentTypeEnum.VIDEO,
-      scheduleType: ScheduleType.TIME_OFF,
-      priority: 100,
-      isAvailable: true,
-      effectiveFrom: testDate2,
-      effectiveUntil: testDate2,
-      consultationFee: '0',
-    }));
+      // Thứ 3: FLEXIBLE 10:00-16:00
+      await scheduleRepo.save(
+        scheduleRepo.create({
+          doctorId: doctor2.id,
+          dayOfWeek: testDate2.getDay(),
+          specificDate: testDate2,
+          startTime: '10:00',
+          endTime: '16:00',
+          slotDuration: 30,
+          slotCapacity: 2,
+          appointmentType: AppointmentTypeEnum.VIDEO,
+          scheduleType: ScheduleType.FLEXIBLE,
+          priority: 50,
+          isAvailable: true,
+          effectiveFrom: testDate2,
+          effectiveUntil: testDate2,
+          consultationFee: '400000',
+        }),
+      );
 
-    console.log(`  ✅ Doctor 2 (${doctor2.id}): REGULAR + FLEXIBLE + TIME_OFF`);
-    console.log(`     - ${testDate1.toISOString().split('T')[0]}: FLEXIBLE 10:00-14:00 (Đè REGULAR)`);
-    console.log(`     - ${testDate2.toISOString().split('T')[0]}: FLEXIBLE 10:00-16:00 + TIME_OFF 12:00-13:00`);
+      // Thứ 3: TIME_OFF 12:00-13:00 (nghỉ giữa giờ FLEXIBLE)
+      await scheduleRepo.save(
+        scheduleRepo.create({
+          doctorId: doctor2.id,
+          dayOfWeek: testDate2.getDay(),
+          specificDate: testDate2,
+          startTime: '12:00',
+          endTime: '13:00',
+          slotDuration: 30,
+          slotCapacity: 1,
+          appointmentType: AppointmentTypeEnum.VIDEO,
+          scheduleType: ScheduleType.TIME_OFF,
+          priority: 100,
+          isAvailable: true,
+          effectiveFrom: testDate2,
+          effectiveUntil: testDate2,
+          consultationFee: '0',
+        }),
+      );
 
-    // ==========================================
-    // TEST DOCTOR 3: TIME_OFF bao trùm (Cases 8-9)
-    // ==========================================
-    const doctor3 = testDoctors[2].doctor;
+      console.log(
+        `  ✅ Doctor 2 (${doctor2.id}): REGULAR + FLEXIBLE + TIME_OFF`,
+      );
+      console.log(
+        `     - ${testDate1.toISOString().split('T')[0]}: FLEXIBLE 10:00-14:00 (Đè REGULAR)`,
+      );
+      console.log(
+        `     - ${testDate2.toISOString().split('T')[0]}: FLEXIBLE 10:00-16:00 + TIME_OFF 12:00-13:00`,
+      );
 
-    // Thứ 2: TIME_OFF 07:00-18:00 (nghỉ cả ngày, bao trùm REGULAR 08:00-17:00)
-    await scheduleRepo.save(scheduleRepo.create({
-      doctorId: doctor3.id,
-      dayOfWeek: testDate1.getDay(),
-      specificDate: testDate1,
-      startTime: '07:00',
-      endTime: '18:00',
-      slotDuration: 30,
-      slotCapacity: 1,
-      appointmentType: AppointmentTypeEnum.VIDEO,
-      scheduleType: ScheduleType.TIME_OFF,
-      priority: 100,
-      isAvailable: true,
-      effectiveFrom: testDate1,
-      effectiveUntil: testDate1,
-      consultationFee: '0',
-    }));
+      // ==========================================
+      // TEST DOCTOR 3: TIME_OFF bao trùm (Cases 8-9)
+      // ==========================================
+      const doctor3 = testDoctors[2].doctor;
 
-    // Thứ 3: FLEXIBLE 13:00-15:00
-    await scheduleRepo.save(scheduleRepo.create({
-      doctorId: doctor3.id,
-      dayOfWeek: testDate2.getDay(),
-      specificDate: testDate2,
-      startTime: '13:00',
-      endTime: '15:00',
-      slotDuration: 30,
-      slotCapacity: 2,
-      appointmentType: AppointmentTypeEnum.VIDEO,
-      scheduleType: ScheduleType.FLEXIBLE,
-      priority: 50,
-      isAvailable: true,
-      effectiveFrom: testDate2,
-      effectiveUntil: testDate2,
-      consultationFee: '350000',
-    }));
+      // Thứ 2: TIME_OFF 07:00-18:00 (nghỉ cả ngày, bao trùm REGULAR 08:00-17:00)
+      await scheduleRepo.save(
+        scheduleRepo.create({
+          doctorId: doctor3.id,
+          dayOfWeek: testDate1.getDay(),
+          specificDate: testDate1,
+          startTime: '07:00',
+          endTime: '18:00',
+          slotDuration: 30,
+          slotCapacity: 1,
+          appointmentType: AppointmentTypeEnum.VIDEO,
+          scheduleType: ScheduleType.TIME_OFF,
+          priority: 100,
+          isAvailable: true,
+          effectiveFrom: testDate1,
+          effectiveUntil: testDate1,
+          consultationFee: '0',
+        }),
+      );
 
-    // Thứ 3: TIME_OFF 12:00-16:00 (nuốt trọn FLEXIBLE 13:00-15:00)
-    await scheduleRepo.save(scheduleRepo.create({
-      doctorId: doctor3.id,
-      dayOfWeek: testDate2.getDay(),
-      specificDate: testDate2,
-      startTime: '12:00',
-      endTime: '16:00',
-      slotDuration: 30,
-      slotCapacity: 1,
-      appointmentType: AppointmentTypeEnum.VIDEO,
-      scheduleType: ScheduleType.TIME_OFF,
-      priority: 100,
-      isAvailable: true,
-      effectiveFrom: testDate2,
-      effectiveUntil: testDate2,
-      consultationFee: '0',
-    }));
+      // Thứ 3: FLEXIBLE 13:00-15:00
+      await scheduleRepo.save(
+        scheduleRepo.create({
+          doctorId: doctor3.id,
+          dayOfWeek: testDate2.getDay(),
+          specificDate: testDate2,
+          startTime: '13:00',
+          endTime: '15:00',
+          slotDuration: 30,
+          slotCapacity: 2,
+          appointmentType: AppointmentTypeEnum.VIDEO,
+          scheduleType: ScheduleType.FLEXIBLE,
+          priority: 50,
+          isAvailable: true,
+          effectiveFrom: testDate2,
+          effectiveUntil: testDate2,
+          consultationFee: '350000',
+        }),
+      );
+
+      // Thứ 3: TIME_OFF 12:00-16:00 (nuốt trọn FLEXIBLE 13:00-15:00)
+      await scheduleRepo.save(
+        scheduleRepo.create({
+          doctorId: doctor3.id,
+          dayOfWeek: testDate2.getDay(),
+          specificDate: testDate2,
+          startTime: '12:00',
+          endTime: '16:00',
+          slotDuration: 30,
+          slotCapacity: 1,
+          appointmentType: AppointmentTypeEnum.VIDEO,
+          scheduleType: ScheduleType.TIME_OFF,
+          priority: 100,
+          isAvailable: true,
+          effectiveFrom: testDate2,
+          effectiveUntil: testDate2,
+          consultationFee: '0',
+        }),
+      );
 
       console.log(`  ✅ Doctor 3 (${doctor3.id}): TIME_OFF bao trùm`);
-      console.log(`     - ${testDate1.toISOString().split('T')[0]}: TIME_OFF 07:00-18:00 (Nghỉ cả ngày)`);
-      console.log(`     - ${testDate2.toISOString().split('T')[0]}: FLEXIBLE 13:00-15:00 bị TIME_OFF 12:00-16:00 nuốt trọn`);
+      console.log(
+        `     - ${testDate1.toISOString().split('T')[0]}: TIME_OFF 07:00-18:00 (Nghỉ cả ngày)`,
+      );
+      console.log(
+        `     - ${testDate2.toISOString().split('T')[0]}: FLEXIBLE 13:00-15:00 bị TIME_OFF 12:00-16:00 nuốt trọn`,
+      );
 
       schedulesCreated += 8; // Thêm 8 schedules test
     }
@@ -723,4 +769,3 @@ async function seed() {
 }
 
 seed();
-

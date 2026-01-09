@@ -18,7 +18,13 @@ import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Doctor, DoctorSchedule, TimeSlot, Account, Appointment]),
+    TypeOrmModule.forFeature([
+      Doctor,
+      DoctorSchedule,
+      TimeSlot,
+      Account,
+      Appointment,
+    ]),
     CloudinaryModule,
     NotificationModule,
   ],
@@ -43,6 +49,3 @@ import { NotificationModule } from '../notification/notification.module';
   ],
 })
 export class DoctorModule {}
-
-
-

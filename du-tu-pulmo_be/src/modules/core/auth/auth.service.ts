@@ -111,9 +111,7 @@ export class AuthService {
           { phone: dto.phone },
         );
       }
-
       const exist = await qb.setLock('pessimistic_write').getOne();
-
       if (exist) {
         throw new ConflictException(AUTH_ERRORS.EMAIL_ALREADY_REGISTERED);
       }
@@ -333,7 +331,9 @@ export class AuthService {
           avatarUrl: acc.user.avatarUrl,
           status: acc.user.status,
           doctorId: acc.roles?.includes(RoleEnum.DOCTOR) ? doctorId : undefined,
-          patientId: acc.roles?.includes(RoleEnum.PATIENT) ? patientId : undefined,
+          patientId: acc.roles?.includes(RoleEnum.PATIENT)
+            ? patientId
+            : undefined,
         },
         createdAt: acc.user.createdAt,
         updatedAt: acc.user.updatedAt,

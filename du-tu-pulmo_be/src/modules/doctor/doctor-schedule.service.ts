@@ -84,7 +84,9 @@ export class DoctorScheduleService {
     return new ResponseCommon(200, 'SUCCESS', schedule);
   }
 
-  async findByIdWithTimeSlots(id: string): Promise<ResponseCommon<DoctorSchedule>> {
+  async findByIdWithTimeSlots(
+    id: string,
+  ): Promise<ResponseCommon<DoctorSchedule>> {
     const schedule = await this.scheduleRepository.findOne({
       where: { id },
       relations: ['timeSlots'],
@@ -163,8 +165,8 @@ export class DoctorScheduleService {
     if (minimumBookingDays >= maxAdvanceBookingDays) {
       throw new BadRequestException(
         `Cấu hình không hợp lệ: Số ngày phải đặt trước (${minimumBookingDays} ngày) ` +
-        `không thể lớn hơn hoặc bằng số ngày xa nhất (${maxAdvanceBookingDays} ngày). ` +
-        `Không có khoảng thời gian nào hợp lệ để đặt lịch.`
+          `không thể lớn hơn hoặc bằng số ngày xa nhất (${maxAdvanceBookingDays} ngày). ` +
+          `Không có khoảng thời gian nào hợp lệ để đặt lịch.`,
       );
     }
   }
@@ -241,7 +243,7 @@ export class DoctorScheduleService {
       where: { id: doctorId },
       select: ['id', 'primaryHospitalId'],
     });
-    
+
     if (!doctor) {
       throw new NotFoundException('Bác sĩ không tồn tại');
     }
@@ -285,7 +287,6 @@ export class DoctorScheduleService {
       priority,
     );
 
-
     // Kiểm tra appointmentType = IN_CLINIC thì bác sĩ phải có primaryHospitalId
     if (dto.appointmentType === AppointmentTypeEnum.IN_CLINIC) {
       if (!doctor?.primaryHospitalId) {
@@ -320,13 +321,13 @@ export class DoctorScheduleService {
     try {
       const now = new Date();
       now.setHours(0, 0, 0, 0);
-      
+
       const startDate = new Date(now);
       startDate.setDate(startDate.getDate() + 1); // Bắt đầu từ ngày mai
-      
+
       const endDate = new Date(now);
       endDate.setDate(endDate.getDate() + 7); // 7 ngày kế tiếp
-      
+
       // Generate slots cho schedule này với priority handling
       generatedSlotsCount = await this.generateSlotsForSchedule(
         saved,
@@ -362,7 +363,7 @@ export class DoctorScheduleService {
       where: { id: doctorId },
       select: ['id', 'primaryHospitalId'],
     });
-    
+
     if (!doctor) {
       throw new NotFoundException('Bác sĩ không tồn tại');
     }
@@ -484,7 +485,7 @@ export class DoctorScheduleService {
           minimumBookingTime: dto.minimumBookingDays
             ? dto.minimumBookingDays * 24 * 60
             : 0,
-          maxAdvanceBookingDays: dto.maxAdvanceBookingDays ?? 30
+          maxAdvanceBookingDays: dto.maxAdvanceBookingDays ?? 30,
         }),
       );
 
@@ -495,13 +496,13 @@ export class DoctorScheduleService {
     try {
       const now = new Date();
       now.setHours(0, 0, 0, 0);
-      
+
       const startDate = new Date(now);
       startDate.setDate(startDate.getDate() + 1);
-      
+
       const endDate = new Date(now);
       endDate.setDate(endDate.getDate() + 7);
-      
+
       for (const schedule of result) {
         const count = await this.generateSlotsForSchedule(
           schedule,
@@ -511,7 +512,10 @@ export class DoctorScheduleService {
         totalGeneratedSlots += count;
       }
     } catch (error) {
-      console.error('Failed to auto-generate slots for multiple schedules:', error);
+      console.error(
+        'Failed to auto-generate slots for multiple schedules:',
+        error,
+      );
     }
 
     return new ResponseCommon(
@@ -527,7 +531,7 @@ export class DoctorScheduleService {
 
   /**
    * Cập nhật nhiều lịch làm việc cố định (REGULAR) cùng lúc
-   * 
+   *
    * Flow:
    * 1. Validate tất cả schedules tồn tại và thuộc đúng doctor
    * 2. Validate tất cả là REGULAR schedules
@@ -537,12 +541,14 @@ export class DoctorScheduleService {
   async updateManyRegular(
     doctorId: string,
     items: { id: string; [key: string]: any }[],
-  ): Promise<ResponseCommon<{
-    updatedSchedules: DoctorSchedule[];
-    totalGeneratedSlots: number;
-    totalWarningAppointments: number;
-    failedUpdates: { id: string; reason: string }[];
-  }>> {
+  ): Promise<
+    ResponseCommon<{
+      updatedSchedules: DoctorSchedule[];
+      totalGeneratedSlots: number;
+      totalWarningAppointments: number;
+      failedUpdates: { id: string; reason: string }[];
+    }>
+  > {
     // Kiểm tra danh sách không rỗng
     if (!items || items.length === 0) {
       throw new BadRequestException('Danh sách lịch làm việc không được rỗng');
@@ -622,12 +628,18 @@ export class DoctorScheduleService {
 
         // Kiểm tra có thay đổi quan trọng cần sync slots không
         const hasCriticalChanges =
-          (updateData.dayOfWeek !== undefined && updateData.dayOfWeek !== existing.dayOfWeek) ||
-          (updateData.startTime !== undefined && updateData.startTime !== existing.startTime) ||
-          (updateData.endTime !== undefined && updateData.endTime !== existing.endTime) ||
-          (updateData.slotDuration !== undefined && updateData.slotDuration !== existing.slotDuration) ||
-          (updateData.slotCapacity !== undefined && updateData.slotCapacity !== existing.slotCapacity) ||
-          (updateData.appointmentType !== undefined && updateData.appointmentType !== existing.appointmentType);
+          (updateData.dayOfWeek !== undefined &&
+            updateData.dayOfWeek !== existing.dayOfWeek) ||
+          (updateData.startTime !== undefined &&
+            updateData.startTime !== existing.startTime) ||
+          (updateData.endTime !== undefined &&
+            updateData.endTime !== existing.endTime) ||
+          (updateData.slotDuration !== undefined &&
+            updateData.slotDuration !== existing.slotDuration) ||
+          (updateData.slotCapacity !== undefined &&
+            updateData.slotCapacity !== existing.slotCapacity) ||
+          (updateData.appointmentType !== undefined &&
+            updateData.appointmentType !== existing.appointmentType);
 
         if (hasCriticalChanges) {
           // Sử dụng updateRegularWithSlotSync cho thay đổi quan trọng
@@ -644,11 +656,15 @@ export class DoctorScheduleService {
             effectiveUntil: updateData.effectiveUntil,
           };
 
-          const result = await this.updateRegularWithSlotSync(id, updateDto, existing);
+          const result = await this.updateRegularWithSlotSync(
+            id,
+            updateDto,
+            existing,
+          );
           if (result.data) {
             updatedSchedules.push(result.data);
           }
-          
+
           // Parse message để lấy số liệu (đơn giản)
           const slotsMatch = result.message.match(/Đã tạo (\d+) time slots/);
           if (slotsMatch) {
@@ -662,19 +678,28 @@ export class DoctorScheduleService {
           // Cập nhật đơn giản, không cần sync slots
           await this.scheduleRepository.update(id, {
             note: updateData.note,
-            consultationFee: updateData.consultationFee !== undefined
-              ? (updateData.consultationFee?.toString() ?? null)
-              : undefined,
+            consultationFee:
+              updateData.consultationFee !== undefined
+                ? (updateData.consultationFee?.toString() ?? null)
+                : undefined,
             isAvailable: updateData.isAvailable,
-            effectiveFrom: updateData.effectiveFrom !== undefined
-              ? updateData.effectiveFrom ? new Date(updateData.effectiveFrom) : null
-              : undefined,
-            effectiveUntil: updateData.effectiveUntil !== undefined
-              ? updateData.effectiveUntil ? new Date(updateData.effectiveUntil) : null
-              : undefined,
+            effectiveFrom:
+              updateData.effectiveFrom !== undefined
+                ? updateData.effectiveFrom
+                  ? new Date(updateData.effectiveFrom)
+                  : null
+                : undefined,
+            effectiveUntil:
+              updateData.effectiveUntil !== undefined
+                ? updateData.effectiveUntil
+                  ? new Date(updateData.effectiveUntil)
+                  : null
+                : undefined,
           });
 
-          const updated = await this.scheduleRepository.findOne({ where: { id } });
+          const updated = await this.scheduleRepository.findOne({
+            where: { id },
+          });
           if (updated) {
             updatedSchedules.push(updated);
           }
@@ -689,15 +714,15 @@ export class DoctorScheduleService {
 
     // Tạo message tổng hợp
     let message = `Đã cập nhật thành công ${updatedSchedules.length}/${items.length} lịch làm việc.`;
-    
+
     if (totalGeneratedSlots > 0) {
       message += ` Tổng cộng tạo ${totalGeneratedSlots} time slots mới.`;
     }
-    
+
     if (totalWarningAppointments > 0) {
       message += ` ⚠️ ${totalWarningAppointments} lịch hẹn có thể bị ảnh hưởng.`;
     }
-    
+
     if (failedUpdates.length > 0) {
       message += ` ${failedUpdates.length} lịch cập nhật thất bại.`;
     }
@@ -717,7 +742,6 @@ export class DoctorScheduleService {
     id: string,
     dto: UpdateDoctorScheduleDto,
   ): Promise<ResponseCommon<DoctorSchedule>> {
-
     const existingResult = await this.findById(id);
     const existing = existingResult.data!;
 
@@ -923,17 +947,12 @@ export class DoctorScheduleService {
 
     await this.scheduleRepository.update(id, updateData);
     const updated = await this.scheduleRepository.findOne({ where: { id } });
-    return new ResponseCommon(
-      200,
-      'Cập nhật lịch thành công',
-      updated!,
-    );
+    return new ResponseCommon(200, 'Cập nhật lịch thành công', updated!);
   }
-
 
   /**
    * Xóa lịch làm việc cố định (REGULAR)
-   * 
+   *
    * Flow:
    * 1. Validate schedule tồn tại và là REGULAR
    * 2. Tìm và hủy tất cả appointments tương lai liên quan
@@ -941,10 +960,12 @@ export class DoctorScheduleService {
    * 4. Xóa schedule
    * 5. Gửi notification cho bệnh nhân bị hủy lịch
    */
-  async deleteRegular(id: string): Promise<ResponseCommon<{
-    cancelledAppointments: number;
-    deletedSlots: number;
-  }>> {
+  async deleteRegular(id: string): Promise<
+    ResponseCommon<{
+      cancelledAppointments: number;
+      deletedSlots: number;
+    }>
+  > {
     const scheduleResult = await this.findById(id);
     const schedule = scheduleResult.data!;
 
@@ -971,19 +992,25 @@ export class DoctorScheduleService {
             AppointmentStatusEnum.PENDING,
           ]),
         },
-        relations: ['patient', 'patient.user', 'doctor', 'doctor.user'],
+        relations: ['patient', 'patient.user', 'doctor', 'doctor.user', 'timeSlot', 'timeSlot.schedule'],
       });
 
       // Lọc appointments vào đúng ngày trong tuần và khung giờ của schedule
-      const [scheduleStartH, scheduleStartM] = schedule.startTime.split(':').map(Number);
-      const [scheduleEndH, scheduleEndM] = schedule.endTime.split(':').map(Number);
+      const [scheduleStartH, scheduleStartM] = schedule.startTime
+        .split(':')
+        .map(Number);
+      const [scheduleEndH, scheduleEndM] = schedule.endTime
+        .split(':')
+        .map(Number);
 
       const appointmentsToCancel = futureAppointments.filter((apt) => {
         const aptDate = new Date(apt.scheduledAt);
-        
+
         if (aptDate.getDay() !== schedule.dayOfWeek) return false;
-        if (schedule.effectiveFrom && aptDate < schedule.effectiveFrom) return false;
-        if (schedule.effectiveUntil && aptDate > schedule.effectiveUntil) return false;
+        if (schedule.effectiveFrom && aptDate < schedule.effectiveFrom)
+          return false;
+        if (schedule.effectiveUntil && aptDate > schedule.effectiveUntil)
+          return false;
 
         const aptTime = aptDate.getHours() * 60 + aptDate.getMinutes();
         const scheduleStartTime = scheduleStartH * 60 + scheduleStartM;
@@ -1000,8 +1027,8 @@ export class DoctorScheduleService {
         apt.cancelledBy = 'DOCTOR';
         await manager.save(apt);
 
-        
-        await manager.createQueryBuilder()
+        await manager
+          .createQueryBuilder()
           .softDelete()
           .from(TimeSlot)
           .where('id = :id', { id: apt.timeSlotId })
@@ -1011,7 +1038,8 @@ export class DoctorScheduleService {
       // ========================================
       // BƯỚC 2: XÓA TẤT CẢ TIMESLOTS TƯƠNG LAI
       // ========================================
-      const deleteResult = await manager.createQueryBuilder()
+      const deleteResult = await manager
+        .createQueryBuilder()
         .delete()
         .from(TimeSlot)
         .where('scheduleId = :scheduleId', { scheduleId: id })
@@ -1104,7 +1132,7 @@ export class DoctorScheduleService {
   ): Promise<string | null> {
     // Lấy phí gốc (phí lịch hoặc phí mặc định của bác sĩ)
     let baseFee: string | null = null;
-    
+
     if (schedule.consultationFee) {
       baseFee = schedule.consultationFee;
     } else {
@@ -1129,16 +1157,14 @@ export class DoctorScheduleService {
   /**
    * Lấy chi tiết phí khám bao gồm phí gốc, giảm giá và phí cuối cùng
    */
-  async getConsultationFeeDetails(
-    schedule: DoctorSchedule,
-  ): Promise<{
+  async getConsultationFeeDetails(schedule: DoctorSchedule): Promise<{
     baseFee: string | null;
     discountPercent: number;
     finalFee: string | null;
   }> {
     // Lấy phí gốc (phí lịch hoặc phí mặc định của bác sĩ)
     let baseFee: string | null = null;
-    
+
     if (schedule.consultationFee) {
       baseFee = schedule.consultationFee;
     } else {
@@ -1170,16 +1196,16 @@ export class DoctorScheduleService {
   /**
    * Bổ sung thông tin phí và ngày đặt tối thiểu cho lịch làm việc
    */
-  async enrichScheduleWithEffectiveFee(
-    schedule: DoctorSchedule,
-  ): Promise<DoctorSchedule & { 
-    effectiveConsultationFee: string | null;
-    finalFee: string | null;
-    savedAmount: string | null;
-    minimumBookingDays: number;
-  }> {
+  async enrichScheduleWithEffectiveFee(schedule: DoctorSchedule): Promise<
+    DoctorSchedule & {
+      effectiveConsultationFee: string | null;
+      finalFee: string | null;
+      savedAmount: string | null;
+      minimumBookingDays: number;
+    }
+  > {
     const baseFee = await this.getEffectiveConsultationFee(schedule);
-    
+
     let finalFee: string | null = null;
     let savedAmount: string | null = null;
 
@@ -1207,7 +1233,9 @@ export class DoctorScheduleService {
     }
 
     // Chuyển đổi minimumBookingTime (phút) → minimumBookingDays (ngày)
-    const minimumBookingDays = Math.ceil(schedule.minimumBookingTime / (24 * 60));
+    const minimumBookingDays = Math.ceil(
+      schedule.minimumBookingTime / (24 * 60),
+    );
 
     return {
       ...schedule,
@@ -1221,14 +1249,14 @@ export class DoctorScheduleService {
   /**
    * Bổ sung thông tin phí và ngày đặt tối thiểu cho nhiều lịch làm việc
    */
-  async enrichSchedulesWithEffectiveFee(
-    schedules: DoctorSchedule[],
-  ): Promise<(DoctorSchedule & { 
-    effectiveConsultationFee: string | null;
-    finalFee: string | null;
-    savedAmount: string | null;
-    minimumBookingDays: number;
-  })[]> {
+  async enrichSchedulesWithEffectiveFee(schedules: DoctorSchedule[]): Promise<
+    (DoctorSchedule & {
+      effectiveConsultationFee: string | null;
+      finalFee: string | null;
+      savedAmount: string | null;
+      minimumBookingDays: number;
+    })[]
+  > {
     if (schedules.length === 0) return [];
 
     // Lấy danh sách doctorIds duy nhất
@@ -1247,7 +1275,8 @@ export class DoctorScheduleService {
 
     return schedules.map((schedule) => {
       // Lấy phí gốc (phí lịch hoặc phí mặc định của bác sĩ)
-      const baseFee = schedule.consultationFee ?? doctorFeeMap.get(schedule.doctorId) ?? null;
+      const baseFee =
+        schedule.consultationFee ?? doctorFeeMap.get(schedule.doctorId) ?? null;
       const discountPercent = schedule.discountPercent ?? 0;
 
       let finalFee: string | null = null;
@@ -1263,7 +1292,9 @@ export class DoctorScheduleService {
       }
 
       // Chuyển đổi minimumBookingTime (phút) → minimumBookingDays (ngày)
-      const minimumBookingDays = Math.ceil(schedule.minimumBookingTime / (24 * 60));
+      const minimumBookingDays = Math.ceil(
+        schedule.minimumBookingTime / (24 * 60),
+      );
 
       return {
         ...schedule,
@@ -1278,14 +1309,18 @@ export class DoctorScheduleService {
   // ========================================
   // PHƯƠNG THỨC LỊCH LINH HOẠT
   // ========================================
-  
+
   async createFlexibleSchedule(
     doctorId: string,
     dto: CreateFlexibleScheduleDto,
-  ): Promise<ResponseCommon<DoctorSchedule & { 
-    cancelledAppointments: number;
-    generatedSlots: number;
-  }>> {
+  ): Promise<
+    ResponseCommon<
+      DoctorSchedule & {
+        cancelledAppointments: number;
+        generatedSlots: number;
+      }
+    >
+  > {
     const specificDate = new Date(dto.specificDate);
     const dayOfWeek = specificDate.getDay();
     const priority = SCHEDULE_TYPE_PRIORITY[ScheduleType.FLEXIBLE];
@@ -1299,7 +1334,9 @@ export class DoctorScheduleService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     if (specificDate < today) {
-      throw new BadRequestException('Không thể tạo lịch cho ngày trong quá khứ');
+      throw new BadRequestException(
+        'Không thể tạo lịch cho ngày trong quá khứ',
+      );
     }
 
     // Validate bác sĩ tồn tại
@@ -1358,12 +1395,13 @@ export class DoctorScheduleService {
             AppointmentStatusEnum.PENDING_PAYMENT,
           ]),
         },
-        relations: ['patient', 'patient.user', 'doctor', 'doctor.user'],
+        relations: ['patient', 'patient.user', 'doctor', 'doctor.user', 'timeSlot', 'timeSlot.schedule'],
       });
 
       const conflicting = appointments.filter((apt) => {
         const aptEnd = new Date(
-          apt.scheduledAt.getTime() + apt.durationMinutes * 60 * 1000,
+          apt.scheduledAt.getTime() +
+            apt.timeSlot.schedule.slotDuration * 60 * 1000,
         );
         return apt.scheduledAt < scheduleEnd && aptEnd > scheduleStart;
       });
@@ -1378,7 +1416,8 @@ export class DoctorScheduleService {
 
         // Giải phóng time slot nếu tồn tại
         if (apt.timeSlotId) {
-          await manager.createQueryBuilder()
+          await manager
+            .createQueryBuilder()
             .softDelete()
             .from(TimeSlot)
             .where('id = :id', { id: apt.timeSlotId })
@@ -1442,7 +1481,8 @@ export class DoctorScheduleService {
         // SỬA: Kiểm tra không trùng lặp với slots hiện có
         const hasOverlap = existingSlots.some(
           (existingSlot) =>
-            currentStart < existingSlot.endTime && slotEnd > existingSlot.startTime,
+            currentStart < existingSlot.endTime &&
+            slotEnd > existingSlot.startTime,
         );
 
         if (!hasOverlap) {
@@ -1521,7 +1561,7 @@ export class DoctorScheduleService {
     }
 
     // Kiểm tra thời gian có thay đổi không
-    const timeChanged = 
+    const timeChanged =
       (dto.startTime && dto.startTime !== existing.startTime) ||
       (dto.endTime && dto.endTime !== existing.endTime);
 
@@ -1560,10 +1600,10 @@ export class DoctorScheduleService {
     // Khung giờ CŨ
     const [oldStartH, oldStartM] = existing.startTime.split(':').map(Number);
     const [oldEndH, oldEndM] = existing.endTime.split(':').map(Number);
-    
+
     const oldScheduleStart = new Date(specificDate);
     oldScheduleStart.setHours(oldStartH, oldStartM, 0, 0);
-    
+
     const oldScheduleEnd = new Date(specificDate);
     oldScheduleEnd.setHours(oldEndH, oldEndM, 0, 0);
 
@@ -1610,12 +1650,13 @@ export class DoctorScheduleService {
             AppointmentStatusEnum.PENDING,
           ]),
         },
-        relations: ['patient', 'patient.user', 'doctor', 'doctor.user'],
+        relations: ['patient', 'patient.user', 'doctor', 'doctor.user', 'timeSlot', 'timeSlot.schedule'],
       });
 
       const conflicting = appointments.filter((apt) => {
         const aptEnd = new Date(
-          apt.scheduledAt.getTime() + apt.durationMinutes * 60 * 1000,
+          apt.scheduledAt.getTime() +
+            apt.timeSlot.schedule.slotDuration * 60 * 1000,
         );
         return apt.scheduledAt < scheduleEnd && aptEnd > scheduleStart;
       });
@@ -1631,7 +1672,7 @@ export class DoctorScheduleService {
           await manager
             .createQueryBuilder()
             .softDelete()
-            .from(TimeSlot) 
+            .from(TimeSlot)
             .where('id = :id', { id: apt.timeSlotId })
             .execute();
         }
@@ -1659,9 +1700,10 @@ export class DoctorScheduleService {
         slotCapacity,
         slotDuration,
         appointmentType,
-        consultationFee: dto.consultationFee !== undefined
-          ? (dto.consultationFee?.toString() ?? null)
-          : existing.consultationFee,
+        consultationFee:
+          dto.consultationFee !== undefined
+            ? (dto.consultationFee?.toString() ?? null)
+            : existing.consultationFee,
         isAvailable: dto.isAvailable ?? existing.isAvailable,
       });
 
@@ -1684,7 +1726,8 @@ export class DoctorScheduleService {
 
         const hasOverlap = existingSlots.some(
           (existingSlot) =>
-            currentStart < existingSlot.endTime && slotEnd > existingSlot.startTime,
+            currentStart < existingSlot.endTime &&
+            slotEnd > existingSlot.startTime,
         );
 
         if (!hasOverlap) {
@@ -1737,7 +1780,7 @@ export class DoctorScheduleService {
 
   /**
    * Xóa lịch làm việc linh hoạt (FLEXIBLE)
-   * 
+   *
    * Flow:
    * 1. Validate schedule tồn tại và là FLEXIBLE
    * 2. Tìm và hủy tất cả appointments trong ngày đó (trong khung giờ của schedule)
@@ -1746,11 +1789,13 @@ export class DoctorScheduleService {
    * 5. Restore slots từ REGULAR schedules
    * 6. Gửi notification cho bệnh nhân bị hủy lịch
    */
-  async deleteFlexibleSchedule(id: string): Promise<ResponseCommon<{
-    cancelledAppointments: number;
-    deletedSlots: number;
-    restoredSlots: number;
-  }>> {
+  async deleteFlexibleSchedule(id: string): Promise<
+    ResponseCommon<{
+      cancelledAppointments: number;
+      deletedSlots: number;
+      restoredSlots: number;
+    }>
+  > {
     const existingResult = await this.findById(id);
     const schedule = existingResult.data!;
 
@@ -1796,13 +1841,15 @@ export class DoctorScheduleService {
             AppointmentStatusEnum.PENDING,
           ]),
         },
-        relations: ['patient', 'patient.user', 'doctor', 'doctor.user'],
+        relations: ['patient', 'patient.user', 'doctor', 'doctor.user', 'timeSlot', 'timeSlot.schedule'],
       });
 
       // Lọc appointments trong khung giờ của schedule
       const appointmentsToCancel = dayAppointments.filter((apt) => {
         const aptTime = new Date(apt.scheduledAt);
-        const aptEnd = new Date(aptTime.getTime() + apt.durationMinutes * 60 * 1000);
+        const aptEnd = new Date(
+          aptTime.getTime() + apt.timeSlot.schedule.slotDuration * 60 * 1000,
+        );
         return aptTime >= scheduleStart && aptEnd <= scheduleEnd;
       });
 
@@ -1814,18 +1861,19 @@ export class DoctorScheduleService {
         apt.cancelledBy = 'DOCTOR';
         await manager.save(apt);
 
-        await manager.createQueryBuilder()
+        await manager
+          .createQueryBuilder()
           .softDelete()
           .from(TimeSlot)
           .where('id = :id', { id: apt.timeSlotId })
           .execute();
-
       }
 
       // ========================================
       // BƯỚC 2: XÓA TIME SLOTS CỦA SCHEDULE NÀY
       // ========================================
-      const deleteResult = await manager.createQueryBuilder()
+      const deleteResult = await manager
+        .createQueryBuilder()
         .delete()
         .from(TimeSlot)
         .where('scheduleId = :scheduleId', { scheduleId: id })
@@ -1882,7 +1930,6 @@ export class DoctorScheduleService {
     });
   }
 
-
   /**
    * Tạo lịch nghỉ cho một ngày cụ thể
    * Lịch nghỉ - khách hàng không thể đặt lịch khám hoặc tư vấn
@@ -1895,10 +1942,14 @@ export class DoctorScheduleService {
   async createTimeOff(
     doctorId: string,
     dto: CreateTimeOffDto,
-  ): Promise<ResponseCommon<DoctorSchedule & { 
-    cancelledAppointments: number;
-    disabledSlots: number;
-  }>> {
+  ): Promise<
+    ResponseCommon<
+      DoctorSchedule & {
+        cancelledAppointments: number;
+        disabledSlots: number;
+      }
+    >
+  > {
     const specificDate = new Date(dto.specificDate);
     const dayOfWeek = specificDate.getDay();
     const priority = SCHEDULE_TYPE_PRIORITY[ScheduleType.TIME_OFF];
@@ -1912,7 +1963,9 @@ export class DoctorScheduleService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     if (specificDate < today) {
-      throw new BadRequestException('Không thể tạo lịch nghỉ cho ngày trong quá khứ');
+      throw new BadRequestException(
+        'Không thể tạo lịch nghỉ cho ngày trong quá khứ',
+      );
     }
 
     // Validate bác sĩ tồn tại
@@ -1962,12 +2015,13 @@ export class DoctorScheduleService {
             AppointmentStatusEnum.PENDING_PAYMENT,
           ]),
         },
-        relations: ['patient', 'patient.user', 'doctor', 'doctor.user'],
+        relations: ['patient', 'patient.user', 'doctor', 'doctor.user', 'timeSlot', 'timeSlot.schedule'],
       });
 
       const conflicting = appointments.filter((apt) => {
         const aptEnd = new Date(
-          apt.scheduledAt.getTime() + apt.durationMinutes * 60 * 1000,
+          apt.scheduledAt.getTime() +
+            apt.timeSlot.schedule.slotDuration * 60 * 1000,
         );
         return apt.scheduledAt < scheduleEnd && aptEnd > scheduleStart;
       });
@@ -2064,10 +2118,10 @@ export class DoctorScheduleService {
       throw new BadRequestException('Lịch này không phải là lịch nghỉ');
     }
 
-    const timeChanged = 
+    const timeChanged =
       (dto.startTime && dto.startTime !== existing.startTime) ||
       (dto.endTime && dto.endTime !== existing.endTime);
-
+    console.log(timeChanged);
     if (timeChanged) {
       return this.updateTimeOffWithSlotSync(id, dto, existing);
     }
@@ -2096,21 +2150,24 @@ export class DoctorScheduleService {
 
     const specificDate = new Date(existing.specificDate);
     const dayOfWeek = specificDate.getDay();
-    
+
     // Khung giờ CŨ
     const [oldStartH, oldStartM] = existing.startTime.split(':').map(Number);
     const [oldEndH, oldEndM] = existing.endTime.split(':').map(Number);
-    
+
     const oldScheduleStart = new Date(specificDate);
     oldScheduleStart.setHours(oldStartH, oldStartM, 0, 0);
-    
+
     const oldScheduleEnd = new Date(specificDate);
     oldScheduleEnd.setHours(oldEndH, oldEndM, 0, 0);
-
+    console.log(
+      oldScheduleStart.toLocaleString('vi-VN'),
+      oldScheduleEnd.toLocaleString('vi-VN'),
+    );
     // Khung giờ MỚI
     const newStartTime = dto.startTime ?? existing.startTime;
     const newEndTime = dto.endTime ?? existing.endTime;
-
+    console.log(newStartTime, newEndTime);
     if (newStartTime >= newEndTime) {
       throw new BadRequestException('Giờ bắt đầu phải trước giờ kết thúc');
     }
@@ -2144,7 +2201,8 @@ export class DoctorScheduleService {
 
       const conflicting = appointments.filter((apt) => {
         const aptEnd = new Date(
-          apt.scheduledAt.getTime() + apt.durationMinutes * 60 * 1000,
+          apt.scheduledAt.getTime() +
+            apt.timeSlot.schedule.slotDuration * 60 * 1000,
         );
         return apt.scheduledAt < scheduleEnd && aptEnd > scheduleStart;
       });
@@ -2168,7 +2226,7 @@ export class DoctorScheduleService {
         .andWhere('bookedCount = 0')
         .execute();
 
-      // LOGIC MỚI: Khôi phục slots trong các khoảng bị THU HẸP
+      // Khôi phục slots trong các khoảng bị THU HẸP
       let restoredSlots = 0;
 
       // Tính toán các khoảng KHÔNG CÒN bị chặn
@@ -2176,20 +2234,33 @@ export class DoctorScheduleService {
 
       // Case 1: Giờ bắt đầu dịch về sau (1h -> 1h30)
       // Khôi phục: [oldStart, newStart)
+      console.log(
+        scheduleStart.toLocaleString('vi-VN'),
+        oldScheduleStart.toLocaleString('vi-VN'),
+      );
       if (scheduleStart > oldScheduleStart) {
         rangesToRestore.push({
           start: oldScheduleStart,
           end: scheduleStart,
         });
+      } else {
+        console.log('case 1 else');
       }
 
       // Case 2: Giờ kết thúc dịch về trước (2h -> 1h30)
       // Khôi phục: [newEnd, oldEnd)
+      console.log(
+        scheduleEnd.toLocaleString('vi-VN'),
+        oldScheduleEnd.toLocaleString('vi-VN'),
+      );
       if (scheduleEnd < oldScheduleEnd) {
+        console.log('case 2');
         rangesToRestore.push({
           start: scheduleEnd,
           end: oldScheduleEnd,
         });
+      } else {
+        console.log('case 2 else');
       }
 
       // Khôi phục slots từ lịch REGULAR cho từng khoảng
@@ -2236,9 +2307,11 @@ export class DoctorScheduleService {
   /**
    * ĐÃ REFACTOR: Xóa TIME_OFF sử dụng helper khôi phục chung
    */
-  async deleteTimeOff(id: string): Promise<ResponseCommon<{
-    restoredSlots: number;
-  }>> {
+  async deleteTimeOff(id: string): Promise<
+    ResponseCommon<{
+      restoredSlots: number;
+    }>
+  > {
     const existingResult = await this.findById(id);
     const schedule = existingResult.data!;
 
@@ -2282,9 +2355,10 @@ export class DoctorScheduleService {
       return { restoredSlots };
     });
 
-    const message = result.restoredSlots > 0
-      ? `Xóa lịch nghỉ thành công. Đã khôi phục ${result.restoredSlots} time slots.`
-      : `Xóa lịch nghỉ thành công.`;
+    const message =
+      result.restoredSlots > 0
+        ? `Xóa lịch nghỉ thành công. Đã khôi phục ${result.restoredSlots} time slots.`
+        : `Xóa lịch nghỉ thành công.`;
 
     return new ResponseCommon(200, message, result);
   }
@@ -2327,7 +2401,8 @@ export class DoctorScheduleService {
     // Lọc chỉ những cuộc hẹn trùng với khung giờ
     const conflicting = appointments.filter((apt) => {
       const aptEnd = new Date(
-        apt.scheduledAt.getTime() + apt.durationMinutes * 60 * 1000,
+        apt.scheduledAt.getTime() +
+          apt.timeSlot.schedule.slotDuration * 60 * 1000,
       );
       return apt.scheduledAt < scheduleEnd && aptEnd > scheduleStart;
     });
@@ -2391,7 +2466,7 @@ export class DoctorScheduleService {
   }
 
   /**
-   * Sử dụng khi lịch TIME_OFF thu hẹp hoặc bị xóa và xóa lịch FLEXIBLE 
+   * Sử dụng khi lịch TIME_OFF thu hẹp hoặc bị xóa và xóa lịch FLEXIBLE
    */
   private async restoreSlotsFromRegularSchedules(
     manager: any,
@@ -2409,6 +2484,7 @@ export class DoctorScheduleService {
         scheduleType: ScheduleType.REGULAR,
         isAvailable: true,
       },
+      relations: ['doctor'], // Include doctor for validation if needed
     });
 
     // Lọc các lịch active vào specificDate
@@ -2430,7 +2506,9 @@ export class DoctorScheduleService {
 
     for (const regularSchedule of activeSchedules) {
       // Parse thời gian lịch REGULAR
-      const [regStartH, regStartM] = regularSchedule.startTime.split(':').map(Number);
+      const [regStartH, regStartM] = regularSchedule.startTime
+        .split(':')
+        .map(Number);
       const [regEndH, regEndM] = regularSchedule.endTime.split(':').map(Number);
 
       const regScheduleStart = new Date(specificDate);
@@ -2440,18 +2518,22 @@ export class DoctorScheduleService {
       regScheduleEnd.setHours(regEndH, regEndM, 0, 0);
 
       // Tính toán overlap giữa lịch REGULAR và khoảng khôi phục
-      const overlapStart = new Date(Math.max(regScheduleStart.getTime(), rangeStart.getTime()));
-      const overlapEnd = new Date(Math.min(regScheduleEnd.getTime(), rangeEnd.getTime()));
+      const overlapStart = new Date(
+        Math.max(regScheduleStart.getTime(), rangeStart.getTime()),
+      );
+      const overlapEnd = new Date(
+        Math.min(regScheduleEnd.getTime(), rangeEnd.getTime()),
+      );
 
       if (overlapStart >= overlapEnd) {
         continue; // Không có overlap
       }
 
-      // Kiểm tra các slots hiện có trong khoảng overlap này
+      // Tìm các slots hiện có trong khoảng overlap (bao gồm cả unavailalble)
       const existingSlots = await manager.find(TimeSlot, {
         where: {
           doctorId,
-          startTime: Between(overlapStart, overlapEnd),
+          startTime: Between(overlapStart, new Date(overlapEnd.getTime() - 1)), // Avoid getting next slot
         },
       });
 
@@ -2464,13 +2546,25 @@ export class DoctorScheduleService {
         const slotEnd = new Date(currentStart.getTime() + slotDurationMs);
         if (slotEnd > overlapEnd) break;
 
-        // Kiểm tra không overlap với slots hiện có
-        const hasOverlap = existingSlots.some(
-          (existingSlot) =>
-            currentStart < existingSlot.endTime && slotEnd > existingSlot.startTime,
+        // Tìm slot trùng khớp
+        const matchingSlot = existingSlots.find(
+          (s) =>
+            Math.abs(s.startTime.getTime() - currentStart.getTime()) < 1000,
         );
 
-        if (!hasOverlap) {
+        if (matchingSlot) {
+          // Nếu slot tồn tại nhưng đang bị disabled (do Time Off trước đó), re-enable nó
+          if (!matchingSlot.isAvailable && matchingSlot.bookedCount === 0) {
+            matchingSlot.isAvailable = true;
+            // Cập nhật lại số lượng capacity nếu cần (reset về default của lịch regular)
+            matchingSlot.capacity = regularSchedule.slotCapacity;
+            matchingSlot.scheduleId = regularSchedule.id; // Link lại về Regular Schedule
+            await manager.save(matchingSlot);
+            totalRestoredSlots++;
+          }
+          // Nếu đã available hoặc đã book, bỏ qua
+        } else {
+          // Nếu chưa có slot, tạo mới
           const slot = manager.create(TimeSlot, {
             doctorId,
             scheduleId: regularSchedule.id,
@@ -2509,12 +2603,14 @@ export class DoctorScheduleService {
     dto: PreviewFlexibleScheduleConflictsDto,
   ): Promise<ResponseCommon<PreviewConflictsResponseDto>> {
     const specificDate = new Date(dto.specificDate);
-    
+
     // Validate ngày không phải là quá khứ
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     if (specificDate < today) {
-      throw new BadRequestException('Không thể xem trước cho ngày trong quá khứ');
+      throw new BadRequestException(
+        'Không thể xem trước cho ngày trong quá khứ',
+      );
     }
 
     // Validate thời gian
@@ -2552,7 +2648,8 @@ export class DoctorScheduleService {
 
     const conflicting = appointments.filter((apt) => {
       const aptEnd = new Date(
-        apt.scheduledAt.getTime() + apt.durationMinutes * 60 * 1000,
+        apt.scheduledAt.getTime() +
+          apt.timeSlot.schedule.slotDuration * 60 * 1000,
       );
       return apt.scheduledAt < scheduleEnd && aptEnd > scheduleStart;
     });
@@ -2567,19 +2664,21 @@ export class DoctorScheduleService {
     });
 
     // Map sang response DTOs
-    const conflictingAppointments: ConflictingAppointmentDto[] = conflicting.map((apt) => ({
-      id: apt.id,
-      appointmentNumber: apt.appointmentNumber,
-      patientName: apt.patient?.user?.fullName || 'Unknown',
-      scheduledAt: apt.scheduledAt,
-      durationMinutes: apt.durationMinutes,
-      appointmentType: apt.appointmentType,
-      status: apt.status,
-    }));
+    const conflictingAppointments: ConflictingAppointmentDto[] =
+      conflicting.map((apt) => ({
+        id: apt.id,
+        appointmentNumber: apt.appointmentNumber,
+        patientName: apt.patient?.user?.fullName || 'Unknown',
+        scheduledAt: apt.scheduledAt,
+        durationMinutes: apt.timeSlot.schedule.slotDuration,
+        status: apt.status,
+        appointmentType: apt.appointmentType,
+      }));
 
-    const message = conflicting.length > 0
-      ? `Sẽ có ${conflicting.length} lịch hẹn bị hủy và ${affectedSlots} time slots bị thay thế nếu tạo lịch này.`
-      : `Không có lịch hẹn nào bị ảnh hưởng. ${affectedSlots} time slots sẽ bị thay thế.`;
+    const message =
+      conflicting.length > 0
+        ? `Sẽ có ${conflicting.length} lịch hẹn bị hủy và ${affectedSlots} time slots bị thay thế nếu tạo lịch này.`
+        : `Không có lịch hẹn nào bị ảnh hưởng. ${affectedSlots} time slots sẽ bị thay thế.`;
 
     return new ResponseCommon(200, message, {
       conflictingAppointments,
@@ -2597,12 +2696,14 @@ export class DoctorScheduleService {
     dto: PreviewTimeOffConflictsDto,
   ): Promise<ResponseCommon<PreviewConflictsResponseDto>> {
     const specificDate = new Date(dto.specificDate);
-    
+
     // Validate ngày không phải là quá khứ
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     if (specificDate < today) {
-      throw new BadRequestException('Không thể xem trước cho ngày trong quá khứ');
+      throw new BadRequestException(
+        'Không thể xem trước cho ngày trong quá khứ',
+      );
     }
 
     // Validate thời gian
@@ -2640,7 +2741,8 @@ export class DoctorScheduleService {
 
     const conflicting = appointments.filter((apt) => {
       const aptEnd = new Date(
-        apt.scheduledAt.getTime() + apt.durationMinutes * 60 * 1000,
+        apt.scheduledAt.getTime() +
+          apt.timeSlot.schedule.slotDuration * 60 * 1000,
       );
       return apt.scheduledAt < scheduleEnd && aptEnd > scheduleStart;
     });
@@ -2655,19 +2757,21 @@ export class DoctorScheduleService {
     });
 
     // Map sang response DTOs
-    const conflictingAppointments: ConflictingAppointmentDto[] = conflicting.map((apt) => ({
-      id: apt.id,
-      appointmentNumber: apt.appointmentNumber,
-      patientName: apt.patient?.user?.fullName || 'Unknown',
-      scheduledAt: apt.scheduledAt,
-      durationMinutes: apt.durationMinutes,
-      appointmentType: apt.appointmentType,
-      status: apt.status,
-    }));
+    const conflictingAppointments: ConflictingAppointmentDto[] =
+      conflicting.map((apt) => ({
+        id: apt.id,
+        appointmentNumber: apt.appointmentNumber,
+        patientName: apt.patient?.user?.fullName || 'Unknown',
+        scheduledAt: apt.scheduledAt,
+        durationMinutes: apt.timeSlot.schedule.slotDuration,
+        appointmentType: apt.appointmentType,
+        status: apt.status,
+      }));
 
-    const message = conflicting.length > 0
-      ? `Sẽ có ${conflicting.length} lịch hẹn bị hủy và ${affectedSlots} time slots bị tắt nếu tạo lịch nghỉ này.`
-      : `Không có lịch hẹn nào bị ảnh hưởng. ${affectedSlots} time slots sẽ bị tắt.`;
+    const message =
+      conflicting.length > 0
+        ? `Sẽ có ${conflicting.length} lịch hẹn bị hủy và ${affectedSlots} time slots bị tắt nếu tạo lịch nghỉ này.`
+        : `Không có lịch hẹn nào bị ảnh hưởng. ${affectedSlots} time slots sẽ bị tắt.`;
 
     return new ResponseCommon(200, message, {
       conflictingAppointments,
@@ -2684,17 +2788,17 @@ export class DoctorScheduleService {
    * ============================================================================
    * CẬP NHẬT LỊCH CỐ ĐỊNH VỚI ĐỒNG BỘ TIME SLOT
    * ============================================================================
-   * 
+   *
    * MỤC ĐÍCH:
    * - Cập nhật thông tin lịch làm việc cố định (REGULAR schedule)
    * - Đồng bộ lại time slots theo thông tin mới
    * - KHÔNG hủy appointments hiện có, chỉ gửi cảnh báo
-   * 
+   *
    * NGUYÊN TẮC:
    * - Thay đổi chỉ áp dụng từ NGÀY MAI (không ảnh hưởng ngày hôm nay)
    * - Chỉ xóa các time slots CHƯA được đặt (bookedCount = 0)
    * - Appointments bị ảnh hưởng sẽ được liệt kê để bác sĩ tự xử lý
-   * 
+   *
    * FLOW:
    * 1. Xóa time slots chưa book từ ngày mai
    * 2. Tìm appointments có thể bị ảnh hưởng (chỉ cảnh báo, không hủy)
@@ -2723,52 +2827,55 @@ export class DoctorScheduleService {
     // ========================================
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    
+
     // Range: Từ ngày mai đến 7 ngày sau (hoặc effectiveUntil nếu sớm hơn)
     const rangeEnd = new Date(tomorrow);
     rangeEnd.setDate(rangeEnd.getDate() + 7);
-    
-    const effectiveUntil = dto.effectiveUntil 
+
+    const effectiveUntil = dto.effectiveUntil
       ? new Date(dto.effectiveUntil)
       : existing.effectiveUntil;
-    
+
     // Lấy ngày kết thúc thực tế (nhỏ hơn giữa rangeEnd và effectiveUntil)
-    const actualRangeEnd = effectiveUntil && effectiveUntil < rangeEnd 
-      ? effectiveUntil 
-      : rangeEnd;
+    const actualRangeEnd =
+      effectiveUntil && effectiveUntil < rangeEnd ? effectiveUntil : rangeEnd;
 
     // ========================================
     // BẮT ĐẦU TRANSACTION
     // ========================================
     const result = await this.dataSource.transaction(async (manager) => {
-      
       // ========================================
       // BƯỚC A: TÌM VÀ HỦY APPOINTMENTS BỊ ẢNH HƯỞNG
       // ========================================
       const cancelledAppointments: Appointment[] = [];
-      
+
       // Chỉ kiểm tra nếu có thay đổi ảnh hưởng đến appointments
-      const hasCriticalChanges = 
+      const hasCriticalChanges =
         (dto.dayOfWeek !== undefined && dto.dayOfWeek !== existing.dayOfWeek) ||
         (dto.startTime !== undefined && dto.startTime !== existing.startTime) ||
         (dto.endTime !== undefined && dto.endTime !== existing.endTime) ||
-        (dto.appointmentType !== undefined && dto.appointmentType !== existing.appointmentType);
-      
+        (dto.appointmentType !== undefined &&
+          dto.appointmentType !== existing.appointmentType);
+
       if (hasCriticalChanges) {
         const checkDate = new Date(tomorrow);
-        
+
         while (checkDate <= actualRangeEnd) {
           const isOldDay = checkDate.getDay() === existing.dayOfWeek;
           const isNewDay = checkDate.getDay() === newDayOfWeek;
-          const dayChanged = dto.dayOfWeek !== undefined && dto.dayOfWeek !== existing.dayOfWeek;
-          
+          const dayChanged =
+            dto.dayOfWeek !== undefined && dto.dayOfWeek !== existing.dayOfWeek;
+
           // Chỉ check appointments nếu:
           // - Đổi ngày: check cả ngày cũ và ngày mới
           // - Không đổi ngày: chỉ check ngày hiện tại (để xem thời gian có conflict không)
-          if ((dayChanged && (isOldDay || isNewDay)) || (!dayChanged && isNewDay)) {
+          if (
+            (dayChanged && (isOldDay || isNewDay)) ||
+            (!dayChanged && isNewDay)
+          ) {
             const dayStart = new Date(checkDate);
             dayStart.setHours(0, 0, 0, 0);
             const dayEnd = new Date(checkDate);
@@ -2785,21 +2892,23 @@ export class DoctorScheduleService {
                   AppointmentStatusEnum.PENDING,
                 ]),
               },
-              relations: ['patient', 'patient.user', 'doctor', 'doctor.user'],
+              relations: ['patient', 'patient.user', 'doctor', 'doctor.user', 'timeSlot', 'timeSlot.schedule'],
             });
 
             if (dayAppointments.length > 0) {
               for (const apt of dayAppointments) {
                 let isAffected = false;
-                
+
                 // Case 1: Đổi dayOfWeek và appointment ở ngày CŨ (không còn lịch làm việc)
                 if (dayChanged && isOldDay && !isNewDay) {
                   isAffected = true;
                 }
-                
+
                 // Case 2: Đổi thời gian và appointment nằm NGOÀI khung giờ mới
                 if (dto.startTime || dto.endTime) {
-                  const [newStartH, newStartM] = newStartTime.split(':').map(Number);
+                  const [newStartH, newStartM] = newStartTime
+                    .split(':')
+                    .map(Number);
                   const [newEndH, newEndM] = newEndTime.split(':').map(Number);
 
                   const newScheduleStart = new Date(checkDate);
@@ -2809,20 +2918,27 @@ export class DoctorScheduleService {
                   newScheduleEnd.setHours(newEndH, newEndM, 0, 0);
 
                   const aptEnd = new Date(
-                    apt.scheduledAt.getTime() + apt.durationMinutes * 60 * 1000
+                    apt.scheduledAt.getTime() +
+                      apt.timeSlot.schedule.slotDuration * 60 * 1000,
                   );
 
                   // Appointment nằm ngoài khung giờ mới
-                  if (apt.scheduledAt < newScheduleStart || aptEnd > newScheduleEnd) {
+                  if (
+                    apt.scheduledAt < newScheduleStart ||
+                    aptEnd > newScheduleEnd
+                  ) {
                     isAffected = true;
                   }
                 }
-                
+
                 // Case 3: Đổi appointmentType và appointment có type khác
-                if (dto.appointmentType && apt.appointmentType !== newAppointmentType) {
+                if (
+                  dto.appointmentType &&
+                  apt.appointmentType !== newAppointmentType
+                ) {
                   isAffected = true;
                 }
-                
+
                 // HỦY APPOINTMENT NẾU BỊ ẢNH HƯỞNG
                 if (isAffected) {
                   apt.status = AppointmentStatusEnum.CANCELLED;
@@ -2845,7 +2961,7 @@ export class DoctorScheduleService {
               }
             }
           }
-          
+
           checkDate.setDate(checkDate.getDate() + 1);
         }
       }
@@ -2860,15 +2976,15 @@ export class DoctorScheduleService {
         .where('scheduleId = :scheduleId', { scheduleId: id })
         .andWhere('startTime >= :tomorrow', { tomorrow })
         .andWhere('startTime <= :rangeEnd', { rangeEnd: actualRangeEnd })
-        .andWhere('bookedCount = 0'); 
-      
+        .andWhere('bookedCount = 0');
+
       // Nếu ĐỔI dayOfWeek, chỉ xóa slots của lịch cũ
       if (dto.dayOfWeek !== undefined && dto.dayOfWeek !== existing.dayOfWeek) {
-        deleteQuery.andWhere('EXTRACT(DOW FROM "startTime") = :dow', { 
-          dow: existing.dayOfWeek
+        deleteQuery.andWhere('EXTRACT(DOW FROM "startTime") = :dow', {
+          dow: existing.dayOfWeek,
         });
       }
-      
+
       await deleteQuery.execute();
 
       // ========================================
@@ -2881,16 +2997,23 @@ export class DoctorScheduleService {
         slotDuration: newSlotDuration,
         slotCapacity: newSlotCapacity,
         appointmentType: newAppointmentType,
-        consultationFee: dto.consultationFee !== undefined
-          ? (dto.consultationFee?.toString() ?? null)
-          : undefined,
+        consultationFee:
+          dto.consultationFee !== undefined
+            ? (dto.consultationFee?.toString() ?? null)
+            : undefined,
         isAvailable: dto.isAvailable,
-        effectiveFrom: dto.effectiveFrom !== undefined
-          ? dto.effectiveFrom ? new Date(dto.effectiveFrom) : null
-          : undefined,
-        effectiveUntil: dto.effectiveUntil !== undefined
-          ? dto.effectiveUntil ? new Date(dto.effectiveUntil) : null
-          : undefined,
+        effectiveFrom:
+          dto.effectiveFrom !== undefined
+            ? dto.effectiveFrom
+              ? new Date(dto.effectiveFrom)
+              : null
+            : undefined,
+        effectiveUntil:
+          dto.effectiveUntil !== undefined
+            ? dto.effectiveUntil
+              ? new Date(dto.effectiveUntil)
+              : null
+            : undefined,
       });
 
       // ========================================
@@ -2904,7 +3027,6 @@ export class DoctorScheduleService {
       while (slotGenDate <= actualRangeEnd) {
         // Chỉ tạo slot cho ngày MỚI (theo newDayOfWeek)
         if (slotGenDate.getDay() === newDayOfWeek) {
-          
           // Kiểm tra có schedule priority cao hơn không (TIME_OFF, FLEXIBLE)
           const dayStart = new Date(slotGenDate);
           dayStart.setHours(0, 0, 0, 0);
@@ -2985,7 +3107,7 @@ export class DoctorScheduleService {
 
         slotGenDate.setDate(slotGenDate.getDate() + 1);
       }
-      
+
       // Lấy thông tin schedule đã cập nhật
       const updated = await manager.findOne(DoctorSchedule, { where: { id } });
 
@@ -3003,22 +3125,25 @@ export class DoctorScheduleService {
     // Thực hiện ngoài transaction để không block nếu gửi notification thất bại
     if (result.cancelledAppointments.length > 0) {
       this.notificationService
-        .notifyCancelledAppointments(result.cancelledAppointments, 'SCHEDULE_CHANGE')
-        .catch(err => console.error('Failed to send notifications:', err));
+        .notifyCancelledAppointments(
+          result.cancelledAppointments,
+          'SCHEDULE_CHANGE',
+        )
+        .catch((err) => console.error('Failed to send notifications:', err));
     }
 
     // ========================================
     // TẠO MESSAGE PHẢN HỒI RÕ RÀNG
     // ========================================
     let message = `Cập nhật lịch cố định thành công. Thay đổi áp dụng từ ngày ${tomorrow.toLocaleDateString('vi-VN')}.`;
-    
+
     // Thông báo số appointments đã bị hủy
     if (result.cancelledAppointments.length > 0) {
       message += ` Đã hủy ${result.cancelledAppointments.length} lịch hẹn bị ảnh hưởng.`;
     }
-    
+
     message += ` Đã tạo ${result.generatedSlots} time slots mới.`;
-    
+
     // Thông báo số ngày bị skip do có lịch ưu tiên cao hơn
     if (result.skippedDaysByHigherPriority > 0) {
       message += ` (${result.skippedDaysByHigherPriority} ngày bị bỏ qua do có lịch ưu tiên cao hơn)`;
@@ -3139,7 +3264,10 @@ export class DoctorScheduleService {
   /**
    * Kiểm tra xem một lịch có active vào ngày cụ thể không
    */
-  private isScheduleActiveOnDate(schedule: DoctorSchedule, date: Date): boolean {
+  private isScheduleActiveOnDate(
+    schedule: DoctorSchedule,
+    date: Date,
+  ): boolean {
     const checkDate = new Date(date);
     checkDate.setHours(0, 0, 0, 0);
 
@@ -3165,7 +3293,7 @@ export class DoctorScheduleService {
    */
   async disableOldSlots(): Promise<number> {
     const now = new Date();
-    
+
     const result = await this.dataSource
       .createQueryBuilder()
       .update(TimeSlot)
@@ -3181,7 +3309,10 @@ export class DoctorScheduleService {
    * Generate slots for the next day for all active doctors
    * Called by cron job daily
    */
-  async generateSlotsForNextDay(): Promise<{ doctorsProcessed: number; slotsGenerated: number }> {
+  async generateSlotsForNextDay(): Promise<{
+    doctorsProcessed: number;
+    slotsGenerated: number;
+  }> {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(0, 0, 0, 0);
@@ -3197,8 +3328,12 @@ export class DoctorScheduleService {
       .where('s.scheduleType = :type', { type: ScheduleType.REGULAR })
       .andWhere('s.dayOfWeek = :dow', { dow: tomorrowDayOfWeek })
       .andWhere('s.isAvailable = true')
-      .andWhere('(s.effectiveFrom IS NULL OR s.effectiveFrom <= :date)', { date: tomorrow })
-      .andWhere('(s.effectiveUntil IS NULL OR s.effectiveUntil >= :date)', { date: tomorrow })
+      .andWhere('(s.effectiveFrom IS NULL OR s.effectiveFrom <= :date)', {
+        date: tomorrow,
+      })
+      .andWhere('(s.effectiveUntil IS NULL OR s.effectiveUntil >= :date)', {
+        date: tomorrow,
+      })
       .getMany();
 
     let totalSlotsGenerated = 0;
@@ -3206,7 +3341,7 @@ export class DoctorScheduleService {
 
     for (const schedule of activeSchedules) {
       doctorIds.add(schedule.doctorId);
-      
+
       const slotsGenerated = await this.generateSlotsForSchedule(
         schedule,
         tomorrow,
@@ -3221,4 +3356,3 @@ export class DoctorScheduleService {
     };
   }
 }
-

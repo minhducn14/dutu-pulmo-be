@@ -38,6 +38,7 @@ import {
 import { TimeSlotResponseDto } from './dto/schedule-response.dto';
 
 @ApiTags('Time Slots')
+@ApiBearerAuth()
 @Controller('doctors/:doctorId/time-slots')
 export class TimeSlotController {
   constructor(private readonly timeSlotService: TimeSlotService) {}

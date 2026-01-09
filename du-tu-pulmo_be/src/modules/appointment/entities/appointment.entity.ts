@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Patient } from '../../patient/entities/patient.entity';
 import { Doctor } from '../../doctor/entities/doctor.entity';
@@ -16,6 +17,11 @@ import { AppointmentTypeEnum } from '../../common/enums/appointment-type.enum';
 import { AppointmentStatusEnum } from '../../common/enums/appointment-status.enum';
 
 @Entity('appointments')
+@Index('idx_appointment_patient_slot', ['patientId', 'timeSlotId'])
+@Index('idx_appointment_patient_scheduled', ['patientId', 'scheduledAt'])
+@Index('idx_appointment_doctor_scheduled', ['doctorId', 'scheduledAt'])
+@Index('idx_appointment_status', ['status'])
+@Index('idx_appointment_type_status', ['appointmentType', 'status'])
 export class Appointment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -44,6 +50,7 @@ export class Appointment {
   @Column({ name: 'booked_by_user_id', type: 'uuid', nullable: true })
   bookedByUserId: string;
 
+  // Hospital relation
   @ManyToOne(() => Hospital, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'hospital_id' })
   hospital: Hospital;
@@ -54,20 +61,15 @@ export class Appointment {
   @Column({ name: 'screening_id', type: 'uuid', nullable: true })
   screeningId: string;
 
-  @ManyToOne(() => TimeSlot, (timeSlot) => timeSlot.appointments, { onDelete: 'SET NULL', nullable: true })
+  @ManyToOne(() => TimeSlot, (timeSlot) => timeSlot.appointments, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
   @JoinColumn({ name: 'time_slot_id' })
   timeSlot: TimeSlot;
 
   @Column({ name: 'time_slot_id', type: 'uuid', nullable: true })
   timeSlotId: string;
-
-  @Column({
-    name: 'appointment_type',
-    type: 'enum',
-    enum: AppointmentTypeEnum,
-    default: AppointmentTypeEnum.IN_CLINIC,
-  })
-  appointmentType: AppointmentTypeEnum;
 
   @Column({ name: 'scheduled_at', type: 'timestamptz' })
   scheduledAt: Date;
@@ -85,10 +87,30 @@ export class Appointment {
   })
   status: AppointmentStatusEnum;
 
-  @Column({ name: 'fee_amount', type: 'bigint' })
+  @Column({
+    name: 'appointment_type',
+    type: 'enum',
+    enum: AppointmentTypeEnum,
+    default: AppointmentTypeEnum.IN_CLINIC,
+  })
+  appointmentType: AppointmentTypeEnum;
+
+  @Column({
+    name: 'fee_amount',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    default: 0,
+  })
   feeAmount: string;
 
-  @Column({ name: 'paid_amount', type: 'bigint', default: '0' })
+  @Column({
+    name: 'paid_amount',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    default: 0,
+  })
   paidAmount: string;
 
   @Column({ name: 'payment_id', type: 'uuid', nullable: true })
@@ -103,7 +125,9 @@ export class Appointment {
   @Column({ name: 'refund_status', length: 20, nullable: true })
   refundStatus: string;
 
-  // Video call fields
+  // ========================================
+  // VIDEO CALL FIELDS
+  // ========================================
   @Column({ name: 'meeting_room_id', length: 100, nullable: true })
   meetingRoomId: string;
 
@@ -119,7 +143,6 @@ export class Appointment {
   @Column({ name: 'recording_consent', default: false })
   recordingConsent: boolean;
 
-  // Daily.co
   @Column({ name: 'daily_co_token', type: 'text', nullable: true })
   dailyCoToken: string;
 
@@ -129,7 +152,21 @@ export class Appointment {
   @Column({ name: 'daily_co_uid', type: 'integer', nullable: true })
   dailyCoUid: number;
 
-  // Clinical info
+  // ========================================
+  // IN_CLINIC FIELDS
+  // ========================================
+  @Column({ name: 'room_number', length: 20, nullable: true })
+  roomNumber: string;
+
+  @Column({ name: 'queue_number', type: 'integer', nullable: true })
+  queueNumber: number;
+
+  @Column({ name: 'floor', length: 10, nullable: true })
+  floor: string;
+
+  // ========================================
+  // CLINICAL INFO
+  // ========================================
   @Column({ name: 'chief_complaint', type: 'text', nullable: true })
   chiefComplaint: string;
 
@@ -145,7 +182,9 @@ export class Appointment {
   @Column({ name: 'clinical_notes', type: 'text', nullable: true })
   clinicalNotes: string;
 
-  // Follow-up
+  // ========================================
+  // FOLLOW-UP
+  // ========================================
   @Column({ name: 'follow_up_required', default: false })
   followUpRequired: boolean;
 
@@ -159,7 +198,9 @@ export class Appointment {
   @Column({ name: 'has_follow_up', default: false })
   hasFollowUp: boolean;
 
-  // Reminders
+  // ========================================
+  // REMINDERS
+  // ========================================
   @Column({ name: 'reminder_24h_sent', default: false })
   reminder24hSent: boolean;
 
@@ -172,7 +213,9 @@ export class Appointment {
   @Column({ name: 'confirmation_sent', default: false })
   confirmationSent: boolean;
 
-  // Timeline
+  // ========================================
+  // TIMELINE
+  // ========================================
   @Column({ name: 'check_in_time', type: 'timestamptz', nullable: true })
   checkInTime: Date;
 
@@ -182,7 +225,9 @@ export class Appointment {
   @Column({ name: 'ended_at', type: 'timestamptz', nullable: true })
   endedAt: Date;
 
-  // Cancellation
+  // ========================================
+  // CANCELLATION
+  // ========================================
   @Column({ name: 'cancelled_at', type: 'timestamptz', nullable: true })
   cancelledAt: Date;
 
@@ -190,11 +235,13 @@ export class Appointment {
   cancellationReason: string;
 
   @Column({ name: 'cancelled_by', length: 20, nullable: true })
-  cancelledBy: string; // PATIENT, DOCTOR, SYSTEM
+  cancelledBy: string;
 
-  // Rating
+  // ========================================
+  // RATING
+  // ========================================
   @Column({ name: 'patient_rating', type: 'integer', nullable: true })
-  patientRating: number; // 1-5
+  patientRating: number;
 
   @CreateDateColumn({
     name: 'created_at',

@@ -4,8 +4,8 @@ import {
   IsOptional,
   IsString,
   IsEnum,
-  IsNumber,
   IsArray,
+  IsNotEmpty,
 } from 'class-validator';
 import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
 
@@ -13,49 +13,36 @@ import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.e
  * DTO for creating a new appointment
  */
 export class CreateAppointmentDto {
-  @ApiProperty({ description: 'ID bệnh nhân', format: 'uuid' })
-  @IsOptional()
-  @IsUUID()
-  patientId?: string;
-
-  @ApiProperty({ description: 'ID bác sĩ', format: 'uuid' })
-  @IsUUID()
-  doctorId: string;
-
   @ApiProperty({ description: 'ID khung giờ', format: 'uuid' })
+  @IsNotEmpty()
   @IsUUID()
   timeSlotId: string;
 
-  @ApiPropertyOptional({ description: 'ID bệnh viện', format: 'uuid' })
+  // Optional fields
+  @ApiProperty({ description: 'ID bệnh nhân', format: 'uuid' })
   @IsOptional()
   @IsUUID()
-  hospitalId?: string;
+  patientId: string;
 
   @ApiPropertyOptional({
-    description: 'Loại hình khám',
+    description: 'Loại hình khám (default: lấy từ slot)',
     enum: AppointmentTypeEnum,
-    example: AppointmentTypeEnum.IN_CLINIC,
   })
   @IsOptional()
   @IsEnum(AppointmentTypeEnum)
   appointmentType?: AppointmentTypeEnum;
 
-  @ApiPropertyOptional({ description: 'Thời lượng khám (phút)', example: 30 })
+  @ApiPropertyOptional({ description: 'ID bệnh viện (dùng cho IN_CLINIC)', format: 'uuid' })
   @IsOptional()
-  @IsNumber()
-  durationMinutes?: number;
-
-  @ApiPropertyOptional({ description: 'Phí khám', example: '200000' })
-  @IsOptional()
-  @IsString()
-  feeAmount?: string;
+  @IsUUID()
+  hospitalId?: string;
 
   @ApiPropertyOptional({ description: 'Lý do khám chính' })
   @IsOptional()
   @IsString()
   chiefComplaint?: string;
 
-  @ApiPropertyOptional({ description: 'Triệu chứng', type: [String] })
+  @ApiPropertyOptional({ description: 'Các triệu chứng', type: [String] })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })

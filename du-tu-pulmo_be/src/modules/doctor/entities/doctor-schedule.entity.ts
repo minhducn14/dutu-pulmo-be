@@ -17,10 +17,13 @@ import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.e
 import { ScheduleType } from 'src/modules/common/enums/schedule-type.enum';
 
 @Entity('doctor_schedules')
-// Partial indexes: only check non-deleted records
-@Index('idx_schedule_doctor_dow_type', ['doctorId', 'dayOfWeek', 'appointmentType'], {
-  where: '"deleted_at" IS NULL',
-})
+@Index(
+  'idx_schedule_doctor_dow_type',
+  ['doctorId', 'dayOfWeek', 'appointmentType'],
+  {
+    where: '"deleted_at" IS NULL',
+  },
+)
 @Index('idx_schedule_priority', ['doctorId', 'priority', 'dayOfWeek'], {
   where: '"deleted_at" IS NULL',
 })
@@ -158,4 +161,3 @@ export class DoctorSchedule {
   })
   timeSlots: TimeSlot[];
 }
-
