@@ -14,7 +14,7 @@ import {
   Index,
 } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
-import { Specialty } from 'src/modules/common/enums/specialty.enum';
+import { SpecialtyEnum } from 'src/modules/common/enums/specialty.enum';
 import { DoctorTitle } from 'src/modules/common/enums/doctor-title.enum';
 import { VerificationStatus } from 'src/modules/common/enums/doctor-verification-status.enum';
 import { DoctorSchedule } from './doctor-schedule.entity';
@@ -57,10 +57,10 @@ export class Doctor {
 
   @Column({
     type: 'enum',
-    enum: Specialty,
+    enum: SpecialtyEnum,
     nullable: true,
   })
-  specialty: Specialty;
+  specialty: SpecialtyEnum;
 
   @Column({ name: 'years_of_experience', type: 'integer', nullable: true })
   yearsOfExperience: number;

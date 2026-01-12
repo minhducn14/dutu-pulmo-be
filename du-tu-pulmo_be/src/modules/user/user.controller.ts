@@ -10,6 +10,7 @@ import {
   UseGuards,
   Post,
   ForbiddenException,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -19,7 +20,8 @@ import {
 } from '@nestjs/swagger';
 import { UserService } from './user.service';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { UserResponseDto } from './dto/user-response.dto';
+import { UserResponseDto, PaginatedUserResponseDto } from './dto/user-response.dto';
+import { UserQueryDto } from './dto/user-query.dto';
 import { JwtAuthGuard } from '../core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../core/auth/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
@@ -36,10 +38,13 @@ export class UserController {
 
   @Get()
   @Roles(RoleEnum.ADMIN)
-  @ApiOperation({ summary: 'Lấy danh sách tất cả users (Admin)' })
-  @ApiResponse({ status: HttpStatus.OK, type: [UserResponseDto] })
-  findAll() {
-    return this.userService.findAll();
+  @ApiOperation({ 
+    summary: 'Lấy danh sách tất cả users (Admin)',
+    description: 'Hỗ trợ phân trang, tìm kiếm theo tên/phone, lọc theo role và status'
+  })
+  @ApiResponse({ status: HttpStatus.OK, type: PaginatedUserResponseDto })
+  findAll(@Query() query: UserQueryDto) {
+    return this.userService.findAll(query);
   }
 
   @Get('me')

@@ -126,3 +126,22 @@ export class UserResponseDto {
   })
   updatedAt: Date;
 }
+
+// ============================================================================
+// PAGINATED RESPONSE DTO
+// ============================================================================
+
+import { PaginationMeta } from 'src/common/dto/pagination.dto';
+
+export class PaginatedUserResponseDto {
+  @ApiProperty({ 
+    type: [UserResponseDto],
+    description: 'Danh sách users' 
+  })
+  items: UserResponseDto[];
+
+  @ApiProperty({ 
+    description: 'Thông tin phân trang' 
+  })
+  meta: PaginationMeta;
+}

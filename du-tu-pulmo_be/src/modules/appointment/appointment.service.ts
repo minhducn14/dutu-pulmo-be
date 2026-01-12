@@ -7,19 +7,27 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, Not, In } from 'typeorm';
+import { Repository, DataSource, Not, In, Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
 import { Appointment } from './entities/appointment.entity';
 import { TimeSlot } from '../doctor/entities/time-slot.entity';
 import { Doctor } from '../doctor/entities/doctor.entity';
 import { DoctorSchedule } from '../doctor/entities/doctor-schedule.entity';
 import { AppointmentStatusEnum } from '../common/enums/appointment-status.enum';
 import { ResponseCommon } from 'src/common/dto/response.dto';
-import { AppointmentResponseDto } from './dto/appointment-response.dto';
+import { 
+  AppointmentResponseDto, 
+  AppointmentStatisticsDto,
+  DoctorQueueDto,
+  PaginatedAppointmentResponseDto 
+} from './dto/appointment-response.dto';
+import { AppointmentQueryDto, PatientAppointmentQueryDto } from './dto/appointment-query.dto';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { AppointmentTypeEnum } from '../common/enums/appointment-type.enum';
 import { AppointmentSubTypeEnum } from '../common/enums/appointment-sub-type.enum';
 import { SourceTypeEnum } from '../common/enums/source-type.enum';
 import { DailyService } from '../video_call/daily.service';
 import { CallStateService } from '../video_call/call-state.service';
+import { CompleteExaminationDto } from './dto/update-appointment.dto';
 
 const BASE_RELATIONS = ['patient', 'doctor', 'hospital', 'timeSlot'];
 
@@ -55,15 +63,56 @@ export class AppointmentService {
     return isNaN(num) ? 0 : num;
   }
 
-  async findAll(): Promise<ResponseCommon<AppointmentResponseDto[]>> {
-    const appointments = await this.appointmentRepository.find({
+  async findAll(
+    query?: AppointmentQueryDto,
+  ): Promise<ResponseCommon<PaginatedAppointmentResponseDto>> {
+    const page = query?.page || 1;
+    const limit = query?.limit || 10;
+    const skip = (page - 1) * limit;
+
+    // Build where conditions
+    const where: any = {};
+    
+    if (query?.status) {
+      where.status = query.status;
+    }
+    
+    if (query?.appointmentType) {
+      where.appointmentType = query.appointmentType;
+    }
+    
+    if (query?.startDate && query?.endDate) {
+      where.scheduledAt = Between(
+        new Date(query.startDate),
+        new Date(query.endDate),
+      );
+    } else if (query?.startDate) {
+      where.scheduledAt = MoreThanOrEqual(new Date(query.startDate));
+    } else if (query?.endDate) {
+      where.scheduledAt = LessThanOrEqual(new Date(query.endDate));
+    }
+
+    const [appointments, totalItems] = await this.appointmentRepository.findAndCount({
+      where,
       relations: BASE_RELATIONS,
+      order: { scheduledAt: 'DESC' },
+      skip,
+      take: limit,
     });
-    return new ResponseCommon(
-      200,
-      'SUCCESS',
-      appointments.map((a) => this.toDto(a)),
-    );
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return new ResponseCommon(200, 'SUCCESS', {
+      items: appointments.map((a) => this.toDto(a)),
+      meta: {
+        currentPage: page,
+        itemsPerPage: limit,
+        totalItems,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    });
   }
 
   async findById(id: string): Promise<ResponseCommon<AppointmentResponseDto>> {
@@ -104,12 +153,233 @@ export class AppointmentService {
 
   async findByPatient(
     patientId: string,
+    query?: PatientAppointmentQueryDto,
+  ): Promise<ResponseCommon<PaginatedAppointmentResponseDto>> {
+    const page = query?.page || 1;
+    const limit = query?.limit || 10;
+    const skip = (page - 1) * limit;
+
+    const where: any = { patientId };
+    
+    if (query?.status) {
+      where.status = query.status;
+    }
+
+    const [appointments, totalItems] = await this.appointmentRepository.findAndCount({
+      where,
+      relations: BASE_RELATIONS,
+      order: { scheduledAt: 'DESC' },
+      skip,
+      take: limit,
+    });
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return new ResponseCommon(200, 'SUCCESS', {
+      items: appointments.map((a) => this.toDto(a)),
+      meta: {
+        currentPage: page,
+        itemsPerPage: limit,
+        totalItems,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    });
+  }
+
+  async findByDoctor(
+    doctorId: string,
+    query?: PatientAppointmentQueryDto,
+  ): Promise<ResponseCommon<PaginatedAppointmentResponseDto>> {
+    const page = query?.page || 1;
+    const limit = query?.limit || 10;
+    const skip = (page - 1) * limit;
+
+    const where: any = { doctorId };
+    
+    if (query?.status) {
+      where.status = query.status;
+    }
+
+    const [appointments, totalItems] = await this.appointmentRepository.findAndCount({
+      where,
+      relations: BASE_RELATIONS,
+      order: { scheduledAt: 'DESC' },
+      skip,
+      take: limit,
+    });
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return new ResponseCommon(200, 'SUCCESS', {
+      items: appointments.map((a) => this.toDto(a)),
+      meta: {
+        currentPage: page,
+        itemsPerPage: limit,
+        totalItems,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    });
+  }
+
+  // ============================================================================
+  // CHECK-IN FLOW
+  // ============================================================================
+
+  async checkIn(
+    id: string,
+  ): Promise<ResponseCommon<AppointmentResponseDto>> {
+    const appointment = await this.findOne(id);
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    if (appointment.status !== AppointmentStatusEnum.CONFIRMED) {
+      throw new BadRequestException(
+        `Bạn phải thực hiện thanh toán trước khi check-in`  
+      );
+    }
+
+    const now = new Date();
+    const scheduledTime = new Date(appointment.scheduledAt);
+    const timeDiffMinutes = (scheduledTime.getTime() - now.getTime()) / (1000 * 60);
+
+    if (appointment.appointmentType === AppointmentTypeEnum.IN_CLINIC) {
+      if (timeDiffMinutes > 30) {
+        throw new BadRequestException(
+          `Chưa đến giờ check-in. Vui lòng check-in trong vòng 30 phút trước giờ hẹn. ` +
+          `(Còn ${Math.round(timeDiffMinutes)} phút nữa)`,
+        );
+      }
+
+      if (timeDiffMinutes < -15) {
+        throw new BadRequestException(
+          `Đã quá giờ hẹn ${Math.abs(Math.round(timeDiffMinutes))} phút. ` +
+          `Vui lòng liên hệ lễ tân để sắp xếp lại.`,
+        );
+      }
+    } 
+    else if (appointment.appointmentType === AppointmentTypeEnum.VIDEO) {
+      if (timeDiffMinutes > 60) {
+        throw new BadRequestException(
+          `Chưa đến giờ check-in cho cuộc gọi video. ` +
+          `Vui lòng check-in trong vòng 1 giờ trước giờ hẹn. ` +
+          `(Còn ${Math.round(timeDiffMinutes)} phút nữa)`,
+        );
+      }
+
+      if (timeDiffMinutes < -30) {
+        throw new BadRequestException(
+          `Đã quá giờ hẹn ${Math.abs(Math.round(timeDiffMinutes))} phút. ` +
+          `Vui lòng liên hệ để được hỗ trợ.`,
+        );
+      }
+    }
+
+    const startOfToday = () => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return today;
+    };
+
+    const endOfToday = () => {
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+      return today;
+    };
+
+    const lastCheckedInAppointmentInDay = await this.appointmentRepository.findOne({
+      where: {
+        doctorId: appointment.doctorId,
+        status: AppointmentStatusEnum.CHECKED_IN,
+        scheduledAt: Between(startOfToday(), endOfToday()),
+      },
+      order: { checkInTime: 'DESC' },
+    });
+    const queueNumber = lastCheckedInAppointmentInDay?.queueNumber || 0;
+
+    await this.appointmentRepository.update(id, {
+      status: AppointmentStatusEnum.CHECKED_IN,
+      checkInTime: new Date(),
+      queueNumber: queueNumber + 1,
+    });
+
+    this.logger.log(
+      `${appointment.appointmentType} appointment ${id} checked in at ${new Date().toISOString()}`
+    );
+
+    return this.findById(id);
+  }
+
+  async checkInVideo(
+    id: string,
+  ): Promise<ResponseCommon<AppointmentResponseDto>> {
+    const appointment = await this.findOne(id);
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    if(appointment.status !== AppointmentStatusEnum.CONFIRMED) {
+      throw new BadRequestException(
+        `Bạn phải thực hiện thanh toán trước khi check-in`,
+      );
+    } 
+
+    if (appointment.appointmentType !== AppointmentTypeEnum.VIDEO) {
+      throw new BadRequestException(
+        'This method is only for VIDEO appointments. Use /check-in for IN_CLINIC.',
+      );
+    }
+
+    if (appointment.status !== AppointmentStatusEnum.CONFIRMED) {
+      throw new BadRequestException(
+        `Không thể check-in từ trạng thái ${appointment.status}`,
+      );
+    }
+
+    const now = new Date();
+    const scheduledTime = new Date(appointment.scheduledAt);
+    const timeDiffMinutes = (scheduledTime.getTime() - now.getTime()) / (1000 * 60);
+
+    if (timeDiffMinutes > 60) {
+      throw new BadRequestException(
+        `Cuộc gọi video chưa mở. Vui lòng join trong vòng 1 giờ trước giờ hẹn.`,
+      );
+    }
+
+    if (timeDiffMinutes < -30) {
+      throw new BadRequestException(
+        `Cuộc gọi video đã kết thúc.`,
+      );
+    }
+
+    await this.appointmentRepository.update(id, {
+      status: AppointmentStatusEnum.CHECKED_IN,
+      checkInTime: new Date(),
+    });
+
+    this.logger.log(`VIDEO appointment ${id} checked in`);
+
+    return this.findById(id);
+  }
+
+  async findCheckedInByDoctor(
+    doctorId: string,
   ): Promise<ResponseCommon<AppointmentResponseDto[]>> {
     const appointments = await this.appointmentRepository.find({
-      where: { patientId },
+      where: { 
+        doctorId,
+        status: AppointmentStatusEnum.CHECKED_IN,
+      },
       relations: BASE_RELATIONS,
       order: { scheduledAt: 'DESC' },
     });
+    
     return new ResponseCommon(
       200,
       'SUCCESS',
@@ -117,20 +387,325 @@ export class AppointmentService {
     );
   }
 
-  async findByDoctor(
-    doctorId: string,
-  ): Promise<ResponseCommon<AppointmentResponseDto[]>> {
-    const appointments = await this.appointmentRepository.find({
-      where: { doctorId },
-      relations: BASE_RELATIONS,
-      order: { scheduledAt: 'DESC' },
+  async startExamination(
+    id: string,
+  ): Promise<ResponseCommon<AppointmentResponseDto>> {
+    const appointment = await this.findOne(id);
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    const validStartStates = [
+      AppointmentStatusEnum.CHECKED_IN,
+    ];
+
+    if (!validStartStates.includes(appointment.status)) {
+      throw new BadRequestException(
+        `Không thể bắt đầu khám từ trạng thái ${appointment.status}. ` +
+        `Chỉ có thể bắt đầu khám khi ở trạng thái CHECKED_IN`,
+      );
+    }
+
+    await this.appointmentRepository.update(id, {
+      status: AppointmentStatusEnum.IN_PROGRESS,
+      startedAt: new Date(),
     });
+
+    this.logger.log(`Examination started for appointment ${id}`);
+
+    return this.findById(id);
+  }
+
+  async completeExamination(
+    id: string,
+    dto: CompleteExaminationDto,
+  ): Promise<ResponseCommon<AppointmentResponseDto>> {
+    const appointment = await this.findOne(id);
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    if (appointment.status !== AppointmentStatusEnum.IN_PROGRESS) {
+      throw new BadRequestException(
+        `Không thể hoàn thành khám từ trạng thái ${appointment.status}. ` +
+        `Chỉ có thể hoàn thành khi đang khám (IN_PROGRESS)`,
+      );
+    }
+
+    const updateData: Partial<Appointment> = {
+      status: AppointmentStatusEnum.COMPLETED,
+      endedAt: new Date(),
+      doctorNotes: dto.doctorNotes,
+      clinicalNotes: dto.clinicalNotes,
+      followUpRequired: dto.followUpRequired || false,
+      nextAppointmentDate: dto.nextAppointmentDate 
+        ? new Date(dto.nextAppointmentDate) 
+        : undefined,
+    };
+
+    await this.appointmentRepository.update(id, updateData);
+
+    if (
+      appointment.appointmentType === AppointmentTypeEnum.VIDEO &&
+      appointment.dailyCoChannel
+    ) {
+      try {
+        await this.dailyService.deleteRoom(appointment.dailyCoChannel);
+        await this.callStateService.clearCallsForAppointment(appointment.id);
+        this.logger.log(
+          `Cleaned up video room for completed appointment ${appointment.id}`,
+        );
+      } catch (error) {
+        this.logger.warn(`Failed to cleanup video room: ${error}`);
+      }
+    }
+
+    this.logger.log(`Examination completed for appointment ${id}`);
+
+    return this.findById(id);
+  }
+
+  async getDoctorQueue(
+    doctorId: string,
+  ): Promise<ResponseCommon<DoctorQueueDto>> {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setDate(endOfDay.getDate() + 1);
+
+    const appointments = await this.appointmentRepository.find({
+      where: { 
+        doctorId,
+        scheduledAt: Between(startOfDay, endOfDay),
+        status: In([
+          AppointmentStatusEnum.CONFIRMED,
+          AppointmentStatusEnum.CHECKED_IN,
+          AppointmentStatusEnum.IN_PROGRESS,
+        ]),
+      },
+      relations: BASE_RELATIONS,
+      order: { 
+        queueNumber: 'ASC',
+      },
+    });
+
+    const inProgress = appointments.filter(
+      a => a.status === AppointmentStatusEnum.IN_PROGRESS
+    );
+    const checkedIn = appointments.filter(
+      a => a.status === AppointmentStatusEnum.CHECKED_IN
+    );
+    const confirmed = appointments.filter(
+      a => a.status === AppointmentStatusEnum.CONFIRMED
+    );
+
+    const queueData: DoctorQueueDto = {
+      doctorId,
+      totalInQueue: appointments.length,
+      inProgress: inProgress.map(a => this.toDto(a)),
+      waitingQueue: checkedIn.map(a => this.toDto(a)),
+      upcomingToday: confirmed.map(a => this.toDto(a)),
+      currentPatient: inProgress[0] ? this.toDto(inProgress[0]) : null,
+      nextPatient: checkedIn[0] ? this.toDto(checkedIn[0]) : null,
+    };
+
+    return new ResponseCommon(200, 'SUCCESS', queueData);
+  }
+
+  /**
+   * Get doctor's appointment statistics
+   */
+  async getDoctorStatistics(
+    doctorId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<ResponseCommon<AppointmentStatisticsDto>> {
+    // Default to current month if no dates provided
+    if (!startDate) {
+      const now = new Date();
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+    if (!endDate) {
+      endDate = new Date();
+      endDate.setDate(endDate.getDate() + 1); // Include today
+    }
+
+    const whereConditions: any = {
+      doctorId,
+      scheduledAt: Between(startDate, endDate),
+    };
+
+    const [
+      total,
+      completed,
+      cancelled,
+      pending,
+      confirmed,
+      inProgress,
+      appointments,
+    ] = await Promise.all([
+      this.appointmentRepository.count({ where: whereConditions }),
+      this.appointmentRepository.count({ 
+        where: { ...whereConditions, status: AppointmentStatusEnum.COMPLETED } 
+      }),
+      this.appointmentRepository.count({ 
+        where: { ...whereConditions, status: AppointmentStatusEnum.CANCELLED } 
+      }),
+      this.appointmentRepository.count({ 
+        where: { 
+          ...whereConditions, 
+          status: In([
+            AppointmentStatusEnum.PENDING,
+            AppointmentStatusEnum.PENDING_PAYMENT,
+          ]),
+        } 
+      }),
+      this.appointmentRepository.count({ 
+        where: { ...whereConditions, status: AppointmentStatusEnum.CONFIRMED } 
+      }),
+      this.appointmentRepository.count({ 
+        where: { ...whereConditions, status: AppointmentStatusEnum.IN_PROGRESS } 
+      }),
+      this.appointmentRepository.find({
+        where: {
+          doctorId,
+          scheduledAt: MoreThanOrEqual(new Date()),
+          status: In([
+            AppointmentStatusEnum.CONFIRMED,
+            AppointmentStatusEnum.PENDING,
+            AppointmentStatusEnum.PENDING_PAYMENT,
+          ]),
+        },
+        relations: BASE_RELATIONS,
+        order: { scheduledAt: 'ASC' },
+        take: 10,
+      }),
+    ]);
+
+    // Today's appointments
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfToday = new Date(startOfToday);
+    endOfToday.setDate(endOfToday.getDate() + 1);
+
+    const todayTotal = await this.appointmentRepository.count({
+      where: {
+        doctorId,
+        scheduledAt: Between(startOfToday, endOfToday),
+      },
+    });
+
+    const stats: AppointmentStatisticsDto = {
+      totalAppointments: total,
+      completedCount: completed,
+      cancelledCount: cancelled,
+      pendingCount: pending,
+      confirmedCount: confirmed,
+      inProgressCount: inProgress,
+      upcomingCount: confirmed + pending,
+      todayCount: todayTotal,
+      upcomingAppointments: appointments.map(a => this.toDto(a)),
+    };
+
+    return new ResponseCommon(200, 'SUCCESS', stats);
+  }
+
+  /**
+   * Get patient's appointment statistics
+   */
+  async getPatientStatistics(
+    patientId: string,
+  ): Promise<ResponseCommon<AppointmentStatisticsDto>> {
+    const [
+      total,
+      completed,
+      cancelled,
+      upcoming,
+      appointments,
+    ] = await Promise.all([
+      this.appointmentRepository.count({ where: { patientId } }),
+      this.appointmentRepository.count({ 
+        where: { patientId, status: AppointmentStatusEnum.COMPLETED } 
+      }),
+      this.appointmentRepository.count({ 
+        where: { patientId, status: AppointmentStatusEnum.CANCELLED } 
+      }),
+      this.appointmentRepository.count({
+        where: {
+          patientId,
+          scheduledAt: MoreThanOrEqual(new Date()),
+          status: Not(In([
+            AppointmentStatusEnum.CANCELLED,
+            AppointmentStatusEnum.COMPLETED,
+          ])),
+        },
+      }),
+      this.appointmentRepository.find({
+        where: {
+          patientId,
+          scheduledAt: MoreThanOrEqual(new Date()),
+          status: Not(In([
+            AppointmentStatusEnum.CANCELLED,
+            AppointmentStatusEnum.COMPLETED,
+          ])),
+        },
+        relations: BASE_RELATIONS,
+        order: { scheduledAt: 'ASC' },
+        take: 10,
+      }),
+    ]);
+
+    const stats: AppointmentStatisticsDto = {
+      totalAppointments: total,
+      completedCount: completed,
+      cancelledCount: cancelled,
+      upcomingCount: upcoming,
+      upcomingAppointments: appointments.map(a => this.toDto(a)),
+    };
+
+    return new ResponseCommon(200, 'SUCCESS', stats);
+  }
+
+  // ============================================================================
+  // NEW: CALENDAR VIEW
+  // ============================================================================
+
+  /**
+   * Get appointments for calendar view (date range)
+   */
+  async getCalendar(
+    doctorId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<ResponseCommon<AppointmentResponseDto[]>> {
+    // Validate date range (max 90 days)
+    const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysDiff > 90) {
+      throw new BadRequestException('Khoảng thời gian tối đa là 90 ngày');
+    }
+
+    const appointments = await this.appointmentRepository.find({
+      where: {
+        doctorId,
+        scheduledAt: Between(startDate, endDate),
+        status: Not(AppointmentStatusEnum.CANCELLED),
+      },
+      relations: BASE_RELATIONS,
+      order: { scheduledAt: 'ASC' },
+    });
+
     return new ResponseCommon(
       200,
       'SUCCESS',
       appointments.map((a) => this.toDto(a)),
     );
   }
+
+  // ============================================================================
+  // EXISTING: CREATE APPOINTMENT
+  // ============================================================================
 
   /**
    * CREATE APPOINTMENT - With all bug fixes and video integration
@@ -154,7 +729,6 @@ export class AppointmentService {
         .where('slot.id = :id', { id: data.timeSlotId })
         .getOne();
 
-      console.log('slot1', slot);
       if (!slot) {
         throw new NotFoundException('Time slot không tồn tại');
       }
@@ -247,7 +821,7 @@ export class AppointmentService {
       if (durationMinutes <= 0) {
         throw new BadRequestException('Slot có thời gian không hợp lệ');
       }
-      console.log('slot', slot.doctor);
+
       // 9. Create appointment
       const appointment = manager.create(Appointment, {
         appointmentNumber: this.generateAppointmentNumber(),
@@ -620,6 +1194,9 @@ export class AppointmentService {
 
   /**
    * Generate meeting token for user to join video call
+   * AUTO CHECK-IN: Automatically transitions status when user joins
+   * - Doctor joins: CONFIRMED -> IN_PROGRESS (auto starts examination)
+   * - Patient joins first: CONFIRMED -> CHECKED_IN
    */
   async generateMeetingToken(
     appointmentId: string,
@@ -635,14 +1212,12 @@ export class AppointmentService {
 
     // Authorization check - verify user is doctor or patient of this appointment
     if (isDoctor) {
-      // For doctor, verify via doctor.userId (need to check doctor relation)
       if (!appointment.doctor?.userId || appointment.doctor.userId !== userId) {
         throw new ForbiddenException(
           'Bạn không phải là bác sĩ của cuộc hẹn này',
         );
       }
     } else {
-      // For patient
       if (
         !appointment.patient?.userId ||
         appointment.patient.userId !== userId
@@ -674,12 +1249,47 @@ export class AppointmentService {
       );
     }
 
+    // ============================================================================
+    // AUTO CHECK-IN FOR VIDEO APPOINTMENTS
+    // ============================================================================
+    if (appointment.status === AppointmentStatusEnum.CONFIRMED) {
+      if (isDoctor) {
+        // Doctor joining: Auto-start examination (CONFIRMED -> IN_PROGRESS)
+        await this.appointmentRepository.update(appointmentId, {
+          checkInTime: appointment.checkInTime || new Date(),
+          status: AppointmentStatusEnum.IN_PROGRESS,
+          startedAt: new Date(),
+        });
+        this.logger.log(
+          `Auto check-in + start examination for VIDEO appointment ${appointmentId} (doctor joined)`
+        );
+      } else {
+        // Patient joining first: Just check-in (CONFIRMED -> CHECKED_IN)
+        await this.appointmentRepository.update(appointmentId, {
+          checkInTime: new Date(),
+          status: AppointmentStatusEnum.CHECKED_IN,
+        });
+        this.logger.log(
+          `Auto check-in for VIDEO appointment ${appointmentId} (patient joined)`
+        );
+      }
+    } else if (appointment.status === AppointmentStatusEnum.CHECKED_IN && isDoctor) {
+      // Doctor joining after patient: Start examination (CHECKED_IN -> IN_PROGRESS)
+      await this.appointmentRepository.update(appointmentId, {
+        status: AppointmentStatusEnum.IN_PROGRESS,
+        startedAt: new Date(),
+      });
+      this.logger.log(
+        `Auto start examination for VIDEO appointment ${appointmentId} (doctor joined after patient)`
+      );
+    }
+
     // Generate token
     const tokenData = await this.dailyService.createMeetingToken(
       appointment.dailyCoChannel,
       userId,
       userName,
-      isDoctor, // Doctor is owner
+      isDoctor,
     );
 
     // Track user joining
@@ -729,10 +1339,6 @@ export class AppointmentService {
     );
   }
 
-  /**
-   * Confirm payment and transition to CONFIRMED status
-   * Generates video URL for VIDEO appointments
-   */
   async confirmPayment(
     appointmentId: string,
     paymentId: string,
@@ -756,7 +1362,6 @@ export class AppointmentService {
       status: AppointmentStatusEnum.CONFIRMED,
     };
 
-    // Generate video URL for VIDEO appointments
     if (appointment.appointmentType === AppointmentTypeEnum.VIDEO) {
       try {
         const room = await this.dailyService.getOrCreateRoom(appointmentId);
@@ -780,10 +1385,6 @@ export class AppointmentService {
     return this.findById(appointmentId);
   }
 
-  /**
-   * Update clinical information for an appointment
-   * Separate from status updates for cleaner API design
-   */
   async updateClinicalInfo(
     appointmentId: string,
     data: {
@@ -818,9 +1419,6 @@ export class AppointmentService {
     return this.findById(appointmentId);
   }
 
-  /**
-   * Convert entity to DTO
-   */
   private toDto(entity: Appointment): AppointmentResponseDto {
     return {
       id: entity.id,
@@ -843,9 +1441,9 @@ export class AppointmentService {
       meetingRoomId: entity.meetingRoomId,
       meetingUrl: entity.meetingUrl,
       dailyCoChannel: entity.dailyCoChannel,
-      roomNumber: entity.roomNumber,
+      // roomNumber: entity.roomNumber,
       queueNumber: entity.queueNumber,
-      floor: entity.floor,
+      // floor: entity.floor,
       chiefComplaint: entity.chiefComplaint,
       symptoms: entity.symptoms,
       patientNotes: entity.patientNotes,

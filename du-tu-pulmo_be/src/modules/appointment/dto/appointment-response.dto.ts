@@ -1,149 +1,218 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
-import { AppointmentStatusEnum } from 'src/modules/common/enums/appointment-status.enum';
-import { AppointmentSubTypeEnum } from 'src/modules/common/enums/appointment-sub-type.enum';
-import { SourceTypeEnum } from 'src/modules/common/enums/source-type.enum';
+import { AppointmentStatusEnum } from '../../common/enums/appointment-status.enum';
+import { AppointmentTypeEnum } from '../../common/enums/appointment-type.enum';
+import { AppointmentSubTypeEnum } from '../../common/enums/appointment-sub-type.enum';
+import { SourceTypeEnum } from '../../common/enums/source-type.enum';
 
-/**
- * Response DTO for appointment data
- */
 export class AppointmentResponseDto {
-  @ApiProperty({ description: 'ID lịch hẹn', format: 'uuid' })
+  @ApiProperty()
   id: string;
 
-  @ApiProperty({ description: 'Mã lịch hẹn', example: 'APT-ABC123-XYZ9' })
+  @ApiProperty()
   appointmentNumber: string;
 
-  @ApiProperty({ description: 'ID bệnh nhân', format: 'uuid' })
+  @ApiProperty()
   patientId: string;
 
-  @ApiPropertyOptional({ description: 'ID bác sĩ', format: 'uuid' })
-  doctorId?: string;
+  @ApiProperty()
+  doctorId: string;
 
-  @ApiPropertyOptional({ description: 'ID bệnh viện', format: 'uuid' })
+  @ApiPropertyOptional()
   hospitalId?: string;
 
-  @ApiPropertyOptional({ description: 'ID khung giờ', format: 'uuid' })
+  @ApiPropertyOptional()
   timeSlotId?: string;
 
-  @ApiProperty({
-    description: 'Loại hình khám',
-    enum: AppointmentTypeEnum,
-    example: AppointmentTypeEnum.IN_CLINIC,
-  })
-  appointmentType: AppointmentTypeEnum;
-
-  @ApiProperty({
-    description: 'Loại con (INSTANT/SCHEDULED/RE_EXAM)',
-    enum: AppointmentSubTypeEnum,
-    example: AppointmentSubTypeEnum.SCHEDULED,
-  })
-  subType: AppointmentSubTypeEnum;
-
-  @ApiProperty({
-    description: 'Nguồn đặt lịch (INTERNAL/EXTERNAL)',
-    enum: SourceTypeEnum,
-    example: SourceTypeEnum.EXTERNAL,
-  })
-  sourceType: SourceTypeEnum;
-
-  @ApiProperty({ description: 'Thời gian hẹn' })
+  @ApiProperty()
   scheduledAt: Date;
 
-  @ApiProperty({ description: 'Thời lượng khám (phút)', example: 30 })
+  @ApiProperty()
   durationMinutes: number;
 
-  @ApiProperty({ description: 'Múi giờ', example: 'Asia/Ho_Chi_Minh' })
+  @ApiProperty()
   timezone: string;
 
-  @ApiProperty({
-    description: 'Trạng thái',
-    enum: AppointmentStatusEnum,
-    example: AppointmentStatusEnum.PENDING_PAYMENT,
-  })
+  @ApiProperty({ enum: AppointmentStatusEnum })
   status: AppointmentStatusEnum;
 
-  @ApiProperty({ description: 'Phí khám', example: '200000' })
+  @ApiProperty({ enum: AppointmentTypeEnum })
+  appointmentType: AppointmentTypeEnum;
+
+  @ApiProperty({ enum: AppointmentSubTypeEnum })
+  subType: AppointmentSubTypeEnum;
+
+  @ApiProperty({ enum: SourceTypeEnum })
+  sourceType: SourceTypeEnum;
+
+  @ApiProperty()
   feeAmount: string;
 
-  @ApiProperty({ description: 'Số tiền đã thanh toán', example: '0' })
+  @ApiProperty()
   paidAmount: string;
 
-  @ApiPropertyOptional({ description: 'ID thanh toán', format: 'uuid' })
+  @ApiPropertyOptional()
   paymentId?: string;
 
-  @ApiProperty({ description: 'Đã hoàn tiền', example: false })
+  @ApiProperty()
   refunded: boolean;
 
-  // Video call fields
-  @ApiPropertyOptional({ description: 'ID phòng họp' })
+  @ApiPropertyOptional()
   meetingRoomId?: string;
 
-  @ApiPropertyOptional({ description: 'URL phòng họp' })
+  @ApiPropertyOptional()
   meetingUrl?: string;
 
-  @ApiPropertyOptional({ description: 'Daily.co channel' })
+  @ApiPropertyOptional()
   dailyCoChannel?: string;
 
-  // In-clinic fields
-  @ApiPropertyOptional({ description: 'Số phòng khám' })
-  roomNumber?: string;
+  // @ApiPropertyOptional()
+  // roomNumber?: string;
 
-  @ApiPropertyOptional({ description: 'Số thứ tự' })
+  @ApiPropertyOptional()
   queueNumber?: number;
 
-  @ApiPropertyOptional({ description: 'Tầng' })
-  floor?: string;
+  // @ApiPropertyOptional()
+  // floor?: string;
 
-  // Clinical info
-  @ApiPropertyOptional({ description: 'Lý do khám chính' })
+  @ApiPropertyOptional()
   chiefComplaint?: string;
 
-  @ApiPropertyOptional({ description: 'Triệu chứng', type: [String] })
+  @ApiPropertyOptional()
   symptoms?: string[];
 
-  @ApiPropertyOptional({ description: 'Ghi chú của bệnh nhân' })
+  @ApiPropertyOptional()
   patientNotes?: string;
 
-  @ApiPropertyOptional({ description: 'Ghi chú của bác sĩ' })
+  @ApiPropertyOptional()
   doctorNotes?: string;
 
-  // Timeline
-  @ApiPropertyOptional({ description: 'Thời gian check-in' })
+  @ApiPropertyOptional()
   checkInTime?: Date;
 
-  @ApiPropertyOptional({ description: 'Thời gian bắt đầu khám' })
+  @ApiPropertyOptional()
   startedAt?: Date;
 
-  @ApiPropertyOptional({ description: 'Thời gian kết thúc khám' })
+  @ApiPropertyOptional()
   endedAt?: Date;
 
-  // Cancellation
-  @ApiPropertyOptional({ description: 'Thời gian hủy' })
+  @ApiPropertyOptional()
   cancelledAt?: Date;
 
-  @ApiPropertyOptional({ description: 'Lý do hủy' })
+  @ApiPropertyOptional()
   cancellationReason?: string;
 
-  @ApiPropertyOptional({
-    description: 'Người hủy (PATIENT/DOCTOR/ADMIN/SYSTEM)',
-  })
+  @ApiPropertyOptional()
   cancelledBy?: string;
 
-  // Follow-up
-  @ApiProperty({ description: 'Cần tái khám', example: false })
+  @ApiProperty()
   followUpRequired: boolean;
 
-  @ApiPropertyOptional({ description: 'Ngày tái khám' })
+  @ApiPropertyOptional()
   nextAppointmentDate?: Date;
 
-  // Rating
-  @ApiPropertyOptional({ description: 'Đánh giá của bệnh nhân (1-5)' })
+  @ApiPropertyOptional()
   patientRating?: number;
 
-  @ApiProperty({ description: 'Thời gian tạo' })
+  @ApiProperty()
   createdAt: Date;
 
-  @ApiProperty({ description: 'Thời gian cập nhật' })
+  @ApiProperty()
   updatedAt: Date;
+}
+
+// ============================================================================
+// NEW: STATISTICS DTO
+// ============================================================================
+
+export class AppointmentStatisticsDto {
+  @ApiProperty({ description: 'Tổng số lịch hẹn' })
+  totalAppointments: number;
+
+  @ApiProperty({ description: 'Số lịch đã hoàn thành' })
+  completedCount: number;
+
+  @ApiProperty({ description: 'Số lịch đã hủy' })
+  cancelledCount: number;
+
+  @ApiPropertyOptional({ description: 'Số lịch đang chờ' })
+  pendingCount?: number;
+
+  @ApiPropertyOptional({ description: 'Số lịch đã xác nhận' })
+  confirmedCount?: number;
+
+  @ApiPropertyOptional({ description: 'Số lịch đang khám' })
+  inProgressCount?: number;
+
+  @ApiProperty({ description: 'Số lịch sắp tới' })
+  upcomingCount: number;
+
+  @ApiPropertyOptional({ description: 'Số lịch hôm nay' })
+  todayCount?: number;
+
+  @ApiProperty({ 
+    type: [AppointmentResponseDto],
+    description: 'Danh sách lịch hẹn sắp tới (tối đa 10)' 
+  })
+  upcomingAppointments: AppointmentResponseDto[];
+}
+
+// ============================================================================
+// NEW: QUEUE DTO
+// ============================================================================
+
+export class DoctorQueueDto {
+  @ApiProperty({ description: 'Doctor ID' })
+  doctorId: string;
+
+  @ApiProperty({ description: 'Tổng số trong hàng đợi' })
+  totalInQueue: number;
+
+  @ApiProperty({ 
+    type: [AppointmentResponseDto],
+    description: 'Lịch đang khám (IN_PROGRESS)' 
+  })
+  inProgress: AppointmentResponseDto[];
+
+  @ApiProperty({ 
+    type: [AppointmentResponseDto],
+    description: 'Hàng đợi đã check-in (CHECKED_IN)' 
+  })
+  waitingQueue: AppointmentResponseDto[];
+
+  @ApiProperty({ 
+    type: [AppointmentResponseDto],
+    description: 'Lịch hẹn sắp tới hôm nay (CONFIRMED)' 
+  })
+  upcomingToday: AppointmentResponseDto[];
+
+  @ApiPropertyOptional({ 
+    type: AppointmentResponseDto,
+    description: 'Bệnh nhân đang khám hiện tại' 
+  })
+  currentPatient: AppointmentResponseDto | null;
+
+  @ApiPropertyOptional({ 
+    type: AppointmentResponseDto,
+    description: 'Bệnh nhân tiếp theo trong hàng đợi' 
+  })
+  nextPatient: AppointmentResponseDto | null;
+}
+
+// ============================================================================
+// PAGINATED RESPONSE DTO
+// ============================================================================
+
+import { PaginationMeta } from 'src/common/dto/pagination.dto';
+
+export class PaginatedAppointmentResponseDto {
+  @ApiProperty({ 
+    type: [AppointmentResponseDto],
+    description: 'Danh sách lịch hẹn' 
+  })
+  items: AppointmentResponseDto[];
+
+  @ApiProperty({ 
+    description: 'Thông tin phân trang' 
+  })
+  meta: PaginationMeta;
 }

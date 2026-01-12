@@ -8,7 +8,7 @@ import { User } from '../../../user/entities/user.entity';
 import { Patient } from '../../../patient/entities/patient.entity';
 import { Hospital } from '../../../hospital/entities/hospital.entity';
 import { DoctorTitle } from 'src/modules/common/enums/doctor-title.enum';
-import { Specialty as SpecialtyEnum } from 'src/modules/common/enums/specialty.enum';
+import { SpecialtyEnum } from 'src/modules/common/enums/specialty.enum';
 import { RoleEnum } from '../../../common/enums/role.enum';
 import { UserStatusEnum } from '../../../common/enums/user-status.enum';
 import { ScheduleType } from 'src/modules/common/enums/schedule-type.enum';

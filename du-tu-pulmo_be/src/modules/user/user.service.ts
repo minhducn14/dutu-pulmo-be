@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Like, In } from 'typeorm';
 import { User } from './entities/user.entity';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ResponseCommon } from 'src/common/dto/response.dto';
@@ -9,6 +9,8 @@ import { USER_ERRORS } from 'src/common/constants/error-messages.constant';
 import { RoleEnum } from '../common/enums/role.enum';
 import { Doctor } from '../doctor/entities/doctor.entity';
 import { Patient } from '../patient/entities/patient.entity';
+import { UserQueryDto } from './dto/user-query.dto';
+import { PaginatedUserResponseDto } from './dto/user-response.dto';
 
 @Injectable()
 export class UserService {
@@ -23,11 +25,61 @@ export class UserService {
     private patientRepository: Repository<Patient>,
   ) {}
 
-  async findAll(): Promise<ResponseCommon> {
-    const users = await this.userRepository.find({ relations: ['account'] });
-    // Loại bỏ thông tin nhạy cảm trước khi trả về
+  async findAll(query?: UserQueryDto): Promise<ResponseCommon<PaginatedUserResponseDto>> {
+    const page = query?.page || 1;
+    const limit = query?.limit || 10;
+    const skip = (page - 1) * limit;
+
+    // Build query with search
+    let queryBuilder = this.userRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.account', 'account');
+
+    // Search by name, phone
+    if (query?.search) {
+      queryBuilder = queryBuilder.andWhere(
+        '(user.fullName ILIKE :search OR user.phone ILIKE :search)',
+        { search: `%${query.search}%` },
+      );
+    }
+
+    // Filter by role
+    if (query?.role) {
+      queryBuilder = queryBuilder.andWhere(':role = ANY(account.roles)', {
+        role: query.role,
+      });
+    }
+
+    // Filter by status
+    if (query?.status) {
+      queryBuilder = queryBuilder.andWhere('user.status = :status', {
+        status: query.status,
+      });
+    }
+
+    // Get total count and apply pagination
+    const totalItems = await queryBuilder.getCount();
+    
+    const users = await queryBuilder
+      .orderBy('user.createdAt', 'DESC')
+      .skip(skip)
+      .take(limit)
+      .getMany();
+
+    const totalPages = Math.ceil(totalItems / limit);
     const safeUsers = users.map((user) => this.sanitizeUser(user));
-    return new ResponseCommon(200, 'SUCCESS', safeUsers);
+
+    return new ResponseCommon(200, 'SUCCESS', {
+      items: safeUsers as any,
+      meta: {
+        currentPage: page,
+        itemsPerPage: limit,
+        totalItems,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    });
   }
 
   async findOne(id: string): Promise<ResponseCommon> {

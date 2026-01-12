@@ -7,6 +7,7 @@ import {
   ManyToOne,
   JoinColumn,
   Index,
+  OneToOne,
 } from 'typeorm';
 import { Patient } from '../../patient/entities/patient.entity';
 import { Doctor } from '../../doctor/entities/doctor.entity';
@@ -173,14 +174,14 @@ export class Appointment {
   // ========================================
   // IN_CLINIC FIELDS
   // ========================================
-  @Column({ name: 'room_number', length: 20, nullable: true })
-  roomNumber: string;
+  // @Column({ name: 'room_number', length: 20, nullable: true })
+  // roomNumber: string;
 
   @Column({ name: 'queue_number', type: 'integer', nullable: true })
   queueNumber: number;
 
-  @Column({ name: 'floor', length: 10, nullable: true })
-  floor: string;
+  // @Column({ name: 'floor', length: 10, nullable: true })
+  // floor: string;
 
   // ========================================
   // CLINICAL INFO ( Thông tin y tế)
@@ -192,13 +193,13 @@ export class Appointment {
   symptoms: string[]; // triệu chứng
 
   @Column({ name: 'patient_notes', type: 'text', nullable: true })
-  patientNotes: string;
+  patientNotes: string; // Bệnh nhân ghi chú
 
   @Column({ name: 'doctor_notes', type: 'text', nullable: true })
-  doctorNotes: string;
+  doctorNotes: string; // Bác sĩ ghi chú
 
   @Column({ name: 'clinical_notes', type: 'text', nullable: true })
-  clinicalNotes: string;
+  clinicalNotes: string; // triệu chứng lâm sàng
 
   // ========================================
   // FOLLOW-UP
@@ -215,6 +216,13 @@ export class Appointment {
 
   @Column({ name: 'has_follow_up', default: false })
   hasFollowUp: boolean;
+
+  @OneToOne(() => Appointment)
+  @JoinColumn({ name: 'follow_up_appointment_id' })
+  followUpAppointment: Appointment;
+
+  @Column({ name: 'follow_up_appointment_id', type: 'uuid', nullable: true })
+  followUpAppointmentId: string;
 
   // ========================================
   // REMINDERS

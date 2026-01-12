@@ -8,6 +8,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { Doctor } from '../../doctor/entities/doctor.entity';
+import { FacilityTypeEnum } from 'src/modules/common/enums/facility-type.enum';
 
 @Entity('hospitals')
 export class Hospital {
@@ -25,6 +26,9 @@ export class Hospital {
 
   @Column({ length: 100, nullable: true })
   email: string;
+
+  @Column({ name: 'facility_type', type: 'enum', enum: FacilityTypeEnum, default: FacilityTypeEnum.HOSPITAL })
+  facilityType: FacilityTypeEnum;
 
   // Logo
   @Column({

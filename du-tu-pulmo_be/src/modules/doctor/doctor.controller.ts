@@ -43,7 +43,7 @@ import {
   fileTypeConfigs,
   FileDefaults,
 } from 'src/common/config/file-type.config';
-import { Specialty } from '../common/enums/specialty.enum';
+import { SpecialtyEnum } from '../common/enums/specialty.enum';
 import { DoctorTitle } from '../common/enums/doctor-title.enum';
 
 @ApiTags('Doctors')
@@ -143,8 +143,8 @@ export class DoctorController {
         bio: { type: 'string' },
         specialty: {
           type: 'string',
-          example: Specialty.PULMONOLOGY,
-          enum: Object.values(Specialty),
+          example: SpecialtyEnum.PULMONOLOGY,
+          enum: Object.values(SpecialtyEnum ),
         },
         defaultConsultationFee: { type: 'number', example: 100000 },
       },

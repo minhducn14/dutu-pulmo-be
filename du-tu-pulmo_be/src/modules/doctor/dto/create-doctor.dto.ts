@@ -18,7 +18,7 @@ import {
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Specialty } from 'src/modules/common/enums/specialty.enum';
+import { SpecialtyEnum } from 'src/modules/common/enums/specialty.enum';
 import { DoctorTitle } from 'src/modules/common/enums/doctor-title.enum';
 
 class LicenseImageDto {
@@ -130,12 +130,12 @@ export class CreateDoctorDto {
 
   @ApiPropertyOptional({
     description: 'Chuyên khoa',
-    enum: Specialty,
-    example: Specialty.PULMONOLOGY,
+    enum: SpecialtyEnum,
+    example: SpecialtyEnum.PULMONOLOGY,
   })
   @IsOptional()
-  @IsEnum(Specialty)
-  specialty?: Specialty;
+  @IsEnum(SpecialtyEnum)
+  specialty?: SpecialtyEnum;
 
   @ApiPropertyOptional({
     description: 'Ảnh giấy phép hành nghề',

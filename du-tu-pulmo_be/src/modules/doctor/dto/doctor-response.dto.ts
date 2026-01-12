@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Specialty } from 'src/modules/common/enums/specialty.enum';
+import { SpecialtyEnum } from 'src/modules/common/enums/specialty.enum';
 import { DoctorTitle } from 'src/modules/common/enums/doctor-title.enum';
 import { UserStatusEnum } from '../../common/enums/user-status.enum';
 import { GenderEnum } from '../../common/enums/gender.enum';
@@ -116,11 +116,11 @@ export class DoctorResponseDto {
   position?: string;
 
   @ApiPropertyOptional({
-    enum: Specialty,
-    example: Specialty.PULMONOLOGY,
+    enum: SpecialtyEnum,
+    example: SpecialtyEnum.PULMONOLOGY,
     description: 'Chuyên khoa',
   })
-  specialty?: Specialty;
+  specialty?: SpecialtyEnum;
 
   @ApiPropertyOptional({
     example: 8,
