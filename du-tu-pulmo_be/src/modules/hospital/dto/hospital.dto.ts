@@ -9,7 +9,9 @@ import {
   Min,
   Max,
   Matches,
+  IsEnum,
 } from 'class-validator';
+import { FacilityTypeEnum } from 'src/modules/common/enums/facility-type.enum';
 
 export class CreateHospitalDto {
   @ApiProperty({ example: 'Bệnh viện Đa khoa Tâm Anh' })
@@ -40,29 +42,57 @@ export class CreateHospitalDto {
   @MaxLength(100)
   email?: string;
 
-  @ApiProperty({ example: '108 Hoàng Như Tiếp, Phường Bồ Đề' })
-  @IsString()
-  @IsNotEmpty({ message: 'Địa chỉ không được để trống' })
-  address: string;
+  @ApiProperty({
+    example: FacilityTypeEnum.HOSPITAL,
+    enum: FacilityTypeEnum,
+    required: false,
+    default: FacilityTypeEnum.HOSPITAL,
+    description: 'Loại cơ sở y tế (hospital hoặc clinic)',
+  })
+  @IsOptional()
+  @IsEnum(FacilityTypeEnum, { message: 'Loại cơ sở y tế không hợp lệ' })
+  facilityType?: FacilityTypeEnum;
 
-  @ApiProperty({ example: 'Quận Long Biên' })
+  @ApiProperty({
+    example: 'https://example.com/logo.png',
+    required: false,
+    description: 'URL logo của bệnh viện',
+  })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: 'Quận/Huyện không được để trống' })
+  logoUrl?: string;
+
+  // ===== ĐỊA CHỈ =====
+  @ApiProperty({ example: '01', required: false, description: 'Mã tỉnh/thành phố' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  provinceCode?: string;
+
+  @ApiProperty({ example: 'Hà Nội', required: false, description: 'Tỉnh/Thành phố' })
+  @IsOptional()
+  @IsString()
   @MaxLength(100)
-  district: string;
+  province?: string;
 
-  @ApiProperty({ example: 'Hà Nội' })
+  @ApiProperty({ example: '00001', required: false, description: 'Mã phường/xã' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: 'Thành phố không được để trống' })
-  @MaxLength(100)
-  city: string;
+  @MaxLength(20)
+  wardCode?: string;
 
-  @ApiProperty({ example: 'Hà Nội' })
+  @ApiProperty({ example: 'Phường Bồ Đề', required: false, description: 'Phường/Xã' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: 'Tỉnh/Thành phố không được để trống' })
   @MaxLength(100)
-  province: string;
+  ward?: string;
 
+  @ApiProperty({ example: '108 Hoàng Như Tiếp', required: false, description: 'Địa chỉ chi tiết (số nhà, đường)' })
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  // ===== TỌA ĐỘ =====
   @ApiProperty({ example: 21.0542, required: false })
   @IsOptional()
   @IsNumber({}, { message: 'Vĩ độ phải là số' })
@@ -81,15 +111,40 @@ export class CreateHospitalDto {
 export class UpdateHospitalDto extends PartialType(CreateHospitalDto) {}
 
 export class HospitalQueryDto {
-  @ApiProperty({ required: false, example: 'Tâm Anh' })
+  @ApiProperty({ required: false, example: 'Tâm Anh', description: 'Tìm kiếm theo tên, mã, địa chỉ, tỉnh/thành phố, phường/xã' })
   @IsOptional()
   @IsString()
   search?: string;
 
-  @ApiProperty({ required: false, example: 'Hà Nội' })
+  @ApiProperty({
+    required: false,
+    example: FacilityTypeEnum.HOSPITAL,
+    enum: FacilityTypeEnum,
+    description: 'Lọc theo loại cơ sở y tế',
+  })
+  @IsOptional()
+  @IsEnum(FacilityTypeEnum)
+  facilityType?: FacilityTypeEnum;
+
+  @ApiProperty({ required: false, example: '01', description: 'Lọc theo mã tỉnh/thành phố' })
   @IsOptional()
   @IsString()
-  city?: string;
+  provinceCode?: string;
+
+  @ApiProperty({ required: false, example: 'Hà Nội', description: 'Lọc theo tên tỉnh/thành phố' })
+  @IsOptional()
+  @IsString()
+  province?: string;
+
+  @ApiProperty({ required: false, example: '00001', description: 'Lọc theo mã phường/xã' })
+  @IsOptional()
+  @IsString()
+  wardCode?: string;
+
+  @ApiProperty({ required: false, example: 'Phường Bồ Đề', description: 'Lọc theo tên phường/xã' })
+  @IsOptional()
+  @IsString()
+  ward?: string;
 
   @ApiProperty({ required: false, example: 1, default: 1 })
   @IsOptional()

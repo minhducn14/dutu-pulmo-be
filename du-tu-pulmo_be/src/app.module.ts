@@ -30,6 +30,9 @@ import { CronModule } from './cron/cron.module';
 import { VideoCallModule } from './modules/video_call/video-call.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { EnumModule } from './modules/enum/enum.module';
+import { AppointmentModule } from './modules/appointment/appointment.module';
+import { HospitalModule } from './modules/hospital/hospital.module';
+import { NotificationModule } from './modules/notification/notification.module';
 
 @Module({
   imports: [
@@ -71,15 +74,18 @@ import { EnumModule } from './modules/enum/enum.module';
     ScheduleModule.forRoot(),
     AuthModule,
     AccountModule,
+    AppointmentModule,
     CloudinaryModule,
     DoctorModule,
     EmailModule,
-    PatientModule,
-    UserModule,
-    CronModule,
-    VideoCallModule,
-    PaymentModule,
     EnumModule,
+    HospitalModule,
+    NotificationModule,
+    PatientModule,
+    PaymentModule,
+    UserModule,
+    VideoCallModule,
+    CronModule,
   ],
   controllers: [AppController],
   providers: [AppService],

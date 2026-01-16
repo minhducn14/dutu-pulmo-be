@@ -33,6 +33,7 @@ import { JwtAuthGuard } from '../core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../core/auth/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { RoleEnum } from '../common/enums/role.enum';
+import { FacilityTypeEnum } from '../common/enums/facility-type.enum';
 
 @ApiTags('Hospitals')
 @Controller('hospitals')
@@ -42,17 +43,23 @@ export class HospitalController {
   @Get()
   @ApiOperation({
     summary: 'Lấy danh sách bệnh viện/phòng khám',
-    description: 'Hỗ trợ pagination, search theo tên/mã, filter theo thành phố',
+    description: 'Hỗ trợ pagination, search theo tên/mã/địa chỉ/tỉnh/phường, filter theo loại cơ sở và tỉnh',
   })
   @ApiQuery({
     name: 'search',
     required: false,
-    description: 'Tìm kiếm theo tên hoặc mã',
+    description: 'Tìm kiếm theo tên, mã, địa chỉ, tỉnh/thành phố, phường/xã',
   })
   @ApiQuery({
-    name: 'city',
+    name: 'facilityType',
     required: false,
-    description: 'Lọc theo thành phố',
+    enum: FacilityTypeEnum,
+    description: 'Lọc theo loại cơ sở y tế',
+  })
+  @ApiQuery({
+    name: 'provinceCode',
+    required: false,
+    description: 'Lọc theo mã tỉnh/thành phố',
   })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
@@ -65,15 +72,25 @@ export class HospitalController {
     return this.hospitalService.findAll(query);
   }
 
-  @Get('cities')
-  @ApiOperation({ summary: 'Lấy danh sách các thành phố có bệnh viện' })
+  @Get('facility-types')
+  @ApiOperation({ summary: 'Lấy danh sách các loại cơ sở y tế' })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Danh sách thành phố',
+    description: 'Danh sách loại cơ sở y tế',
     type: [String],
   })
-  getCities() {
-    return this.hospitalService.getCities();
+  getFacilityTypes() {
+    return this.hospitalService.getFacilityTypes();
+  }
+
+  @Get('provinces')
+  @ApiOperation({ summary: 'Lấy danh sách các tỉnh/thành phố có bệnh viện' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Danh sách tỉnh/thành phố',
+  })
+  getProvinces() {
+    return this.hospitalService.getProvinces();
   }
 
   @Get(':id')

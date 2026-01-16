@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { FacilityTypeEnum } from 'src/modules/common/enums/facility-type.enum';
 
 export class HospitalResponseDto {
   @ApiProperty()
@@ -13,21 +14,35 @@ export class HospitalResponseDto {
   @ApiProperty()
   phone: string;
 
-  @ApiProperty()
-  email: string;
+  @ApiProperty({ required: false })
+  email?: string;
 
-  @ApiProperty()
-  address: string;
+  @ApiProperty({
+    enum: FacilityTypeEnum,
+    description: 'Loại cơ sở y tế',
+  })
+  facilityType: FacilityTypeEnum;
 
-  @ApiProperty()
-  district: string;
+  @ApiProperty({ required: false, description: 'URL logo của bệnh viện' })
+  logoUrl?: string;
 
-  @ApiProperty()
-  city: string;
+  // ===== ĐỊA CHỈ =====
+  @ApiProperty({ required: false, description: 'Mã tỉnh/thành phố' })
+  provinceCode?: string;
 
-  @ApiProperty()
-  province: string;
+  @ApiProperty({ required: false, description: 'Tỉnh/Thành phố' })
+  province?: string;
 
+  @ApiProperty({ required: false, description: 'Mã phường/xã' })
+  wardCode?: string;
+
+  @ApiProperty({ required: false, description: 'Phường/Xã' })
+  ward?: string;
+
+  @ApiProperty({ required: false, description: 'Địa chỉ chi tiết' })
+  address?: string;
+
+  // ===== TỌA ĐỘ =====
   @ApiProperty({ required: false })
   latitude?: number;
 

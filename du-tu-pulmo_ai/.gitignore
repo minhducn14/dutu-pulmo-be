@@ -1,0 +1,7 @@
+/kaggle
+.env
+# **/model/
+**/__pycache__/
+**/uploads/
+**/output/
+**/annotated/

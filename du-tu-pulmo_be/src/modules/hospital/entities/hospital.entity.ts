@@ -39,7 +39,19 @@ export class Hospital {
   logoUrl: string;
 
   // ===== ĐỊA CHỈ =====
-  @Column({ type: 'text' })
+  @Column({ length: 20, nullable: true })
+  provinceCode: string;
+
+  @Column({ length: 100, nullable: true })
+  province: string; // Tỉnh/Thành phố
+
+  @Column({ length: 20, nullable: true })
+  wardCode: string;
+
+  @Column({ length: 100, nullable: true })
+  ward: string; //  Phường/Xã
+
+  @Column({ type: 'text', nullable: true })
   address: string;
 
   // ===== TỌA ĐỘ (Optional - nếu cần map) =====
