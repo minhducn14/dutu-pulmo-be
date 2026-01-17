@@ -205,28 +205,28 @@ def predict_xray():
         
         # Process and upload annotated image (raw YOLO output)
         # annotated_image_url = None
-        # annotated_path = None
+        annotated_path = None
         
-        # if annotated_img is not None:
-        #     import cv2
-        #     pil_img = Image.fromarray(cv2.cvtColor(annotated_img, cv2.COLOR_BGR2RGB))
+        if annotated_img is not None:
+            import cv2
+            pil_img = Image.fromarray(cv2.cvtColor(annotated_img, cv2.COLOR_BGR2RGB))
             
-        #     # Save annotated image locally (temporary)
-        #     annotated_filename = f"{file_id}_annotated.jpg"
-        #     annotated_path = os.path.join(Config.OUTPUT_FOLDER, annotated_filename)
-        #     pil_img.save(annotated_path, format='JPEG', quality=85)
+            # Save annotated image locally (temporary)
+            annotated_filename = f"{file_id}_annotated.jpg"
+            annotated_path = os.path.join(Config.OUTPUT_FOLDER, annotated_filename)
+            pil_img.save(annotated_path, format='JPEG', quality=85)
             
-        #     # Upload annotated image to Cloudinary
-        #     annotated_upload = cloudinary_service.upload_image(
-        #         annotated_path,
-        #         public_id=f"{file_id}_annotated",
-        #         subfolder="predictions"
-        #     )
-        #     if annotated_upload.get('success'):
-        #         annotated_image_url = annotated_upload.get('url')
-        #         logger.info(f"Uploaded annotated to Cloudinary: {annotated_image_url}")
-        #     else:
-        #         logger.warning(f"Failed to upload annotated image: {annotated_upload.get('error')}")
+            # Upload annotated image to Cloudinary
+            annotated_upload = cloudinary_service.upload_image(
+                annotated_path,
+                public_id=f"{file_id}_annotated",
+                subfolder="predictions"
+            )
+            if annotated_upload.get('success'):
+                annotated_image_url = annotated_upload.get('url')
+                logger.info(f"Uploaded annotated to Cloudinary: {annotated_image_url}")
+            else:
+                logger.warning(f"Failed to upload annotated image: {annotated_upload.get('error')}")
         
         # Generate evaluated result image (with risk-level colored bboxes)
         evaluated_image_url = None
