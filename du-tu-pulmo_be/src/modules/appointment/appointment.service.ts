@@ -7,21 +7,31 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, Not, In, Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
+import {
+  Repository,
+  DataSource,
+  Not,
+  In,
+  Between,
+  MoreThanOrEqual,
+  LessThanOrEqual,
+} from 'typeorm';
 import { Appointment } from './entities/appointment.entity';
 import { TimeSlot } from '../doctor/entities/time-slot.entity';
 import { Doctor } from '../doctor/entities/doctor.entity';
 import { DoctorSchedule } from '../doctor/entities/doctor-schedule.entity';
 import { AppointmentStatusEnum } from '../common/enums/appointment-status.enum';
 import { ResponseCommon } from 'src/common/dto/response.dto';
-import { 
-  AppointmentResponseDto, 
+import {
+  AppointmentResponseDto,
   AppointmentStatisticsDto,
   DoctorQueueDto,
-  PaginatedAppointmentResponseDto 
+  PaginatedAppointmentResponseDto,
 } from './dto/appointment-response.dto';
-import { AppointmentQueryDto, PatientAppointmentQueryDto } from './dto/appointment-query.dto';
-import { PaginationDto } from 'src/common/dto/pagination.dto';
+import {
+  AppointmentQueryDto,
+  PatientAppointmentQueryDto,
+} from './dto/appointment-query.dto';
 import { AppointmentTypeEnum } from '../common/enums/appointment-type.enum';
 import { AppointmentSubTypeEnum } from '../common/enums/appointment-sub-type.enum';
 import { SourceTypeEnum } from '../common/enums/source-type.enum';
@@ -72,15 +82,15 @@ export class AppointmentService {
 
     // Build where conditions
     const where: any = {};
-    
+
     if (query?.status) {
       where.status = query.status;
     }
-    
+
     if (query?.appointmentType) {
       where.appointmentType = query.appointmentType;
     }
-    
+
     if (query?.startDate && query?.endDate) {
       where.scheduledAt = Between(
         new Date(query.startDate),
@@ -92,13 +102,14 @@ export class AppointmentService {
       where.scheduledAt = LessThanOrEqual(new Date(query.endDate));
     }
 
-    const [appointments, totalItems] = await this.appointmentRepository.findAndCount({
-      where,
-      relations: BASE_RELATIONS,
-      order: { scheduledAt: 'DESC' },
-      skip,
-      take: limit,
-    });
+    const [appointments, totalItems] =
+      await this.appointmentRepository.findAndCount({
+        where,
+        relations: BASE_RELATIONS,
+        order: { scheduledAt: 'DESC' },
+        skip,
+        take: limit,
+      });
 
     const totalPages = Math.ceil(totalItems / limit);
 
@@ -160,18 +171,19 @@ export class AppointmentService {
     const skip = (page - 1) * limit;
 
     const where: any = { patientId };
-    
+
     if (query?.status) {
       where.status = query.status;
     }
 
-    const [appointments, totalItems] = await this.appointmentRepository.findAndCount({
-      where,
-      relations: BASE_RELATIONS,
-      order: { scheduledAt: 'DESC' },
-      skip,
-      take: limit,
-    });
+    const [appointments, totalItems] =
+      await this.appointmentRepository.findAndCount({
+        where,
+        relations: BASE_RELATIONS,
+        order: { scheduledAt: 'DESC' },
+        skip,
+        take: limit,
+      });
 
     const totalPages = Math.ceil(totalItems / limit);
 
@@ -197,18 +209,19 @@ export class AppointmentService {
     const skip = (page - 1) * limit;
 
     const where: any = { doctorId };
-    
+
     if (query?.status) {
       where.status = query.status;
     }
 
-    const [appointments, totalItems] = await this.appointmentRepository.findAndCount({
-      where,
-      relations: BASE_RELATIONS,
-      order: { scheduledAt: 'DESC' },
-      skip,
-      take: limit,
-    });
+    const [appointments, totalItems] =
+      await this.appointmentRepository.findAndCount({
+        where,
+        relations: BASE_RELATIONS,
+        order: { scheduledAt: 'DESC' },
+        skip,
+        take: limit,
+      });
 
     const totalPages = Math.ceil(totalItems / limit);
 
@@ -229,9 +242,7 @@ export class AppointmentService {
   // CHECK-IN FLOW
   // ============================================================================
 
-  async checkIn(
-    id: string,
-  ): Promise<ResponseCommon<AppointmentResponseDto>> {
+  async checkIn(id: string): Promise<ResponseCommon<AppointmentResponseDto>> {
     const appointment = await this.findOne(id);
 
     if (!appointment) {
@@ -240,42 +251,42 @@ export class AppointmentService {
 
     if (appointment.status !== AppointmentStatusEnum.CONFIRMED) {
       throw new BadRequestException(
-        `Bạn phải thực hiện thanh toán trước khi check-in`  
+        `Bạn phải thực hiện thanh toán trước khi check-in`,
       );
     }
 
     const now = new Date();
     const scheduledTime = new Date(appointment.scheduledAt);
-    const timeDiffMinutes = (scheduledTime.getTime() - now.getTime()) / (1000 * 60);
+    const timeDiffMinutes =
+      (scheduledTime.getTime() - now.getTime()) / (1000 * 60);
 
     if (appointment.appointmentType === AppointmentTypeEnum.IN_CLINIC) {
       if (timeDiffMinutes > 30) {
         throw new BadRequestException(
           `Chưa đến giờ check-in. Vui lòng check-in trong vòng 30 phút trước giờ hẹn. ` +
-          `(Còn ${Math.round(timeDiffMinutes)} phút nữa)`,
+            `(Còn ${Math.round(timeDiffMinutes)} phút nữa)`,
         );
       }
 
       if (timeDiffMinutes < -15) {
         throw new BadRequestException(
           `Đã quá giờ hẹn ${Math.abs(Math.round(timeDiffMinutes))} phút. ` +
-          `Vui lòng liên hệ lễ tân để sắp xếp lại.`,
+            `Vui lòng liên hệ lễ tân để sắp xếp lại.`,
         );
       }
-    } 
-    else if (appointment.appointmentType === AppointmentTypeEnum.VIDEO) {
+    } else if (appointment.appointmentType === AppointmentTypeEnum.VIDEO) {
       if (timeDiffMinutes > 60) {
         throw new BadRequestException(
           `Chưa đến giờ check-in cho cuộc gọi video. ` +
-          `Vui lòng check-in trong vòng 1 giờ trước giờ hẹn. ` +
-          `(Còn ${Math.round(timeDiffMinutes)} phút nữa)`,
+            `Vui lòng check-in trong vòng 1 giờ trước giờ hẹn. ` +
+            `(Còn ${Math.round(timeDiffMinutes)} phút nữa)`,
         );
       }
 
       if (timeDiffMinutes < -30) {
         throw new BadRequestException(
           `Đã quá giờ hẹn ${Math.abs(Math.round(timeDiffMinutes))} phút. ` +
-          `Vui lòng liên hệ để được hỗ trợ.`,
+            `Vui lòng liên hệ để được hỗ trợ.`,
         );
       }
     }
@@ -292,14 +303,15 @@ export class AppointmentService {
       return today;
     };
 
-    const lastCheckedInAppointmentInDay = await this.appointmentRepository.findOne({
-      where: {
-        doctorId: appointment.doctorId,
-        status: AppointmentStatusEnum.CHECKED_IN,
-        scheduledAt: Between(startOfToday(), endOfToday()),
-      },
-      order: { checkInTime: 'DESC' },
-    });
+    const lastCheckedInAppointmentInDay =
+      await this.appointmentRepository.findOne({
+        where: {
+          doctorId: appointment.doctorId,
+          status: AppointmentStatusEnum.CHECKED_IN,
+          scheduledAt: Between(startOfToday(), endOfToday()),
+        },
+        order: { checkInTime: 'DESC' },
+      });
     const queueNumber = lastCheckedInAppointmentInDay?.queueNumber || 0;
 
     await this.appointmentRepository.update(id, {
@@ -309,7 +321,7 @@ export class AppointmentService {
     });
 
     this.logger.log(
-      `${appointment.appointmentType} appointment ${id} checked in at ${new Date().toISOString()}`
+      `${appointment.appointmentType} appointment ${id} checked in at ${new Date().toISOString()}`,
     );
 
     return this.findById(id);
@@ -324,11 +336,11 @@ export class AppointmentService {
       throw new NotFoundException('Appointment not found');
     }
 
-    if(appointment.status !== AppointmentStatusEnum.CONFIRMED) {
+    if (appointment.status !== AppointmentStatusEnum.CONFIRMED) {
       throw new BadRequestException(
         `Bạn phải thực hiện thanh toán trước khi check-in`,
       );
-    } 
+    }
 
     if (appointment.appointmentType !== AppointmentTypeEnum.VIDEO) {
       throw new BadRequestException(
@@ -344,7 +356,8 @@ export class AppointmentService {
 
     const now = new Date();
     const scheduledTime = new Date(appointment.scheduledAt);
-    const timeDiffMinutes = (scheduledTime.getTime() - now.getTime()) / (1000 * 60);
+    const timeDiffMinutes =
+      (scheduledTime.getTime() - now.getTime()) / (1000 * 60);
 
     if (timeDiffMinutes > 60) {
       throw new BadRequestException(
@@ -353,9 +366,7 @@ export class AppointmentService {
     }
 
     if (timeDiffMinutes < -30) {
-      throw new BadRequestException(
-        `Cuộc gọi video đã kết thúc.`,
-      );
+      throw new BadRequestException(`Cuộc gọi video đã kết thúc.`);
     }
 
     await this.appointmentRepository.update(id, {
@@ -372,14 +383,14 @@ export class AppointmentService {
     doctorId: string,
   ): Promise<ResponseCommon<AppointmentResponseDto[]>> {
     const appointments = await this.appointmentRepository.find({
-      where: { 
+      where: {
         doctorId,
         status: AppointmentStatusEnum.CHECKED_IN,
       },
       relations: BASE_RELATIONS,
       order: { scheduledAt: 'DESC' },
     });
-    
+
     return new ResponseCommon(
       200,
       'SUCCESS',
@@ -396,14 +407,12 @@ export class AppointmentService {
       throw new NotFoundException('Appointment not found');
     }
 
-    const validStartStates = [
-      AppointmentStatusEnum.CHECKED_IN,
-    ];
+    const validStartStates = [AppointmentStatusEnum.CHECKED_IN];
 
     if (!validStartStates.includes(appointment.status)) {
       throw new BadRequestException(
         `Không thể bắt đầu khám từ trạng thái ${appointment.status}. ` +
-        `Chỉ có thể bắt đầu khám khi ở trạng thái CHECKED_IN`,
+          `Chỉ có thể bắt đầu khám khi ở trạng thái CHECKED_IN`,
       );
     }
 
@@ -430,7 +439,7 @@ export class AppointmentService {
     if (appointment.status !== AppointmentStatusEnum.IN_PROGRESS) {
       throw new BadRequestException(
         `Không thể hoàn thành khám từ trạng thái ${appointment.status}. ` +
-        `Chỉ có thể hoàn thành khi đang khám (IN_PROGRESS)`,
+          `Chỉ có thể hoàn thành khi đang khám (IN_PROGRESS)`,
       );
     }
 
@@ -440,8 +449,8 @@ export class AppointmentService {
       doctorNotes: dto.doctorNotes,
       clinicalNotes: dto.clinicalNotes,
       followUpRequired: dto.followUpRequired || false,
-      nextAppointmentDate: dto.nextAppointmentDate 
-        ? new Date(dto.nextAppointmentDate) 
+      nextAppointmentDate: dto.nextAppointmentDate
+        ? new Date(dto.nextAppointmentDate)
         : undefined,
     };
 
@@ -471,12 +480,16 @@ export class AppointmentService {
     doctorId: string,
   ): Promise<ResponseCommon<DoctorQueueDto>> {
     const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfDay = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
     const endOfDay = new Date(startOfDay);
     endOfDay.setDate(endOfDay.getDate() + 1);
 
     const appointments = await this.appointmentRepository.find({
-      where: { 
+      where: {
         doctorId,
         scheduledAt: Between(startOfDay, endOfDay),
         status: In([
@@ -486,27 +499,27 @@ export class AppointmentService {
         ]),
       },
       relations: BASE_RELATIONS,
-      order: { 
+      order: {
         queueNumber: 'ASC',
       },
     });
 
     const inProgress = appointments.filter(
-      a => a.status === AppointmentStatusEnum.IN_PROGRESS
+      (a) => a.status === AppointmentStatusEnum.IN_PROGRESS,
     );
     const checkedIn = appointments.filter(
-      a => a.status === AppointmentStatusEnum.CHECKED_IN
+      (a) => a.status === AppointmentStatusEnum.CHECKED_IN,
     );
     const confirmed = appointments.filter(
-      a => a.status === AppointmentStatusEnum.CONFIRMED
+      (a) => a.status === AppointmentStatusEnum.CONFIRMED,
     );
 
     const queueData: DoctorQueueDto = {
       doctorId,
       totalInQueue: appointments.length,
-      inProgress: inProgress.map(a => this.toDto(a)),
-      waitingQueue: checkedIn.map(a => this.toDto(a)),
-      upcomingToday: confirmed.map(a => this.toDto(a)),
+      inProgress: inProgress.map((a) => this.toDto(a)),
+      waitingQueue: checkedIn.map((a) => this.toDto(a)),
+      upcomingToday: confirmed.map((a) => this.toDto(a)),
       currentPatient: inProgress[0] ? this.toDto(inProgress[0]) : null,
       nextPatient: checkedIn[0] ? this.toDto(checkedIn[0]) : null,
     };
@@ -547,26 +560,29 @@ export class AppointmentService {
       appointments,
     ] = await Promise.all([
       this.appointmentRepository.count({ where: whereConditions }),
-      this.appointmentRepository.count({ 
-        where: { ...whereConditions, status: AppointmentStatusEnum.COMPLETED } 
+      this.appointmentRepository.count({
+        where: { ...whereConditions, status: AppointmentStatusEnum.COMPLETED },
       }),
-      this.appointmentRepository.count({ 
-        where: { ...whereConditions, status: AppointmentStatusEnum.CANCELLED } 
+      this.appointmentRepository.count({
+        where: { ...whereConditions, status: AppointmentStatusEnum.CANCELLED },
       }),
-      this.appointmentRepository.count({ 
-        where: { 
-          ...whereConditions, 
+      this.appointmentRepository.count({
+        where: {
+          ...whereConditions,
           status: In([
             AppointmentStatusEnum.PENDING,
             AppointmentStatusEnum.PENDING_PAYMENT,
           ]),
-        } 
+        },
       }),
-      this.appointmentRepository.count({ 
-        where: { ...whereConditions, status: AppointmentStatusEnum.CONFIRMED } 
+      this.appointmentRepository.count({
+        where: { ...whereConditions, status: AppointmentStatusEnum.CONFIRMED },
       }),
-      this.appointmentRepository.count({ 
-        where: { ...whereConditions, status: AppointmentStatusEnum.IN_PROGRESS } 
+      this.appointmentRepository.count({
+        where: {
+          ...whereConditions,
+          status: AppointmentStatusEnum.IN_PROGRESS,
+        },
       }),
       this.appointmentRepository.find({
         where: {
@@ -586,7 +602,11 @@ export class AppointmentService {
 
     // Today's appointments
     const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
     const endOfToday = new Date(startOfToday);
     endOfToday.setDate(endOfToday.getDate() + 1);
 
@@ -606,7 +626,7 @@ export class AppointmentService {
       inProgressCount: inProgress,
       upcomingCount: confirmed + pending,
       todayCount: todayTotal,
-      upcomingAppointments: appointments.map(a => this.toDto(a)),
+      upcomingAppointments: appointments.map((a) => this.toDto(a)),
     };
 
     return new ResponseCommon(200, 'SUCCESS', stats);
@@ -618,51 +638,50 @@ export class AppointmentService {
   async getPatientStatistics(
     patientId: string,
   ): Promise<ResponseCommon<AppointmentStatisticsDto>> {
-    const [
-      total,
-      completed,
-      cancelled,
-      upcoming,
-      appointments,
-    ] = await Promise.all([
-      this.appointmentRepository.count({ where: { patientId } }),
-      this.appointmentRepository.count({ 
-        where: { patientId, status: AppointmentStatusEnum.COMPLETED } 
-      }),
-      this.appointmentRepository.count({ 
-        where: { patientId, status: AppointmentStatusEnum.CANCELLED } 
-      }),
-      this.appointmentRepository.count({
-        where: {
-          patientId,
-          scheduledAt: MoreThanOrEqual(new Date()),
-          status: Not(In([
-            AppointmentStatusEnum.CANCELLED,
-            AppointmentStatusEnum.COMPLETED,
-          ])),
-        },
-      }),
-      this.appointmentRepository.find({
-        where: {
-          patientId,
-          scheduledAt: MoreThanOrEqual(new Date()),
-          status: Not(In([
-            AppointmentStatusEnum.CANCELLED,
-            AppointmentStatusEnum.COMPLETED,
-          ])),
-        },
-        relations: BASE_RELATIONS,
-        order: { scheduledAt: 'ASC' },
-        take: 10,
-      }),
-    ]);
+    const [total, completed, cancelled, upcoming, appointments] =
+      await Promise.all([
+        this.appointmentRepository.count({ where: { patientId } }),
+        this.appointmentRepository.count({
+          where: { patientId, status: AppointmentStatusEnum.COMPLETED },
+        }),
+        this.appointmentRepository.count({
+          where: { patientId, status: AppointmentStatusEnum.CANCELLED },
+        }),
+        this.appointmentRepository.count({
+          where: {
+            patientId,
+            scheduledAt: MoreThanOrEqual(new Date()),
+            status: Not(
+              In([
+                AppointmentStatusEnum.CANCELLED,
+                AppointmentStatusEnum.COMPLETED,
+              ]),
+            ),
+          },
+        }),
+        this.appointmentRepository.find({
+          where: {
+            patientId,
+            scheduledAt: MoreThanOrEqual(new Date()),
+            status: Not(
+              In([
+                AppointmentStatusEnum.CANCELLED,
+                AppointmentStatusEnum.COMPLETED,
+              ]),
+            ),
+          },
+          relations: BASE_RELATIONS,
+          order: { scheduledAt: 'ASC' },
+          take: 10,
+        }),
+      ]);
 
     const stats: AppointmentStatisticsDto = {
       totalAppointments: total,
       completedCount: completed,
       cancelledCount: cancelled,
       upcomingCount: upcoming,
-      upcomingAppointments: appointments.map(a => this.toDto(a)),
+      upcomingAppointments: appointments.map((a) => this.toDto(a)),
     };
 
     return new ResponseCommon(200, 'SUCCESS', stats);
@@ -681,7 +700,9 @@ export class AppointmentService {
     endDate: Date,
   ): Promise<ResponseCommon<AppointmentResponseDto[]>> {
     // Validate date range (max 90 days)
-    const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    const daysDiff = Math.ceil(
+      (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
+    );
     if (daysDiff > 90) {
       throw new BadRequestException('Khoảng thời gian tối đa là 90 ngày');
     }
@@ -1261,7 +1282,7 @@ export class AppointmentService {
           startedAt: new Date(),
         });
         this.logger.log(
-          `Auto check-in + start examination for VIDEO appointment ${appointmentId} (doctor joined)`
+          `Auto check-in + start examination for VIDEO appointment ${appointmentId} (doctor joined)`,
         );
       } else {
         // Patient joining first: Just check-in (CONFIRMED -> CHECKED_IN)
@@ -1270,17 +1291,20 @@ export class AppointmentService {
           status: AppointmentStatusEnum.CHECKED_IN,
         });
         this.logger.log(
-          `Auto check-in for VIDEO appointment ${appointmentId} (patient joined)`
+          `Auto check-in for VIDEO appointment ${appointmentId} (patient joined)`,
         );
       }
-    } else if (appointment.status === AppointmentStatusEnum.CHECKED_IN && isDoctor) {
+    } else if (
+      appointment.status === AppointmentStatusEnum.CHECKED_IN &&
+      isDoctor
+    ) {
       // Doctor joining after patient: Start examination (CHECKED_IN -> IN_PROGRESS)
       await this.appointmentRepository.update(appointmentId, {
         status: AppointmentStatusEnum.IN_PROGRESS,
         startedAt: new Date(),
       });
       this.logger.log(
-        `Auto start examination for VIDEO appointment ${appointmentId} (doctor joined after patient)`
+        `Auto start examination for VIDEO appointment ${appointmentId} (doctor joined after patient)`,
       );
     }
 

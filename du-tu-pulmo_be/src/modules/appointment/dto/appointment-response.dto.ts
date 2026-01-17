@@ -149,9 +149,9 @@ export class AppointmentStatisticsDto {
   @ApiPropertyOptional({ description: 'Số lịch hôm nay' })
   todayCount?: number;
 
-  @ApiProperty({ 
+  @ApiProperty({
     type: [AppointmentResponseDto],
-    description: 'Danh sách lịch hẹn sắp tới (tối đa 10)' 
+    description: 'Danh sách lịch hẹn sắp tới (tối đa 10)',
   })
   upcomingAppointments: AppointmentResponseDto[];
 }
@@ -167,33 +167,33 @@ export class DoctorQueueDto {
   @ApiProperty({ description: 'Tổng số trong hàng đợi' })
   totalInQueue: number;
 
-  @ApiProperty({ 
+  @ApiProperty({
     type: [AppointmentResponseDto],
-    description: 'Lịch đang khám (IN_PROGRESS)' 
+    description: 'Lịch đang khám (IN_PROGRESS)',
   })
   inProgress: AppointmentResponseDto[];
 
-  @ApiProperty({ 
+  @ApiProperty({
     type: [AppointmentResponseDto],
-    description: 'Hàng đợi đã check-in (CHECKED_IN)' 
+    description: 'Hàng đợi đã check-in (CHECKED_IN)',
   })
   waitingQueue: AppointmentResponseDto[];
 
-  @ApiProperty({ 
+  @ApiProperty({
     type: [AppointmentResponseDto],
-    description: 'Lịch hẹn sắp tới hôm nay (CONFIRMED)' 
+    description: 'Lịch hẹn sắp tới hôm nay (CONFIRMED)',
   })
   upcomingToday: AppointmentResponseDto[];
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     type: AppointmentResponseDto,
-    description: 'Bệnh nhân đang khám hiện tại' 
+    description: 'Bệnh nhân đang khám hiện tại',
   })
   currentPatient: AppointmentResponseDto | null;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     type: AppointmentResponseDto,
-    description: 'Bệnh nhân tiếp theo trong hàng đợi' 
+    description: 'Bệnh nhân tiếp theo trong hàng đợi',
   })
   nextPatient: AppointmentResponseDto | null;
 }
@@ -205,14 +205,14 @@ export class DoctorQueueDto {
 import { PaginationMeta } from 'src/common/dto/pagination.dto';
 
 export class PaginatedAppointmentResponseDto {
-  @ApiProperty({ 
+  @ApiProperty({
     type: [AppointmentResponseDto],
-    description: 'Danh sách lịch hẹn' 
+    description: 'Danh sách lịch hẹn',
   })
   items: AppointmentResponseDto[];
 
-  @ApiProperty({ 
-    description: 'Thông tin phân trang' 
+  @ApiProperty({
+    description: 'Thông tin phân trang',
   })
   meta: PaginationMeta;
 }

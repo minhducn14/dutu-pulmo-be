@@ -4,14 +4,11 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  ManyToOne,
   JoinColumn,
   OneToOne,
-  OneToMany,
   BeforeInsert,
 } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
-import { GenderEnum } from '../../common/enums/gender.enum';
 
 @Entity('patients')
 export class Patient {

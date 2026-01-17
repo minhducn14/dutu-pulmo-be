@@ -1,8 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { 
-  IsEnum, 
-  IsString, 
-  IsUUID, 
+import {
+  IsEnum,
+  IsString,
+  IsUUID,
   IsOptional,
   IsBoolean,
   IsDateString,
@@ -15,9 +15,9 @@ import { AppointmentStatusEnum } from '../../common/enums/appointment-status.enu
 // ============================================================================
 
 export class UpdateStatusDto {
-  @ApiProperty({ 
+  @ApiProperty({
     enum: AppointmentStatusEnum,
-    description: 'Trạng thái mới của lịch hẹn'
+    description: 'Trạng thái mới của lịch hẹn',
   })
   @IsEnum(AppointmentStatusEnum)
   status: AppointmentStatusEnum;
@@ -41,35 +41,37 @@ export class RescheduleAppointmentDto {
 // ============================================================================
 
 export class CompleteExaminationDto {
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Ghi chú của bác sĩ về buổi khám',
-    example: 'Bệnh nhân bị viêm họng cấp, đã kê đơn thuốc kháng sinh'
+    example: 'Bệnh nhân bị viêm họng cấp, đã kê đơn thuốc kháng sinh',
   })
   @IsOptional()
   @IsString()
   @MaxLength(2000)
   doctorNotes?: string;
 
-  @ApiPropertyOptional({ 
-    description: 'Ghi chú lâm sàng chi tiết (chẩn đoán, kết quả xét nghiệm, đơn thuốc)',
-    example: 'Chẩn đoán: Viêm họng cấp\nĐơn thuốc: Amoxicillin 500mg x 3 lần/ngày'
+  @ApiPropertyOptional({
+    description:
+      'Ghi chú lâm sàng chi tiết (chẩn đoán, kết quả xét nghiệm, đơn thuốc)',
+    example:
+      'Chẩn đoán: Viêm họng cấp\nĐơn thuốc: Amoxicillin 500mg x 3 lần/ngày',
   })
   @IsOptional()
   @IsString()
   @MaxLength(5000)
   clinicalNotes?: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Có cần tái khám không',
-    default: false
+    default: false,
   })
   @IsOptional()
   @IsBoolean()
   followUpRequired?: boolean;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Ngày tái khám (nếu cần)',
-    example: '2024-02-15T09:00:00Z'
+    example: '2024-02-15T09:00:00Z',
   })
   @IsOptional()
   @IsDateString()

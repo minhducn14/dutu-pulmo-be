@@ -20,7 +20,10 @@ import {
 } from '@nestjs/swagger';
 import { UserService } from './user.service';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { UserResponseDto, PaginatedUserResponseDto } from './dto/user-response.dto';
+import {
+  UserResponseDto,
+  PaginatedUserResponseDto,
+} from './dto/user-response.dto';
 import { UserQueryDto } from './dto/user-query.dto';
 import { JwtAuthGuard } from '../core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../core/auth/guards/roles.guard';
@@ -38,9 +41,10 @@ export class UserController {
 
   @Get()
   @Roles(RoleEnum.ADMIN)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Lấy danh sách tất cả users (Admin)',
-    description: 'Hỗ trợ phân trang, tìm kiếm theo tên/phone, lọc theo role và status'
+    description:
+      'Hỗ trợ phân trang, tìm kiếm theo tên/phone, lọc theo role và status',
   })
   @ApiResponse({ status: HttpStatus.OK, type: PaginatedUserResponseDto })
   findAll(@Query() query: UserQueryDto) {

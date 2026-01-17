@@ -10,6 +10,7 @@ import {
   JoinColumn,
   Check,
   Index,
+  VersionColumn,
 } from 'typeorm';
 import { Doctor } from './doctor.entity';
 import { TimeSlot } from './time-slot.entity';
@@ -144,6 +145,9 @@ export class DoctorSchedule {
     default: () => 'CURRENT_TIMESTAMP',
   })
   updatedAt: Date;
+
+  @VersionColumn()
+  version: number;
 
   @DeleteDateColumn({
     name: 'deleted_at',

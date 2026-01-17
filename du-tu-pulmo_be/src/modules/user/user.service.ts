@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, In } from 'typeorm';
+import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ResponseCommon } from 'src/common/dto/response.dto';
@@ -25,7 +25,9 @@ export class UserService {
     private patientRepository: Repository<Patient>,
   ) {}
 
-  async findAll(query?: UserQueryDto): Promise<ResponseCommon<PaginatedUserResponseDto>> {
+  async findAll(
+    query?: UserQueryDto,
+  ): Promise<ResponseCommon<PaginatedUserResponseDto>> {
     const page = query?.page || 1;
     const limit = query?.limit || 10;
     const skip = (page - 1) * limit;
@@ -59,7 +61,7 @@ export class UserService {
 
     // Get total count and apply pagination
     const totalItems = await queryBuilder.getCount();
-    
+
     const users = await queryBuilder
       .orderBy('user.createdAt', 'DESC')
       .skip(skip)

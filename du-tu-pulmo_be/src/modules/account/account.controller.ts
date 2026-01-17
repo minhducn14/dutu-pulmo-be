@@ -9,7 +9,6 @@ import {
   HttpStatus,
   UseGuards,
   NotFoundException,
-  ForbiddenException,
 } from '@nestjs/common';
 import {
   ApiTags,

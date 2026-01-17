@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { ResponseCommon } from 'src/common/dto/response.dto';
-import { CountryEnum, CountryName } from '../common/enums/country.enum';
-import { EthnicityEnum, EthnicityName } from '../common/enums/ethnicity.enum';
-import { OccupationEnum, OccupationName } from '../common/enums/job.enum';
+import { CountryName } from '../common/enums/country.enum';
+import { EthnicityName } from '../common/enums/ethnicity.enum';
+import { OccupationName } from '../common/enums/job.enum';
 
 @Injectable()
 export class EnumService {

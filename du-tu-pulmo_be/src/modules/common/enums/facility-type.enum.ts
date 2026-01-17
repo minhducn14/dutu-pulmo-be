@@ -1,4 +1,4 @@
 export enum FacilityTypeEnum {
-    HOSPITAL = 'hospital',
-    CLINIC = 'clinic',
+  HOSPITAL = 'hospital',
+  CLINIC = 'clinic',
 }

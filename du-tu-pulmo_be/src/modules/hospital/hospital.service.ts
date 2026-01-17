@@ -277,7 +277,9 @@ export class HospitalService {
   /**
    * Lấy danh sách provinces (dùng cho filter)
    */
-  async getProvinces(): Promise<ResponseCommon<{ provinceCode: string; province: string }[]>> {
+  async getProvinces(): Promise<
+    ResponseCommon<{ provinceCode: string; province: string }[]>
+  > {
     const provinces = await this.hospitalRepository
       .createQueryBuilder('hospital')
       .select('DISTINCT hospital.provinceCode', 'provinceCode')

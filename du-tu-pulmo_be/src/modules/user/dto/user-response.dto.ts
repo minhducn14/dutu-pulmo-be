@@ -134,14 +134,14 @@ export class UserResponseDto {
 import { PaginationMeta } from 'src/common/dto/pagination.dto';
 
 export class PaginatedUserResponseDto {
-  @ApiProperty({ 
+  @ApiProperty({
     type: [UserResponseDto],
-    description: 'Danh sách users' 
+    description: 'Danh sách users',
   })
   items: UserResponseDto[];
 
-  @ApiProperty({ 
-    description: 'Thông tin phân trang' 
+  @ApiProperty({
+    description: 'Thông tin phân trang',
   })
   meta: PaginationMeta;
 }

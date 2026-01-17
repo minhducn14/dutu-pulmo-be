@@ -8,6 +8,7 @@ import { Repository, Not, IsNull } from 'typeorm';
 import { Account } from './entities/account.entity';
 import { AdminUpdateAccountDto } from './dto/update-account.dto';
 import { ResponseCommon } from 'src/common/dto/response.dto';
+import { RoleEnum } from '../common/enums/role.enum';
 
 @Injectable()
 export class AccountService {
@@ -48,11 +49,10 @@ export class AccountService {
       throw new NotFoundException(`Account with ID ${id} not found`);
     }
 
-    // Log admin action for audit
     console.log(`Admin ${adminId} updating account ${id}:`, dto);
 
     if (dto.roles !== undefined) {
-      account.roles = dto.roles as any; // Trust admin input
+      account.roles = dto.roles as RoleEnum[];
     }
     if (dto.isVerified !== undefined) {
       account.isVerified = dto.isVerified;

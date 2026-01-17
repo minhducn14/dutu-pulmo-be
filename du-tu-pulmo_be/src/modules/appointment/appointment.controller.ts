@@ -2,9 +2,9 @@
  * =============================================================================
  * APPOINTMENT CONTROLLER
  * =============================================================================
- * 
+ *
  * Controller xử lý các API liên quan đến lịch hẹn khám bệnh.
- * 
+ *
  * Các chức năng chính:
  * - Quản lý lịch hẹn (tạo, xem, cập nhật, hủy)
  * - Quy trình check-in (tại phòng khám và video call)
@@ -15,7 +15,7 @@
  * - Video call cho telehealth
  * - Thanh toán
  * - Thông tin lâm sàng
- * 
+ *
  * @author Dutu Pulmo Team
  */
 
@@ -63,9 +63,11 @@ import {
   DoctorQueueDto,
   PaginatedAppointmentResponseDto,
 } from './dto/appointment-response.dto';
-import { AppointmentQueryDto, PatientAppointmentQueryDto } from './dto/appointment-query.dto';
+import {
+  AppointmentQueryDto,
+  PatientAppointmentQueryDto,
+} from './dto/appointment-query.dto';
 import { AppointmentTypeEnum } from '../common/enums/appointment-type.enum';
-
 
 @ApiTags('Appointments')
 @Controller('appointments')
@@ -76,9 +78,9 @@ export class AppointmentController {
 
   @Get()
   @Roles(RoleEnum.ADMIN)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Lấy tất cả lịch hẹn (Admin)',
-    description: 'Hỗ trợ phân trang và lọc theo status, type, date range'
+    description: 'Hỗ trợ phân trang và lọc theo status, type, date range',
   })
   @ApiResponse({ status: HttpStatus.OK, type: PaginatedAppointmentResponseDto })
   findAll(@Query() query: AppointmentQueryDto) {
@@ -87,9 +89,9 @@ export class AppointmentController {
 
   @Get('my/patient')
   @Roles(RoleEnum.PATIENT)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Lấy lịch hẹn của bệnh nhân hiện tại',
-    description: 'Hỗ trợ phân trang và lọc theo status'
+    description: 'Hỗ trợ phân trang và lọc theo status',
   })
   @ApiResponse({ status: HttpStatus.OK, type: PaginatedAppointmentResponseDto })
   findMyAppointmentsAsPatient(
@@ -104,9 +106,9 @@ export class AppointmentController {
 
   @Get('my/doctor')
   @Roles(RoleEnum.DOCTOR)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Lấy lịch hẹn của bác sĩ hiện tại',
-    description: 'Hỗ trợ phân trang và lọc theo status'
+    description: 'Hỗ trợ phân trang và lọc theo status',
   })
   @ApiResponse({ status: HttpStatus.OK, type: PaginatedAppointmentResponseDto })
   findMyAppointmentsAsDoctor(
@@ -121,12 +123,12 @@ export class AppointmentController {
 
   @Post(':id/check-in')
   @Roles(RoleEnum.DOCTOR, RoleEnum.PATIENT, RoleEnum.ADMIN)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Check-in bệnh nhân',
     description: `
       - IN_CLINIC: Lễ tân/bác sĩ check-in khi bệnh nhân đến (30 phút trước - 15 phút sau)
       - VIDEO: Bệnh nhân/bác sĩ check-in trước khi join call (1 giờ trước - 30 phút sau)
-    `
+    `,
   })
   @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
   @ApiResponse({ status: HttpStatus.OK, type: AppointmentResponseDto })
@@ -146,9 +148,10 @@ export class AppointmentController {
     const appointment = result.data!;
 
     if (appointment.appointmentType === AppointmentTypeEnum.IN_CLINIC) {
-      const canCheckIn = 
+      const canCheckIn =
         user.roles?.includes(RoleEnum.ADMIN) ||
-        (user.roles?.includes(RoleEnum.DOCTOR) && appointment.doctorId === user.doctorId);
+        (user.roles?.includes(RoleEnum.DOCTOR) &&
+          appointment.doctorId === user.doctorId);
 
       if (!canCheckIn) {
         throw new ForbiddenException(
@@ -172,9 +175,10 @@ export class AppointmentController {
 
   @Post(':id/check-in/video')
   @Roles(RoleEnum.PATIENT, RoleEnum.DOCTOR)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Check-in cho cuộc hẹn VIDEO (bệnh nhân hoặc bác sĩ)',
-    description: 'Cho phép check-in trước giờ hẹn 1 tiếng để chuẩn bị join video call'
+    description:
+      'Cho phép check-in trước giờ hẹn 1 tiếng để chuẩn bị join video call',
   })
   @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
   @ApiResponse({ status: HttpStatus.OK, type: AppointmentResponseDto })
@@ -193,9 +197,7 @@ export class AppointmentController {
     const isDoctor = appointment.doctorId === user.doctorId;
 
     if (!isPatient && !isDoctor && !user.roles?.includes(RoleEnum.ADMIN)) {
-      throw new ForbiddenException(
-        'Bạn không có quyền check-in cuộc hẹn này',
-      );
+      throw new ForbiddenException('Bạn không có quyền check-in cuộc hẹn này');
     }
 
     return this.appointmentService.checkInVideo(id);
@@ -203,7 +205,9 @@ export class AppointmentController {
 
   @Get('my/doctor/checked-in')
   @Roles(RoleEnum.DOCTOR)
-  @ApiOperation({ summary: 'Lấy danh sách bệnh nhân đã check-in đang chờ khám' })
+  @ApiOperation({
+    summary: 'Lấy danh sách bệnh nhân đã check-in đang chờ khám',
+  })
   @ApiResponse({ status: HttpStatus.OK, type: [AppointmentResponseDto] })
   async getCheckedInPatients(@CurrentUser() user: JwtUser) {
     if (!user.doctorId) {
@@ -237,9 +241,7 @@ export class AppointmentController {
     const appointment = result.data!;
 
     if (appointment.doctorId !== user.doctorId) {
-      throw new ForbiddenException(
-        'Bạn chỉ có thể khám bệnh nhân của mình',
-      );
+      throw new ForbiddenException('Bạn chỉ có thể khám bệnh nhân của mình');
     }
 
     return this.appointmentService.startExamination(id);
@@ -318,8 +320,16 @@ export class AppointmentController {
   @Get('my/doctor/statistics')
   @Roles(RoleEnum.DOCTOR)
   @ApiOperation({ summary: 'Lấy thống kê lịch hẹn của bác sĩ' })
-  @ApiQuery({ name: 'startDate', required: false, description: 'Ngày bắt đầu (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'endDate', required: false, description: 'Ngày kết thúc (YYYY-MM-DD)' })
+  @ApiQuery({
+    name: 'startDate',
+    required: false,
+    description: 'Ngày bắt đầu (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: false,
+    description: 'Ngày kết thúc (YYYY-MM-DD)',
+  })
   @ApiResponse({ status: HttpStatus.OK, type: AppointmentStatisticsDto })
   async getMyStatistics(
     @CurrentUser() user: JwtUser,
@@ -329,7 +339,7 @@ export class AppointmentController {
     if (!user.doctorId) {
       throw new ForbiddenException('Không tìm thấy thông tin bác sĩ');
     }
-    
+
     return this.appointmentService.getDoctorStatistics(
       user.doctorId,
       startDate ? new Date(startDate) : undefined,
@@ -356,8 +366,16 @@ export class AppointmentController {
   @Roles(RoleEnum.DOCTOR, RoleEnum.ADMIN)
   @ApiOperation({ summary: 'Lấy lịch khám theo calendar view' })
   @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
-  @ApiQuery({ name: 'startDate', required: true, description: 'Ngày bắt đầu (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'endDate', required: true, description: 'Ngày kết thúc (YYYY-MM-DD)' })
+  @ApiQuery({
+    name: 'startDate',
+    required: true,
+    description: 'Ngày bắt đầu (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: true,
+    description: 'Ngày kết thúc (YYYY-MM-DD)',
+  })
   @ApiResponse({ status: HttpStatus.OK, type: [AppointmentResponseDto] })
   async getCalendar(
     @Param('doctorId', ParseUUIDPipe) doctorId: string,
@@ -383,9 +401,19 @@ export class AppointmentController {
 
   @Get('my/doctor/calendar')
   @Roles(RoleEnum.DOCTOR)
-  @ApiOperation({ summary: 'Lấy lịch khám của bác sĩ hiện tại theo calendar view' })
-  @ApiQuery({ name: 'startDate', required: true, description: 'Ngày bắt đầu (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'endDate', required: true, description: 'Ngày kết thúc (YYYY-MM-DD)' })
+  @ApiOperation({
+    summary: 'Lấy lịch khám của bác sĩ hiện tại theo calendar view',
+  })
+  @ApiQuery({
+    name: 'startDate',
+    required: true,
+    description: 'Ngày bắt đầu (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: true,
+    description: 'Ngày kết thúc (YYYY-MM-DD)',
+  })
   @ApiResponse({ status: HttpStatus.OK, type: [AppointmentResponseDto] })
   async getMyCalendar(
     @CurrentUser() user: JwtUser,
@@ -411,9 +439,9 @@ export class AppointmentController {
   }
 
   @Get('patient/:patientId')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Lấy lịch hẹn của bệnh nhân',
-    description: 'Hỗ trợ phân trang và lọc theo status'
+    description: 'Hỗ trợ phân trang và lọc theo status',
   })
   @ApiParam({ name: 'patientId', description: 'Patient ID (UUID)' })
   @ApiResponse({ status: HttpStatus.OK, type: PaginatedAppointmentResponseDto })
@@ -438,9 +466,9 @@ export class AppointmentController {
   }
 
   @Get('doctor/:doctorId')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Lấy lịch hẹn của bác sĩ',
-    description: 'Hỗ trợ phân trang và lọc theo status'
+    description: 'Hỗ trợ phân trang và lọc theo status',
   })
   @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
   @ApiResponse({ status: HttpStatus.OK, type: PaginatedAppointmentResponseDto })
@@ -528,7 +556,7 @@ export class AppointmentController {
         dto.patientId = user.patientId;
       }
     }
-    
+
     return this.appointmentService.create({
       ...dto,
       bookedByUserId: user.id,
@@ -645,12 +673,13 @@ export class AppointmentController {
   // ============================================================================
 
   @Get(':id/video/status')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Kiểm tra trạng thái video call trước khi join',
-    description: 'Kiểm tra xem có thể join video call không và ai đang trong call'
+    description:
+      'Kiểm tra xem có thể join video call không và ai đang trong call',
   })
   @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
-  @ApiResponse({ 
+  @ApiResponse({
     status: HttpStatus.OK,
     schema: {
       example: {
@@ -662,8 +691,8 @@ export class AppointmentController {
         isEarly: false,
         isLate: false,
         participantsInCall: ['doctor-uuid'],
-      }
-    }
+      },
+    },
   })
   async getVideoCallStatus(
     @Param('id', ParseUUIDPipe) id: string,
@@ -688,20 +717,20 @@ export class AppointmentController {
     const now = new Date();
     const scheduledTime = new Date(appointment.scheduledAt);
     const minutesUntilStart = Math.round(
-      (scheduledTime.getTime() - now.getTime()) / (1000 * 60)
+      (scheduledTime.getTime() - now.getTime()) / (1000 * 60),
     );
 
     const participantsInCall: string[] = [];
-
 
     const validStates = [
       AppointmentStatusEnum.CONFIRMED,
       AppointmentStatusEnum.CHECKED_IN,
       AppointmentStatusEnum.IN_PROGRESS,
     ];
-    const canJoin = validStates.includes(appointment.status) &&
-                    minutesUntilStart <= 60 && 
-                    minutesUntilStart >= -30;
+    const canJoin =
+      validStates.includes(appointment.status) &&
+      minutesUntilStart <= 60 &&
+      minutesUntilStart >= -30;
 
     return {
       canJoin,
@@ -712,7 +741,7 @@ export class AppointmentController {
       isEarly: minutesUntilStart > 60,
       isLate: minutesUntilStart < -30,
       participantsInCall,
-      message: canJoin 
+      message: canJoin
         ? 'Bạn có thể join video call'
         : minutesUntilStart > 60
           ? `Chưa đến giờ join. Vui lòng quay lại sau ${minutesUntilStart - 60} phút`
@@ -803,10 +832,10 @@ export class AppointmentController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body()
     dto: {
-      chiefComplaint?: string;    // Lý do khám chính
-      symptoms?: string[];         // Danh sách triệu chứng
-      patientNotes?: string;       // Ghi chú của bệnh nhân
-      doctorNotes?: string;        // Ghi chú của bác sĩ
+      chiefComplaint?: string; // Lý do khám chính
+      symptoms?: string[]; // Danh sách triệu chứng
+      patientNotes?: string; // Ghi chú của bệnh nhân
+      doctorNotes?: string; // Ghi chú của bác sĩ
     },
     @CurrentUser() user: JwtUser,
   ) {

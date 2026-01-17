@@ -27,7 +27,12 @@ export class Hospital {
   @Column({ length: 100, nullable: true })
   email: string;
 
-  @Column({ name: 'facility_type', type: 'enum', enum: FacilityTypeEnum, default: FacilityTypeEnum.HOSPITAL })
+  @Column({
+    name: 'facility_type',
+    type: 'enum',
+    enum: FacilityTypeEnum,
+    default: FacilityTypeEnum.HOSPITAL,
+  })
   facilityType: FacilityTypeEnum;
 
   // Logo

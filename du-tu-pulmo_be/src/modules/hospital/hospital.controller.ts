@@ -43,7 +43,8 @@ export class HospitalController {
   @Get()
   @ApiOperation({
     summary: 'Lấy danh sách bệnh viện/phòng khám',
-    description: 'Hỗ trợ pagination, search theo tên/mã/địa chỉ/tỉnh/phường, filter theo loại cơ sở và tỉnh',
+    description:
+      'Hỗ trợ pagination, search theo tên/mã/địa chỉ/tỉnh/phường, filter theo loại cơ sở và tỉnh',
   })
   @ApiQuery({
     name: 'search',

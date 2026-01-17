@@ -3,9 +3,17 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, Between, In, MoreThan } from 'typeorm';
+import {
+  Repository,
+  DataSource,
+  Between,
+  In,
+  MoreThan,
+  EntityManager,
+} from 'typeorm';
 import { DoctorSchedule } from './entities/doctor-schedule.entity';
 import { Doctor } from './entities/doctor.entity';
 import { TimeSlot } from './entities/time-slot.entity';
@@ -97,6 +105,20 @@ export class DoctorScheduleService {
     return new ResponseCommon(200, 'SUCCESS', schedule);
   }
 
+  async validateDoctorOwnership(
+    scheduleId: string,
+    doctorId: string,
+  ): Promise<DoctorSchedule> {
+    const result = await this.findById(scheduleId);
+    const schedule = result.data!;
+
+    if (schedule.doctorId !== doctorId) {
+      throw new ForbiddenException('Bạn không có quyền thao tác với lịch này');
+    }
+
+    return schedule;
+  }
+
   // ========================================
   // PRIVATE HELPERS
   // ========================================
@@ -162,6 +184,12 @@ export class DoctorScheduleService {
     minimumBookingDays: number,
     maxAdvanceBookingDays: number,
   ): void {
+    if (minimumBookingDays < 0 || maxAdvanceBookingDays < 0) {
+      throw new BadRequestException(
+        'Số ngày phải đặt trước và số ngày xa nhất phải lớn hơn hoặc bằng 0',
+      );
+    }
+
     if (minimumBookingDays >= maxAdvanceBookingDays) {
       throw new BadRequestException(
         `Cấu hình không hợp lệ: Số ngày phải đặt trước (${minimumBookingDays} ngày) ` +
@@ -503,18 +531,32 @@ export class DoctorScheduleService {
       const endDate = new Date(now);
       endDate.setDate(endDate.getDate() + 7);
 
-      for (const schedule of result) {
-        const count = await this.generateSlotsForSchedule(
-          schedule,
-          startDate,
-          endDate,
-        );
-        totalGeneratedSlots += count;
-      }
+      const slotCounts = await Promise.all(
+        result.map((schedule) =>
+          this.generateSlotsForSchedule(schedule, startDate, endDate).catch(
+            (err) => {
+              console.error(
+                `[SlotGeneration] Failed for schedule ${schedule.id}:`,
+                {
+                  scheduleId: schedule.id,
+                  doctorId: schedule.doctorId,
+                  dayOfWeek: schedule.dayOfWeek,
+                  error: err instanceof Error ? err.message : String(err),
+                },
+              );
+              return 0;
+            },
+          ),
+        ),
+      );
+      totalGeneratedSlots = slotCounts.reduce((sum, count) => sum + count, 0);
     } catch (error) {
       console.error(
-        'Failed to auto-generate slots for multiple schedules:',
-        error,
+        '[SlotGeneration] Failed to auto-generate slots for multiple schedules:',
+        {
+          scheduleIds: result.map((s) => s.id),
+          error: error instanceof Error ? error.message : String(error),
+        },
       );
     }
 
@@ -613,7 +655,9 @@ export class DoctorScheduleService {
     let totalWarningAppointments = 0;
 
     for (const item of items) {
-      const { id, ...updateData } = item;
+      const { id, ...rawData } = item;
+      // Cast safely to treat as typed object for linting
+      const updateData = rawData as Partial<UpdateDoctorScheduleDto>;
       const existing = scheduleMap.get(id)!;
 
       try {
@@ -1211,7 +1255,7 @@ export class DoctorScheduleService {
       minimumBookingDays: number;
     }
   > {
-    const baseFee = await this.getEffectiveConsultationFee(schedule);
+    // const baseFee = await this.getEffectiveConsultationFee(schedule);
 
     let finalFee: string | null = null;
     let savedAmount: string | null = null;
@@ -1413,6 +1457,7 @@ export class DoctorScheduleService {
       });
 
       const conflicting = appointments.filter((apt) => {
+        if (!apt.timeSlot?.schedule?.slotDuration) return false;
         const aptEnd = new Date(
           apt.scheduledAt.getTime() +
             apt.timeSlot.schedule.slotDuration * 60 * 1000,
@@ -1609,7 +1654,7 @@ export class DoctorScheduleService {
     }
 
     const specificDate = new Date(existing.specificDate);
-    const dayOfWeek = specificDate.getDay();
+    // const dayOfWeek = specificDate.getDay();
 
     // Khung giờ CŨ
     const [oldStartH, oldStartM] = existing.startTime.split(':').map(Number);
@@ -1990,7 +2035,9 @@ export class DoctorScheduleService {
     // Validate ngày không phải là quá khứ
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    if (specificDate < today) {
+    const specificDateNormalized = new Date(specificDate);
+    specificDateNormalized.setHours(0, 0, 0, 0);
+    if (specificDateNormalized.getTime() < today.getTime()) {
       throw new BadRequestException(
         'Không thể tạo lịch nghỉ cho ngày trong quá khứ',
       );
@@ -2073,8 +2120,8 @@ export class DoctorScheduleService {
         if (apt.timeSlotId) {
           await manager
             .createQueryBuilder()
-            .softDelete()
-            .from(TimeSlot)
+            .update(TimeSlot)
+            .set({ bookedCount: () => 'GREATEST(booked_count - 1, 0)' })
             .where('id = :id', { id: apt.timeSlotId })
             .execute();
         }
@@ -2156,7 +2203,6 @@ export class DoctorScheduleService {
     const timeChanged =
       (dto.startTime && dto.startTime !== existing.startTime) ||
       (dto.endTime && dto.endTime !== existing.endTime);
-    console.log(timeChanged);
     if (timeChanged) {
       return this.updateTimeOffWithSlotSync(id, dto, existing);
     }
@@ -2186,7 +2232,6 @@ export class DoctorScheduleService {
     const specificDate = new Date(existing.specificDate);
     const dayOfWeek = specificDate.getDay();
 
-    // Khung giờ CŨ
     const [oldStartH, oldStartM] = existing.startTime.split(':').map(Number);
     const [oldEndH, oldEndM] = existing.endTime.split(':').map(Number);
 
@@ -2195,14 +2240,9 @@ export class DoctorScheduleService {
 
     const oldScheduleEnd = new Date(specificDate);
     oldScheduleEnd.setHours(oldEndH, oldEndM, 0, 0);
-    console.log(
-      oldScheduleStart.toLocaleString('vi-VN'),
-      oldScheduleEnd.toLocaleString('vi-VN'),
-    );
-    // Khung giờ MỚI
+
     const newStartTime = dto.startTime ?? existing.startTime;
     const newEndTime = dto.endTime ?? existing.endTime;
-    console.log(newStartTime, newEndTime);
     if (newStartTime >= newEndTime) {
       throw new BadRequestException('Giờ bắt đầu phải trước giờ kết thúc');
     }
@@ -2232,73 +2272,140 @@ export class DoctorScheduleService {
             AppointmentStatusEnum.PENDING_PAYMENT,
           ]),
         },
+        relations: [
+          'patient',
+          'patient.user',
+          'doctor',
+          'doctor.user',
+          'timeSlot',
+          'timeSlot.schedule',
+        ],
       });
 
-      const conflicting = appointments.filter((apt) => {
-        const aptEnd = new Date(
-          apt.scheduledAt.getTime() +
-            apt.timeSlot.schedule.slotDuration * 60 * 1000,
-        );
-        return apt.scheduledAt < scheduleEnd && aptEnd > scheduleStart;
-      });
+      // Helper để hủy appointments trong một khoảng thời gian
+      const cancelAppointmentsInRange = async (
+        rangeStart: Date,
+        rangeEnd: Date,
+      ): Promise<Appointment[]> => {
+        const conflicting = appointments.filter((apt) => {
+          // Kiểm tra null/undefined cho timeSlot và schedule
+          if (!apt.timeSlot?.schedule?.slotDuration) return false;
+          const aptEnd = new Date(
+            apt.scheduledAt.getTime() +
+              apt.timeSlot.schedule.slotDuration * 60 * 1000,
+          );
+          return apt.scheduledAt < rangeEnd && aptEnd > rangeStart;
+        });
+
+        for (const apt of conflicting) {
+          apt.status = AppointmentStatusEnum.CANCELLED;
+          apt.cancelledAt = new Date();
+          apt.cancellationReason = 'TIME_OFF';
+          apt.cancelledBy = 'SYSTEM';
+          await manager.save(apt);
+
+          if (apt.timeSlotId) {
+            await manager
+              .createQueryBuilder()
+              .update(TimeSlot)
+              .set({ bookedCount: () => 'GREATEST(booked_count - 1, 0)' })
+              .where('id = :id', { id: apt.timeSlotId })
+              .execute();
+          }
+        }
+
+        return conflicting;
+      };
+
+      const cancelledIds = new Set<string>();
+
+      // Hủy appointments trong khung giờ MỚI (phần overlap với khung cũ)
+      const conflicting = await cancelAppointmentsInRange(
+        scheduleStart,
+        scheduleEnd,
+      );
+      const allCancelledAppointments: Appointment[] = [];
 
       for (const apt of conflicting) {
-        apt.status = AppointmentStatusEnum.CANCELLED;
-        apt.cancelledAt = new Date();
-        apt.cancellationReason = 'TIME_OFF';
-        apt.cancelledBy = 'SYSTEM';
-        await manager.save(apt);
+        if (!cancelledIds.has(apt.id)) {
+          cancelledIds.add(apt.id);
+          allCancelledAppointments.push(apt);
+        }
       }
 
-      // 2. Tắt các time slots trùng lặp trong khung giờ MỚI
-      await manager
-        .createQueryBuilder()
-        .update(TimeSlot)
-        .set({ isAvailable: false })
-        .where('doctorId = :doctorId', { doctorId: existing.doctorId })
-        .andWhere('startTime >= :scheduleStart', { scheduleStart })
-        .andWhere('endTime <= :scheduleEnd', { scheduleEnd })
-        .andWhere('bookedCount = 0')
-        .execute();
+      // 2. Tính toán các khoảng cần DISABLE (phần MỞ RỘNG)
+      const rangesToDisable: Array<{ start: Date; end: Date }> = [];
 
-      // Khôi phục slots trong các khoảng bị THU HẸP
+      // Case 3: Giờ bắt đầu dịch về trước (10:00 -> 09:00)
+      // Cần disable: [newStart, oldStart)
+      if (scheduleStart < oldScheduleStart) {
+        rangesToDisable.push({
+          start: scheduleStart,
+          end: oldScheduleStart,
+        });
+      }
+
+      // Case 4: Giờ kết thúc dịch về sau (11:00 -> 12:00)
+      // Cần disable: [oldEnd, newEnd)
+      if (scheduleEnd > oldScheduleEnd) {
+        rangesToDisable.push({
+          start: oldScheduleEnd,
+          end: scheduleEnd,
+        });
+      }
+
+      // Hủy appointments VÀ disable slots trong các khoảng MỞ RỘNG
+      let disabledSlots = 0;
+      for (const range of rangesToDisable) {
+        // Hủy appointments trong khoảng mở rộng
+        const cancelledInRange = await cancelAppointmentsInRange(
+          range.start,
+          range.end,
+        );
+
+        for (const apt of cancelledInRange) {
+          if (!cancelledIds.has(apt.id)) {
+            cancelledIds.add(apt.id);
+            allCancelledAppointments.push(apt);
+          }
+        }
+
+        // Disable slots trong khoảng mở rộng
+        const disableResult = await manager
+          .createQueryBuilder()
+          .update(TimeSlot)
+          .set({ isAvailable: false })
+          .where('doctorId = :doctorId', { doctorId: existing.doctorId })
+          .andWhere('startTime >= :rangeStart', { rangeStart: range.start })
+          .andWhere('endTime <= :rangeEnd', { rangeEnd: range.end })
+          .andWhere('bookedCount = 0')
+          .execute();
+        disabledSlots += disableResult.affected || 0;
+      }
+
+      // 3. Tính toán các khoảng cần RESTORE (phần THU HẸP)
       let restoredSlots = 0;
-
-      // Tính toán các khoảng KHÔNG CÒN bị chặn
       const rangesToRestore: Array<{ start: Date; end: Date }> = [];
 
-      // Case 1: Giờ bắt đầu dịch về sau (1h -> 1h30)
+      // Case 1: Giờ bắt đầu dịch về sau (09:00 -> 10:00)
       // Khôi phục: [oldStart, newStart)
-      console.log(
-        scheduleStart.toLocaleString('vi-VN'),
-        oldScheduleStart.toLocaleString('vi-VN'),
-      );
       if (scheduleStart > oldScheduleStart) {
         rangesToRestore.push({
           start: oldScheduleStart,
           end: scheduleStart,
         });
-      } else {
-        console.log('case 1 else');
       }
 
-      // Case 2: Giờ kết thúc dịch về trước (2h -> 1h30)
+      // Case 2: Giờ kết thúc dịch về trước (12:00 -> 11:00)
       // Khôi phục: [newEnd, oldEnd)
-      console.log(
-        scheduleEnd.toLocaleString('vi-VN'),
-        oldScheduleEnd.toLocaleString('vi-VN'),
-      );
       if (scheduleEnd < oldScheduleEnd) {
-        console.log('case 2');
         rangesToRestore.push({
           start: scheduleEnd,
           end: oldScheduleEnd,
         });
-      } else {
-        console.log('case 2 else');
       }
 
-      // Khôi phục slots từ lịch REGULAR cho từng khoảng
+      // Khôi phục slots từ lịch REGULAR cho từng khoảng thu hẹp
       for (const range of rangesToRestore) {
         const restored = await this.restoreSlotsFromRegularSchedules(
           manager,
@@ -2311,7 +2418,7 @@ export class DoctorScheduleService {
         restoredSlots += restored;
       }
 
-      // 3. Cập nhật schedule
+      // 4. Cập nhật schedule
       await manager.update(DoctorSchedule, id, {
         startTime: newStartTime,
         endTime: newEndTime,
@@ -2323,14 +2430,25 @@ export class DoctorScheduleService {
 
       return {
         schedule: updated!,
-        cancelledCount: conflicting.length,
+        cancelledAppointments: allCancelledAppointments,
+        disabledSlots,
         restoredSlots,
       };
     });
 
+    // Gửi notification cho bệnh nhân bị hủy lịch
+    if (result.cancelledAppointments.length > 0) {
+      this.notificationService
+        .notifyCancelledAppointments(result.cancelledAppointments, 'TIME_OFF')
+        .catch((err) => console.error('Failed to send notifications:', err));
+    }
+
     let message = `Cập nhật lịch nghỉ thành công.`;
-    if (result.cancelledCount > 0) {
-      message += ` ${result.cancelledCount} lịch hẹn đã bị hủy.`;
+    if (result.cancelledAppointments.length > 0) {
+      message += ` ${result.cancelledAppointments.length} lịch hẹn đã bị hủy.`;
+    }
+    if (result.disabledSlots > 0) {
+      message += ` ${result.disabledSlots} time slots đã được tắt.`;
     }
     if (result.restoredSlots > 0) {
       message += ` ${result.restoredSlots} time slots đã được khôi phục.`;
@@ -2504,7 +2622,7 @@ export class DoctorScheduleService {
    * Sử dụng khi lịch TIME_OFF thu hẹp hoặc bị xóa và xóa lịch FLEXIBLE
    */
   private async restoreSlotsFromRegularSchedules(
-    manager: any,
+    manager: EntityManager,
     doctorId: string,
     dayOfWeek: number,
     specificDate: Date,
@@ -2678,10 +2796,19 @@ export class DoctorScheduleService {
           AppointmentStatusEnum.PENDING_PAYMENT,
         ]),
       },
-      relations: ['patient', 'patient.user'],
+      relations: [
+        'patient',
+        'patient.user',
+        'doctor',
+        'doctor.user',
+        'timeSlot',
+        'timeSlot.schedule',
+      ],
     });
 
     const conflicting = appointments.filter((apt) => {
+      // Kiểm tra null/undefined cho timeSlot và schedule
+      if (!apt.timeSlot?.schedule?.slotDuration) return false;
       const aptEnd = new Date(
         apt.scheduledAt.getTime() +
           apt.timeSlot.schedule.slotDuration * 60 * 1000,
@@ -2705,7 +2832,7 @@ export class DoctorScheduleService {
         appointmentNumber: apt.appointmentNumber,
         patientName: apt.patient?.user?.fullName || 'Unknown',
         scheduledAt: apt.scheduledAt,
-        durationMinutes: apt.timeSlot.schedule.slotDuration,
+        durationMinutes: apt.timeSlot?.schedule?.slotDuration ?? 30,
         status: apt.status,
         appointmentType: apt.appointmentType,
       }));
@@ -2897,6 +3024,7 @@ export class DoctorScheduleService {
 
       if (hasCriticalChanges) {
         const checkDate = new Date(tomorrow);
+        checkDate.setHours(0, 0, 0, 0);
 
         while (checkDate <= actualRangeEnd) {
           const isOldDay = checkDate.getDay() === existing.dayOfWeek;
@@ -3316,13 +3444,13 @@ export class DoctorScheduleService {
     if (schedule.effectiveFrom) {
       const effectiveFrom = new Date(schedule.effectiveFrom);
       effectiveFrom.setHours(0, 0, 0, 0);
-      if (checkDate < effectiveFrom) return false;
+      if (checkDate.getTime() < effectiveFrom.getTime()) return false;
     }
 
     if (schedule.effectiveUntil) {
       const effectiveUntil = new Date(schedule.effectiveUntil);
       effectiveUntil.setHours(23, 59, 59, 999);
-      if (checkDate > effectiveUntil) return false;
+      if (checkDate.getTime() > effectiveUntil.getTime()) return false;
     }
 
     return true;
