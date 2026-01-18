@@ -10,6 +10,10 @@ import logging
 from flask import Blueprint, request, jsonify
 from PIL import Image
 
+import time
+import cv2
+from functools import wraps
+
 from config import Config
 from models.disease_config import VINBIGDATA_LABELS
 from services.image_processor import ImageProcessor
@@ -33,6 +37,31 @@ cloudinary_service = CloudinaryService(
 )
 
 _model = None
+
+# --- UTILITY CLASS FOR PERFORMANCE ---
+class PerformanceTimer:
+    """Utility class to measure execution time of different steps."""
+    def __init__(self):
+        self.metrics = {}
+        self.start_times = {}
+        self.total_start = time.perf_counter()
+
+    def start(self, step_name: str):
+        """Start measuring a step."""
+        self.start_times[step_name] = time.perf_counter()
+
+    def stop(self, step_name: str):
+        """Stop measuring a step and record duration in ms."""
+        if step_name in self.start_times:
+            duration = (time.perf_counter() - self.start_times[step_name]) * 1000
+            self.metrics[f"{step_name}_ms"] = round(duration, 2)
+            del self.start_times[step_name]
+
+    def get_metrics(self):
+        """Get all recorded metrics and total time."""
+        total_duration = (time.perf_counter() - self.total_start) * 1000
+        self.metrics["total_process_ms"] = round(total_duration, 2)
+        return self.metrics
 
 def get_model():
     """Lazy load YOLO model."""
@@ -116,7 +145,7 @@ def run_inference(image_path: str, conf_threshold: float = 0.40, with_visualizat
                     }
                 })
     
-    detections.sort(key=lambda x: x['conf'], reverse=True)
+    # detections.sort(key=lambda x: x['conf'], reverse=True)
     
     if with_visualization:
         return detections, annotated_image
@@ -163,133 +192,125 @@ def predict_xray():
       500:
         description: Server error or Cloudinary not configured
     """
-    logger.info("API predict_xray")
+    
+    timer = PerformanceTimer()
+    logger.info("API predict_xray v1 called")
+    
     try:
+        # 1. Validation & Setup
         if not cloudinary_service.configured:
-            return jsonify({
-                "success": False, 
-                "error": "Cloudinary not configured. Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET in .env"
-            }), 500
+            return jsonify({"success": False, "error": "Cloudinary not configured"}), 500
         
         if 'image' not in request.files:
             return jsonify({"success": False, "error": "No image uploaded"}), 400
         
         file = request.files['image']
-        
         file_id = str(uuid.uuid4())
         filename = f"{file_id}_{file.filename}"
         filepath = os.path.join(Config.UPLOAD_FOLDER, filename)
         file.save(filepath)
         
+        # 2. Pre-processing
+        timer.start('preprocess')
         try:
             processed_filepath = image_processor.process(filepath)
         except Exception as img_err:
-            logger.warning(f"Image processing failed, using original file: {img_err}")
+            logger.warning(f"Processing failed: {img_err}")
             processed_filepath = filepath
+        timer.stop('preprocess')
         
+        # 3. Upload Original (Network Bound)
+        timer.start('upload_original')
         original_upload = cloudinary_service.upload_image(
             processed_filepath,
             public_id=f"{file_id}_original",
             subfolder="originals"
         )
+        timer.stop('upload_original')
+
         if not original_upload.get('success'):
-            return jsonify({
-                "success": False, 
-                "error": f"Failed to upload original image: {original_upload.get('error')}"
-            }), 500
-        
+            return jsonify({"success": False, "error": "Upload failed"}), 500
         original_image_url = original_upload.get('url')
-        logger.info(f"Uploaded original to Cloudinary: {original_image_url}")
         
+        # 4. Model Inference (GPU/CPU Bound)
+        timer.start('inference')
         detections, annotated_img = run_inference(
             processed_filepath, 
             conf_threshold=Config.CONF_THRESHOLD, 
             with_visualization=True
         )
+        timer.stop('inference')
 
+        # 5. Analysis Logic (CPU Bound)
+        timer.start('analysis')
         analyzer = LungDiagnosisAnalyzer(detections)
         result = analyzer.evaluate()
+        timer.stop('analysis')
         
+        # 6. Visualization & Post-processing
+        timer.start('visualization')
         annotated_image_url = None
+        evaluated_image_url = None
         annotated_path = None
+        evaluated_path = None
         
+        # Save & Upload Annotated Image (YOLO Output)
         if annotated_img is not None:
-            import cv2
             pil_img = Image.fromarray(cv2.cvtColor(annotated_img, cv2.COLOR_BGR2RGB))
-            
             annotated_filename = f"{file_id}_annotated.jpg"
             annotated_path = os.path.join(Config.OUTPUT_FOLDER, annotated_filename)
             pil_img.save(annotated_path, format='JPEG', quality=85)
             
-            annotated_upload = cloudinary_service.upload_image(
-                annotated_path,
-                public_id=f"{file_id}_annotated",
-                subfolder="predictions"
-            )
-            if annotated_upload.get('success'):
-                annotated_image_url = annotated_upload.get('url')
-                logger.info(f"Uploaded annotated to Cloudinary: {annotated_image_url}")
-            else:
-                logger.warning(f"Failed to upload annotated image: {annotated_upload.get('error')}")
-        
-        evaluated_image_url = None
-        evaluated_path = None
-        
+            up_res = cloudinary_service.upload_image(annotated_path, public_id=f"{file_id}_annotated", subfolder="predictions")
+            if up_res.get('success'):
+                annotated_image_url = up_res.get('url')
+
+        # Save & Upload Evaluated Image (Risk Colors)
         evaluated_img = analyzer.draw_result_image(processed_filepath)
         if evaluated_img is not None:
-            import cv2
             pil_eval_img = Image.fromarray(cv2.cvtColor(evaluated_img, cv2.COLOR_BGR2RGB))
-            
             evaluated_filename = f"{file_id}_evaluated.jpg"
             evaluated_path = os.path.join(Config.OUTPUT_FOLDER, evaluated_filename)
             pil_eval_img.save(evaluated_path, format='JPEG', quality=85)
             
-            evaluated_upload = cloudinary_service.upload_image(
-                evaluated_path,
-                public_id=f"{file_id}_evaluated",
-                subfolder="evaluated"
-            )
-            if evaluated_upload.get('success'):
-                evaluated_image_url = evaluated_upload.get('url')
-                logger.info(f"Uploaded evaluated to Cloudinary: {evaluated_image_url}")
-            else:
-                logger.warning(f"Failed to upload evaluated image: {evaluated_upload.get('error')}")
+            up_res = cloudinary_service.upload_image(evaluated_path, public_id=f"{file_id}_evaluated", subfolder="evaluated")
+            if up_res.get('success'):
+                evaluated_image_url = up_res.get('url')
+        timer.stop('visualization')
         
-        files_to_delete = [filepath]
+        # 7. Cleanup
+        timer.start('cleanup')
+        files_to_delete = [filepath, processed_filepath, annotated_path, evaluated_path]
+        for f in files_to_delete:
+            if f and os.path.exists(f):
+                try:
+                    os.remove(f)
+                except: pass
+        timer.stop('cleanup')
         
-        if processed_filepath != filepath:
-            files_to_delete.append(processed_filepath)
-        
-        if annotated_path:
-            files_to_delete.append(annotated_path)
-        
-        if evaluated_path:
-            files_to_delete.append(evaluated_path)
-        
-        for file_to_delete in files_to_delete:
-            try:
-                if os.path.exists(file_to_delete):
-                    os.remove(file_to_delete)
-                    logger.info(f"Deleted local file: {file_to_delete}")
-            except Exception as del_err:
-                logger.warning(f"Failed to delete local file {file_to_delete}: {del_err}")
-        
+        # Get final metrics
+        metrics = timer.get_metrics()
+        logger.info(f"Processed {file_id} in {metrics['total_process_ms']}ms")
+
         return jsonify({
             "success": True,
             "file_id": file_id,
             "data": result,
-            "original_image_url": original_image_url,
-            "annotated_image_url": annotated_image_url,
-            "evaluated_image_url": evaluated_image_url
+            "images": {
+                "original": original_image_url,
+                "annotated": annotated_image_url,
+                "evaluated": evaluated_image_url
+            },
+            "performance": metrics
         })
         
     except Exception as e:
-        logger.error(f"Prediction error: {e}")
+        logger.error(f"Prediction error: {e}", exc_info=True)
         return jsonify({"success": False, "error": str(e)}), 500
 
 
 @predict_bp.route('/api/v2/predict', methods=['POST'])
-# @require_api_key
+@require_api_key
 def predict_xray_v2():
     """
     Predict from Image URL
