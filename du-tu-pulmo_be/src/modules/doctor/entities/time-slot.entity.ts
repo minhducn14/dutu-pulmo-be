@@ -28,6 +28,9 @@ import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.e
 @Index('idx_timeslots_available', ['isAvailable', 'startTime'], {
   where: '"deleted_at" IS NULL',
 })
+@Index('idx_timeslots_schedule_version', ['scheduleId', 'scheduleVersion'], {
+  where: '"deleted_at" IS NULL',
+})
 @Check('chk_timeslot_time_range', '"start_time" < "end_time"')
 @Check('chk_timeslot_capacity', '"capacity" > 0')
 @Check(
@@ -57,6 +60,13 @@ export class TimeSlot {
 
   @Column({ name: 'schedule_id', type: 'uuid', nullable: true })
   scheduleId: string | null;
+
+  /**
+   * Version của schedule tại thời điểm tạo slot.
+   * Dùng để track appointments theo từng version của lịch làm việc.
+   */
+  @Column({ name: 'schedule_version', type: 'integer', nullable: true })
+  scheduleVersion: number | null;
 
   @Column({
     name: 'allowed_appointment_types',

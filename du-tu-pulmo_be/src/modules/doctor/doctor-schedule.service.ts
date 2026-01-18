@@ -6,14 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import {
-  Repository,
-  DataSource,
-  Between,
-  In,
-  MoreThan,
-  EntityManager,
-} from 'typeorm';
+import { Repository, DataSource, Between, In, MoreThan } from 'typeorm';
 import { DoctorSchedule } from './entities/doctor-schedule.entity';
 import { Doctor } from './entities/doctor.entity';
 import { TimeSlot } from './entities/time-slot.entity';
@@ -113,10 +106,76 @@ export class DoctorScheduleService {
     const schedule = result.data!;
 
     if (schedule.doctorId !== doctorId) {
-      throw new ForbiddenException('Bạn không có quyền thao tác với lịch này');
+      throw new ForbiddenException(
+        'Bạn không có quyền thao tác với lịch này',
+      );
     }
 
     return schedule;
+  }
+
+  /**
+   * Query appointments theo schedule version
+   * Hữu ích cho reporting và audit - tìm appointments được đặt từ version cụ thể của schedule
+   */
+  async getAppointmentsByScheduleVersion(
+    scheduleId: string,
+    version: number,
+  ): Promise<Appointment[]> {
+    return this.appointmentRepository
+      .createQueryBuilder('apt')
+      .innerJoin('apt.timeSlot', 'slot')
+      .leftJoinAndSelect('apt.patient', 'patient')
+      .leftJoinAndSelect('patient.user', 'user')
+      .where('slot.scheduleId = :scheduleId', { scheduleId })
+      .andWhere('slot.scheduleVersion = :version', { version })
+      .andWhere('apt.status IN (:...statuses)', {
+        statuses: [
+          AppointmentStatusEnum.CONFIRMED,
+          AppointmentStatusEnum.PENDING_PAYMENT,
+          AppointmentStatusEnum.PENDING,
+        ],
+      })
+      .orderBy('apt.scheduledAt', 'ASC')
+      .getMany();
+  }
+
+  /**
+   * Get all schedule versions with appointment counts
+   * Useful for understanding schedule history impact
+   */
+  async getScheduleVersionHistory(scheduleId: string): Promise<{
+    version: number;
+    appointmentCount: number;
+    activeCount: number;
+    cancelledCount: number;
+  }[]> {
+    const result = await this.dataSource.manager
+      .createQueryBuilder()
+      .select('slot.scheduleVersion', 'version')
+      .addSelect('COUNT(apt.id)', 'appointmentCount')
+      .addSelect(
+        `SUM(CASE WHEN apt.status NOT IN ('CANCELLED') THEN 1 ELSE 0 END)`,
+        'activeCount'
+      )
+      .addSelect(
+        `SUM(CASE WHEN apt.status = 'CANCELLED' THEN 1 ELSE 0 END)`,
+        'cancelledCount'
+      )
+      .from(TimeSlot, 'slot')
+      .leftJoin(Appointment, 'apt', 'apt.timeSlotId = slot.id')
+      .where('slot.scheduleId = :scheduleId', { scheduleId })
+      .andWhere('slot.scheduleVersion IS NOT NULL')
+      .groupBy('slot.scheduleVersion')
+      .orderBy('slot.scheduleVersion', 'DESC')
+      .getRawMany();
+
+    return result.map(r => ({
+      version: parseInt(r.version),
+      appointmentCount: parseInt(r.appointmentCount) || 0,
+      activeCount: parseInt(r.activeCount) || 0,
+      cancelledCount: parseInt(r.cancelledCount) || 0,
+    }));
   }
 
   // ========================================
@@ -541,7 +600,7 @@ export class DoctorScheduleService {
                   scheduleId: schedule.id,
                   doctorId: schedule.doctorId,
                   dayOfWeek: schedule.dayOfWeek,
-                  error: err instanceof Error ? err.message : String(err),
+                  error: err.message,
                 },
               );
               return 0;
@@ -655,9 +714,7 @@ export class DoctorScheduleService {
     let totalWarningAppointments = 0;
 
     for (const item of items) {
-      const { id, ...rawData } = item;
-      // Cast safely to treat as typed object for linting
-      const updateData = rawData as Partial<UpdateDoctorScheduleDto>;
+      const { id, ...updateData } = item;
       const existing = scheduleMap.get(id)!;
 
       try {
@@ -1087,11 +1144,11 @@ export class DoctorScheduleService {
       }
 
       // ========================================
-      // BƯỚC 2: XÓA TẤT CẢ TIMESLOTS TƯƠNG LAI
+      // BƯỚC 2: SOFT DELETE TẤT CẢ TIMESLOTS TƯƠNG LAI (để giữ history)
       // ========================================
       const deleteResult = await manager
         .createQueryBuilder()
-        .delete()
+        .softDelete()
         .from(TimeSlot)
         .where('scheduleId = :scheduleId', { scheduleId: id })
         .andWhere('startTime >= :now', { now })
@@ -1255,7 +1312,7 @@ export class DoctorScheduleService {
       minimumBookingDays: number;
     }
   > {
-    // const baseFee = await this.getEffectiveConsultationFee(schedule);
+    const baseFee = await this.getEffectiveConsultationFee(schedule);
 
     let finalFee: string | null = null;
     let savedAmount: string | null = null;
@@ -1490,8 +1547,10 @@ export class DoctorScheduleService {
         .delete()
         .from(TimeSlot)
         .where('doctorId = :doctorId', { doctorId })
-        .andWhere('startTime >= :scheduleStart', { scheduleStart })
-        .andWhere('endTime <= :scheduleEnd', { scheduleEnd })
+        .andWhere('startTime < :scheduleEnd AND endTime > :scheduleStart', {
+          scheduleStart,
+          scheduleEnd,
+        })
         .andWhere('bookedCount = 0')
         .execute();
 
@@ -1548,6 +1607,7 @@ export class DoctorScheduleService {
           const slot = manager.create(TimeSlot, {
             doctorId: savedSchedule.doctorId,
             scheduleId: savedSchedule.id,
+            scheduleVersion: savedSchedule.version,
             startTime: new Date(currentStart),
             endTime: new Date(slotEnd),
             capacity: dto.slotCapacity,
@@ -1654,7 +1714,7 @@ export class DoctorScheduleService {
     }
 
     const specificDate = new Date(existing.specificDate);
-    // const dayOfWeek = specificDate.getDay();
+    const dayOfWeek = specificDate.getDay();
 
     // Khung giờ CŨ
     const [oldStartH, oldStartM] = existing.startTime.split(':').map(Number);
@@ -1750,8 +1810,10 @@ export class DoctorScheduleService {
         .delete()
         .from(TimeSlot)
         .where('doctorId = :doctorId', { doctorId: existing.doctorId })
-        .andWhere('startTime >= :scheduleStart', { scheduleStart })
-        .andWhere('endTime <= :scheduleEnd', { scheduleEnd })
+        .andWhere('startTime < :scheduleEnd AND endTime > :scheduleStart', {
+          scheduleStart,
+          scheduleEnd,
+        })
         .andWhere('bookedCount = 0')
         .execute();
 
@@ -1773,7 +1835,12 @@ export class DoctorScheduleService {
         isAvailable: dto.isAvailable ?? existing.isAvailable,
       });
 
-      // 5. Kiểm tra các slots còn lại trước khi tạo mới
+      // 5. LẤY SCHEDULE VỚI VERSION MỚI (đã được TypeORM tự động tăng)
+      const updatedSchedule = await manager.findOne(DoctorSchedule, { 
+        where: { id } 
+      });
+
+      // 6. Kiểm tra các slots còn lại trước khi tạo mới
       const existingSlots = await manager.find(TimeSlot, {
         where: {
           doctorId: existing.doctorId,
@@ -1781,7 +1848,7 @@ export class DoctorScheduleService {
         },
       });
 
-      // 6. Tạo time slots mới cho khung giờ MỚI
+      // 7. Tạo time slots mới với VERSION MỚI
       const slotDurationMs = slotDuration * 60 * 1000;
       let currentStart = new Date(scheduleStart);
       const slotEntities: TimeSlot[] = [];
@@ -1800,6 +1867,7 @@ export class DoctorScheduleService {
           const slot = manager.create(TimeSlot, {
             doctorId: existing.doctorId,
             scheduleId: id,
+            scheduleVersion: updatedSchedule!.version,
             startTime: new Date(currentStart),
             endTime: new Date(slotEnd),
             capacity: slotCapacity,
@@ -2120,8 +2188,8 @@ export class DoctorScheduleService {
         if (apt.timeSlotId) {
           await manager
             .createQueryBuilder()
-            .update(TimeSlot)
-            .set({ bookedCount: () => 'GREATEST(booked_count - 1, 0)' })
+            .softDelete()
+            .from(TimeSlot)
             .where('id = :id', { id: apt.timeSlotId })
             .execute();
         }
@@ -2133,8 +2201,10 @@ export class DoctorScheduleService {
         .update(TimeSlot)
         .set({ isAvailable: false })
         .where('doctorId = :doctorId', { doctorId })
-        .andWhere('startTime >= :scheduleStart', { scheduleStart })
-        .andWhere('endTime <= :scheduleEnd', { scheduleEnd })
+        .andWhere('startTime < :scheduleEnd AND endTime > :scheduleStart', {
+          scheduleStart,
+          scheduleEnd,
+        })
         .andWhere('bookedCount = 0')
         .execute();
 
@@ -2307,8 +2377,8 @@ export class DoctorScheduleService {
           if (apt.timeSlotId) {
             await manager
               .createQueryBuilder()
-              .update(TimeSlot)
-              .set({ bookedCount: () => 'GREATEST(booked_count - 1, 0)' })
+              .softDelete()
+              .from(TimeSlot)
               .where('id = :id', { id: apt.timeSlotId })
               .execute();
           }
@@ -2320,12 +2390,9 @@ export class DoctorScheduleService {
       const cancelledIds = new Set<string>();
 
       // Hủy appointments trong khung giờ MỚI (phần overlap với khung cũ)
-      const conflicting = await cancelAppointmentsInRange(
-        scheduleStart,
-        scheduleEnd,
-      );
+      const conflicting = await cancelAppointmentsInRange(scheduleStart, scheduleEnd);
       const allCancelledAppointments: Appointment[] = [];
-
+      
       for (const apt of conflicting) {
         if (!cancelledIds.has(apt.id)) {
           cancelledIds.add(apt.id);
@@ -2358,11 +2425,8 @@ export class DoctorScheduleService {
       let disabledSlots = 0;
       for (const range of rangesToDisable) {
         // Hủy appointments trong khoảng mở rộng
-        const cancelledInRange = await cancelAppointmentsInRange(
-          range.start,
-          range.end,
-        );
-
+        const cancelledInRange = await cancelAppointmentsInRange(range.start, range.end);
+        
         for (const apt of cancelledInRange) {
           if (!cancelledIds.has(apt.id)) {
             cancelledIds.add(apt.id);
@@ -2376,8 +2440,10 @@ export class DoctorScheduleService {
           .update(TimeSlot)
           .set({ isAvailable: false })
           .where('doctorId = :doctorId', { doctorId: existing.doctorId })
-          .andWhere('startTime >= :rangeStart', { rangeStart: range.start })
-          .andWhere('endTime <= :rangeEnd', { rangeEnd: range.end })
+          .andWhere('startTime < :scheduleEnd AND endTime > :scheduleStart', {
+            scheduleStart,
+            scheduleEnd,
+          })
           .andWhere('bookedCount = 0')
           .execute();
         disabledSlots += disableResult.affected || 0;
@@ -2622,7 +2688,7 @@ export class DoctorScheduleService {
    * Sử dụng khi lịch TIME_OFF thu hẹp hoặc bị xóa và xóa lịch FLEXIBLE
    */
   private async restoreSlotsFromRegularSchedules(
-    manager: EntityManager,
+    manager: any,
     doctorId: string,
     dayOfWeek: number,
     specificDate: Date,
@@ -2721,6 +2787,7 @@ export class DoctorScheduleService {
           const slot = manager.create(TimeSlot, {
             doctorId,
             scheduleId: regularSchedule.id,
+            scheduleVersion: regularSchedule.version,
             startTime: new Date(currentStart),
             endTime: new Date(slotEnd),
             capacity: regularSchedule.slotCapacity,
@@ -2797,13 +2864,13 @@ export class DoctorScheduleService {
         ]),
       },
       relations: [
-        'patient',
-        'patient.user',
-        'doctor',
-        'doctor.user',
-        'timeSlot',
-        'timeSlot.schedule',
-      ],
+          'patient',
+          'patient.user',
+          'doctor',
+          'doctor.user',
+          'timeSlot',
+          'timeSlot.schedule',
+        ],
     });
 
     const conflicting = appointments.filter((apt) => {
@@ -3186,6 +3253,11 @@ export class DoctorScheduleService {
             : undefined,
       });
 
+      // ✅ LẤY SCHEDULE VỚI VERSION MỚI NGAY SAU UPDATE
+      const updatedSchedule = await manager.findOne(DoctorSchedule, { 
+        where: { id } 
+      });
+
       // ========================================
       // BƯỚC D: TẠO TIME SLOTS MỚI TỪ NGÀY MAI
       // ========================================
@@ -3255,6 +3327,7 @@ export class DoctorScheduleService {
               const slot = manager.create(TimeSlot, {
                 doctorId: existing.doctorId,
                 scheduleId: id,
+                scheduleVersion: updatedSchedule!.version,
                 startTime: new Date(currentStart),
                 endTime: new Date(slotEnd),
                 capacity: newSlotCapacity,
@@ -3406,6 +3479,7 @@ export class DoctorScheduleService {
             const slot = this.dataSource.manager.create(TimeSlot, {
               doctorId: schedule.doctorId,
               scheduleId: schedule.id,
+              scheduleVersion: schedule.version,
               startTime: new Date(slotStart),
               endTime: new Date(slotEnd),
               capacity: schedule.slotCapacity,

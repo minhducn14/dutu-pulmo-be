@@ -227,8 +227,17 @@ export class TimeSlotService {
     if (dto.scheduleId) {
       doctorSchedule = await this.scheduleRepository.findOne({
         where: { id: dto.scheduleId },
-        select: ['id', 'minimumBookingTime', 'maxAdvanceBookingDays'],
+        select: ['id', 'version', 'minimumBookingTime', 'maxAdvanceBookingDays'],
       });
+
+      // Validate version match if provided
+      if (dto.scheduleVersion !== undefined && doctorSchedule) {
+        if (dto.scheduleVersion !== doctorSchedule.version) {
+          throw new BadRequestException(
+            `Schedule version không khớp. Hiện tại: ${doctorSchedule.version}, Nhận được: ${dto.scheduleVersion}`
+          );
+        }
+      }
     }
 
     this.validateSlot(dto, doctorSchedule ?? undefined);
@@ -253,6 +262,8 @@ export class TimeSlotService {
       capacity: dto.capacity ?? 1,
       isAvailable: dto.isAvailable ?? true,
       scheduleId: dto.scheduleId ?? null,
+      // Use current schedule version if available
+      scheduleVersion: doctorSchedule?.version ?? null,
     });
 
     const saved = await this.timeSlotRepository.save(slot);
@@ -341,6 +352,7 @@ export class TimeSlotService {
           isAvailable: dto.isAvailable ?? true,
           bookedCount: 0,
           scheduleId: dto.scheduleId ?? null,
+          scheduleVersion: dto.scheduleVersion ?? null,
         }),
       );
 
@@ -565,14 +577,16 @@ export class TimeSlotService {
       throw new ConflictException('Không thể xóa slot đã có booking');
     }
 
-    await this.timeSlotRepository.remove(slot);
+    // Soft delete để giữ lại history
+    await this.timeSlotRepository.softRemove(slot);
     return new ResponseCommon(200, 'Xóa time slot thành công', null);
   }
 
   async deleteByDoctorId(doctorId: string): Promise<ResponseCommon<null>> {
+    // Soft delete để giữ lại history
     await this.timeSlotRepository
       .createQueryBuilder()
-      .delete()
+      .softDelete()
       .where('doctorId = :doctorId', { doctorId })
       .andWhere('bookedCount = 0')
       .execute();

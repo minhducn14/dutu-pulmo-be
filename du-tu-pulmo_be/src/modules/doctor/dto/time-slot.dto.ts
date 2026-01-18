@@ -64,6 +64,11 @@ export class CreateTimeSlotDto {
   @IsOptional()
   @IsUUID()
   scheduleId?: string;
+
+  @ApiPropertyOptional({ description: 'Version của schedule tại thời điểm tạo slot' })
+  @IsOptional()
+  @IsInt()
+  scheduleVersion?: number;
 }
 
 /**

@@ -144,7 +144,7 @@ export class DoctorController {
         specialty: {
           type: 'string',
           example: SpecialtyEnum.PULMONOLOGY,
-          enum: Object.values(SpecialtyEnum),
+          enum: Object.values(SpecialtyEnum ),
         },
         defaultConsultationFee: { type: 'number', example: 100000 },
       },
