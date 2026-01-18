@@ -18,10 +18,8 @@ from services.cloudinary_service import CloudinaryService
 
 logger = logging.getLogger(__name__)
 
-# Create Blueprint
 predict_bp = Blueprint('predict', __name__)
 
-# Initialize services
 image_processor = ImageProcessor(
     target_size=Config.IMAGE_TARGET_SIZE,
     apply_hist_eq=Config.APPLY_HISTOGRAM_EQ
@@ -34,9 +32,7 @@ cloudinary_service = CloudinaryService(
     folder=Config.CLOUDINARY_FOLDER
 )
 
-# YOLO Model (lazy loaded)
 _model = None
-
 
 def get_model():
     """Lazy load YOLO model."""
@@ -56,6 +52,21 @@ def get_model():
         except Exception as e:
             logger.error(f"Failed to load model: {e}")
     return _model
+
+
+def require_api_key(f):
+    """Decorator to validate API key from NestJS."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        api_key = request.headers.get('X-API-Key')
+        expected_key = os.getenv('INTERNAL_API_KEY', 'dev-key')
+        
+        if api_key != expected_key:
+            logger.warning(f"Invalid API key attempt: {api_key}")
+            abort(401, 'Unauthorized: Invalid API key')
+        
+        return f(*args, **kwargs)
+    return decorated_function
 
 
 def run_inference(image_path: str, conf_threshold: float = 0.40, with_visualization: bool = False):
@@ -105,7 +116,7 @@ def run_inference(image_path: str, conf_threshold: float = 0.40, with_visualizat
                     }
                 })
     
-    # detections.sort(key=lambda x: x['conf'], reverse=True)
+    detections.sort(key=lambda x: x['conf'], reverse=True)
     
     if with_visualization:
         return detections, annotated_image
@@ -165,20 +176,17 @@ def predict_xray():
         
         file = request.files['image']
         
-        # Save uploaded file locally (temporary)
         file_id = str(uuid.uuid4())
         filename = f"{file_id}_{file.filename}"
         filepath = os.path.join(Config.UPLOAD_FOLDER, filename)
         file.save(filepath)
         
-        # Process image (handles DICOM, JPEG, PNG automatically)
         try:
             processed_filepath = image_processor.process(filepath)
         except Exception as img_err:
             logger.warning(f"Image processing failed, using original file: {img_err}")
             processed_filepath = filepath
         
-        # Upload original/processed image to Cloudinary
         original_upload = cloudinary_service.upload_image(
             processed_filepath,
             public_id=f"{file_id}_original",
@@ -193,30 +201,26 @@ def predict_xray():
         original_image_url = original_upload.get('url')
         logger.info(f"Uploaded original to Cloudinary: {original_image_url}")
         
-        # Run inference with visualization
         detections, annotated_img = run_inference(
             processed_filepath, 
             conf_threshold=Config.CONF_THRESHOLD, 
             with_visualization=True
         )
-        # Analyze using diagnostic rules
+
         analyzer = LungDiagnosisAnalyzer(detections)
         result = analyzer.evaluate()
         
-        # Process and upload annotated image (raw YOLO output)
-        # annotated_image_url = None
+        annotated_image_url = None
         annotated_path = None
         
         if annotated_img is not None:
             import cv2
             pil_img = Image.fromarray(cv2.cvtColor(annotated_img, cv2.COLOR_BGR2RGB))
             
-            # Save annotated image locally (temporary)
             annotated_filename = f"{file_id}_annotated.jpg"
             annotated_path = os.path.join(Config.OUTPUT_FOLDER, annotated_filename)
             pil_img.save(annotated_path, format='JPEG', quality=85)
             
-            # Upload annotated image to Cloudinary
             annotated_upload = cloudinary_service.upload_image(
                 annotated_path,
                 public_id=f"{file_id}_annotated",
@@ -228,7 +232,6 @@ def predict_xray():
             else:
                 logger.warning(f"Failed to upload annotated image: {annotated_upload.get('error')}")
         
-        # Generate evaluated result image (with risk-level colored bboxes)
         evaluated_image_url = None
         evaluated_path = None
         
@@ -237,12 +240,10 @@ def predict_xray():
             import cv2
             pil_eval_img = Image.fromarray(cv2.cvtColor(evaluated_img, cv2.COLOR_BGR2RGB))
             
-            # Save evaluated image locally (temporary)
             evaluated_filename = f"{file_id}_evaluated.jpg"
             evaluated_path = os.path.join(Config.OUTPUT_FOLDER, evaluated_filename)
             pil_eval_img.save(evaluated_path, format='JPEG', quality=85)
             
-            # Upload evaluated image to Cloudinary
             evaluated_upload = cloudinary_service.upload_image(
                 evaluated_path,
                 public_id=f"{file_id}_evaluated",
@@ -254,18 +255,14 @@ def predict_xray():
             else:
                 logger.warning(f"Failed to upload evaluated image: {evaluated_upload.get('error')}")
         
-        # Cleanup: Delete local files after successful upload
-        files_to_delete = [filepath]  # Original uploaded file
+        files_to_delete = [filepath]
         
-        # Add processed file if different from original
         if processed_filepath != filepath:
             files_to_delete.append(processed_filepath)
         
-        # Add annotated file if exists
         if annotated_path:
             files_to_delete.append(annotated_path)
         
-        # Add evaluated file if exists
         if evaluated_path:
             files_to_delete.append(evaluated_path)
         
@@ -290,3 +287,210 @@ def predict_xray():
         logger.error(f"Prediction error: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
+
+@predict_bp.route('/api/v2/predict', methods=['POST'])
+# @require_api_key
+def predict_xray_v2():
+    """
+    Predict from Image URL
+    Accept image URL from NestJS (already on Cloudinary)
+    Return diagnosis results only (no image upload)
+    ---
+    tags:
+      - Diagnosis
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - image_url
+          properties:
+            image_url:
+              type: string
+              description: URL of image on Cloudinary
+              example: https://res.cloudinary.com/xxx/image/upload/v1/medical_images/original/xxx.jpg
+    responses:
+      200:
+        description: Diagnosis result
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+            file_id:
+              type: string
+            data:
+              type: object
+            original_image_url:
+              type: string
+            annotated_image_url:
+              type: string
+              description: Always null (images managed by NestJS)
+            evaluated_image_url:
+              type: string
+              description: Always null (images managed by NestJS)
+      400:
+        description: Missing image_url
+      401:
+        description: Unauthorized (invalid API key)
+      500:
+        description: Server error
+    """
+    correlation_id = request.headers.get('X-Correlation-Id', 'unknown')
+    logger.info(f"[{correlation_id}] API predict_xray called")
+    
+    try:
+        data = request.get_json()
+        if not data or 'image_url' not in data:
+            return jsonify({
+                "success": False, 
+                "error": "Missing image_url in request body"
+            }), 400
+        
+        image_url = data['image_url']
+        logger.info(f"[{correlation_id}] Processing image from: {image_url}")
+        
+        file_id = str(uuid.uuid4())
+        filename = f"{file_id}_temp.jpg"
+        filepath = os.path.join(Config.UPLOAD_FOLDER, filename)
+        
+        try:
+            response = requests.get(image_url, timeout=30)
+            response.raise_for_status()
+            
+            with open(filepath, 'wb') as f:
+                f.write(response.content)
+            
+            logger.info(f"[{correlation_id}] Downloaded image: {len(response.content)} bytes")
+            
+        except Exception as download_err:
+            logger.error(f"[{correlation_id}] Failed to download image: {download_err}")
+            return jsonify({
+                "success": False,
+                "error": f"Failed to download image: {str(download_err)}"
+            }), 400
+        
+        try:
+            processed_filepath = image_processor.process(filepath)
+        except Exception as img_err:
+            logger.warning(f"[{correlation_id}] Image processing failed, using original: {img_err}")
+            processed_filepath = filepath
+        
+        detections = run_inference(
+            processed_filepath, 
+            conf_threshold=Config.CONF_THRESHOLD, 
+            with_visualization=False
+        )
+        
+        analyzer = LungDiagnosisAnalyzer(detections)
+        result = analyzer.evaluate()
+        
+        annotated_path = None
+        
+        if annotated_img is not None:
+            import cv2
+            pil_img = Image.fromarray(cv2.cvtColor(annotated_img, cv2.COLOR_BGR2RGB))
+            
+            annotated_filename = f"{file_id}_annotated.jpg"
+            annotated_path = os.path.join(Config.OUTPUT_FOLDER, annotated_filename)
+            pil_img.save(annotated_path, format='JPEG', quality=85)
+            
+            annotated_upload = cloudinary_service.upload_image(
+                annotated_path,
+                public_id=f"{file_id}_annotated",
+                subfolder="predictions"
+            )
+            if annotated_upload.get('success'):
+                annotated_image_url = annotated_upload.get('url')
+                logger.info(f"Uploaded annotated to Cloudinary: {annotated_image_url}")
+            else:
+                logger.warning(f"Failed to upload annotated image: {annotated_upload.get('error')}")
+        
+        evaluated_image_url = None
+        evaluated_path = None
+        
+        evaluated_img = analyzer.draw_result_image(processed_filepath)
+        if evaluated_img is not None:
+            import cv2
+            pil_eval_img = Image.fromarray(cv2.cvtColor(evaluated_img, cv2.COLOR_BGR2RGB))
+            
+            evaluated_filename = f"{file_id}_evaluated.jpg"
+            evaluated_path = os.path.join(Config.OUTPUT_FOLDER, evaluated_filename)
+            pil_eval_img.save(evaluated_path, format='JPEG', quality=85)
+            
+            evaluated_upload = cloudinary_service.upload_image(
+                evaluated_path,
+                public_id=f"{file_id}_evaluated",
+                subfolder="evaluated"
+            )
+            if evaluated_upload.get('success'):
+                evaluated_image_url = evaluated_upload.get('url')
+                logger.info(f"Uploaded evaluated to Cloudinary: {evaluated_image_url}")
+            else:
+                logger.warning(f"Failed to upload evaluated image: {evaluated_upload.get('error')}")
+        
+        files_to_delete = [filepath]  
+        
+        if processed_filepath != filepath:
+            files_to_delete.append(processed_filepath)
+        
+        if annotated_path:
+            files_to_delete.append(annotated_path)
+        
+        if evaluated_path:
+            files_to_delete.append(evaluated_path)
+        
+        for file_to_delete in files_to_delete:
+            try:
+                if os.path.exists(file_to_delete):
+                    os.remove(file_to_delete)
+                    logger.info(f"Deleted local file: {file_to_delete}")
+            except Exception as del_err:
+                logger.warning(f"Failed to delete local file {file_to_delete}: {del_err}")
+        
+        logger.info(f"[{correlation_id}] Analysis complete: {result['diagnosis_status']}")
+        
+        return jsonify({
+            "success": True,
+            "file_id": file_id,
+            "data": result,
+            "original_image_url": image_url,
+            "annotated_image_url": None,
+            "evaluated_image_url": None
+        })
+        
+    except Exception as e:
+        logger.error(f"[{correlation_id}] Prediction error: {e}", exc_info=True)
+        return jsonify({
+            "success": False, 
+            "error": str(e)
+        }), 500
+
+@predict_bp.route('/health', methods=['GET'])
+def health_check():
+    """
+    Health check endpoint for monitoring
+    ---
+    tags:
+      - Health
+    responses:
+      200:
+        description: Service is healthy
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+              example: ok
+            model_loaded:
+              type: boolean
+    """
+    model = get_model()
+    return jsonify({
+        "status": "ok",
+        "model_loaded": model is not None
+    })

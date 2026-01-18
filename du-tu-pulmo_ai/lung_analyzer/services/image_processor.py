@@ -8,7 +8,7 @@ import cv2
 
 logger = logging.getLogger(__name__)
 
-# DICOM processing imports (optional)
+
 try:
     import pydicom
     from pydicom.pixel_data_handlers.util import apply_voi_lut
@@ -56,18 +56,18 @@ class ImageProcessor:
         
         dicom = pydicom.read_file(path)
         
-        # Apply VOI LUT if available (transforms raw data to human-friendly view)
+
         if voi_lut:
             data = apply_voi_lut(dicom.pixel_array, dicom)
         else:
             data = dicom.pixel_array
         
-        # Fix inverted monochrome images (MONOCHROME1)
+
         if fix_monochrome and hasattr(dicom, 'PhotometricInterpretation'):
             if dicom.PhotometricInterpretation == "MONOCHROME1":
                 data = np.amax(data) - data
         
-        # Normalize to 0-255 range
+
         data = data - np.min(data)
         if np.max(data) > 0:
             data = data / np.max(data)
@@ -87,7 +87,7 @@ class ImageProcessor:
             Equalized image array (uint8)
         """
         if not DICOM_SUPPORT:
-            # Fallback to OpenCV CLAHE
+
             clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
             return clahe.apply(image_array)
         
@@ -107,11 +107,11 @@ class ImageProcessor:
         """
         file_ext = os.path.splitext(filepath)[1].lower()
         
-        # Check by extension
+
         if file_ext in ['.dcm', '.dicom']:
             return True
         
-        # Check by header if extension is ambiguous
+
         if file_ext == '' or file_ext not in ['.jpg', '.jpeg', '.png', '.bmp', '.gif']:
             try:
                 with open(filepath, 'rb') as f:
@@ -148,42 +148,38 @@ class ImageProcessor:
             
             logger.info(f"Processing DICOM file: {filepath}")
             
-            # Read and process DICOM
+
             image_array = self.read_dicom_to_array(filepath)
             
-            # Apply histogram equalization for better contrast
+
             if apply_hist_eq:
                 image_array = self.apply_histogram_equalization(image_array)
             
-            # Convert to RGB (YOLO expects 3 channels)
+
             if len(image_array.shape) == 2:
                 image_array = cv2.cvtColor(image_array, cv2.COLOR_GRAY2RGB)
             
-            # Resize if needed
+
             if target_size:
                 image_array = cv2.resize(image_array, (target_size, target_size), 
                                         interpolation=cv2.INTER_LANCZOS4)
             
-            # Save as JPEG for YOLO
+
             processed_path = filepath.rsplit('.', 1)[0] + '_processed.jpg'
             cv2.imwrite(processed_path, cv2.cvtColor(image_array, cv2.COLOR_RGB2BGR))
             logger.info(f"DICOM converted to: {processed_path}")
             return processed_path
         
         else:
-            # Regular image file (JPEG, PNG, etc.)
             logger.info(f"Processing regular image: {filepath}")
             
-            # Load image
             image = cv2.imread(filepath)
             if image is None:
                 raise ValueError(f"Could not read image: {filepath}")
             
-            # Resize if needed
             if target_size:
                 image = cv2.resize(image, (target_size, target_size), 
                                   interpolation=cv2.INTER_LANCZOS4)
-                # Save resized image
                 processed_path = filepath.rsplit('.', 1)[0] + '_processed.jpg'
                 cv2.imwrite(processed_path, image)
                 return processed_path
@@ -191,5 +187,5 @@ class ImageProcessor:
             return filepath
 
 
-# Default instance
+
 image_processor = ImageProcessor()

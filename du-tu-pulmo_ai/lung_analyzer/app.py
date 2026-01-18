@@ -13,24 +13,18 @@ from routes.predict import predict_bp
 from routes.rules import rules_bp
 from models.disease_config import DISEASE_RULES
 
-# =====================================================
-# LOGGING
-# =====================================================
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# =====================================================
-# FLASK APP
-# =====================================================
+
 app = Flask(__name__)
 CORS(app)
 
-# =====================================================
-# SWAGGER CONFIGURATION
-# =====================================================
+
 swagger_template = {
     "swagger": "2.0",
     "info": {
@@ -91,15 +85,11 @@ swagger_config = {
 
 swagger = Swagger(app, template=swagger_template, config=swagger_config)
 
-# =====================================================
-# REGISTER BLUEPRINTS
-# =====================================================
+
 app.register_blueprint(predict_bp)
 app.register_blueprint(rules_bp)
 
-# =====================================================
-# HEALTH CHECK
-# =====================================================
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """
@@ -119,13 +109,11 @@ def health_check():
         "version": "3.2.0",
         "services": {
             "cloudinary": Config.is_cloudinary_configured() and CLOUDINARY_AVAILABLE,
-            "dicom_support": True  # Always true now with dependencies
+            "dicom_support": True
         }
     }
 
-# =====================================================
-# MAIN
-# =====================================================
+
 if __name__ == '__main__':
     logger.info("🏥 Starting Lung Diagnosis API v3.2.0...")
     logger.info(f"📁 Model path: {Config.get_model_path()}")
@@ -133,7 +121,7 @@ if __name__ == '__main__':
     logger.info(f"🔬 Supported diseases: {len(DISEASE_RULES)}")
     logger.info(f"☁️ Cloudinary: {'Configured' if Config.is_cloudinary_configured() else 'Not configured'}")
     
-    # Pre-load model
+
     from routes.predict import get_model
     model = get_model()
     if model:

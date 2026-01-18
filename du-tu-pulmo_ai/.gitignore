@@ -1,6 +1,6 @@
 /kaggle
 .env
-# **/model/
+**/model/
 **/__pycache__/
 **/uploads/
 **/output/

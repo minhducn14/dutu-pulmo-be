@@ -6,7 +6,7 @@ from typing import Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
 
-# Cloudinary import (optional)
+
 try:
     import cloudinary
     import cloudinary.uploader
@@ -71,12 +71,12 @@ class CloudinaryService:
         if not self.configured:
             raise RuntimeError("Cloudinary not configured")
         
-        # Build folder path
+
         folder = self.folder
         if subfolder:
             folder = f"{folder}/{subfolder}"
         
-        # Upload options
+
         upload_options = {
             "folder": folder,
             "resource_type": "image",
@@ -126,7 +126,7 @@ class CloudinaryService:
         if not self.configured:
             raise RuntimeError("Cloudinary not configured")
         
-        # Ensure data URI prefix
+
         if not base64_data.startswith("data:"):
             base64_data = f"data:image/jpeg;base64,{base64_data}"
         

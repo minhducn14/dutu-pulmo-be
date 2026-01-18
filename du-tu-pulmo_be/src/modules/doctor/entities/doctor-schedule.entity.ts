@@ -146,7 +146,7 @@ export class DoctorSchedule {
   })
   updatedAt: Date;
 
-  @VersionColumn()
+  @VersionColumn({ default: 1 })
   version: number;
 
   @DeleteDateColumn({
