@@ -297,6 +297,108 @@ Hỗ trợ: support@dutupulmo.vn
     `;
   }
 
+  private getVerificationOtpTemplate(
+    userName: string,
+    otp: string,
+  ): string {
+    return `
+    <!DOCTYPE html>
+    <html lang="vi">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Mã xác thực OTP</title>
+    </head>
+    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f4f4f4;">
+      <div style="background-color: #ffffff; border-radius: 10px; padding: 40px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <div style="font-size: 32px; font-weight: bold; color: #071658; margin-bottom: 10px;">🫁 DuTu Pulmo</div>
+          <div style="font-size: 48px; margin-bottom: 20px;">🔐</div>
+        </div>
+        
+        <h1 style="color: #333; font-size: 24px; margin-bottom: 20px;">Mã xác thực OTP</h1>
+        
+        <p style="margin-bottom: 15px; font-size: 16px;">Xin chào <strong>${userName}</strong>,</p>
+        
+        <p style="margin-bottom: 15px; font-size: 16px;">Để xác thực tài khoản của bạn, vui lòng nhập mã OTP dưới đây:</p>
+        
+        <div style="background-color: #f8f9fa; border: 2px dashed #071658; border-radius: 12px; padding: 30px; text-align: center; margin: 30px 0;">
+          <span style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 42px; font-weight: 800; color: #071658; letter-spacing: 12px; display: inline-block; background-color: #ffffff; padding: 15px 40px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">${otp}</span>
+        </div>
+        
+        <div style="background-color: #e3f2fd; border-left: 4px solid #2196F3; padding: 15px; margin: 20px 0; border-radius: 4px;">
+          <strong>⏰ Thông tin quan trọng:</strong>
+          <ul style="margin: 10px 0 0 0; padding-left: 20px;">
+            <li style="margin: 5px 0;">Mã OTP có hiệu lực trong <strong>5 phút</strong>.</li>
+            <li style="margin: 5px 0;">Tuyệt đối không chia sẻ mã này với bất kỳ ai.</li>
+          </ul>
+        </div>
+        
+        <div style="border-top: 1px solid #eee; margin: 30px 0;"></div>
+        
+        <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px;">
+           <strong>🔒 Bảo mật:</strong>
+           <p style="margin: 10px 0 0 0;">Nếu bạn không yêu cầu đăng ký này, vui lòng bỏ qua email này. Tài khoản của bạn vẫn được an toàn.</p>
+        </div>
+        
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 14px; color: #666; text-align: center;">
+          <p>Email này được gửi tự động, vui lòng không trả lời.</p>
+          <p>Nếu bạn cần hỗ trợ, vui lòng liên hệ: <a href="mailto:support@dutupulmo.vn" style="color: #071658;">support@dutupulmo.vn</a></p>
+          <p>&copy; 2025 DuTu Pulmo. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+    `;
+  }
+
+  /**
+   * Send verification otp 
+   */
+  async sendVerificationEmailByOTP(
+    to: string,
+    verificationOtp: string,
+    userName: string,
+  ): Promise<void> {
+    const mailOptions = {
+      from: `"DuTu Pulmo Support" <${this.configService.get<string>('SMTP_USER')}>`,
+      to,
+      subject: 'Xác thực tài khoản DuTu Pulmo của bạn',
+      html: this.getVerificationOtpTemplate(userName, verificationOtp),
+      text: this.getVerificationPlainTextByOTP(verificationOtp, userName),
+    };
+
+    try {
+      await this.transporter.sendMail(mailOptions);
+      this.logger.log(`Verification email sent to: ${to}`);
+    } catch (error) {
+      this.logger.error(`Failed to send verification email to ${to}:`, error);
+      throw new Error('Không thể gửi email xác thực. Vui lòng thử lại sau.');
+    }
+  }
+
+  private getVerificationPlainTextByOTP(
+    otp: string,
+    userName: string,
+  ): string {
+    return `
+Xin chào ${userName},
+
+Để xác thực tài khoản của bạn, vui lòng nhập mã OTP sau:
+${otp}
+
+Thông tin quan trọng:
+- Mã OTP có hiệu lực trong 5 phút
+- Sau khi xác thực, bạn có thể đăng nhập và sử dụng đầy đủ tính năng
+
+Nếu bạn không yêu cầu đăng ký này, vui lòng bỏ qua email này.
+
+---
+DuTu Pulmo
+Hỗ trợ: support@dutupulmo.vn
+© 2025 DuTu Pulmo. All rights reserved.
+    `;
+  }
   /**
    * Welcome email template (sent after successful verification)
    */

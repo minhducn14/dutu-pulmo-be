@@ -26,7 +26,7 @@ import axios from 'axios';
 import { EmailService } from 'src/modules/email/email.service';
 import { AUTH_ERRORS } from 'src/common/constants/error-messages.constant';
 import * as crypto from 'crypto';
-import { VerifyEmailResult, ResendVerificationResult } from './auth.types';
+import { VerifyEmailResult, ResendVerificationResult, ResendVerificationByOtpResult, VerifyEmailByOtpResult } from './auth.types';
 
 @Injectable()
 export class AuthService {
@@ -119,8 +119,8 @@ export class AuthService {
       // Hash password
       const hash = await bcrypt.hash(dto.password, 12);
 
-      const verificationToken = crypto.randomBytes(32).toString('hex');
-      const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+      const verificationOtp = this.generateOtp();
+      const verificationOtpExpiry = this.getOtpExpiry();
 
       // Create user
       const user = manager.create(User, {
@@ -145,17 +145,17 @@ export class AuthService {
         email: normalizedEmail,
         password: hash,
         isVerified: false,
-        verificationToken,
-        verificationExpiry,
+        verificationOtp,
+        verificationOtpExpiry,
         roles: [RoleEnum.PATIENT],
         user: user,
       });
       await manager.save(account);
 
       this.emailService
-        .sendVerificationEmail(
+        .sendVerificationEmailByOTP(
           normalizedEmail,
-          verificationToken,
+          verificationOtp,
           dto.fullName!,
         )
         .catch((error) => {
@@ -995,6 +995,152 @@ export class AuthService {
       });
     } catch (err) {
       this.logger.error('Resend verification error', err);
+      return { status: 'SERVER_ERROR' };
+    }
+  }
+
+
+  
+   /**
+   * Generate 6-digit OTP
+   */
+  private generateOtp(size: number = 6): string {
+    const max = Math.pow(10, size);
+    const randomNumber = crypto.randomInt(0, max);
+    return randomNumber.toString().padStart(size, '0');
+  }
+
+  /**
+   * OTP valid for 10 minutes
+   */
+  private getOtpExpiry(): Date {
+    return new Date(Date.now() + 10 * 60 * 1000);
+  }
+
+  /**
+   * Verify email using OTP
+   */
+  async verifyEmailByOtp(
+    email: string,
+    otp: string,
+  ): Promise<VerifyEmailByOtpResult> {
+    try {
+      const normalizedEmail = email.toLowerCase().trim();
+
+      return await this.dataSource.transaction(async (manager) => {
+        const accountRepo = manager.getRepository(Account);
+
+        const account = await accountRepo
+          .createQueryBuilder('acc')
+          .leftJoinAndSelect('acc.user', 'user')
+          .addSelect('acc.verificationOtp')
+          .where('acc.email = :email', { email: normalizedEmail })
+          .getOne();
+
+        if (!account) {
+          return { status: 'INVALID_OTP' };
+        }
+
+        if (account.isVerified) {
+          return { status: 'ALREADY_VERIFIED' };
+        }
+
+        if (!account.verificationOtp) {
+          return { status: 'INVALID_OTP' };
+        }
+
+        // Check OTP expiry
+        if (
+          account.verificationOtpExpiry &&
+          account.verificationOtpExpiry < new Date()
+        ) {
+          return { status: 'EXPIRED_OTP', email: account.email };
+        }
+
+        // Verify OTP match
+        if (account.verificationOtp !== otp) {
+          return { status: 'INVALID_OTP' };
+        }
+
+        // Mark as verified
+        account.isVerified = true;
+        account.verificationOtp = null;
+        account.verificationOtpExpiry = null;
+        account.verifiedAt = new Date();
+        await accountRepo.save(account);
+
+        // Send welcome email
+        this.emailService
+          .sendWelcomeEmail(account.email, account.user?.fullName ?? '')
+          .catch((err) =>
+            this.logger.error('Failed to send welcome email', err),
+          );
+
+        return { status: 'SUCCESS' };
+      });
+    } catch (err) {
+      this.logger.error('Email verification error', err);
+      return { status: 'SERVER_ERROR' };
+    }
+  }
+
+  /**
+   * Resend verification OTP
+   */
+  async resendVerificationOtp(email: string): Promise<ResendVerificationByOtpResult> {
+    const normalizedEmail = email.toLowerCase().trim();
+
+    try {
+      return await this.dataSource.transaction(async (manager) => {
+        const accountRepo = manager.getRepository(Account);
+
+        const account = await accountRepo.findOne({
+          where: { email: normalizedEmail },
+          relations: ['user'],
+        });
+
+        if (!account) {
+          this.logger.debug(
+            `Resend OTP attempted for non-existent email: ${normalizedEmail}`,
+          );
+          return { status: 'EMAIL_NOT_FOUND' };
+        }
+
+        if (account.isVerified) {
+          return { status: 'ALREADY_VERIFIED' };
+        }
+
+        // Rate limiting: Check if OTP was sent recently (within 1 minute)
+        if (account.verificationOtpExpiry) {
+          const timeSinceLastOtp = 
+            this.getOtpExpiry().getTime() - account.verificationOtpExpiry.getTime();
+          const oneMinute = 60 * 1000;
+          
+          if (timeSinceLastOtp < 9 * oneMinute) { // OTP was sent less than 1 min ago
+            return { status: 'RATE_LIMITED' };
+          }
+        }
+
+        // Generate new OTP
+        const verificationOtp = this.generateOtp();
+        const verificationOtpExpiry = this.getOtpExpiry();
+
+        account.verificationOtp = verificationOtp;
+        account.verificationOtpExpiry = verificationOtpExpiry;
+
+        await accountRepo.save(account);
+
+        await this.emailService.sendVerificationEmailByOTP(
+          normalizedEmail,
+          verificationOtp,
+          account.user?.fullName ?? '',
+        );
+
+        this.logger.log(`Verification OTP resent to: ${normalizedEmail}`);
+        return { status: 'SUCCESS' };
+      });
+    } catch (err) {
+      this.logger.error('Resend verification OTP error', err);
       return { status: 'SERVER_ERROR' };
     }
   }

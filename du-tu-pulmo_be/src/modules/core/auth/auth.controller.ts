@@ -35,6 +35,7 @@ import { CurrentUser } from 'src/common/decorators/user.decorator';
 import * as jwtStrategy from './strategies/jwt.strategy';
 import { ResponseCommon } from 'src/common/dto/response.dto';
 import { ConfigService } from '@nestjs/config';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
 
 @ApiTags('Auth')
 @Throttle({ default: { limit: 15, ttl: 60000 } })
@@ -255,5 +256,78 @@ export class AuthController {
           ? 'Email xác thực đã được gửi lại. Vui lòng kiểm tra hộp thư.'
           : 'Nếu email tồn tại, một email xác thực mới đã được gửi.',
     });
+  }
+
+  @Post('verify-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Xác thực email bằng mã OTP' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Xác thực thành công',
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Mã OTP không hợp lệ hoặc đã hết hạn',
+  })
+  async verifyOtp(@Body() dto: VerifyOtpDto): Promise<ResponseCommon<{ message: string }>> {
+    const result = await this.authService.verifyEmailByOtp(dto.email, dto.otp);
+
+    switch (result.status) {
+      case 'INVALID_OTP':
+        throw new BadRequestException('Mã OTP không hợp lệ');
+
+      case 'ALREADY_VERIFIED':
+        throw new BadRequestException('Tài khoản đã được xác thực');
+
+      case 'EXPIRED_OTP':
+        throw new BadRequestException(
+          'Mã OTP đã hết hạn. Vui lòng yêu cầu gửi lại mã mới',
+        );
+
+      case 'SUCCESS':
+        return new ResponseCommon(200, 'SUCCESS', {
+          message: 'Xác thực tài khoản thành công!',
+        });
+
+      default:
+        throw new BadRequestException('Đã có lỗi xảy ra. Vui lòng thử lại');
+    }
+  }
+
+  @Post('resend-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Gửi lại mã OTP xác thực' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Mã OTP đã được gửi lại',
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Email đã được xác thực hoặc yêu cầu quá nhanh',
+  })
+  async resendOtp(
+    @Body() dto: ResendVerificationDto,
+  ): Promise<ResponseCommon<{ message: string }>> {
+    const result = await this.authService.resendVerificationOtp(dto.email);
+
+    switch (result.status) {
+      case 'ALREADY_VERIFIED':
+        throw new BadRequestException('Tài khoản đã được xác thực');
+
+      case 'RATE_LIMITED':
+        throw new BadRequestException(
+          'Vui lòng đợi ít nhất 1 phút trước khi yêu cầu gửi lại mã OTP',
+        );
+
+      case 'SUCCESS':
+        return new ResponseCommon(200, 'SUCCESS', {
+          message: 'Mã OTP mới đã được gửi đến email của bạn',
+        });
+
+      default:
+        return new ResponseCommon(200, 'SUCCESS', {
+          message: 'Nếu email tồn tại, mã OTP mới đã được gửi',
+        });
+    }
   }
 }

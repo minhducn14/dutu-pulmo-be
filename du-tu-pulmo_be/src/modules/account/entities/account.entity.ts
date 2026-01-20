@@ -77,6 +77,22 @@ export class Account {
   verificationExpiry: Date | null;
 
   @Column({
+    name: 'verification_otp',
+    type: 'varchar',
+    length: 500,
+    nullable: true,
+    select: false,
+  })
+  verificationOtp: string | null
+
+  @Column({
+    name: 'verification_otp_expiry',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  verificationOtpExpiry: Date | null
+
+  @Column({
     name: 'verified_at',
     type: 'timestamptz',
     nullable: true,

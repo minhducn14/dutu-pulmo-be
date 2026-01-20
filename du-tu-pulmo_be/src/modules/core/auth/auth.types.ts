@@ -10,3 +10,18 @@ export type ResendVerificationResult =
   | { status: 'EMAIL_NOT_FOUND' }
   | { status: 'ALREADY_VERIFIED' }
   | { status: 'SERVER_ERROR' };
+
+  
+export type VerifyEmailByOtpResult =
+  | { status: 'SUCCESS' }
+  | { status: 'INVALID_OTP' }
+  | { status: 'ALREADY_VERIFIED' }
+  | { status: 'EXPIRED_OTP'; email: string }
+  | { status: 'SERVER_ERROR' };
+
+export type ResendVerificationByOtpResult =
+  | { status: 'SUCCESS' }
+  | { status: 'EMAIL_NOT_FOUND' }
+  | { status: 'ALREADY_VERIFIED' }
+  | { status: 'RATE_LIMITED' }
+  | { status: 'SERVER_ERROR' };
