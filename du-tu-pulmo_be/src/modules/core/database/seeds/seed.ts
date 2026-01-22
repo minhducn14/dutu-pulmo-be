@@ -104,7 +104,7 @@ async function seed() {
       const adminUser = await userRepo.save(userRepo.create({ fullName: 'Administrator', status: UserStatusEnum.ACTIVE }));
       await accountRepo.save(accountRepo.create({
         email: adminEmail,
-        password: await bcrypt.hash(process.env.ADMIN_PASSWORD || 'Admin@123456', 10),
+        password: await bcrypt.hash(process.env.ADMIN_PASSWORD || 'Admin@123456', 12),
         roles: [RoleEnum.ADMIN],
         isVerified: true,
         userId: adminUser.id,
@@ -139,7 +139,7 @@ async function seed() {
         }));
         account = await accountRepo.save(accountRepo.create({
           email: ds.email,
-          password: await bcrypt.hash('Doctor@123', 10),
+          password: await bcrypt.hash('Doctor@123', 12),
           roles: [RoleEnum.DOCTOR],
           isVerified: true,
           userId: user.id,
@@ -243,7 +243,7 @@ async function seed() {
 
         await accountRepo.save(accountRepo.create({
             email,
-            password: await bcrypt.hash('Patient@123', 10),
+            password: await bcrypt.hash('Patient@123', 12),
             roles: [RoleEnum.PATIENT],
             isVerified: true,
             userId: user.id,
