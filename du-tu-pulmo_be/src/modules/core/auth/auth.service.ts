@@ -75,7 +75,6 @@ export class AuthService {
   ): Promise<ResponseCommon<{ message: string }>> {
     const normalizedEmail = dto.email.toLowerCase().trim();
 
-    // Validate Vietnamese phone number format
     if (dto.phone) {
       const vietnamesePhoneRegex = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/;
       if (!vietnamesePhoneRegex.test(dto.phone)) {
@@ -85,12 +84,10 @@ export class AuthService {
       }
     }
 
-    // Validate full name
     if (!dto.fullName || dto.fullName.trim().length < 2) {
       throw new BadRequestException('Họ tên phải có ít nhất 2 ký tự');
     }
 
-    // Validate password strength
     const passwordRegex =
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     if (!passwordRegex.test(dto.password)) {
@@ -99,38 +96,82 @@ export class AuthService {
       );
     }
 
-    // ✅ Use transaction for data consistency
     return await this.dataSource.transaction(async (manager) => {
-      // Check email existence with pessimistic lock
-      const qb = manager
-        .getRepository(Account)
-        .createQueryBuilder('a')
-        .where('a.email = :email', { email: normalizedEmail });
+      const accountRepo = manager.getRepository(Account);
+      const userRepo = manager.getRepository(User);
 
-      if (dto.phone) {
-        qb.orWhere(
-          `
-          EXISTS (
-            SELECT 1 FROM users u
-            WHERE u.id = a.user_id
-            AND u.phone = :phone
-          )
-        `,
-          { phone: dto.phone },
-        );
-      }
-      const exist = await qb.setLock('pessimistic_write').getOne();
-      if (exist) {
+      const existingAccount = await accountRepo
+        .createQueryBuilder('a')
+        .leftJoinAndSelect('a.user', 'u')
+        .where('a.email = :email', { email: normalizedEmail })
+        .setLock('pessimistic_write')
+        .getOne();
+
+      if (existingAccount && existingAccount.isVerified) {
         throw new ConflictException(AUTH_ERRORS.EMAIL_ALREADY_REGISTERED);
       }
 
-      // Hash password
+      if (existingAccount && !existingAccount.isVerified) {
+        this.logger.log(
+          `Updating unverified account for re-registration: ${this.maskEmail(normalizedEmail)}`,
+        );
+
+        if (dto.phone) {
+          const phoneExists = await userRepo
+            .createQueryBuilder('u')
+            .where('u.phone = :phone', { phone: dto.phone })
+            .andWhere('u.id != :userId', { userId: existingAccount.user.id })
+            .getOne();
+
+          if (phoneExists) {
+            throw new ConflictException('Số điện thoại đã được sử dụng bởi tài khoản khác');
+          }
+        }
+
+        const verificationOtp = this.generateOtp();
+        const verificationOtpExpiry = this.getOtpExpiry();
+        existingAccount.verificationOtp = verificationOtp;
+        existingAccount.verificationOtpExpiry = verificationOtpExpiry;
+        await accountRepo.save(existingAccount);
+
+        this.emailService
+          .sendVerificationEmailByOTP(
+            normalizedEmail,
+            verificationOtp,
+            dto.fullName!,
+          )
+          .catch((error) => {
+            this.logger.error(
+              `Failed to resend verification email to ${this.maskEmail(normalizedEmail)}`,
+              error,
+            );
+          });
+
+        this.logger.log(
+          `Verification OTP resent for unverified account: ${this.maskEmail(normalizedEmail)}`,
+        );
+
+        return new ResponseCommon(200, 'SUCCESS', {
+          message:
+            'Email chưa được xác thực. Chúng tôi đã gửi lại mã OTP mới. Vui lòng kiểm tra email.',
+        });
+      }
+
+      if (dto.phone) {
+        const phoneExists = await userRepo.findOne({
+          where: { phone: dto.phone },
+        });
+
+        if (phoneExists) {
+          throw new ConflictException('Số điện thoại đã được sử dụng');
+        }
+      }
+
       const hash = await bcrypt.hash(dto.password, 12);
 
       const verificationOtp = this.generateOtp();
       const verificationOtpExpiry = this.getOtpExpiry();
 
-      // Create user
       const user = manager.create(User, {
         email: normalizedEmail,
         phone: dto.phone,
@@ -141,14 +182,12 @@ export class AuthService {
       });
       await manager.save(user);
 
-      // Create patient entity for PATIENT role
       const patient = manager.create(Patient, {
         userId: user.id,
         user: user,
       });
       await manager.save(patient);
 
-      // Create account with verification token
       const account = manager.create(Account, {
         email: normalizedEmail,
         password: hash,
