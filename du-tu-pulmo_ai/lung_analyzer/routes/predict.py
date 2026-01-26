@@ -99,7 +99,7 @@ def require_api_key(f):
     return decorated_function
 
 
-def run_inference(image_path: str, conf_threshold: float = 0.40, with_visualization: bool = False):
+def run_inference(image_path: str, conf_threshold: float = 0.325, with_visualization: bool = False):
     """
     Run YOLO inference on image.
     
@@ -116,7 +116,7 @@ def run_inference(image_path: str, conf_threshold: float = 0.40, with_visualizat
     if model is None:
         raise RuntimeError("Model not loaded")
     
-    results = model.predict(source=image_path, conf=conf_threshold,iou=0.45, save=False, verbose=False)
+    results = model.predict(source=image_path, conf=conf_threshold,iou=0.5, save=False, verbose=False)
     
     detections = []
     annotated_image = None
