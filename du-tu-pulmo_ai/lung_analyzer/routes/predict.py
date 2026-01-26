@@ -6,6 +6,7 @@ import io
 import base64
 import uuid
 import logging
+import requests
 
 from flask import Blueprint, request, jsonify
 from PIL import Image
@@ -401,10 +402,10 @@ def predict_xray_v2():
             logger.warning(f"[{correlation_id}] Image processing failed, using original: {img_err}")
             processed_filepath = filepath
         
-        detections = run_inference(
+        detections, annotated_img = run_inference(
             processed_filepath, 
             conf_threshold=Config.CONF_THRESHOLD, 
-            with_visualization=False
+            with_visualization=True
         )
         
         analyzer = LungDiagnosisAnalyzer(detections)
@@ -480,8 +481,8 @@ def predict_xray_v2():
             "file_id": file_id,
             "data": result,
             "original_image_url": image_url,
-            "annotated_image_url": None,
-            "evaluated_image_url": None
+            "annotated_image_url": annotated_image_url,
+            "evaluated_image_url": evaluated_image_url
         })
         
     except Exception as e:

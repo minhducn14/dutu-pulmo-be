@@ -1,0 +1,731 @@
+{
+  "name": "ChatBotTuVan",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "initialMessages": "Xin chào! Tôi là trợ lý AI tư vấn sức khỏe hô hấp. Tôi có thể giúp gì cho bạn hôm nay? 🫁",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        832,
+        2080
+      ],
+      "id": "0fb02c50-7244-403e-b32b-da7c38434f45",
+      "name": "When chat message received",
+      "webhookId": "331f2a19-5822-4a7d-9146-5cde9bb62ee8"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat",
+        "responseMode": "responseNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "id": "ed1c8ca6-91d5-4907-9946-63a898cfe371",
+      "name": "Webhook (API)",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        832,
+        2256
+      ],
+      "webhookId": "b99f7a17-c9f1-47df-9517-785ac56d3b33",
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfor (const item of items) {\n  const rawInput = item.json.chatInput || item.json.body?.message || item.json.body?.query || '';\n  const sessionId = item.json.sessionId || item.json.body?.sessionId || `session-${Date.now()}`;\n\n  item.json = {\n    chatInput: rawInput,\n    sessionId: sessionId,\n    source: item.json.chatInput ? 'chat' : 'api',\n    receivedAt: new Date().toISOString()\n  };\n}\n\nreturn items;"
+      },
+      "id": "47f40d14-13c4-4170-8bd5-a8bc2f5bd290",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1088,
+        2176
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}",
+        "options": {
+          "systemMessage": "You are an AI assistant and expert specializing in **Respiratory Health and Pulmonology (Lung Health)**.\nYour role is to provide user-friendly, medically relevant answers **based entirely on information gathered from the provided Vector Database context**.\n\n⚠️ **CORE RULES:**\n1. **SOURCE OF TRUTH:** Use ONLY verified data from the collected context (Vector Database). Do not speculate, hallucinate, or use outside knowledge.\n2. **NO DIAGNOSIS/PRESCRIPTION:** NEVER diagnose specific conditions (e.g., Pneumonia, COPD) or prescribe medications (e.g., antibiotics, specific dosage).\n3. **EMERGENCY PROTOCOL (PRIORITY):** If the user describes **severe symptoms** (gasping for air, blue lips/fingertips, coughing up significant blood, severe chest pain), **IMMEDIATELY advise them to seek emergency medical attention or go to the nearest hospital.**\n\n🗣️ **TONE & STYLE:**\n- ✅ Clear, simple, and informative.\n- 🧑‍⚕️ Friendly, empathetic, and calming (acknowledge that breathing issues cause anxiety).\n- ❌ Avoid overly clinical jargon; explain terms simply.\n\n📝 **RESPONSE FORMAT:**\nIf vector data is available, structure your response as follows:\n- **Bullet points with emojis:**\n    - 📌 Common causes: [Information from context]\n    - 💊 Symptoms may include: [Information from context, e.g., cough, wheezing, sputum]\n    - ⚠️ Note/Red Flags: [Safety warnings from context]\n    - 🛡️ General advice: [Wellness/Hygiene tips from context]\n\n❓ **ENGAGEMENT (Follow-up):**\nAfter answering, gently ask 1–2 open-ended questions to gather context. Use a caring tone:\n- \"Have you experienced this shortness of breath specifically when lying down or exercising?\"\n- \"Can you share how long you've had this cough?\"\n- \"Does anything make your breathing feel better or worse?\"\n\n📉 **MISSING DATA HANDLING:**\nIf the Vector Database does not contain the answer:\nReply politely: **\"I do not have enough information in my database to answer this specific question. Please consider consulting a medical professional for accurate advice.\"**\n\n👨‍⚕️ **APPOINTMENT & CLOSING:**\nWhen appropriate (or if asked about booking):\n\"To make an appointment, you can:\n**Contact [Tên Bác sĩ/Phòng khám], Specialist in Pulmonology - Respiratory.**\n**Zalo/Hotline: [Số điện thoại/Liên hệ]**\n*Please have information about your symptoms ready (e.g., duration, sputum color) to help the doctor.*\"\n\n✅ **MANDATORY FOOTER:**\nAlways end every response with:\n\"Tôi là trợ lý AI. Để được tư vấn chuyên môn, vui lòng liên hệ với bác sĩ.\"\n\n🌐 **LANGUAGE:**\n**ALWAYS reply in Vietnamese.**\n"
+        }
+      },
+      "id": "55e08ab6-ca1a-4cf1-9b78-fca17a0bbc99",
+      "name": "AI Agent (RAG)",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        1568,
+        2192
+      ],
+      "typeVersion": 1.9
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "e1847f9b-5247-4575-9ede-0487b3f2429a",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "position": [
+        1472,
+        2480
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "QWdaC79EGk4Urrq9",
+          "name": "Testn8nrag"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.sessionId }}"
+      },
+      "id": "8cffd275-1d01-4773-862d-34da361f5430",
+      "name": "Conversation Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "position": [
+        1664,
+        2480
+      ],
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "name": "Respiratory_Knowledge_Base",
+        "description": "Vector database containing respiratory health information, common conditions, symptoms, and general medical advice",
+        "topK": 5
+      },
+      "id": "630e2c3b-89d1-42c4-b0b9-f76a4034dd2c",
+      "name": "Knowledge Base Tool",
+      "type": "@n8n/n8n-nodes-langchain.toolVectorStore",
+      "position": [
+        1792,
+        2544
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "pineconeIndex": {
+          "__rl": true,
+          "value": "dulturagver1",
+          "mode": "list",
+          "cachedResultName": "dulturagver1"
+        },
+        "options": {}
+      },
+      "id": "4c43bc52-beda-4cbb-bccb-2e780cf41cf4",
+      "name": "Pinecone Vector Store",
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "position": [
+        1664,
+        2704
+      ],
+      "typeVersion": 1.1,
+      "credentials": {
+        "pineconeApi": {
+          "id": "Q66qviX7pKvEE4Ri",
+          "name": "PineconeApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "53ebadae-ee56-446b-9d68-36caf22f7df2",
+      "name": "Gemini Chat for Embeddings",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "position": [
+        2064,
+        2768
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "QWdaC79EGk4Urrq9",
+          "name": "Testn8nrag"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "155276b8-e38e-4626-a188-3b10e7eaadb8",
+      "name": "Google Gemini Embeddings",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "position": [
+        1760,
+        2864
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "d0L2ixZzS1iPzIRF",
+          "name": "N8N"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "success-condition",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              },
+              "leftValue": "={{ $json.output }}",
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "bdb298f2-fa45-46a3-90c2-d2c6c03f87ad",
+      "name": "Check AI Success",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        1872,
+        2320
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "success-response",
+              "name": "response",
+              "type": "string",
+              "value": "={{ $json.output }}"
+            },
+            {
+              "id": "severity",
+              "name": "severity",
+              "type": "string",
+              "value": "normal"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e5099d91-b011-4f41-95d2-3c31a44903e5",
+      "name": "Format Success Response",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        2304,
+        2192
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "error-response",
+              "name": "response",
+              "type": "string",
+              "value": "Xin lỗi, đã xảy ra lỗi khi xử lý câu hỏi của bạn. Vui lòng thử lại sau hoặc liên hệ với bác sĩ trực tiếp để được tư vấn.\n\n📞 Hỗ trợ: [Số điện thoại phòng khám]\n💙 Sức khỏe của bạn là ưu tiên hàng đầu của chúng tôi."
+            },
+            {
+              "id": "error-type",
+              "name": "responseType",
+              "type": "string",
+              "value": "error"
+            },
+            {
+              "id": "error-severity",
+              "name": "severity",
+              "type": "string",
+              "value": "low"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a3c47925-40bf-41ee-b56b-cc5eaabca77f",
+      "name": "Format Error Response",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        2064,
+        2416
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst data = item?.json || {};\n\n// sessionId: ưu tiên lấy từ item hiện tại, fallback về Normalize Input\nlet sessionId = data.sessionId;\ntry {\n  if (!sessionId) sessionId = $('Normalize Input').item.json.sessionId;\n} catch (e) {\n  // ignore\n}\n\nconst response = data.response || 'Xin lỗi, tôi không hiểu câu hỏi của bạn.';\nconst responseType = data.responseType || 'general';\nconst severity = data.severity || 'normal';\n\nconst finalResponse = {\n  success: true,\n  data: {\n    message: response,\n    type: responseType,\n    severity,\n    timestamp: new Date().toISOString(),\n    disclaimer: responseType === 'emergency'\n      ? null\n      : '💙 Thông tin này chỉ mang tính tham khảo. Vui lòng tham khảo bác sĩ để được tư vấn chính xác.',\n    suggestedActions: responseType === 'emergency'\n      ? [\n          'Gọi cấp cứu 115 ngay lập tức',\n          'Đến bệnh viện/phòng cấp cứu gần nhất',\n          'Giữ bình tĩnh và ngồi thẳng'\n        ]\n      : responseType === 'medication_question'\n      ? [\n          'Tham khảo dược sĩ trước khi dùng thuốc',\n          'Đọc kỹ hướng dẫn sử dụng',\n          'Theo dõi phản ứng của cơ thể'\n        ]\n      : [\n          'Theo dõi triệu chứng trong vài ngày',\n          'Gặp bác sĩ nếu không thuyên giảm',\n          'Giữ vệ sinh và nghỉ ngơi đầy đủ'\n        ]\n  },\n  meta: {\n    sessionId: sessionId || 'unknown',\n    queryType: responseType,\n    processedAt: new Date().toISOString()\n  }\n};\n\nreturn [{ json: finalResponse }];"
+      },
+      "id": "3c0b21d0-c012-491f-aad2-912bb4f70dfd",
+      "name": "Compile Final Response",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        3200,
+        2240
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json, null, 2) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json; charset=utf-8"
+              },
+              {
+                "name": "X-Health-Disclaimer",
+                "value": "This is not medical advice. Consult a doctor."
+              },
+              {
+                "name": "X-Response-Time",
+                "value": "={{ new Date().toISOString() }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "347b3b18-6ad5-43e4-adae-ec0819553129",
+      "name": "Send Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        3456,
+        2064
+      ],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "kb-check",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "không có đủ thông tin",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "kb-check-2",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "không tìm thấy",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "kb-check-3",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "database",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "96b51e66-aeeb-494d-bd53-a6030dd390e6",
+      "name": "Check KB Has Data?",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        2112,
+        1936
+      ],
+      "typeVersion": 2.3,
+      "notes": "THÊM NODE MỚI: Kiểm tra xem KB có trả lời được không"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare for Gemini (n8n Code node)\n// Output: { question, sessionId, needsFallback }\n\nconst items = $input.all();\n\nfunction safeGetFromNormalizeInput() {\n  try {\n    const ni = $('Normalize Input').first()?.json;\n    if (!ni) return null;\n    return {\n      question: ni.chatInput || '',\n      sessionId: ni.sessionId || '',\n    };\n  } catch (e) {\n    return null;\n  }\n}\n\nconst fromNI = safeGetFromNormalizeInput();\n\nreturn items.map((item) => {\n  const j = item.json || {};\n\n  const question =\n    (fromNI?.question && fromNI.question.trim()) ||\n    (j.chatInput && String(j.chatInput).trim()) ||\n    (j.question && String(j.question).trim()) ||\n    (j.body?.message && String(j.body.message).trim()) ||\n    (j.body?.query && String(j.body.query).trim()) ||\n    (j.output && String(j.output).trim()) || // nếu cần debug thì lấy tạm\n    '';\n\n  const sessionId =\n    (fromNI?.sessionId && fromNI.sessionId.trim()) ||\n    (j.sessionId && String(j.sessionId).trim()) ||\n    (j.body?.sessionId && String(j.body.sessionId).trim()) ||\n    `session-${Date.now()}`;\n\n  return {\n    json: {\n      chatInput: question,\n      sessionId,\n      needsFallback: true,\n    },\n  };\n});\n"
+      },
+      "id": "3d9773a8-e212-4a18-9ee8-4219a50e4b11",
+      "name": "Prepare for Gemini",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        2352,
+        1776
+      ],
+      "typeVersion": 2,
+      "notes": "THÊM NODE MỚI: Chuẩn bị câu hỏi cho Gemini"
+    },
+    {
+      "parameters": {
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are an AI assistant and expert specializing in **Respiratory Health and Pulmonology (Lung Health)**. Your role is to provide user-friendly, medically relevant answers.  ⚠️ **CORE RULES:** 1. **NO DIAGNOSIS/PRESCRIPTION:** NEVER diagnose specific conditions (e.g., Pneumonia, COPD) or prescribe medications (e.g., antibiotics, specific dosage). 2. **EMERGENCY PROTOCOL (PRIORITY):** If the user describes **severe symptoms** (gasping for air, blue lips/fingertips, coughing up significant blood, severe chest pain), **IMMEDIATELY advise them to seek emergency medical attention or go to the nearest hospital.**  🗣️ **TONE & STYLE:** - ✅ Clear, simple, and informative. - 🧑‍⚕️ Friendly, empathetic, and calming (acknowledge that breathing issues cause anxiety). - ❌ Avoid overly clinical jargon; explain terms simply.  📝 **RESPONSE FORMAT:** If vector data is available, structure your response as follows: - **Bullet points with emojis:**     - 📌 Common causes: [Information from context]     - 💊 Symptoms may include: [Information from context, e.g., cough, wheezing, sputum]     - ⚠️ Note/Red Flags: [Safety warnings from context]     - 🛡️ General advice: [Wellness/Hygiene tips from context]  ❓ **ENGAGEMENT (Follow-up):** After answering, gently ask 1–2 open-ended questions to gather context. Use a caring tone: - \"Have you experienced this shortness of breath specifically when lying down or exercising?\" - \"Can you share how long you've had this cough?\" - \"Does anything make your breathing feel better or worse?\"  📉 **MISSING DATA HANDLING:** If the does not the answer: Reply politely: **\"I do not have enough information in my database to answer this specific question. Please consider consulting a medical professional for accurate advice.\"**  ✅ **MANDATORY FOOTER:** Always end every response with: \"Tôi là trợ lý AI. Để được tư vấn chuyên môn, vui lòng liên hệ với bác sĩ.\"  🌐 **LANGUAGE:** **ALWAYS reply in Vietnamese.**"
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "eb71c2be-67fb-4359-9751-5e6fe0dbdd5b",
+      "name": "Gemini Fallback Answer",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "position": [
+        2624,
+        1648
+      ],
+      "typeVersion": 1.9,
+      "notes": "THÊM NODE MỚI: Gemini trả lời khi KB không có data"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "498d4821-cef0-4d77-95de-c23fadb65e57",
+      "name": "Gemini Fallback Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "position": [
+        2576,
+        1840
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "QWdaC79EGk4Urrq9",
+          "name": "Testn8nrag"
+        }
+      },
+      "notes": "THÊM NODE MỚI: Model cho Gemini Fallback"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "gemini-response",
+              "name": "response",
+              "type": "string",
+              "value": "={{ $json.text }}\n\n---\n⚠️ *Lưu ý: Thông tin này được cung cấp từ kiến thức tổng quát của AI, chưa được xác thực trong cơ sở dữ liệu chuyên biệt. Vui lòng tham khảo bác sĩ để được tư vấn chính xác.*"
+            },
+            {
+              "id": "source-type",
+              "name": "responseType",
+              "type": "string",
+              "value": "gemini_fallback"
+            },
+            {
+              "id": "severity-normal",
+              "name": "severity",
+              "type": "string",
+              "value": "normal"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fea6458c-98a7-4a8d-8b16-f47d3fd5c6b0",
+      "name": "Format Gemini Fallback1",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        2960,
+        1776
+      ],
+      "typeVersion": 3.4,
+      "notes": "THÊM NODE MỚI: Format response từ Gemini với warning"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook (API)": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "AI Agent (RAG)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent (RAG)": {
+      "main": [
+        [
+          {
+            "node": "Check AI Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check AI Success": {
+      "main": [
+        [
+          {
+            "node": "Check KB Has Data?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Success Response": {
+      "main": [
+        [
+          {
+            "node": "Compile Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error Response": {
+      "main": [
+        [
+          {
+            "node": "Compile Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compile Final Response": {
+      "main": [
+        [
+          {
+            "node": "Send Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent (RAG)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversation Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent (RAG)",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Knowledge Base Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent (RAG)",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pinecone Vector Store": {
+      "ai_vectorStore": [
+        [
+          {
+            "node": "Knowledge Base Tool",
+            "type": "ai_vectorStore",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Chat for Embeddings": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Knowledge Base Tool",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Embeddings": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Pinecone Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check KB Has Data?": {
+      "main": [
+        [
+          {
+            "node": "Prepare for Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare for Gemini": {
+      "main": [
+        [
+          {
+            "node": "Gemini Fallback Answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Fallback Answer": {
+      "main": [
+        [
+          {
+            "node": "Format Gemini Fallback1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Fallback Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Gemini Fallback Answer",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Gemini Fallback1": {
+      "main": [
+        [
+          {
+            "node": "Compile Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "availableInMCP": false
+  },
+  "versionId": "2fa7b761-41c6-43d3-aa20-881d7f6f1be7",
+  "meta": {
+    "instanceId": "f19ed9fad5d3fc6c406211e4d1a49eaa90748654f86be14a397378264213be4d"
+  },
+  "id": "zf3HAoEGzOh2ZVgA",
+  "tags": [
+    {
+      "updatedAt": "2026-01-12T14:17:55.617Z",
+      "createdAt": "2026-01-12T14:17:55.617Z",
+      "id": "22Hbd2fjgimf3vZz",
+      "name": "Health Assistant"
+    },
+    {
+      "updatedAt": "2026-01-12T14:17:55.633Z",
+      "createdAt": "2026-01-12T14:17:55.633Z",
+      "id": "7vhAF0zNnk9CcjIM",
+      "name": "RAG Chatbot"
+    },
+    {
+      "updatedAt": "2026-01-12T14:17:55.626Z",
+      "createdAt": "2026-01-12T14:17:55.626Z",
+      "id": "fxaZ5XimHLnv1Jmw",
+      "name": "Respiratory"
+    }
+  ]
+}
