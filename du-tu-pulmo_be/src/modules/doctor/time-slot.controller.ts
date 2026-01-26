@@ -44,14 +44,65 @@ export class TimeSlotController {
   constructor(private readonly timeSlotService: TimeSlotService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Lấy tất cả time slots của bác sĩ' })
-  @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Danh sách time slots',
-    type: [TimeSlotResponseDto],
+  @ApiOperation({ 
+    summary: 'Lấy time slots của bác sĩ',
+    description: 'Có thể lọc theo khoảng thời gian và group theo ngày' 
   })
-  findByDoctor(@Param('doctorId', ParseUUIDPipe) doctorId: string) {
+  @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
+  @ApiQuery({
+    name: 'startDate',
+    description: 'Ngày bắt đầu (YYYY-MM-DD) - optional',
+    required: false,
+  })
+  @ApiQuery({
+    name: 'endDate',
+    description: 'Ngày kết thúc (YYYY-MM-DD) - optional',
+    required: false,
+  })
+  @ApiQuery({
+    name: 'grouped',
+    description: 'true để group theo ngày và buổi',
+    type: Boolean,
+    default: true,
+    required: false,
+  })
+  async findByDoctor(
+    @Param('doctorId', ParseUUIDPipe) doctorId: string,
+    @Query('startDate') startDateStr?: string,
+    @Query('endDate') endDateStr?: string,
+    @Query('grouped') grouped?: boolean,
+  ) {
+    if (startDateStr && endDateStr && grouped === true) {
+      const startDate = new Date(startDateStr);
+      const endDate = new Date(endDateStr);
+      
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        throw new BadRequestException('Ngày không hợp lệ');
+      }
+
+      return this.timeSlotService.findSlotsGroupedByDate(doctorId, startDate, endDate);
+    }
+
+    if (startDateStr && endDateStr) {
+      const startDate = new Date(startDateStr);
+      const endDate = new Date(endDateStr);
+      
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        throw new BadRequestException('Ngày không hợp lệ');
+      }
+
+      const slots = await this.timeSlotService.findSlotsInRange(
+        doctorId, 
+        startDate, 
+        endDate
+      );
+      return {
+        code: 200,
+        message: 'SUCCESS',
+        data: slots,
+      };
+    }
+
     return this.timeSlotService.findByDoctorId(doctorId);
   }
 

@@ -630,4 +630,89 @@ export class TimeSlotService {
     const result = await queryBuilder.execute();
     return result.affected || 0;
   }
+
+  async findSlotsGroupedByDate(
+    doctorId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<ResponseCommon<Record<string, { morning: TimeSlot[]; afternoon: TimeSlot[] }>>> {
+    const slots = await this.findSlotsInRange(doctorId, startDate, endDate);
+
+    const groupedByDate: Record<string, { morning: TimeSlot[]; afternoon: TimeSlot[] }> = {};
+
+    slots.forEach((slot) => {
+      const localDate = new Date(slot.startTime);
+      const dateKey = localDate.toISOString().split('T')[0];
+      
+      if (!groupedByDate[dateKey]) {
+        groupedByDate[dateKey] = { morning: [], afternoon: [] };
+      }
+
+      const hour = localDate.getUTCHours() + 7; 
+      
+      if (hour < 12) {
+        groupedByDate[dateKey].morning.push(slot);
+      } else {
+        groupedByDate[dateKey].afternoon.push(slot);
+      }
+    });
+
+    return new ResponseCommon(200, 'SUCCESS', groupedByDate);
+  }
+
+  async countSlotsByDateRange(
+    doctorId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<ResponseCommon<Record<string, number>>> {
+    const slots = await this.findSlotsInRange(doctorId, startDate, endDate);
+
+    const countByDate: Record<string, number> = {};
+
+    slots.forEach((slot) => {
+      const localDate = new Date(slot.startTime);
+      const dateKey = localDate.toISOString().split('T')[0];
+      
+      countByDate[dateKey] = (countByDate[dateKey] ?? 0) + slot.capacity;
+    });
+
+    return new ResponseCommon(200, 'SUCCESS', countByDate);
+  }
+
+  async findAvailableSlotsByDateGrouped(
+    doctorId: string,
+    date: Date,
+  ): Promise<ResponseCommon<{ morning: TimeSlot[]; afternoon: TimeSlot[] }>> {
+    if (isNaN(date.getTime())) {
+      throw new BadRequestException('Ngày không hợp lệ');
+    }
+
+    const now = new Date();
+    const queryDate = new Date(date);
+    queryDate.setHours(0, 0, 0, 0);
+
+    if (queryDate < new Date(now.setHours(0, 0, 0, 0))) {
+      return new ResponseCommon(200, 'Ngày đã qua', { morning: [], afternoon: [] });
+    }
+
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const slots = await this.findAvailableSlots(doctorId, startOfDay, endOfDay);
+
+    const morning = slots.filter((slot) => {
+      const hour = new Date(slot.startTime).getUTCHours() + 7;
+      return hour < 12;
+    });
+
+    const afternoon = slots.filter((slot) => {
+      const hour = new Date(slot.startTime).getUTCHours() + 7;
+      return hour >= 12;
+    });
+
+    return new ResponseCommon(200, 'SUCCESS', { morning, afternoon });
+  }
 }

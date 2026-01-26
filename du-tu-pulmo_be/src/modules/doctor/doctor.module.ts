@@ -15,6 +15,7 @@ import { TimeSlotController } from './time-slot.controller';
 import { SlotGeneratorService } from './slot-generator.service';
 import { PublicDoctorController } from './public-doctor.controller';
 import { NotificationModule } from '../notification/notification.module';
+import { PublicTimeSlotController } from './public-time-slot.controller';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { NotificationModule } from '../notification/notification.module';
     DoctorController,
     PublicDoctorController,
     TimeSlotController,
+    PublicTimeSlotController,
     DoctorScheduleController,
   ],
   providers: [

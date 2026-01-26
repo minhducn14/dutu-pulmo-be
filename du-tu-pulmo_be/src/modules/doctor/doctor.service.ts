@@ -10,7 +10,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, Not, IsNull } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { Doctor } from './entities/doctor.entity';
-// import { SubSpecialty } from '../specialty/entities/sub-specialty.entity';
 import { Account } from '../account/entities/account.entity';
 import { User } from '../user/entities/user.entity';
 import { FindDoctorsDto } from './dto/find-doctors.dto';
