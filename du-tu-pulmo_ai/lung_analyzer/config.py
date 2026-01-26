@@ -25,7 +25,7 @@ class Config:
     IMAGE_TARGET_SIZE = int(os.getenv('IMAGE_TARGET_SIZE', 1024))
     APPLY_HISTOGRAM_EQ = os.getenv('APPLY_HISTOGRAM_EQ', 'true').lower() == 'true'
     
-    CONF_THRESHOLD = float(os.getenv('CONF_THRESHOLD', 0.325))
+    CONF_THRESHOLD = float(os.getenv('CONF_THRESHOLD', 0.50))
     
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
