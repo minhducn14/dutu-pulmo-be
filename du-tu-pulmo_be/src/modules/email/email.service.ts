@@ -680,4 +680,116 @@ Hỗ trợ: support@dutupulmo.vn
     </html>
     `;
   }
+
+  /**
+   * Reset password OTP template
+   */
+  private getResetPasswordOtpTemplate(
+    userName: string,
+    otp: string,
+  ): string {
+    return `
+    <!DOCTYPE html>
+    <html lang="vi">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Mã OTP Reset Mật Khẩu</title>
+    </head>
+    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f4f4f4;">
+      <div style="background-color: #ffffff; border-radius: 10px; padding: 40px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <div style="font-size: 32px; font-weight: bold; color: #071658; margin-bottom: 10px;">🫁 DuTu Pulmo</div>
+          <div style="font-size: 48px; margin-bottom: 20px;">🔐</div>
+        </div>
+        
+        <h1 style="color: #333; font-size: 24px; margin-bottom: 20px;">Mã OTP Reset Mật Khẩu</h1>
+        
+        <p style="margin-bottom: 15px; font-size: 16px;">Xin chào <strong>${userName}</strong>,</p>
+        
+        <p style="margin-bottom: 15px; font-size: 16px;">Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản DuTu Pulmo của bạn. Vui lòng nhập mã OTP dưới đây để tiếp tục:</p>
+        
+        <div style="background-color: #f8f9fa; border: 2px dashed #071658; border-radius: 12px; padding: 30px; text-align: center; margin: 30px 0;">
+          <span style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 42px; font-weight: 800; color: #071658; letter-spacing: 12px; display: inline-block; background-color: #ffffff; padding: 15px 40px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">${otp}</span>
+        </div>
+        
+        <div style="background-color: #e3f2fd; border-left: 4px solid #2196F3; padding: 15px; margin: 20px 0; border-radius: 4px;">
+          <strong>⏰ Thông tin quan trọng:</strong>
+          <ul style="margin: 10px 0 0 0; padding-left: 20px;">
+            <li style="margin: 5px 0;">Mã OTP có hiệu lực trong <strong>10 phút</strong>.</li>
+            <li style="margin: 5px 0;">Tuyệt đối không chia sẻ mã này với bất kỳ ai.</li>
+            <li style="margin: 5px 0;">Mỗi mã OTP chỉ có thể sử dụng <strong>một lần</strong>.</li>
+          </ul>
+        </div>
+        
+        <div style="border-top: 1px solid #eee; margin: 30px 0;"></div>
+        
+        <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px;">
+          <strong>🔒 Bảo mật:</strong>
+          <p style="margin: 10px 0 0 0;">Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này và mật khẩu của bạn sẽ không bị thay đổi.</p>
+        </div>
+        
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 14px; color: #666; text-align: center;">
+          <p>Email này được gửi tự động, vui lòng không trả lời.</p>
+          <p>Nếu bạn cần hỗ trợ, vui lòng liên hệ: <a href="mailto:support@dutupulmo.vn" style="color: #071658;">support@dutupulmo.vn</a></p>
+          <p>&copy; 2025 DuTu Pulmo. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+    `;
+  }
+
+  /**
+   * Plain text version for reset password OTP
+   */
+  private getResetPasswordOtpPlainText(
+    otp: string,
+    userName: string,
+  ): string {
+    return `
+  Xin chào ${userName},
+
+  Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.
+
+  Mã OTP của bạn là: ${otp}
+
+  Thông tin quan trọng:
+  - Mã OTP có hiệu lực trong 10 phút
+  - Tuyệt đối không chia sẻ mã này với bất kỳ ai
+  - Mỗi mã OTP chỉ có thể sử dụng một lần
+
+  Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.
+
+  ---
+  DuTu Pulmo
+  Hỗ trợ: support@dutupulmo.vn
+  © 2025 DuTu Pulmo. All rights reserved.
+    `;
+  }
+
+  /**
+   * Send reset password OTP email
+   */
+  async sendResetPasswordOtpEmail(
+    to: string,
+    otp: string,
+    userName?: string,
+  ): Promise<void> {
+    const mailOptions = {
+      from: `"DuTu Pulmo Support" <${this.configService.get<string>('SMTP_USER')}>`,
+      to,
+      subject: 'Mã OTP Reset Mật Khẩu - DuTu Pulmo',
+      html: this.getResetPasswordOtpTemplate(userName || 'bạn', otp),
+      text: this.getResetPasswordOtpPlainText(otp, userName || 'bạn'),
+    };
+
+    try {
+      await this.transporter.sendMail(mailOptions);
+      this.logger.log(`Reset password OTP email sent to: ${to}`);
+    } catch (error) {
+      this.logger.error(`Failed to send reset password OTP email to ${to}:`, error);
+      throw new Error('Không thể gửi email. Vui lòng thử lại sau.');
+    }
+  }
 }

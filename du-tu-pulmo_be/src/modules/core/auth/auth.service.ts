@@ -26,7 +26,15 @@ import axios from 'axios';
 import { EmailService } from 'src/modules/email/email.service';
 import { AUTH_ERRORS } from 'src/common/constants/error-messages.constant';
 import * as crypto from 'crypto';
-import { VerifyEmailResult, ResendVerificationResult, ResendVerificationByOtpResult, VerifyEmailByOtpResult } from './auth.types';
+import {
+  VerifyEmailResult,
+  ResendVerificationResult,
+  ResendVerificationByOtpResult,
+  VerifyEmailByOtpResult,
+  SendResetPasswordOtpResult,
+  VerifyResetPasswordOtpResult,
+  ResetPasswordWithOtpResult
+} from './auth.types';
 
 @Injectable()
 export class AuthService {
@@ -1141,6 +1149,201 @@ export class AuthService {
       });
     } catch (err) {
       this.logger.error('Resend verification OTP error', err);
+      return { status: 'SERVER_ERROR' };
+    }
+  }
+
+  async sendForgotPasswordOtp(
+    email: string,
+  ): Promise<SendResetPasswordOtpResult> {
+    const normalizedEmail = email.toLowerCase().trim();
+
+    try {
+      return await this.dataSource.transaction(async (manager) => {
+        const accountRepo = manager.getRepository(Account);
+
+        const account = await accountRepo.findOne({
+          where: { email: normalizedEmail },
+          relations: ['user'],
+        });
+
+        // Không lộ email tồn tại hay không
+        if (!account) {
+          this.logger.debug(
+            `Reset password OTP requested for non-existent email: ${normalizedEmail}`,
+          );
+          return { status: 'EMAIL_NOT_FOUND' };
+        }
+
+        if (!account.user) {
+          this.logger.warn(
+            `Account ${account.id} has no associated user. Skipping email.`,
+          );
+          return { status: 'EMAIL_NOT_FOUND' };
+        }
+
+        // Rate limiting: Check if OTP was sent recently (within 1 minute)
+        if (account.resetPasswordOtpExpiry) {
+          const now = new Date();
+          const timeSinceLastOtp = now.getTime() - account.resetPasswordOtpExpiry.getTime();
+          const nineMinutes = 9 * 60 * 1000; // 9 phút
+          
+          // Nếu OTP cũ còn hơn 1 phút (tức mới gửi trong vòng 1 phút)
+          if (timeSinceLastOtp < nineMinutes) {
+            this.logger.warn(
+              `Rate limit: Reset password OTP already sent recently for ${normalizedEmail}`,
+            );
+            return { status: 'RATE_LIMITED' };
+          }
+        }
+
+        // Generate new OTP
+        const resetPasswordOtp = this.generateOtp();
+        const resetPasswordOtpExpiry = this.getOtpExpiry();
+
+        account.resetPasswordOtp = resetPasswordOtp;
+        account.resetPasswordOtpExpiry = resetPasswordOtpExpiry;
+
+        await accountRepo.save(account);
+
+        await this.emailService.sendResetPasswordOtpEmail(
+          normalizedEmail,
+          resetPasswordOtp,
+          account.user.fullName,
+        );
+
+        this.logger.log(`Reset password OTP sent to: ${normalizedEmail}`);
+        return { status: 'SUCCESS' };
+      });
+    } catch (err) {
+      this.logger.error('Send forgot password OTP error', err);
+      return { status: 'SERVER_ERROR' };
+    }
+  }
+
+  /**
+   * Verify reset password OTP (step 1)
+   * This only verifies the OTP, doesn't reset password yet
+   */
+  async verifyResetPasswordOtp(
+    email: string,
+    otp: string,
+  ): Promise<VerifyResetPasswordOtpResult> {
+    try {
+      const normalizedEmail = email.toLowerCase().trim();
+
+      return await this.dataSource.transaction(async (manager) => {
+        const accountRepo = manager.getRepository(Account);
+
+        const account = await accountRepo
+          .createQueryBuilder('acc')
+          .leftJoinAndSelect('acc.user', 'user')
+          .addSelect('acc.resetPasswordOtp')
+          .where('acc.email = :email', { email: normalizedEmail })
+          .getOne();
+
+        if (!account) {
+          return { status: 'EMAIL_NOT_FOUND' };
+        }
+
+        if (!account.resetPasswordOtp) {
+          return { status: 'INVALID_OTP' };
+        }
+
+        // Check OTP expiry
+        if (
+          account.resetPasswordOtpExpiry &&
+          account.resetPasswordOtpExpiry < new Date()
+        ) {
+          return { status: 'EXPIRED_OTP', email: account.email };
+        }
+
+        // Verify OTP match
+        if (account.resetPasswordOtp !== otp) {
+          return { status: 'INVALID_OTP' };
+        }
+
+        return { status: 'SUCCESS', email: account.email };
+      });
+    } catch (err) {
+      this.logger.error('Verify reset password OTP error', err);
+      return { status: 'SERVER_ERROR' };
+    }
+  }
+
+  async resetPasswordWithOtp(
+    email: string,
+    otp: string,
+    newPassword: string,
+  ): Promise<ResetPasswordWithOtpResult> {
+    try {
+      const normalizedEmail = email.toLowerCase().trim();
+
+      const passwordRegex =
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+      if (!passwordRegex.test(newPassword)) {
+        throw new BadRequestException(
+          'Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt',
+        );
+      }
+
+      return await this.dataSource.transaction(async (manager) => {
+        const accountRepo = manager.getRepository(Account);
+
+        const account = await accountRepo
+          .createQueryBuilder('acc')
+          .addSelect('acc.resetPasswordOtp')
+          .addSelect('acc.password')
+          .where('acc.email = :email', { email: normalizedEmail })
+          .getOne();
+
+        if (!account) {
+          return { status: 'INVALID_OTP' };
+        }
+
+        if (!account.resetPasswordOtp) {
+          return { status: 'INVALID_OTP' };
+        }
+
+        if (
+          account.resetPasswordOtpExpiry &&
+          account.resetPasswordOtpExpiry < new Date()
+        ) {
+          return { status: 'EXPIRED_OTP' };
+        }
+
+        if (account.resetPasswordOtp !== otp) {
+          return { status: 'INVALID_OTP' };
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+        account.password = hashedPassword;
+        account.resetPasswordOtp = null;
+        account.resetPasswordOtpExpiry = null;
+        
+        await accountRepo.save(account);
+
+        await this.refreshTokenRepo.update(
+          { accountId: account.id, isRevoked: false },
+          { 
+            isRevoked: true, 
+            revokedAt: new Date(), 
+            revokedReason: 'password_reset' 
+          },
+        );
+
+        this.logger.log(
+          `Password reset successful via OTP for: ${this.maskEmail(account.email)}`,
+        );
+
+        return { status: 'SUCCESS' };
+      });
+    } catch (err) {
+      this.logger.error('Reset password with OTP error', err);
+      if (err instanceof BadRequestException) {
+        throw err;
+      }
       return { status: 'SERVER_ERROR' };
     }
   }

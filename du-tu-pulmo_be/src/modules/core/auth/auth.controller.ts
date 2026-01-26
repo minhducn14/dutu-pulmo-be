@@ -36,6 +36,7 @@ import * as jwtStrategy from './strategies/jwt.strategy';
 import { ResponseCommon } from 'src/common/dto/response.dto';
 import { ConfigService } from '@nestjs/config';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { ResetPasswordWithOtpDto } from './dto/reset-password-with-otp.dto';
 
 @ApiTags('Auth')
 @Throttle({ default: { limit: 15, ttl: 60000 } })
@@ -147,6 +148,36 @@ export class AuthController {
   })
   async resetPasswordWithToken(@Body() dto: ResetPasswordWithTokenDto) {
     return this.authService.resetPasswordWithToken(dto.token, dto.newPassword);
+  }
+
+  @Throttle({ default: { limit: 9, ttl: 300000 } }) // 9 requests/5 phút
+  @Post('forgot-password-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Gửi OTP reset mật khẩu' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description:
+      'OTP đã được gửi (nếu tồn tại). Response luôn trả về success để bảo mật.',
+  })
+  async forgotPasswordOtp(@Body() dto: ForgotPasswordDto) {
+    return this.authService.sendForgotPasswordOtp(dto.email);
+  }
+
+  @Throttle({ default: { limit: 9, ttl: 300000 } })
+  @Post('reset-password-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset mật khẩu bằng OTP' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    type: ResetPasswordResponseDto,
+    description: 'Reset mật khẩu thành công',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'OTP không hợp lệ hoặc đã hết hạn',
+  })
+  async resetPasswordWithOtp(@Body() dto: ResetPasswordWithOtpDto) {
+    return this.authService.resetPasswordWithOtp(dto.email, dto.otp, dto.newPassword);
   }
 
   @Post('refresh')

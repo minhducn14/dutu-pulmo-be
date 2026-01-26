@@ -25,3 +25,29 @@ export type ResendVerificationByOtpResult =
   | { status: 'ALREADY_VERIFIED' }
   | { status: 'RATE_LIMITED' }
   | { status: 'SERVER_ERROR' };
+
+export type SendResetPasswordOtpResult = {
+  status:
+    | 'SUCCESS'
+    | 'EMAIL_NOT_FOUND'
+    | 'RATE_LIMITED'
+    | 'SERVER_ERROR';
+};
+
+export type VerifyResetPasswordOtpResult = {
+  status:
+    | 'SUCCESS'
+    | 'INVALID_OTP'
+    | 'EXPIRED_OTP'
+    | 'EMAIL_NOT_FOUND'
+    | 'SERVER_ERROR';
+  email?: string;
+};
+
+export type ResetPasswordWithOtpResult = {
+  status:
+    | 'SUCCESS'
+    | 'INVALID_OTP'
+    | 'EXPIRED_OTP'
+    | 'SERVER_ERROR';
+};

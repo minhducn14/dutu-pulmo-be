@@ -40,6 +40,23 @@ export class Account {
   })
   resetPasswordToken: string | null;
 
+
+  @Column({ 
+    type: 'varchar', 
+    length: 6, 
+    nullable: true,
+    select: false, 
+    comment: 'OTP for password reset'
+  })
+  resetPasswordOtp?: string | null;
+
+  @Column({ 
+    type: 'timestamp', 
+    nullable: true,
+    comment: 'Reset password OTP expiration time'
+  })
+  resetPasswordOtpExpiry?: Date | null;
+
   @Column({ name: 'is_verified', default: false })
   isVerified: boolean;
 
@@ -49,7 +66,7 @@ export class Account {
     enum: AccountStatusEnum,
     default: AccountStatusEnum.ACTIVE,
   })
-  status: AccountStatusEnum; // Authentication status
+  status: AccountStatusEnum;
 
   @Column({ name: 'suspended_until', type: 'timestamptz', nullable: true })
   suspendedUntil?: Date;
