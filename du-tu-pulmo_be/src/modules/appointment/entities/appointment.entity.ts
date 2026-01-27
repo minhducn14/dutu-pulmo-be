@@ -174,14 +174,9 @@ export class Appointment {
   // ========================================
   // IN_CLINIC FIELDS
   // ========================================
-  // @Column({ name: 'room_number', length: 20, nullable: true })
-  // roomNumber: string;
 
   @Column({ name: 'queue_number', type: 'integer', nullable: true })
   queueNumber: number;
-
-  // @Column({ name: 'floor', length: 10, nullable: true })
-  // floor: string;
 
   // ========================================
   // CLINICAL INFO ( Thông tin y tế)
@@ -229,12 +224,6 @@ export class Appointment {
   // ========================================
   @Column({ name: 'reminder_24h_sent', default: false })
   reminder24hSent: boolean;
-
-  @Column({ name: 'reminder_1h_sent', default: false })
-  reminder1hSent: boolean;
-
-  @Column({ name: 'reminder_sent_at', type: 'timestamptz', nullable: true })
-  reminderSentAt: Date;
 
   @Column({ name: 'confirmation_sent', default: false })
   confirmationSent: boolean;
