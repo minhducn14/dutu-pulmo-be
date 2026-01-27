@@ -289,8 +289,7 @@ export class AppointmentService {
         );
       }
 
-      const appointmentType =
-        data.appointmentType || slot.allowedAppointmentTypes[0];
+      const appointmentType = slot.allowedAppointmentTypes[0];
 
       if (!slot.allowedAppointmentTypes.includes(appointmentType)) {
         throw new BadRequestException(

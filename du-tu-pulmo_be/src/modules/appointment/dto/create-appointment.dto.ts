@@ -20,19 +20,10 @@ export class CreateAppointmentDto {
   @IsUUID()
   timeSlotId: string;
 
-  // Optional fields
   @ApiProperty({ description: 'ID bệnh nhân', format: 'uuid' })
   @IsOptional()
   @IsUUID()
   patientId: string;
-
-  @ApiPropertyOptional({
-    description: 'Loại hình khám (default: lấy từ slot)',
-    enum: AppointmentTypeEnum,
-  })
-  @IsOptional()
-  @IsEnum(AppointmentTypeEnum)
-  appointmentType?: AppointmentTypeEnum;
 
   @ApiPropertyOptional({
     description: 'ID bệnh viện (dùng cho IN_CLINIC)',
