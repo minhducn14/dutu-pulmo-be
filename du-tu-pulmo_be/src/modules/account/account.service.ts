@@ -81,15 +81,11 @@ export class AccountService {
     account.deleteReason = reason || 'Account deleted by user request';
     await this.accountRepo.save(account);
 
-    // Use TypeORM soft delete (sets deletedAt)
     await this.accountRepo.softDelete(id);
 
     return new ResponseCommon(200, 'SUCCESS', null);
   }
 
-  /**
-   * Admin only: Hard delete (for data cleanup during development only)
-   */
   async hardDelete(id: string): Promise<ResponseCommon<null>> {
     if (process.env.NODE_ENV === 'production') {
       throw new ForbiddenException('Hard delete not allowed in production');
@@ -99,9 +95,6 @@ export class AccountService {
     return new ResponseCommon(200, 'SUCCESS', null);
   }
 
-  /**
-   * Find deleted accounts (for admin recovery)
-   */
   async findDeleted(): Promise<ResponseCommon<Account[]>> {
     const accounts = await this.accountRepo.find({
       where: { deletedAt: Not(IsNull()) },
@@ -111,9 +104,6 @@ export class AccountService {
     return new ResponseCommon(200, 'SUCCESS', accounts);
   }
 
-  /**
-   * Restore soft-deleted account
-   */
   async restore(id: string): Promise<ResponseCommon<Account | null>> {
     await this.accountRepo.restore(id);
     const account = await this.accountRepo.findOne({

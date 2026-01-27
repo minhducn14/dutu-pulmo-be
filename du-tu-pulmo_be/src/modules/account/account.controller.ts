@@ -43,14 +43,7 @@ export class AccountController {
   async findAll(): Promise<ResponseCommon<AccountResponseDto[]>> {
     const response = await this.accountService.findAll();
     const accounts = response.data ?? [];
-    const data = accounts.map((acc) => ({
-      id: acc.id,
-      email: acc.email,
-      isVerified: acc.isVerified,
-      lastLoginAt: acc.lastLoginAt,
-      fullName: acc.user?.fullName,
-      roles: acc.roles,
-    }));
+    const data = accounts.map((acc) => AccountResponseDto.fromEntity(acc));
     return new ResponseCommon(response.code, response.message, data);
   }
 
@@ -67,15 +60,11 @@ export class AccountController {
     if (!acc) {
       throw new NotFoundException(AUTH_ERRORS.ACCOUNT_NOT_FOUND);
     }
-    return new ResponseCommon(response.code, response.message, {
-      id: acc.id,
-      email: acc.email,
-      isVerified: acc.isVerified,
-      lastLoginAt: acc.lastLoginAt,
-      fullName: acc.user?.fullName,
-      phone: acc.user?.phone,
-      roles: acc.roles,
-    });
+    return new ResponseCommon(
+      response.code,
+      response.message,
+      AccountResponseDto.fromEntity(acc),
+    );
   }
 
   @Patch(':id/admin')
@@ -97,14 +86,11 @@ export class AccountController {
     if (!acc) {
       throw new NotFoundException(AUTH_ERRORS.ACCOUNT_NOT_FOUND);
     }
-    return new ResponseCommon(response.code, response.message, {
-      id: acc.id,
-      email: acc.email,
-      isVerified: acc.isVerified,
-      lastLoginAt: acc.lastLoginAt,
-      fullName: acc.user?.fullName,
-      roles: acc.roles,
-    });
+    return new ResponseCommon(
+      response.code,
+      response.message,
+      AccountResponseDto.fromEntity(acc),
+    );
   }
 
   @Delete(':id')
@@ -127,17 +113,7 @@ export class AccountController {
   async findDeleted(): Promise<ResponseCommon<AccountResponseDto[]>> {
     const response = await this.accountService.findDeleted();
     const accounts = response.data ?? [];
-    const data = accounts.map((acc) => ({
-      id: acc.id,
-      email: acc.email,
-      isVerified: acc.isVerified,
-      lastLoginAt: acc.lastLoginAt,
-      fullName: acc.user?.fullName,
-      roles: acc.roles,
-      deletedAt: acc.deletedAt,
-      deletedBy: acc.deletedBy,
-      deleteReason: acc.deleteReason,
-    }));
+    const data = accounts.map((acc) => AccountResponseDto.fromEntity(acc));
     return new ResponseCommon(response.code, response.message, data);
   }
 
@@ -154,13 +130,10 @@ export class AccountController {
     if (!acc) {
       throw new NotFoundException(AUTH_ERRORS.ACCOUNT_NOT_FOUND);
     }
-    return new ResponseCommon(response.code, response.message, {
-      id: acc.id,
-      email: acc.email,
-      isVerified: acc.isVerified,
-      lastLoginAt: acc.lastLoginAt,
-      fullName: acc.user?.fullName,
-      roles: acc.roles,
-    });
+    return new ResponseCommon(
+      response.code,
+      response.message,
+      AccountResponseDto.fromEntity(acc),
+    );
   }
 }

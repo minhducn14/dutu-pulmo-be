@@ -23,4 +23,50 @@ export class AccountResponseDto {
 
   @ApiProperty()
   roles: RoleEnum[];
+
+  @ApiProperty({ required: false })
+  deletedAt?: Date;
+
+  @ApiProperty({ required: false })
+  deletedBy?: string;
+
+  @ApiProperty({ required: false })
+  deleteReason?: string;
+
+  static fromEntity(account: {
+    id: string;
+    email: string;
+    isVerified: boolean;
+    lastLoginAt?: Date;
+    roles: RoleEnum[];
+    deletedAt?: Date;
+    deletedBy?: string;
+    deleteReason?: string;
+    user?: {
+      fullName?: string;
+      phone?: string;
+    };
+  }): AccountResponseDto {
+    const dto = new AccountResponseDto();
+    dto.id = account.id;
+    dto.email = account.email;
+    dto.isVerified = account.isVerified;
+    dto.lastLoginAt = account.lastLoginAt;
+    dto.fullName = account.user?.fullName;
+    dto.phone = account.user?.phone;
+    dto.roles = account.roles;
+    dto.deletedAt = account.deletedAt;
+    dto.deletedBy = account.deletedBy;
+    dto.deleteReason = account.deleteReason;
+    return dto;
+  }
+
+  static fromNullable(
+    account:
+      | Parameters<typeof AccountResponseDto.fromEntity>[0]
+      | null
+      | undefined,
+  ): AccountResponseDto | null {
+    return account ? AccountResponseDto.fromEntity(account) : null;
+  }
 }
