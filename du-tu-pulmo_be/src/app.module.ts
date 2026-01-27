@@ -3,9 +3,11 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+
+import AppDataSourcePromise from './modules/core/database/data-source';
+
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-
 // Core Modules
 import { AuthModule } from './modules/core/auth/auth.module';
 
@@ -29,15 +31,22 @@ import { ReviewModule } from './modules/review/review.module';
 import { ScreeningModule } from './modules/screening/screening.module';
 import { SystemModule } from './modules/system/system.module';
 import { UserModule } from './modules/user/user.module';
-import AppDataSourcePromise from './modules/core/database/data-source';
-import vnpayConfig from './config/vnpay.config';
-import frontendConfig from './config/frontend.config';
-import * as Joi from 'joi';
-import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import { VideoCallModule } from './modules/video_call/video-call.module';
 import { CloudinaryModule } from './modules/cloudinary';
 import { EnumModule } from './modules/enum/enum.module';
 import { CronModule } from './cron/cron.module';
+
+// Configurations
+import vnpayConfig from './config/vnpay.config';
+import frontendConfig from './config/frontend.config';
+import cloudinaryConfig from './config/cloudinary.config';
+import payosConfig from './config/payos.config';
+
+// Middleware
+import * as Joi from 'joi';
+import { LoggerMiddleware } from './common/middleware/logger.middleware';
+
+
 
 @Module({
   imports: [
@@ -45,8 +54,8 @@ import { CronModule } from './cron/cron.module';
       useFactory: async () => (await AppDataSourcePromise).options,
     }),
     ConfigModule.forRoot({
-      isGlobal: true, // <— để dùng ở mọi nơi mà không cần import lại
-      load: [vnpayConfig, frontendConfig], // <— nạp file config/vnpay.config.ts, smartca.config.ts, frontend.config.ts và rootca.config.ts
+      isGlobal: true, 
+      load: [vnpayConfig, frontendConfig, cloudinaryConfig, payosConfig],
       validationSchema: Joi.object({
         // Frontend validation
         FRONTEND_URL: Joi.string().required().uri(),
@@ -57,6 +66,19 @@ import { CronModule } from './cron/cron.module';
         VNP_URL: Joi.string().uri().required(),
         VNP_RETURN_URL: Joi.string().uri().required(),
         VNP_IPN_URL: Joi.string().uri().optional(),
+
+        // Cloudinary configuration
+        CLOUDINARY_CLOUD_NAME: Joi.string().required(),
+        CLOUDINARY_API_KEY: Joi.string().required(),
+        CLOUDINARY_API_SECRET: Joi.string().required(),
+
+        // Daily.co configuration for Video Call
+        DAILY_API_KEY: Joi.string().optional(),
+
+        // PayOS configuration for Payment
+        PAYOS_CLIENT_ID: Joi.string().optional(),
+        PAYOS_API_KEY: Joi.string().optional(),
+        PAYOS_CHECKSUM_KEY: Joi.string().optional(),
       }),
     }),
     ThrottlerModule.forRoot([
