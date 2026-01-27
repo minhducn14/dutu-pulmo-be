@@ -61,10 +61,6 @@ export class TimeSlot {
   @Column({ name: 'schedule_id', type: 'uuid', nullable: true })
   scheduleId: string | null;
 
-  /**
-   * Version của schedule tại thời điểm tạo slot.
-   * Dùng để track appointments theo từng version của lịch làm việc.
-   */
   @Column({ name: 'schedule_version', type: 'integer', nullable: true })
   scheduleVersion: number | null;
 

@@ -74,7 +74,6 @@ export class PublicDoctorController {
       avatarUrl: user?.avatarUrl,
       status: user?.status,
       province: user?.province,
-      district: user?.district,
       ward: user?.ward,
       address: user?.address,
       practiceStartYear: doctor.practiceStartYear,

@@ -32,6 +32,7 @@ import { CreatePaymentDto } from './dto/create-payment.dto';
 import { RolesGuard } from '../core/auth/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { RoleEnum } from '../common/enums/role.enum';
+import { ResponseCommon } from 'src/common/dto/response.dto';
 
 @ApiTags('Payment')
 @Controller('payment')
@@ -43,7 +44,7 @@ export class PaymentController {
 
   @Post('create')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Tạo payment link cho cuộc hẹn' })
   @ApiResponse({
     status: 201,
@@ -59,17 +60,22 @@ export class PaymentController {
     @Body() createPaymentDto: CreatePaymentDto,
     @Ip() ip: string,
     @Headers('user-agent') userAgent: string,
-  ): Promise<PaymentResponseDto> {
-    return this.paymentService.createPaymentForAppointment(
+  ): Promise<ResponseCommon<PaymentResponseDto>> {
+    const result = await this.paymentService.createPaymentForAppointment(
       createPaymentDto,
       ip,
       userAgent,
+    );
+    return new ResponseCommon(
+      HttpStatus.CREATED,
+      'SUCCESS',
+      PaymentResponseDto.fromData(result),
     );
   }
 
   @Get('appointment/:appointmentId')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Lấy thông tin payment theo appointment ID' })
   @ApiParam({ name: 'appointmentId', description: 'ID cuộc hẹn' })
   @ApiResponse({
@@ -80,13 +86,19 @@ export class PaymentController {
   @ApiResponse({ status: 404, description: 'Không tìm thấy payment' })
   async getPaymentByAppointment(
     @Param('appointmentId') appointmentId: string,
-  ): Promise<PaymentResponseDto> {
-    return this.paymentService.getPaymentByAppointmentId(appointmentId);
+  ): Promise<ResponseCommon<PaymentResponseDto>> {
+    const result =
+      await this.paymentService.getPaymentByAppointmentId(appointmentId);
+    return new ResponseCommon(
+      HttpStatus.OK,
+      'SUCCESS',
+      PaymentResponseDto.fromData(result),
+    );
   }
 
   @Post('cancel/appointment/:appointmentId')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Hủy payment link theo appointment ID' })
   @ApiParam({ name: 'appointmentId', description: 'ID cuộc hẹn' })
@@ -103,17 +115,22 @@ export class PaymentController {
   async cancelPayment(
     @Param('appointmentId') appointmentId: string,
     @Body() cancelDto: CancelPaymentDto,
-  ): Promise<PaymentResponseDto> {
-    return this.paymentService.cancelPaymentByAppointmentId(
+  ): Promise<ResponseCommon<PaymentResponseDto>> {
+    const result = await this.paymentService.cancelPaymentByAppointmentId(
       appointmentId,
       cancelDto.reason,
+    );
+    return new ResponseCommon(
+      HttpStatus.OK,
+      'SUCCESS',
+      PaymentResponseDto.fromData(result),
     );
   }
 
   @Get('sync/appointment/:appointmentId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleEnum.ADMIN)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({
     summary: 'Đồng bộ trạng thái payment với PayOS theo appointment ID',
   })
@@ -125,8 +142,14 @@ export class PaymentController {
   })
   async syncPayment(
     @Param('appointmentId') appointmentId: string,
-  ): Promise<PaymentResponseDto> {
-    return this.paymentService.syncPaymentStatusByAppointmentId(appointmentId);
+  ): Promise<ResponseCommon<PaymentResponseDto>> {
+    const result =
+      await this.paymentService.syncPaymentStatusByAppointmentId(appointmentId);
+    return new ResponseCommon(
+      HttpStatus.OK,
+      'SUCCESS',
+      PaymentResponseDto.fromData(result),
+    );
   }
 
   @Post('webhook')
@@ -135,9 +158,9 @@ export class PaymentController {
   @ApiResponse({ status: 200, description: 'Webhook xử lý thành công' })
   async handleWebhook(
     @Body() webhookData: WebhookData,
-  ): Promise<{ success: boolean }> {
+  ): Promise<ResponseCommon<{ success: boolean }>> {
     await this.paymentService.handleWebhook(webhookData);
-    return { success: true };
+    return new ResponseCommon(HttpStatus.OK, 'SUCCESS', { success: true });
   }
 
   @Get('return')
@@ -186,12 +209,12 @@ export class PaymentController {
 
   @Post('sync')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @Roles(RoleEnum.ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Sync payment status with PayOS' })
-  async syncPaymentStatus() {
+  async syncPaymentStatus(): Promise<ResponseCommon<{ success: boolean }>> {
     await this.paymentService.syncPendingPayments();
-    return { success: true };
+    return new ResponseCommon(HttpStatus.OK, 'SUCCESS', { success: true });
   }
 }

@@ -8,6 +8,7 @@ import {
   OneToOne,
   Index,
   BeforeInsert,
+  OneToMany,
 } from 'typeorm';
 import { Account } from 'src/modules/account/entities/account.entity';
 import { UserStatusEnum } from '../../common/enums/user-status.enum';
@@ -17,6 +18,9 @@ import { EthnicityEnum } from 'src/modules/common/enums/ethnicity.enum';
 import { OccupationEnum } from 'src/modules/common/enums/job.enum';
 import { Patient } from 'src/modules/patient/entities/patient.entity';
 import { Doctor } from 'src/modules/doctor/entities/doctor.entity';
+import { Report } from 'src/modules/report/entities/report.entity';
+import { Favorite } from 'src/modules/favorite/entities/favorite.entity';
+import { Review } from 'src/modules/review/entities/review.entity';
 
 @Entity('users')
 @Index(['status'])
@@ -116,6 +120,16 @@ export class User {
     nullable: true,
   })
   deletedAt: Date;
+
+  @OneToMany(() => Report, (report) => report.reporter)
+  reports: Report[];
+
+  // Relations
+  @OneToMany(() => Review, (review) => review.reviewer)
+  reviews: Review[];
+
+  @OneToMany(() => Favorite, (favorite) => favorite.user)
+  favorites: Favorite[];
 
   @OneToOne(() => Account, (account) => account.user)
   account: Account;

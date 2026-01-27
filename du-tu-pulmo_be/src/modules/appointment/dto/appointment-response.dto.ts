@@ -3,6 +3,10 @@ import { AppointmentStatusEnum } from '../../common/enums/appointment-status.enu
 import { AppointmentTypeEnum } from '../../common/enums/appointment-type.enum';
 import { AppointmentSubTypeEnum } from '../../common/enums/appointment-sub-type.enum';
 import { SourceTypeEnum } from '../../common/enums/source-type.enum';
+import { PaginationMeta } from 'src/common/dto/pagination.dto';
+import { DoctorResponseDto } from 'src/modules/doctor/dto/doctor-response.dto';
+import { PatientResponseDto } from 'src/modules/patient/dto/patient-response.dto';
+import type { Appointment } from '../entities/appointment.entity';
 
 export class AppointmentResponseDto {
   @ApiProperty()
@@ -12,10 +16,10 @@ export class AppointmentResponseDto {
   appointmentNumber: string;
 
   @ApiProperty()
-  patientId: string;
+  patient: PatientResponseDto;
 
   @ApiProperty()
-  doctorId: string;
+  doctor: DoctorResponseDto;
 
   @ApiPropertyOptional()
   hospitalId?: string;
@@ -118,6 +122,61 @@ export class AppointmentResponseDto {
 
   @ApiProperty()
   updatedAt: Date;
+
+  static fromEntity(entity: Appointment): AppointmentResponseDto {
+    const dto = new AppointmentResponseDto();
+    dto.id = entity.id;
+    dto.appointmentNumber = entity.appointmentNumber;
+    dto.patient = entity.patient
+      ? PatientResponseDto.fromEntity(entity.patient)
+      : (null as unknown as PatientResponseDto);
+    dto.doctor = entity.doctor
+      ? DoctorResponseDto.fromEntity(entity.doctor)
+      : (null as unknown as DoctorResponseDto);
+    dto.hospitalId = entity.hospitalId || undefined;
+    dto.timeSlotId = entity.timeSlotId || undefined;
+    dto.scheduledAt = entity.scheduledAt;
+    dto.durationMinutes = entity.durationMinutes;
+    dto.timezone = entity.timezone;
+    dto.status = entity.status;
+    dto.appointmentType = entity.appointmentType;
+    dto.subType = entity.subType;
+    dto.sourceType = entity.sourceType;
+    dto.feeAmount = entity.feeAmount;
+    dto.paidAmount = entity.paidAmount;
+    dto.paymentId = entity.paymentId || undefined;
+    dto.refunded = entity.refunded;
+    dto.meetingRoomId = entity.meetingRoomId || undefined;
+    dto.meetingUrl = entity.meetingUrl || undefined;
+    dto.dailyCoChannel = entity.dailyCoChannel || undefined;
+    dto.queueNumber = entity.queueNumber || undefined;
+    dto.chiefComplaint = entity.chiefComplaint || undefined;
+    dto.symptoms = entity.symptoms || undefined;
+    dto.patientNotes = entity.patientNotes || undefined;
+    dto.doctorNotes = entity.doctorNotes || undefined;
+    dto.checkInTime = entity.checkInTime || undefined;
+    dto.startedAt = entity.startedAt || undefined;
+    dto.endedAt = entity.endedAt || undefined;
+    dto.cancelledAt = entity.cancelledAt || undefined;
+    dto.cancellationReason = entity.cancellationReason || undefined;
+    dto.cancelledBy = entity.cancelledBy || undefined;
+    dto.followUpRequired = entity.followUpRequired;
+    dto.nextAppointmentDate = entity.nextAppointmentDate || undefined;
+    dto.patientRating = entity.patientRating || undefined;
+    dto.createdAt = entity.createdAt;
+    dto.updatedAt = entity.updatedAt;
+    return dto;
+  }
+
+  static fromData(data: AppointmentResponseDto): AppointmentResponseDto {
+    return Object.assign(new AppointmentResponseDto(), data);
+  }
+
+  static mapList(
+    items: AppointmentResponseDto[] | undefined,
+  ): AppointmentResponseDto[] {
+    return (items ?? []).map((item) => AppointmentResponseDto.fromData(item));
+  }
 }
 
 // ============================================================================
@@ -161,8 +220,15 @@ export class AppointmentStatisticsDto {
 // ============================================================================
 
 export class DoctorQueueDto {
-  @ApiProperty({ description: 'Doctor ID' })
-  doctorId: string;
+  @ApiPropertyOptional({
+    description: 'Doctor (null if no appointments today)',
+  })
+  doctor: DoctorResponseDto | null;
+
+  @ApiPropertyOptional({
+    description: 'First patient in queue (null if no appointments today)',
+  })
+  patient: PatientResponseDto | null;
 
   @ApiProperty({ description: 'Tổng số trong hàng đợi' })
   totalInQueue: number;
@@ -202,8 +268,6 @@ export class DoctorQueueDto {
 // PAGINATED RESPONSE DTO
 // ============================================================================
 
-import { PaginationMeta } from 'src/common/dto/pagination.dto';
-
 export class PaginatedAppointmentResponseDto {
   @ApiProperty({
     type: [AppointmentResponseDto],
@@ -215,4 +279,13 @@ export class PaginatedAppointmentResponseDto {
     description: 'Thông tin phân trang',
   })
   meta: PaginationMeta;
+
+  static fromResult(
+    data?: PaginatedAppointmentResponseDto,
+  ): PaginatedAppointmentResponseDto {
+    return {
+      items: AppointmentResponseDto.mapList(data?.items),
+      meta: data?.meta as PaginationMeta,
+    };
+  }
 }

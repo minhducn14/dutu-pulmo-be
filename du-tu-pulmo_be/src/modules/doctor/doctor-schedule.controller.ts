@@ -50,7 +50,7 @@ import {
 import { ScheduleType } from 'src/modules/common/enums/schedule-type.enum';
 
 @ApiTags('Doctor Schedules')
-@ApiBearerAuth()
+@ApiBearerAuth('JWT-auth')
 @UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
 @Controller('doctors/:doctorId/schedules')
 export class DoctorScheduleController {

@@ -34,7 +34,7 @@ import { ResponseCommon } from 'src/common/dto/response.dto';
 
 @ApiTags('Users')
 @Controller('users')
-@ApiBearerAuth()
+@ApiBearerAuth('JWT-auth')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UserController {
   constructor(private readonly userService: UserService) {}

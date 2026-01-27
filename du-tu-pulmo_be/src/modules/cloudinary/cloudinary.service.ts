@@ -5,6 +5,10 @@ import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 export interface CloudinaryUploadResult {
   url: string;
   publicId: string;
+  width?: number;
+  height?: number;
+  format?: string;
+  bytes?: number;
 }
 
 @Injectable()
@@ -18,7 +22,61 @@ export class CloudinaryService {
   }
 
   /**
-   * Upload a single image to Cloudinary
+   * Upload medical X-ray image WITHOUT transformation
+   * Preserves original quality and resolution for diagnosis
+   */
+  async uploadMedicalImage(
+    file: Express.Multer.File,
+    screeningId: string,
+    imageType: 'original' | 'annotated' | 'evaluated' = 'original',
+  ): Promise<CloudinaryUploadResult> {
+    const timestamp = Date.now();
+    const filename = `${screeningId}-${imageType}-${timestamp}`;
+
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: `medical_images/${imageType}`,
+          allowed_formats: ['jpg', 'png', 'jpeg', 'dcm', 'dicom'],
+          // IMPORTANT: No transformation - preserve original quality
+          resource_type: 'image',
+          unique_filename: true,
+          public_id: filename,
+          // Keep original dimensions and quality
+          quality: 100,
+          flags: 'preserve_transparency',
+        },
+        (error, result: UploadApiResponse | undefined) => {
+          if (error) {
+            reject(
+              new BadRequestException(
+                `Medical image upload failed: ${error.message}`,
+              ),
+            );
+          } else if (result) {
+            resolve({
+              url: result.secure_url,
+              publicId: result.public_id,
+              width: result.width,
+              height: result.height,
+              format: result.format,
+              bytes: result.bytes,
+            });
+          } else {
+            reject(
+              new BadRequestException(
+                'Medical image upload failed: Unknown error',
+              ),
+            );
+          }
+        },
+      );
+      uploadStream.end(file.buffer);
+    });
+  }
+
+  /**
+   * Upload a single image to Cloudinary (for general use, not medical)
    */
   async uploadImage(
     file: Express.Multer.File,
@@ -42,13 +100,16 @@ export class CloudinaryService {
             resolve({
               url: result.secure_url,
               publicId: result.public_id,
+              width: result.width,
+              height: result.height,
+              format: result.format,
+              bytes: result.bytes,
             });
           } else {
             reject(new BadRequestException('Upload failed: Unknown error'));
           }
         },
       );
-      // Write buffer to stream
       uploadStream.end(file.buffer);
     });
   }
@@ -93,6 +154,9 @@ export class CloudinaryService {
             resolve({
               url: result.secure_url,
               publicId: result.public_id,
+              width: result.width,
+              height: result.height,
+              format: result.format,
             });
           } else {
             reject(new BadRequestException('Upload failed: Unknown error'));
@@ -109,13 +173,80 @@ export class CloudinaryService {
    */
   async deleteImage(publicId: string): Promise<{ result: string }> {
     try {
-      const result = await cloudinary.uploader.destroy(publicId);
+      const result = (await cloudinary.uploader.destroy(publicId)) as {
+        result: string;
+      };
       return result;
     } catch (error) {
       throw new BadRequestException(
         `Failed to delete image: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
     }
+  }
+
+  /**
+   * Delete multiple images from Cloudinary
+   */
+  async deleteImages(publicIds: string[]): Promise<void> {
+    try {
+      await cloudinary.api.delete_resources(publicIds);
+    } catch (error) {
+      throw new BadRequestException(
+        `Failed to delete images: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+    }
+  }
+
+  /**
+   * Generate a thumbnail URL from existing Cloudinary image
+   * Uses Cloudinary's on-the-fly transformation (no upload needed)
+   */
+  getThumbnailUrl(
+    publicId: string,
+    width: number = 200,
+    height: number = 200,
+  ): string {
+    return cloudinary.url(publicId, {
+      transformation: [
+        { width, height, crop: 'fill' },
+        { quality: 'auto' },
+        { fetch_format: 'auto' },
+      ],
+      secure: true,
+    });
+  }
+
+  /**
+   * Get optimized image URL with custom transformations
+   */
+  getImageUrl(
+    publicId: string,
+    options?: {
+      width?: number;
+      height?: number;
+      crop?: string;
+      quality?: string | number;
+      format?: string;
+    },
+  ): string {
+    const transformation: {
+      width?: number;
+      height?: number;
+      crop?: string;
+      quality?: string | number;
+      fetch_format?: string;
+    } = {};
+
+    if (options?.width) transformation.width = options.width;
+    if (options?.height) transformation.height = options.height;
+    if (options?.crop) transformation.crop = options.crop;
+    if (options?.quality) transformation.quality = options.quality;
+    if (options?.format) transformation.fetch_format = options.format;
+
+    return cloudinary.url(publicId, {
+      transformation: [transformation],
+      secure: true,
+    });
   }
 
   private formatDate(timestamp: number): string {

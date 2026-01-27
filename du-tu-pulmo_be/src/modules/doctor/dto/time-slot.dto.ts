@@ -65,7 +65,9 @@ export class CreateTimeSlotDto {
   @IsUUID()
   scheduleId?: string;
 
-  @ApiPropertyOptional({ description: 'Version của schedule tại thời điểm tạo slot' })
+  @ApiPropertyOptional({
+    description: 'Version của schedule tại thời điểm tạo slot',
+  })
   @IsOptional()
   @IsInt()
   scheduleVersion?: number;
@@ -101,16 +103,16 @@ export class UpdateTimeSlotDto {
   @IsDateString()
   endTime?: string;
 
-  @ApiPropertyOptional({
-    description: 'Các loại hình khám được phép',
-    type: [String],
-    enum: AppointmentTypeEnum,
-  })
-  @IsOptional()
-  @IsArray()
-  @ArrayMinSize(1)
-  @IsEnum(AppointmentTypeEnum, { each: true })
-  allowedAppointmentTypes?: AppointmentTypeEnum[];
+  // @ApiPropertyOptional({
+  //   description: 'Các loại hình khám được phép',
+  //   type: [String],
+  //   enum: AppointmentTypeEnum,
+  // })
+  // @IsOptional()
+  // @IsArray()
+  // @ArrayMinSize(1)
+  // @IsEnum(AppointmentTypeEnum, { each: true })
+  // allowedAppointmentTypes?: AppointmentTypeEnum[];
 
   @ApiPropertyOptional({ description: 'Số lượng bệnh nhân tối đa' })
   @IsOptional()

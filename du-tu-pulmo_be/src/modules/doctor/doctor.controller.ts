@@ -48,7 +48,7 @@ import { DoctorTitle } from '../common/enums/doctor-title.enum';
 
 @ApiTags('Doctors')
 @Controller('doctors')
-@ApiBearerAuth()
+@ApiBearerAuth('JWT-auth')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class DoctorController {
   constructor(
@@ -297,7 +297,6 @@ export class DoctorController {
       status: user?.status,
       CCCD: user?.CCCD,
       province: user?.province,
-      district: user?.district,
       ward: user?.ward,
       address: user?.address,
       practiceStartYear: doctor.practiceStartYear,

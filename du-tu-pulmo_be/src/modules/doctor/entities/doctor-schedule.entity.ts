@@ -111,10 +111,20 @@ export class DoctorSchedule {
   @Column({ name: 'is_available', default: true })
   isAvailable: boolean;
 
-  @Column({ name: 'effective_from', type: 'date', nullable: true, default: null })
+  @Column({
+    name: 'effective_from',
+    type: 'date',
+    nullable: true,
+    default: null,
+  })
   effectiveFrom: Date | null;
 
-  @Column({ name: 'effective_until', type: 'date', nullable: true, default: null })
+  @Column({
+    name: 'effective_until',
+    type: 'date',
+    nullable: true,
+    default: null,
+  })
   effectiveUntil: Date | null;
 
   @Column({ name: 'specific_date', type: 'date', nullable: true })

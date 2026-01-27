@@ -9,6 +9,7 @@ import {
   BadRequestException,
   Query,
   UseGuards,
+  HttpStatus,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import {
@@ -19,10 +20,7 @@ import {
   ApiQuery,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import {
-  CloudinaryService,
-  CloudinaryUploadResult,
-} from './cloudinary.service';
+import { CloudinaryService } from './cloudinary.service';
 import { JwtAuthGuard } from '../core/auth/guards/jwt-auth.guard';
 import { CurrentUser } from 'src/common/decorators/user.decorator';
 import type { JwtUser } from '../core/auth/strategies/jwt.strategy';
@@ -30,6 +28,8 @@ import {
   fileTypeConfigs,
   FileDefaults,
 } from 'src/common/config/file-type.config';
+import { ResponseCommon } from 'src/common/dto/response.dto';
+import { CloudinaryUploadResponseDto } from './dto/cloudinary-upload-response.dto';
 
 @ApiTags('Upload')
 @Controller('upload')
@@ -38,7 +38,7 @@ export class CloudinaryController {
 
   @Post('image')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: fileTypeConfigs.image.maxSize },
@@ -76,16 +76,21 @@ export class CloudinaryController {
   async uploadImage(
     @UploadedFile() file: Express.Multer.File,
     @Query('folder') folder?: string,
-  ): Promise<CloudinaryUploadResult> {
+  ): Promise<ResponseCommon<CloudinaryUploadResponseDto>> {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
-    return this.cloudinaryService.uploadImage(file, folder);
+    const result = await this.cloudinaryService.uploadImage(file, folder);
+    return new ResponseCommon(
+      HttpStatus.CREATED,
+      'SUCCESS',
+      CloudinaryUploadResponseDto.fromEntity(result),
+    );
   }
 
   @Post('images')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @UseInterceptors(
     FilesInterceptor('files', FileDefaults.MAX_LICENSE_IMAGES, {
       limits: { fileSize: fileTypeConfigs.image.maxSize },
@@ -126,16 +131,20 @@ export class CloudinaryController {
   async uploadMultipleImages(
     @UploadedFiles() files: Express.Multer.File[],
     @Query('folder') folder?: string,
-  ): Promise<CloudinaryUploadResult[]> {
+  ): Promise<ResponseCommon<CloudinaryUploadResponseDto[]>> {
     if (!files || files.length === 0) {
       throw new BadRequestException('No files provided');
     }
-    return this.cloudinaryService.uploadImages(files, folder);
+    const results = await this.cloudinaryService.uploadImages(files, folder);
+    const data = (results ?? []).map((result) =>
+      CloudinaryUploadResponseDto.fromEntity(result),
+    );
+    return new ResponseCommon(HttpStatus.CREATED, 'SUCCESS', data);
   }
 
   @Post('avatar')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: FileDefaults.MAX_AVATAR_SIZE },
@@ -168,20 +177,26 @@ export class CloudinaryController {
   async uploadAvatar(
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() user: JwtUser,
-  ): Promise<CloudinaryUploadResult> {
+  ): Promise<ResponseCommon<CloudinaryUploadResponseDto>> {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
-    return this.cloudinaryService.uploadAvatar(file, user.userId);
+    const result = await this.cloudinaryService.uploadAvatar(file, user.userId);
+    return new ResponseCommon(
+      HttpStatus.CREATED,
+      'SUCCESS',
+      CloudinaryUploadResponseDto.fromEntity(result),
+    );
   }
 
   @Delete(':publicId')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Delete an image by public ID' })
   async deleteImage(
     @Param('publicId') publicId: string,
-  ): Promise<{ result: string }> {
-    return this.cloudinaryService.deleteImage(publicId);
+  ): Promise<ResponseCommon<{ result: string }>> {
+    const result = await this.cloudinaryService.deleteImage(publicId);
+    return new ResponseCommon(HttpStatus.OK, 'SUCCESS', result);
   }
 }

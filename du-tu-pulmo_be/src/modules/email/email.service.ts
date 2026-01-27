@@ -297,10 +297,7 @@ Hỗ trợ: support@dutupulmo.vn
     `;
   }
 
-  private getVerificationOtpTemplate(
-    userName: string,
-    otp: string,
-  ): string {
+  private getVerificationOtpTemplate(userName: string, otp: string): string {
     return `
     <!DOCTYPE html>
     <html lang="vi">
@@ -353,7 +350,7 @@ Hỗ trợ: support@dutupulmo.vn
   }
 
   /**
-   * Send verification otp 
+   * Send verification otp
    */
   async sendVerificationEmailByOTP(
     to: string,
@@ -377,10 +374,7 @@ Hỗ trợ: support@dutupulmo.vn
     }
   }
 
-  private getVerificationPlainTextByOTP(
-    otp: string,
-    userName: string,
-  ): string {
+  private getVerificationPlainTextByOTP(otp: string, userName: string): string {
     return `
 Xin chào ${userName},
 

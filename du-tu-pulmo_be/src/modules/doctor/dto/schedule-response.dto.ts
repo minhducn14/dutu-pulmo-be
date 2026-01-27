@@ -138,6 +138,63 @@ export class DoctorScheduleResponseDto {
     description: 'Giảm giá (%)',
   })
   discountPercent?: number;
+
+  static fromEntity(schedule: {
+    id: string;
+    doctorId: string;
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    slotDuration: number;
+    slotCapacity: number;
+    appointmentType: AppointmentTypeEnum;
+    minimumBookingTime: number;
+    maxAdvanceBookingDays: number;
+    consultationFee?: string | null;
+    effectiveConsultationFee?: string | null;
+    description?: string | null;
+    isAvailable: boolean;
+    effectiveFrom?: Date | null;
+    effectiveUntil?: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+    scheduleType: ScheduleType;
+    specificDate?: Date | null;
+    discountPercent?: number;
+  }): DoctorScheduleResponseDto {
+    const dto = new DoctorScheduleResponseDto();
+    dto.id = schedule.id;
+    dto.doctorId = schedule.doctorId;
+    dto.dayOfWeek = schedule.dayOfWeek;
+    dto.startTime = schedule.startTime;
+    dto.endTime = schedule.endTime;
+    dto.slotDuration = schedule.slotDuration;
+    dto.slotCapacity = schedule.slotCapacity;
+    dto.appointmentType = schedule.appointmentType;
+    dto.minimumBookingTime = schedule.minimumBookingTime;
+    dto.maxAdvanceBookingDays = schedule.maxAdvanceBookingDays;
+    dto.consultationFee = schedule.consultationFee ?? null;
+    dto.effectiveConsultationFee = schedule.effectiveConsultationFee ?? null;
+    dto.description = schedule.description ?? null;
+    dto.isAvailable = schedule.isAvailable;
+    dto.effectiveFrom = schedule.effectiveFrom ?? null;
+    dto.effectiveUntil = schedule.effectiveUntil ?? null;
+    dto.createdAt = schedule.createdAt;
+    dto.updatedAt = schedule.updatedAt;
+    dto.scheduleType = schedule.scheduleType;
+    dto.specificDate = schedule.specificDate ?? null;
+    dto.discountPercent = schedule.discountPercent;
+    return dto;
+  }
+
+  static fromNullable(
+    schedule:
+      | Parameters<typeof DoctorScheduleResponseDto.fromEntity>[0]
+      | null
+      | undefined,
+  ): DoctorScheduleResponseDto | null {
+    return schedule ? DoctorScheduleResponseDto.fromEntity(schedule) : null;
+  }
 }
 
 /**
@@ -205,4 +262,39 @@ export class TimeSlotResponseDto {
     description: 'Thời gian cập nhật',
   })
   updatedAt: Date;
+
+  static fromEntity(slot: {
+    id: string;
+    doctorId: string;
+    allowedAppointmentTypes: AppointmentTypeEnum[];
+    startTime: Date;
+    endTime: Date;
+    capacity: number;
+    bookedCount: number;
+    isAvailable: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }): TimeSlotResponseDto {
+    const dto = new TimeSlotResponseDto();
+    dto.id = slot.id;
+    dto.doctorId = slot.doctorId;
+    dto.allowedAppointmentTypes = slot.allowedAppointmentTypes;
+    dto.startTime = slot.startTime;
+    dto.endTime = slot.endTime;
+    dto.capacity = slot.capacity;
+    dto.bookedCount = slot.bookedCount;
+    dto.isAvailable = slot.isAvailable;
+    dto.createdAt = slot.createdAt;
+    dto.updatedAt = slot.updatedAt;
+    return dto;
+  }
+
+  static fromNullable(
+    slot:
+      | Parameters<typeof TimeSlotResponseDto.fromEntity>[0]
+      | null
+      | undefined,
+  ): TimeSlotResponseDto | null {
+    return slot ? TimeSlotResponseDto.fromEntity(slot) : null;
+  }
 }

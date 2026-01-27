@@ -31,7 +31,7 @@ import { RoleEnum } from '../common/enums/role.enum';
 
 @ApiTags('Accounts')
 @Controller('accounts')
-@ApiBearerAuth()
+@ApiBearerAuth('JWT-auth')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AccountController {
   constructor(private readonly accountService: AccountService) {}

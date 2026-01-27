@@ -103,7 +103,13 @@ export class CreateDoctorDto {
 
   @ApiPropertyOptional({ description: 'Năm bắt đầu hành nghề', example: 2010 })
   @IsOptional()
-  @Transform(({ value }) => (value ? parseInt(value, 10) : undefined))
+  @Transform(({ value }) => {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string' && value.trim() !== '') {
+      return parseInt(value, 10);
+    }
+    return undefined;
+  })
   @IsInt()
   @Min(1950)
   practiceStartYear?: number;
@@ -149,7 +155,13 @@ export class CreateDoctorDto {
 
   @ApiPropertyOptional({ description: 'Số năm kinh nghiệm', example: 10 })
   @IsOptional()
-  @Transform(({ value }) => (value ? parseInt(value, 10) : undefined))
+  @Transform(({ value }) => {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string' && value.trim() !== '') {
+      return parseInt(value, 10);
+    }
+    return undefined;
+  })
   @IsInt()
   @Min(0)
   yearsOfExperience?: number;
@@ -232,8 +244,16 @@ export class CreateDoctorDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   @Max(100000000)
-  @Transform(({ value }) => (value != null ? value.toString() : null), {
-    toClassOnly: true,
-  })
+  @Transform(
+    ({ value }) => {
+      if (typeof value === 'number' || typeof value === 'string') {
+        return String(value);
+      }
+      return null;
+    },
+    {
+      toClassOnly: true,
+    },
+  )
   defaultConsultationFee?: string;
 }

@@ -12,18 +12,36 @@ export function IsValidBookingWindow(validationOptions?: ValidationOptions) {
       propertyName: propertyName,
       options: validationOptions,
       validator: {
-        validate(value: any, args: ValidationArguments) {
-          const obj = args.object as any;
-          const minDays = obj.minimumBookingDays ?? 0;
-          const maxDays = obj.maxAdvanceBookingDays ?? 30;
+        validate(_: unknown, args: ValidationArguments) {
+          const obj = args.object as {
+            minimumBookingDays?: number;
+            maxAdvanceBookingDays?: number;
+          };
+          const minDays =
+            typeof obj.minimumBookingDays === 'number'
+              ? obj.minimumBookingDays
+              : 0;
+          const maxDays =
+            typeof obj.maxAdvanceBookingDays === 'number'
+              ? obj.maxAdvanceBookingDays
+              : 30;
 
           // Constraint: minimum must be < maximum
           return minDays < maxDays;
         },
         defaultMessage(args: ValidationArguments) {
-          const obj = args.object as any;
-          const minDays = obj.minimumBookingDays ?? 0;
-          const maxDays = obj.maxAdvanceBookingDays ?? 30;
+          const obj = args.object as {
+            minimumBookingDays?: number;
+            maxAdvanceBookingDays?: number;
+          };
+          const minDays =
+            typeof obj.minimumBookingDays === 'number'
+              ? obj.minimumBookingDays
+              : 0;
+          const maxDays =
+            typeof obj.maxAdvanceBookingDays === 'number'
+              ? obj.maxAdvanceBookingDays
+              : 30;
 
           return `minimumBookingDays (${minDays} ngày) phải nhỏ hơn maxAdvanceBookingDays (${maxDays} ngày). Không có khoảng thời gian nào hợp lệ để đặt lịch.`;
         },

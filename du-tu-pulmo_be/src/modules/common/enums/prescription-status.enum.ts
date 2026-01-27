@@ -1,0 +1,7 @@
+export enum PrescriptionStatusEnum {
+  ACTIVE = 'ACTIVE',
+  FILLED = 'FILLED',
+  PARTIALLY_FILLED = 'PARTIALLY_FILLED',
+  EXPIRED = 'EXPIRED',
+  CANCELLED = 'CANCELLED',
+}

@@ -198,7 +198,7 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @UseGuards(JwtLogoutGuard)
   @ApiOperation({ summary: 'Đăng xuất và xóa refresh token' })
   @ApiResponse({

@@ -3,7 +3,6 @@ import { SpecialtyEnum } from 'src/modules/common/enums/specialty.enum';
 import { DoctorTitle } from 'src/modules/common/enums/doctor-title.enum';
 import { UserStatusEnum } from '../../common/enums/user-status.enum';
 import { GenderEnum } from '../../common/enums/gender.enum';
-import { VerificationStatus } from 'src/modules/common/enums/doctor-verification-status.enum';
 
 export class DoctorResponseDto {
   // ====== Doctor base ======
@@ -72,9 +71,6 @@ export class DoctorResponseDto {
   province?: string;
 
   @ApiPropertyOptional({ example: 'Quận 1', description: 'Quận/Huyện' })
-  district?: string;
-
-  @ApiPropertyOptional({ example: 'Phường Bến Nghé', description: 'Phường/Xã' })
   ward?: string;
 
   @ApiPropertyOptional({
@@ -226,4 +222,95 @@ export class DoctorResponseDto {
     description: 'Thời gian cập nhật cuối',
   })
   updatedAt: Date;
+
+  static fromEntity(doctor: {
+    id: string;
+    userId: string;
+    user?: {
+      fullName?: string;
+      phone?: string;
+      dateOfBirth?: Date;
+      gender?: GenderEnum;
+      avatarUrl?: string;
+      status?: UserStatusEnum;
+      CCCD?: string;
+      province?: string;
+      ward?: string;
+      address?: string;
+    };
+    practiceStartYear?: number;
+    licenseNumber: string;
+    licenseImageUrls?: { url: string; expiry?: string }[];
+    title?: DoctorTitle;
+    position?: string;
+    specialty?: SpecialtyEnum;
+    yearsOfExperience?: number;
+    primaryHospitalId?: string | null;
+    primaryHospital?: {
+      id: string;
+      name: string;
+      hospitalCode: string;
+      address: string;
+      phone: string;
+    } | null;
+    expertiseDescription?: string;
+    bio?: string;
+    workExperience?: string;
+    education?: string;
+    certifications?: { name: string; issuer: string; year: number }[];
+    awardsResearch?: string;
+    trainingUnits?: { url: string; name: string }[];
+    averageRating: string;
+    totalReviews: number;
+    verifiedAt?: Date;
+    defaultConsultationFee?: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }): DoctorResponseDto {
+    const dto = new DoctorResponseDto();
+    dto.id = doctor.id;
+    dto.userId = doctor.userId;
+    dto.fullName = doctor.user?.fullName;
+    dto.phone = doctor.user?.phone;
+    dto.dateOfBirth = doctor.user?.dateOfBirth;
+    dto.gender = doctor.user?.gender;
+    dto.avatarUrl = doctor.user?.avatarUrl;
+    dto.status = doctor.user?.status as UserStatusEnum;
+    dto.CCCD = doctor.user?.CCCD;
+    dto.province = doctor.user?.province;
+    dto.ward = doctor.user?.ward;
+    dto.address = doctor.user?.address;
+    dto.practiceStartYear = doctor.practiceStartYear;
+    dto.licenseNumber = doctor.licenseNumber;
+    dto.licenseImageUrls = doctor.licenseImageUrls;
+    dto.title = doctor.title;
+    dto.position = doctor.position;
+    dto.specialty = doctor.specialty;
+    dto.yearsOfExperience = doctor.yearsOfExperience;
+    dto.primaryHospitalId = doctor.primaryHospitalId ?? null;
+    dto.primaryHospital = doctor.primaryHospital ?? null;
+    dto.expertiseDescription = doctor.expertiseDescription;
+    dto.bio = doctor.bio;
+    dto.workExperience = doctor.workExperience;
+    dto.education = doctor.education;
+    dto.certifications = doctor.certifications;
+    dto.awardsResearch = doctor.awardsResearch;
+    dto.trainingUnits = doctor.trainingUnits;
+    dto.averageRating = doctor.averageRating;
+    dto.totalReviews = doctor.totalReviews;
+    dto.verifiedAt = doctor.verifiedAt;
+    dto.defaultConsultationFee = doctor.defaultConsultationFee;
+    dto.createdAt = doctor.createdAt;
+    dto.updatedAt = doctor.updatedAt;
+    return dto;
+  }
+
+  static fromNullable(
+    doctor:
+      | Parameters<typeof DoctorResponseDto.fromEntity>[0]
+      | null
+      | undefined,
+  ): DoctorResponseDto | null {
+    return doctor ? DoctorResponseDto.fromEntity(doctor) : null;
+  }
 }

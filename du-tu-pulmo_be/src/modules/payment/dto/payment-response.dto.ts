@@ -57,6 +57,36 @@ export class PaymentResponseDto {
     example: '2026-01-08T14:30:00.000Z',
   })
   createdAt: Date;
+
+  static fromData(data: {
+    id: string;
+    orderCode: string;
+    amount: string;
+    description: string;
+    status: PaymentStatus;
+    checkoutUrl: string;
+    qrCode: string;
+    appointmentId: string;
+    createdAt: Date;
+  }): PaymentResponseDto {
+    const dto = new PaymentResponseDto();
+    dto.id = data.id;
+    dto.orderCode = data.orderCode;
+    dto.amount = data.amount;
+    dto.description = data.description;
+    dto.status = data.status;
+    dto.checkoutUrl = data.checkoutUrl;
+    dto.qrCode = data.qrCode;
+    dto.appointmentId = data.appointmentId;
+    dto.createdAt = data.createdAt;
+    return dto;
+  }
+
+  static fromNullable(
+    data: Parameters<typeof PaymentResponseDto.fromData>[0] | null | undefined,
+  ): PaymentResponseDto | null {
+    return data ? PaymentResponseDto.fromData(data) : null;
+  }
 }
 
 export class CancelPaymentDto {

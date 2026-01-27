@@ -200,7 +200,7 @@ export class PaymentService {
     if (!payment) {
       throw new NotFoundException('Payment not found');
     }
-    this.cancelPaymentByAppointmentId(payment.appointmentId, '');
+    void this.cancelPaymentByAppointmentId(payment.appointmentId, '');
     if (!payment) {
       throw new NotFoundException('Payment not found');
     }
@@ -298,7 +298,7 @@ export class PaymentService {
 
     // Find payment
     const payment = await this.paymentRepository.findOne({
-      where: { orderCode: orderCode as any },
+      where: { orderCode: String(orderCode) },
     });
 
     if (!payment) {
@@ -664,9 +664,6 @@ export class PaymentService {
     let count = 0;
 
     for (const payment of oldPayments) {
-      // TODO: Move to archive table when implemented
-      // await this.archivedPaymentRepository.save(payment);
-      // await this.paymentRepository.remove(payment);
 
       this.logger.debug(`Would archive payment ${payment.id}`);
       count++;

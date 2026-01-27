@@ -1,6 +1,6 @@
 import { IsOptional, IsInt, Min, Max, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class PaginationDto {
   @ApiPropertyOptional({
@@ -44,9 +44,31 @@ export class PaginationMeta {
   hasPreviousPage: boolean;
 }
 
+export class PaginationMetaDto extends PaginationMeta {
+  @ApiProperty({ example: 1 })
+  declare currentPage: number;
+
+  @ApiProperty({ example: 10 })
+  declare itemsPerPage: number;
+
+  @ApiProperty({ example: 100 })
+  declare totalItems: number;
+
+  @ApiProperty({ example: 10 })
+  declare totalPages: number;
+
+  @ApiProperty({ example: true })
+  declare hasNextPage: boolean;
+
+  @ApiProperty({ example: false })
+  declare hasPreviousPage: boolean;
+}
+
 export class PaginatedResponseDto<T> {
+  @ApiProperty({ isArray: true, type: Object })
   items: T[];
-  meta: PaginationMeta;
+  @ApiProperty({ type: PaginationMetaDto })
+  meta: PaginationMetaDto;
 
   constructor(items: T[], totalItems: number, page: number, limit: number) {
     const totalPages = Math.ceil(totalItems / limit);

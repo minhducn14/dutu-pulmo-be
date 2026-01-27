@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsUUID, IsOptional, IsUrl } from 'class-validator';
+import { IsNotEmpty, IsUUID, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreatePaymentDto {

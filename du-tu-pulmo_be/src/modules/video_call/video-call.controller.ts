@@ -35,7 +35,7 @@ import { AppointmentTypeEnum } from '../common/enums/appointment-type.enum';
 @ApiTags('Video Call')
 @Controller('video-call')
 @UseGuards(JwtAuthGuard)
-@ApiBearerAuth()
+@ApiBearerAuth('JWT-auth')
 export class VideoCallController {
   constructor(
     private readonly dailyService: DailyService,

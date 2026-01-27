@@ -235,38 +235,6 @@ export class PatientController {
     );
   }
 
-  @Get(':id/appointments')
-  @ApiOperation({ summary: 'Lấy danh sách lịch hẹn của bệnh nhân' })
-  @ApiParam({ name: 'id', description: 'Patient ID (UUID)' })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'status', required: false, type: String })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Danh sách lịch hẹn',
-    type: PaginatedAppointmentResponseDto,
-  })
-  async getAppointments(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Query() query: { page?: number; limit?: number; status?: string },
-    @CurrentUser() user: JwtUser,
-  ): Promise<ResponseCommon<PaginatedAppointmentResponseDto>> {
-    this.checkPatientAccess(id, user);
-    const status =
-      query.status &&
-      Object.values(AppointmentStatusEnum).includes(
-        query.status as AppointmentStatusEnum,
-      )
-        ? (query.status as AppointmentStatusEnum)
-        : undefined;
-    const result = await this.patientService.getAppointments(id, {
-      page: query.page,
-      limit: query.limit,
-      status,
-    });
-    return result as unknown as ResponseCommon<PaginatedAppointmentResponseDto>;
-  }
-
   @Get(':id/profile')
   @ApiOperation({
     summary: 'Lấy hồ sơ tổng hợp bệnh nhân (thông tin + thống kê)',

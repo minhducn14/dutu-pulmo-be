@@ -545,8 +545,7 @@ export class TimeSlotService {
       await this.checkOverlap(existing.doctorId, startTime, endTime, id);
     }
 
-    const newAppointmentTypes =
-      dto.allowedAppointmentTypes ?? existing.allowedAppointmentTypes;
+    const newAppointmentTypes = existing.allowedAppointmentTypes;
 
     if (dto.isAvailable === false && existing.bookedCount > 0) {
       throw new BadRequestException(
@@ -557,9 +556,6 @@ export class TimeSlotService {
     const updateData: Partial<TimeSlot> = {
       ...(dto.startTime && { startTime: new Date(dto.startTime) }),
       ...(dto.endTime && { endTime: new Date(dto.endTime) }),
-      ...(dto.allowedAppointmentTypes && {
-        allowedAppointmentTypes: dto.allowedAppointmentTypes,
-      }),
       ...(dto.capacity !== undefined && { capacity: dto.capacity }),
       ...(dto.isAvailable !== undefined && { isAvailable: dto.isAvailable }),
     };

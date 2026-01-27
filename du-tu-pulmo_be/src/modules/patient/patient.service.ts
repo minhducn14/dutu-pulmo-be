@@ -139,28 +139,7 @@ export class PatientService {
     await this.patientRepository.update(id, updateData);
     return this.findOne(id);
   }
-
-  /**
-   * Get patient's appointments with pagination
-   */
-  async getAppointments(
-    patientId: string,
-    query?: { page?: number; limit?: number; status?: AppointmentStatusEnum },
-  ): Promise<ResponseCommon> {
-    const patient = await this.patientRepository.findOne({
-      where: { id: patientId },
-    });
-    if (!patient) {
-      throw new NotFoundException('Bệnh nhân không tồn tại');
-    }
-
-    return this.appointmentService.findByPatient(patientId, {
-      page: query?.page || 1,
-      limit: query?.limit || 10,
-      status: query?.status,
-    });
-  }
-
+  
   // ============================================================================
   // PROFILE SUMMARY
   // ============================================================================
