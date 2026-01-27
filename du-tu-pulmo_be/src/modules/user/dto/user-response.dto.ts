@@ -25,6 +25,12 @@ export class UserResponseDto {
   phone?: string;
 
   @ApiPropertyOptional({
+    example: 'user@example.com',
+    description: 'Email',
+  })
+  email?: string;
+
+  @ApiPropertyOptional({
     example: '1990-01-15',
     description: 'Ngày sinh',
   })
@@ -130,6 +136,8 @@ export class UserResponseDto {
     id: string;
     fullName?: string;
     phone?: string;
+    email?: string;
+    account?: { email: string };
     dateOfBirth?: Date;
     gender?: GenderEnum;
     avatarUrl?: string;
@@ -151,6 +159,7 @@ export class UserResponseDto {
     dto.id = user.id;
     dto.fullName = user.fullName;
     dto.phone = user.phone;
+    dto.email = user.email || user.account?.email;
     dto.dateOfBirth = user.dateOfBirth;
     dto.gender = user.gender;
     dto.avatarUrl = user.avatarUrl;
