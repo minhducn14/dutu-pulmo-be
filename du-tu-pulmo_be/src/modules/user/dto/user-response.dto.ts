@@ -125,6 +125,56 @@ export class UserResponseDto {
     description: 'Thời gian cập nhật cuối',
   })
   updatedAt: Date;
+
+  static fromEntity(user: {
+    id: string;
+    fullName?: string;
+    phone?: string;
+    dateOfBirth?: Date;
+    gender?: GenderEnum;
+    avatarUrl?: string;
+    status: UserStatusEnum;
+    CCCD?: string;
+    nationality?: CountryEnum;
+    ethnicity?: EthnicityEnum;
+    occupation?: OccupationEnum;
+    provinceCode?: string;
+    province?: string;
+    wardCode?: string;
+    ward?: string;
+    address?: string;
+    lastActiveAt?: Date;
+    createdAt: Date;
+    updatedAt: Date;
+  }): UserResponseDto {
+    const dto = new UserResponseDto();
+    dto.id = user.id;
+    dto.fullName = user.fullName;
+    dto.phone = user.phone;
+    dto.dateOfBirth = user.dateOfBirth;
+    dto.gender = user.gender;
+    dto.avatarUrl = user.avatarUrl;
+    dto.status = user.status;
+    dto.CCCD = user.CCCD;
+    dto.nationality = user.nationality;
+    dto.ethnicity = user.ethnicity;
+    dto.occupation = user.occupation;
+    dto.provinceCode = user.provinceCode;
+    dto.province = user.province;
+    dto.wardCode = user.wardCode;
+    dto.ward = user.ward;
+    dto.address = user.address;
+    dto.lastActiveAt = user.lastActiveAt;
+    dto.createdAt = user.createdAt;
+    dto.updatedAt = user.updatedAt;
+    return dto;
+  }
+
+  static fromNullable(
+    user: Parameters<typeof UserResponseDto.fromEntity>[0] | null | undefined,
+  ): UserResponseDto | null {
+    return user ? UserResponseDto.fromEntity(user) : null;
+  }
 }
 
 // ============================================================================

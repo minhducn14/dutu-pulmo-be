@@ -8,7 +8,6 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
-  Post,
   ForbiddenException,
   Query,
 } from '@nestjs/common';
@@ -31,6 +30,7 @@ import { Roles } from 'src/common/decorators/roles.decorator';
 import { CurrentUser } from 'src/common/decorators/user.decorator';
 import type { JwtUser } from '../core/auth/strategies/jwt.strategy';
 import { RoleEnum } from '../common/enums/role.enum';
+import { ResponseCommon } from 'src/common/dto/response.dto';
 
 @ApiTags('Users')
 @Controller('users')
@@ -47,15 +47,46 @@ export class UserController {
       'Hỗ trợ phân trang, tìm kiếm theo tên/phone, lọc theo role và status',
   })
   @ApiResponse({ status: HttpStatus.OK, type: PaginatedUserResponseDto })
-  findAll(@Query() query: UserQueryDto) {
-    return this.userService.findAll(query);
+  async findAll(
+    @Query() query: UserQueryDto,
+  ): Promise<ResponseCommon<PaginatedUserResponseDto>> {
+    const response = await this.userService.findAll(query);
+
+    const items = response.data?.items ?? [];
+    const mappedItems = items.map((user) => UserResponseDto.fromEntity(user));
+
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const totalItems = response.data?.meta?.totalItems ?? mappedItems.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / limit));
+
+    const meta = response.data?.meta ?? {
+      currentPage: page,
+      itemsPerPage: limit,
+      totalItems,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPreviousPage: page > 1,
+    };
+
+    return new ResponseCommon(response.code, response.message, {
+      items: mappedItems,
+      meta,
+    });
   }
 
   @Get('me')
   @ApiOperation({ summary: 'Lấy thông tin user hiện tại' })
   @ApiResponse({ status: HttpStatus.OK, type: UserResponseDto })
-  getMe(@CurrentUser() user: JwtUser) {
-    return this.userService.findOne(user.userId);
+  async getMe(
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<UserResponseDto>> {
+    const response = await this.userService.findOne(user.userId);
+    return new ResponseCommon(
+      response.code,
+      response.message,
+      UserResponseDto.fromEntity(response.data!),
+    );
   }
 
   @Get(':id')
@@ -69,11 +100,19 @@ export class UserController {
     status: HttpStatus.FORBIDDEN,
     description: 'Không có quyền truy cập',
   })
-  findOne(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+  async findOne(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<UserResponseDto>> {
     if (!user.roles?.includes(RoleEnum.ADMIN) && user.userId !== id) {
-      throw new ForbiddenException('Bạn chỉ có thể xem thông tin của mình');
+      throw new ForbiddenException('Bạn không có quyền xem thông tin cá nhân');
     }
-    return this.userService.findOne(id);
+    const response = await this.userService.findOne(id);
+    return new ResponseCommon(
+      response.code,
+      response.message,
+      UserResponseDto.fromEntity(response.data!),
+    );
   }
 
   @Patch(':id')
@@ -83,14 +122,14 @@ export class UserController {
     status: HttpStatus.FORBIDDEN,
     description: 'Không có quyền truy cập',
   })
-  update(
+  async update(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
     @CurrentUser() user: JwtUser,
-  ) {
+  ): Promise<ResponseCommon<UserResponseDto>> {
     if (!user.roles?.includes(RoleEnum.ADMIN) && user.userId !== id) {
       throw new ForbiddenException(
-        'Bạn chỉ có thể cập nhật thông tin của mình',
+        'Bạn không có quyền cập nhật thông tin cá nhân',
       );
     }
     if (!user.roles?.includes(RoleEnum.ADMIN) && updateUserDto.status) {
@@ -98,7 +137,12 @@ export class UserController {
         'Bạn không có quyền cập nhật trạng thái tài khoản',
       );
     }
-    return this.userService.update(id, updateUserDto);
+    const response = await this.userService.update(id, updateUserDto);
+    return new ResponseCommon(
+      response.code,
+      response.message,
+      UserResponseDto.fromEntity(response.data!),
+    );
   }
 
   @Delete(':id')

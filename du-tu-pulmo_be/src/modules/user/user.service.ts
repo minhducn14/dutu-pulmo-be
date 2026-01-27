@@ -4,30 +4,36 @@ import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ResponseCommon } from 'src/common/dto/response.dto';
-import { Account } from '../account/entities/account.entity';
 import { USER_ERRORS } from 'src/common/constants/error-messages.constant';
 import { RoleEnum } from '../common/enums/role.enum';
 import { Doctor } from '../doctor/entities/doctor.entity';
 import { Patient } from '../patient/entities/patient.entity';
 import { UserQueryDto } from './dto/user-query.dto';
-import { PaginatedUserResponseDto } from './dto/user-response.dto';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
-    @InjectRepository(Account)
-    private accountRepository: Repository<Account>,
     @InjectRepository(Doctor)
     private doctorRepository: Repository<Doctor>,
     @InjectRepository(Patient)
     private patientRepository: Repository<Patient>,
   ) {}
 
-  async findAll(
-    query?: UserQueryDto,
-  ): Promise<ResponseCommon<PaginatedUserResponseDto>> {
+  async findAll(query?: UserQueryDto): Promise<
+    ResponseCommon<{
+      items: User[];
+      meta: {
+        currentPage: number;
+        itemsPerPage: number;
+        totalItems: number;
+        totalPages: number;
+        hasNextPage: boolean;
+        hasPreviousPage: boolean;
+      };
+    }>
+  > {
     const page = query?.page || 1;
     const limit = query?.limit || 10;
     const skip = (page - 1) * limit;
@@ -69,10 +75,9 @@ export class UserService {
       .getMany();
 
     const totalPages = Math.ceil(totalItems / limit);
-    const safeUsers = users.map((user) => this.sanitizeUser(user));
 
     return new ResponseCommon(200, 'SUCCESS', {
-      items: safeUsers as any,
+      items: users,
       meta: {
         currentPage: page,
         itemsPerPage: limit,
@@ -84,7 +89,7 @@ export class UserService {
     });
   }
 
-  async findOne(id: string): Promise<ResponseCommon> {
+  async findOne(id: string): Promise<ResponseCommon<User>> {
     const user = await this.userRepository.findOne({
       where: { id },
       relations: ['account'],
@@ -106,13 +111,13 @@ export class UserService {
       });
     }
 
-    return new ResponseCommon(200, 'SUCCESS', this.sanitizeUser(user));
+    return new ResponseCommon(200, 'SUCCESS', user);
   }
 
   async update(
     id: string,
     updateUserDto: UpdateUserDto,
-  ): Promise<ResponseCommon> {
+  ): Promise<ResponseCommon<User>> {
     const existingUser = await this.userRepository.findOne({ where: { id } });
     if (!existingUser) {
       throw new NotFoundException(USER_ERRORS.USER_NOT_FOUND);
@@ -138,29 +143,5 @@ export class UserService {
     return new ResponseCommon(200, 'SUCCESS', {
       message: 'Xóa user thành công',
     });
-  }
-
-  /**
-   * Sanitize user data - loại bỏ thông tin nhạy cảm
-   */
-  private sanitizeUser(user: User): Partial<User> {
-    const { account, ...safeUser } = user;
-
-    if (account) {
-      return {
-        ...safeUser,
-        account: {
-          id: account.id,
-          email: account.email,
-          isVerified: account.isVerified,
-          roles: account.roles,
-          status: account.status,
-          createdAt: account.createdAt,
-          updatedAt: account.updatedAt,
-        } as any,
-      };
-    }
-
-    return safeUser;
   }
 }
