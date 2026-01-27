@@ -36,6 +36,7 @@ import * as jwtStrategy from './strategies/jwt.strategy';
 import { ResponseCommon } from 'src/common/dto/response.dto';
 import { ConfigService } from '@nestjs/config';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { AuthMessageResponseDto } from './dto/auth-message-response.dto';
 import { ResetPasswordWithOtpDto } from './dto/reset-password-with-otp.dto';
 
 @ApiTags('Auth')
@@ -59,8 +60,13 @@ export class AuthController {
     status: HttpStatus.BAD_REQUEST,
     description: 'Email đã tồn tại hoặc dữ liệu không hợp lệ',
   })
-  async register(@Body() dto: RegisterDto) {
-    return await this.authService.register(dto);
+  async register(
+    @Body() dto: RegisterDto,
+  ): Promise<ResponseCommon<RegisterResponseDto>> {
+    const response = await this.authService.register(dto);
+    return new ResponseCommon(response.code, response.message, {
+      message: response.data?.message ?? '',
+    });
   }
 
   @Post('login')
@@ -75,8 +81,18 @@ export class AuthController {
     status: HttpStatus.UNAUTHORIZED,
     description: 'Sai thông tin đăng nhập',
   })
-  async login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  async login(
+    @Body() dto: LoginDto,
+  ): Promise<ResponseCommon<LoginResponseDto>> {
+    const response = await this.authService.login(dto);
+    if (!response.data) {
+      throw new BadRequestException('Login response is empty');
+    }
+    return new ResponseCommon(
+      response.code,
+      response.message,
+      LoginResponseDto.fromResult(response.data),
+    );
   }
 
   @Get('google/callback')
@@ -129,28 +145,16 @@ export class AuthController {
     description:
       'Email đã được gửi (nếu tồn tại). Response luôn trả về success để bảo mật.',
   })
-  async forgotPassword(@Body() dto: ForgotPasswordDto) {
-    return this.authService.sendForgotPasswordEmail(dto.email);
+  async forgotPassword(
+    @Body() dto: ForgotPasswordDto,
+  ): Promise<ResponseCommon<AuthMessageResponseDto>> {
+    const response = await this.authService.sendForgotPasswordEmail(dto.email);
+    return new ResponseCommon(response.code, response.message, {
+      message: response.data?.message ?? '',
+    });
   }
 
-  @Throttle({ default: { limit: 9, ttl: 300000 } }) // 9 requests/5 phút
-  @Post('reset-password-email')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Reset mật khẩu bằng token từ email' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    type: ResetPasswordResponseDto,
-    description: 'Reset mật khẩu thành công',
-  })
-  @ApiResponse({
-    status: HttpStatus.UNAUTHORIZED,
-    description: 'Token không hợp lệ hoặc đã hết hạn',
-  })
-  async resetPasswordWithToken(@Body() dto: ResetPasswordWithTokenDto) {
-    return this.authService.resetPasswordWithToken(dto.token, dto.newPassword);
-  }
-
-  @Throttle({ default: { limit: 9, ttl: 300000 } }) // 9 requests/5 phút
+  @Throttle({ default: { limit: 9, ttl: 300000 } })
   @Post('forgot-password-otp')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Gửi OTP reset mật khẩu' })
@@ -159,8 +163,11 @@ export class AuthController {
     description:
       'OTP đã được gửi (nếu tồn tại). Response luôn trả về success để bảo mật.',
   })
-  async forgotPasswordOtp(@Body() dto: ForgotPasswordDto) {
-    return this.authService.sendForgotPasswordOtp(dto.email);
+  async forgotPasswordOtp(@Body() dto: ForgotPasswordDto): Promise<ResponseCommon<AuthMessageResponseDto>> {
+    const response = await this.authService.sendForgotPasswordOtp(dto.email);
+    return new ResponseCommon(response.code, response.message, {
+      message: response.data?.message ?? '',
+    });
   }
 
   @Throttle({ default: { limit: 9, ttl: 300000 } })
@@ -176,8 +183,36 @@ export class AuthController {
     status: HttpStatus.UNAUTHORIZED,
     description: 'OTP không hợp lệ hoặc đã hết hạn',
   })
-  async resetPasswordWithOtp(@Body() dto: ResetPasswordWithOtpDto) {
-    return this.authService.resetPasswordWithOtp(dto.email, dto.otp, dto.newPassword);
+  async resetPasswordWithOtp(@Body() dto: ResetPasswordWithOtpDto): Promise<ResponseCommon<ResetPasswordResponseDto>> {
+    const response = await this.authService.resetPasswordWithOtp(dto.email, dto.otp, dto.newPassword);
+    return new ResponseCommon(response.code, response.message, {
+      message: response.data?.message ?? '',
+    });
+  }
+
+  @Throttle({ default: { limit: 9, ttl: 300000 } })
+  @Post('reset-password-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset mật khẩu bằng token từ email' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    type: ResetPasswordResponseDto,
+    description: 'Reset mật khẩu thành công',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Token không hợp lệ hoặc đã hết hạn',
+  })
+  async resetPasswordWithToken(
+    @Body() dto: ResetPasswordWithTokenDto,
+  ): Promise<ResponseCommon<ResetPasswordResponseDto>> {
+    const response = await this.authService.resetPasswordWithToken(
+      dto.token,
+      dto.newPassword,
+    );
+    return new ResponseCommon(response.code, response.message, {
+      message: response.data?.message ?? '',
+    });
   }
 
   @Post('refresh')
@@ -192,8 +227,19 @@ export class AuthController {
     status: HttpStatus.UNAUTHORIZED,
     description: 'Refresh token không hợp lệ hoặc đã hết hạn',
   })
-  async refreshToken(@Body() dto: RefreshTokenDto) {
-    return this.authService.refreshAccessToken(dto.refreshToken);
+  async refreshToken(
+    @Body() dto: RefreshTokenDto,
+  ): Promise<ResponseCommon<RefreshTokenResponseDto>> {
+    const response = await this.authService.refreshAccessToken(
+      dto.refreshToken,
+    );
+    if (!response.data?.accessToken) {
+      throw new BadRequestException('Refresh token response is empty');
+    }
+    return new ResponseCommon(response.code, response.message, {
+      accessToken: response.data.accessToken,
+      refreshToken: response.data?.refreshToken,
+    });
   }
 
   @Post('logout')
@@ -209,8 +255,13 @@ export class AuthController {
     status: HttpStatus.UNAUTHORIZED,
     description: 'Token không hợp lệ',
   })
-  async logout(@CurrentUser() user: jwtStrategy.JwtUser) {
-    return this.authService.logout(user.id);
+  async logout(
+    @CurrentUser() user: jwtStrategy.JwtUser,
+  ): Promise<ResponseCommon<AuthMessageResponseDto>> {
+    const response = await this.authService.logout(user.id);
+    return new ResponseCommon(response.code, response.message, {
+      message: response.data?.message ?? '',
+    });
   }
 
   @Get('verify-email')
@@ -274,7 +325,7 @@ export class AuthController {
   })
   async resendVerification(
     @Body() dto: ResendVerificationDto,
-  ): Promise<ResponseCommon<{ message: string }>> {
+  ): Promise<ResponseCommon<AuthMessageResponseDto>> {
     const result = await this.authService.resendVerificationEmail(dto.email);
 
     if (result.status === 'ALREADY_VERIFIED') {
@@ -300,7 +351,9 @@ export class AuthController {
     status: HttpStatus.BAD_REQUEST,
     description: 'Mã OTP không hợp lệ hoặc đã hết hạn',
   })
-  async verifyOtp(@Body() dto: VerifyOtpDto): Promise<ResponseCommon<{ message: string }>> {
+  async verifyOtp(
+    @Body() dto: VerifyOtpDto,
+  ): Promise<ResponseCommon<AuthMessageResponseDto>> {
     const result = await this.authService.verifyEmailByOtp(dto.email, dto.otp);
 
     switch (result.status) {
@@ -338,7 +391,7 @@ export class AuthController {
   })
   async resendOtp(
     @Body() dto: ResendVerificationDto,
-  ): Promise<ResponseCommon<{ message: string }>> {
+  ): Promise<ResponseCommon<AuthMessageResponseDto>> {
     const result = await this.authService.resendVerificationOtp(dto.email);
 
     switch (result.status) {

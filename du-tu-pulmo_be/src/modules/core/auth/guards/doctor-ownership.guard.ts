@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import type { Request } from 'express';
 import { JwtUser } from '../strategies/jwt.strategy';
 import { RoleEnum } from 'src/modules/common/enums/role.enum';
 import { DoctorSchedule } from 'src/modules/doctor/entities/doctor-schedule.entity';
@@ -21,8 +22,10 @@ export class DoctorOwnershipGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
-    const user: JwtUser = request.user;
+    const request = context
+      .switchToHttp()
+      .getRequest<Request & { user?: JwtUser }>();
+    const user = request.user;
     const doctorIdParam = request.params.doctorId;
 
     if (!user) {

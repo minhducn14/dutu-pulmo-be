@@ -11,7 +11,6 @@ export type ResendVerificationResult =
   | { status: 'ALREADY_VERIFIED' }
   | { status: 'SERVER_ERROR' };
 
-  
 export type VerifyEmailByOtpResult =
   | { status: 'SUCCESS' }
   | { status: 'INVALID_OTP' }

@@ -1159,11 +1159,13 @@ export class AuthService {
 
         // Rate limiting: Check if OTP was sent recently (within 1 minute)
         if (account.verificationOtpExpiry) {
-          const timeSinceLastOtp = 
-            this.getOtpExpiry().getTime() - account.verificationOtpExpiry.getTime();
+          const timeSinceLastOtp =
+            this.getOtpExpiry().getTime() -
+            account.verificationOtpExpiry.getTime();
           const oneMinute = 60 * 1000;
-          
-          if (timeSinceLastOtp < 9 * oneMinute) { // OTP was sent less than 1 min ago
+
+          if (timeSinceLastOtp < 9 * oneMinute) {
+            // OTP was sent less than 1 min ago
             return { status: 'RATE_LIMITED' };
           }
         }
@@ -1194,7 +1196,7 @@ export class AuthService {
 
   async sendForgotPasswordOtp(
     email: string,
-  ): Promise<SendResetPasswordOtpResult> {
+  ): Promise<ResponseCommon<{ message: string }>> {
     const normalizedEmail = email.toLowerCase().trim();
 
     try {
@@ -1211,14 +1213,14 @@ export class AuthService {
           this.logger.debug(
             `Reset password OTP requested for non-existent email: ${normalizedEmail}`,
           );
-          return { status: 'EMAIL_NOT_FOUND' };
+          return new ResponseCommon(200, 'SUCCESS', { message: 'Email not found' });
         }
 
         if (!account.user) {
           this.logger.warn(
             `Account ${account.id} has no associated user. Skipping email.`,
           );
-          return { status: 'EMAIL_NOT_FOUND' };
+          return new ResponseCommon(200, 'SUCCESS', { message: 'Email not found' });
         }
 
         // Rate limiting: Check if OTP was sent recently (within 1 minute)
@@ -1232,7 +1234,7 @@ export class AuthService {
             this.logger.warn(
               `Rate limit: Reset password OTP already sent recently for ${normalizedEmail}`,
             );
-            return { status: 'RATE_LIMITED' };
+            return new ResponseCommon(200, 'SUCCESS', { message: 'Rate limited' });
           }
         }
 
@@ -1252,11 +1254,16 @@ export class AuthService {
         );
 
         this.logger.log(`Reset password OTP sent to: ${normalizedEmail}`);
-        return { status: 'SUCCESS' };
+        return new ResponseCommon(200, 'SUCCESS', {
+          message:
+            'Nếu email tồn tại trong hệ thống, bạn sẽ nhận được link reset mật khẩu.',
+        });
       });
     } catch (err) {
       this.logger.error('Send forgot password OTP error', err);
-      return { status: 'SERVER_ERROR' };
+      return new ResponseCommon(500, 'SERVER_ERROR', { 
+        message: 'Server error' 
+      });
     }
   }
 
@@ -1267,7 +1274,7 @@ export class AuthService {
   async verifyResetPasswordOtp(
     email: string,
     otp: string,
-  ): Promise<VerifyResetPasswordOtpResult> {
+  ): Promise<ResponseCommon<{ message: string }>> {
     try {
       const normalizedEmail = email.toLowerCase().trim();
 
@@ -1282,11 +1289,11 @@ export class AuthService {
           .getOne();
 
         if (!account) {
-          return { status: 'EMAIL_NOT_FOUND' };
+          return new ResponseCommon(200, 'SUCCESS', { message: 'Email not found' });
         }
 
         if (!account.resetPasswordOtp) {
-          return { status: 'INVALID_OTP' };
+          return new ResponseCommon(200, 'SUCCESS', { message: 'Invalid OTP' });
         }
 
         // Check OTP expiry
@@ -1294,19 +1301,23 @@ export class AuthService {
           account.resetPasswordOtpExpiry &&
           account.resetPasswordOtpExpiry < new Date()
         ) {
-          return { status: 'EXPIRED_OTP', email: account.email };
+          return new ResponseCommon(200, 'SUCCESS', { message: 'Expired OTP' });
         }
 
         // Verify OTP match
         if (account.resetPasswordOtp !== otp) {
-          return { status: 'INVALID_OTP' };
+          return new ResponseCommon(200, 'SUCCESS', { message: 'Invalid OTP' });
         }
 
-        return { status: 'SUCCESS', email: account.email };
+        return new ResponseCommon(200, 'SUCCESS', { 
+          message: 'OTP verified successfully'
+        });
       });
     } catch (err) {
       this.logger.error('Verify reset password OTP error', err);
-      return { status: 'SERVER_ERROR' };
+      return new ResponseCommon(500, 'SERVER_ERROR', { 
+        message: 'Server error' 
+      });
     }
   }
 
@@ -1314,7 +1325,7 @@ export class AuthService {
     email: string,
     otp: string,
     newPassword: string,
-  ): Promise<ResetPasswordWithOtpResult> {
+  ): Promise<ResponseCommon<{ message: string }>> {
     try {
       const normalizedEmail = email.toLowerCase().trim();
 
@@ -1337,22 +1348,30 @@ export class AuthService {
           .getOne();
 
         if (!account) {
-          return { status: 'INVALID_OTP' };
+          return new ResponseCommon(200, 'SUCCESS', { 
+            message: 'Invalid OTP'
+          });
         }
 
         if (!account.resetPasswordOtp) {
-          return { status: 'INVALID_OTP' };
+          return new ResponseCommon(200, 'SUCCESS', { 
+            message: 'Invalid OTP'
+          });
         }
 
         if (
           account.resetPasswordOtpExpiry &&
           account.resetPasswordOtpExpiry < new Date()
         ) {
-          return { status: 'EXPIRED_OTP' };
+          return new ResponseCommon(200, 'SUCCESS', { 
+            message: 'OTP expired'
+          });
         }
 
         if (account.resetPasswordOtp !== otp) {
-          return { status: 'INVALID_OTP' };
+          return new ResponseCommon(200, 'SUCCESS', { 
+            message: 'Invalid OTP'
+          });
         }
 
         const hashedPassword = await bcrypt.hash(newPassword, 12);
@@ -1376,14 +1395,20 @@ export class AuthService {
           `Password reset successful via OTP for: ${this.maskEmail(account.email)}`,
         );
 
-        return { status: 'SUCCESS' };
+        return new ResponseCommon(200, 'SUCCESS', {
+          message: 'Đặt lại mật khẩu thành công!',
+        });
       });
     } catch (err) {
       this.logger.error('Reset password with OTP error', err);
       if (err instanceof BadRequestException) {
-        throw err;
+        return new ResponseCommon(400, 'BAD_REQUEST', { 
+          message: err.message 
+        });
       }
-      return { status: 'SERVER_ERROR' };
+      return new ResponseCommon(500, 'SERVER_ERROR', { 
+        message: 'Server error' 
+      });
     }
   }
 }
