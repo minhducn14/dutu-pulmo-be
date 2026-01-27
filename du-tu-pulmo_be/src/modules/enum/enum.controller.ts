@@ -1,8 +1,12 @@
-import { Controller, Get, Query } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Query, HttpStatus } from '@nestjs/common';
+import { ApiOperation, ApiTags, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { EnumService } from './enum.service';
-import { PaginationDto } from 'src/common/dto/pagination.dto';
+import {
+  PaginationDto,
+  PaginatedResponseDto,
+} from 'src/common/dto/pagination.dto';
 import { ResponseCommon } from 'src/common/dto/response.dto';
+import { EnumItemDto } from './dto/enum-item.dto';
 
 @ApiTags('Enum - Danh mục')
 @Controller('enums')
@@ -11,25 +15,49 @@ export class EnumController {
 
   @Get('countries')
   @ApiOperation({ summary: 'Lấy danh sách quốc gia' })
-  async getCountries(
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Danh sách quốc gia với phân trang',
+    type: PaginatedResponseDto,
+  })
+  getCountries(
     @Query() paginationDto: PaginationDto,
-  ): Promise<ResponseCommon> {
+  ): ResponseCommon<PaginatedResponseDto<EnumItemDto>> {
     return this.enumService.getCountries(paginationDto);
   }
 
   @Get('ethnicities')
   @ApiOperation({ summary: 'Lấy danh sách dân tộc' })
-  async getEthnicities(
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Danh sách dân tộc với phân trang',
+    type: PaginatedResponseDto,
+  })
+  getEthnicities(
     @Query() paginationDto: PaginationDto,
-  ): Promise<ResponseCommon> {
+  ): ResponseCommon<PaginatedResponseDto<EnumItemDto>> {
     return this.enumService.getEthnicities(paginationDto);
   }
 
   @Get('occupations')
   @ApiOperation({ summary: 'Lấy danh sách nghề nghiệp' })
-  async getOccupations(
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Danh sách nghề nghiệp với phân trang',
+    type: PaginatedResponseDto,
+  })
+  getOccupations(
     @Query() paginationDto: PaginationDto,
-  ): Promise<ResponseCommon> {
+  ): ResponseCommon<PaginatedResponseDto<EnumItemDto>> {
     return this.enumService.getOccupations(paginationDto);
   }
 }
