@@ -44,6 +44,9 @@ export class Hospital {
   logoUrl: string;
 
   // ===== ĐỊA CHỈ =====
+  @Column({ type: 'text' })
+  address: string;
+
   @Column({ length: 20, nullable: true })
   provinceCode: string;
 
@@ -55,9 +58,6 @@ export class Hospital {
 
   @Column({ length: 100, nullable: true })
   ward: string; //  Phường/Xã
-
-  @Column({ type: 'text', nullable: true })
-  address: string;
 
   // ===== TỌA ĐỘ (Optional - nếu cần map) =====
   @Column({ type: 'decimal', precision: 10, scale: 8, nullable: true })

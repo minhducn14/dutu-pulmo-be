@@ -1,5 +1,4 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { FacilityTypeEnum } from 'src/modules/common/enums/facility-type.enum';
 
 export class HospitalResponseDto {
   @ApiProperty()
@@ -14,35 +13,18 @@ export class HospitalResponseDto {
   @ApiProperty()
   phone: string;
 
-  @ApiProperty({ required: false })
-  email?: string;
+  @ApiProperty()
+  email: string;
 
-  @ApiProperty({
-    enum: FacilityTypeEnum,
-    description: 'Loại cơ sở y tế',
-  })
-  facilityType: FacilityTypeEnum;
+  @ApiProperty()
+  address: string;
 
-  @ApiProperty({ required: false, description: 'URL logo của bệnh viện' })
-  logoUrl?: string;
+  @ApiProperty()
+  ward: string;
 
-  // ===== ĐỊA CHỈ =====
-  @ApiProperty({ required: false, description: 'Mã tỉnh/thành phố' })
-  provinceCode?: string;
+  @ApiProperty()
+  province: string;
 
-  @ApiProperty({ required: false, description: 'Tỉnh/Thành phố' })
-  province?: string;
-
-  @ApiProperty({ required: false, description: 'Mã phường/xã' })
-  wardCode?: string;
-
-  @ApiProperty({ required: false, description: 'Phường/Xã' })
-  ward?: string;
-
-  @ApiProperty({ required: false, description: 'Địa chỉ chi tiết' })
-  address?: string;
-
-  // ===== TỌA ĐỘ =====
   @ApiProperty({ required: false })
   latitude?: number;
 
@@ -59,6 +41,47 @@ export class HospitalResponseDto {
     description: 'Số lượng bác sĩ làm việc tại bệnh viện',
   })
   doctorCount?: number;
+
+  static fromEntity(hospital: {
+    id: string;
+    name: string;
+    hospitalCode: string;
+    phone: string;
+    email: string;
+    address: string;
+    ward?: string | null;
+    province?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    createdAt: Date;
+    updatedAt: Date;
+    doctorCount?: number;
+  }): HospitalResponseDto {
+    const dto = new HospitalResponseDto();
+    dto.id = hospital.id;
+    dto.name = hospital.name;
+    dto.hospitalCode = hospital.hospitalCode;
+    dto.phone = hospital.phone;
+    dto.email = hospital.email;
+    dto.address = hospital.address;
+    dto.ward = hospital.ward ?? '';
+    dto.province = hospital.province ?? '';
+    dto.latitude = hospital.latitude ?? undefined;
+    dto.longitude = hospital.longitude ?? undefined;
+    dto.createdAt = hospital.createdAt;
+    dto.updatedAt = hospital.updatedAt;
+    dto.doctorCount = hospital.doctorCount;
+    return dto;
+  }
+
+  static fromNullable(
+    hospital:
+      | Parameters<typeof HospitalResponseDto.fromEntity>[0]
+      | null
+      | undefined,
+  ): HospitalResponseDto | null {
+    return hospital ? HospitalResponseDto.fromEntity(hospital) : null;
+  }
 }
 
 export class PaginatedHospitalResponseDto {

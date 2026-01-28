@@ -25,15 +25,15 @@ import {
   UpdateHospitalDto,
   HospitalQueryDto,
 } from './dto/hospital.dto';
-import {
-  HospitalResponseDto,
-  PaginatedHospitalResponseDto,
-} from './dto/hospital-response.dto';
+import { HospitalResponseDto } from './dto/hospital-response.dto';
 import { JwtAuthGuard } from '../core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../core/auth/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { RoleEnum } from '../common/enums/role.enum';
-import { FacilityTypeEnum } from '../common/enums/facility-type.enum';
+import { ResponseCommon } from 'src/common/dto/response.dto';
+import { PaginatedResponseDto } from 'src/common/dto/pagination.dto';
+import { DoctorResponseDto } from '../doctor/dto/doctor-response.dto';
+import { Doctor } from '../doctor/entities/doctor.entity';
 
 @ApiTags('Hospitals')
 @Controller('hospitals')
@@ -43,55 +43,56 @@ export class HospitalController {
   @Get()
   @ApiOperation({
     summary: 'Lấy danh sách bệnh viện/phòng khám',
-    description:
-      'Hỗ trợ pagination, search theo tên/mã/địa chỉ/tỉnh/phường, filter theo loại cơ sở và tỉnh',
+    description: 'Hỗ trợ pagination, search theo tên/mã, filter theo thành phố',
   })
   @ApiQuery({
     name: 'search',
     required: false,
-    description: 'Tìm kiếm theo tên, mã, địa chỉ, tỉnh/thành phố, phường/xã',
+    description: 'Tìm kiếm theo tên hoặc mã',
   })
   @ApiQuery({
-    name: 'facilityType',
+    name: 'city',
     required: false,
-    enum: FacilityTypeEnum,
-    description: 'Lọc theo loại cơ sở y tế',
-  })
-  @ApiQuery({
-    name: 'provinceCode',
-    required: false,
-    description: 'Lọc theo mã tỉnh/thành phố',
+    description: 'Lọc theo thành phố',
   })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Danh sách bệnh viện',
-    type: PaginatedHospitalResponseDto,
+    type: PaginatedResponseDto,
   })
-  findAll(@Query() query: HospitalQueryDto) {
-    return this.hospitalService.findAll(query);
+  async findAll(
+    @Query() query: HospitalQueryDto,
+  ): Promise<ResponseCommon<PaginatedResponseDto<HospitalResponseDto>>> {
+    const response = await this.hospitalService.findAll(query);
+    const data = response.data ?? {
+      data: [],
+      total: 0,
+      page: query.page ?? 1,
+      limit: query.limit ?? 20,
+    };
+    const items = (data.data ?? []).map((hospital) =>
+      HospitalResponseDto.fromEntity(hospital),
+    );
+    const paginated = new PaginatedResponseDto(
+      items,
+      data.total,
+      data.page,
+      data.limit,
+    );
+    return new ResponseCommon(response.code, response.message, paginated);
   }
 
-  @Get('facility-types')
-  @ApiOperation({ summary: 'Lấy danh sách các loại cơ sở y tế' })
+  @Get('cities')
+  @ApiOperation({ summary: 'Lấy danh sách các thành phố có bệnh viện' })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Danh sách loại cơ sở y tế',
+    description: 'Danh sách thành phố',
     type: [String],
   })
-  getFacilityTypes() {
-    return this.hospitalService.getFacilityTypes();
-  }
-
-  @Get('provinces')
-  @ApiOperation({ summary: 'Lấy danh sách các tỉnh/thành phố có bệnh viện' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Danh sách tỉnh/thành phố',
-  })
-  getProvinces() {
-    return this.hospitalService.getProvinces();
+  getCities(): Promise<ResponseCommon<string[]>> {
+    return this.hospitalService.getCities();
   }
 
   @Get(':id')
@@ -106,8 +107,15 @@ export class HospitalController {
     status: HttpStatus.NOT_FOUND,
     description: 'Không tìm thấy bệnh viện',
   })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.hospitalService.findById(id);
+  async findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ResponseCommon<HospitalResponseDto>> {
+    const response = await this.hospitalService.findById(id);
+    return new ResponseCommon(
+      response.code,
+      response.message,
+      HospitalResponseDto.fromEntity(response.data!),
+    );
   }
 
   @Get('code/:hospitalCode')
@@ -125,8 +133,15 @@ export class HospitalController {
     status: HttpStatus.NOT_FOUND,
     description: 'Không tìm thấy bệnh viện',
   })
-  findByCode(@Param('hospitalCode') hospitalCode: string) {
-    return this.hospitalService.findByCode(hospitalCode);
+  async findByCode(
+    @Param('hospitalCode') hospitalCode: string,
+  ): Promise<ResponseCommon<HospitalResponseDto>> {
+    const response = await this.hospitalService.findByCode(hospitalCode);
+    return new ResponseCommon(
+      response.code,
+      response.message,
+      HospitalResponseDto.fromEntity(response.data!),
+    );
   }
 
   @Post()
@@ -155,8 +170,15 @@ export class HospitalController {
     status: HttpStatus.FORBIDDEN,
     description: 'Không có quyền (chỉ Admin)',
   })
-  create(@Body() dto: CreateHospitalDto) {
-    return this.hospitalService.create(dto);
+  async create(
+    @Body() dto: CreateHospitalDto,
+  ): Promise<ResponseCommon<HospitalResponseDto>> {
+    const response = await this.hospitalService.create(dto);
+    return new ResponseCommon(
+      response.code,
+      response.message,
+      HospitalResponseDto.fromEntity(response.data!),
+    );
   }
 
   @Put(':id')
@@ -178,11 +200,16 @@ export class HospitalController {
     status: HttpStatus.CONFLICT,
     description: 'Mã bệnh viện đã tồn tại',
   })
-  update(
+  async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateHospitalDto,
-  ) {
-    return this.hospitalService.update(id, dto);
+  ): Promise<ResponseCommon<HospitalResponseDto>> {
+    const response = await this.hospitalService.update(id, dto);
+    return new ResponseCommon(
+      response.code,
+      response.message,
+      HospitalResponseDto.fromEntity(response.data!),
+    );
   }
 
   @Delete(':id')
@@ -203,7 +230,9 @@ export class HospitalController {
     status: HttpStatus.NOT_FOUND,
     description: 'Không tìm thấy bệnh viện',
   })
-  delete(@Param('id', ParseUUIDPipe) id: string) {
+  delete(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ResponseCommon<null>> {
     return this.hospitalService.delete(id);
   }
 
@@ -226,8 +255,15 @@ export class HospitalController {
     status: HttpStatus.BAD_REQUEST,
     description: 'Bệnh viện chưa bị xóa',
   })
-  restore(@Param('id', ParseUUIDPipe) id: string) {
-    return this.hospitalService.restore(id);
+  async restore(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ResponseCommon<HospitalResponseDto>> {
+    const response = await this.hospitalService.restore(id);
+    return new ResponseCommon(
+      response.code,
+      response.message,
+      HospitalResponseDto.fromEntity(response.data!),
+    );
   }
 
   @Get(':id/doctors')
@@ -247,15 +283,30 @@ export class HospitalController {
     status: HttpStatus.NOT_FOUND,
     description: 'Không tìm thấy bệnh viện',
   })
-  getDoctors(
+  async getDoctors(
     @Param('id', ParseUUIDPipe) id: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
-  ) {
-    return this.hospitalService.getDoctorsByHospitalId(
+  ): Promise<ResponseCommon<PaginatedResponseDto<DoctorResponseDto>>> {
+    const response = await this.hospitalService.getDoctorsByHospitalId(
       id,
       page || 1,
       limit || 20,
     );
+    const fallback = new PaginatedResponseDto<DoctorResponseDto>(
+      [],
+      0,
+      page || 1,
+      limit || 20,
+    );
+    const paginated = (response.data ??
+      fallback) as PaginatedResponseDto<Doctor>;
+    const items = (paginated.items ?? []).map((doc) =>
+      DoctorResponseDto.fromEntity(doc),
+    );
+    return new ResponseCommon(response.code, response.message, {
+      items,
+      meta: paginated.meta,
+    });
   }
 }

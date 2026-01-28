@@ -44,47 +44,17 @@ export class HospitalService {
       .createQueryBuilder('hospital')
       .where('hospital.deletedAt IS NULL');
 
-    // Search by name, hospitalCode, address, province, or ward
+    // Search by name or hospitalCode
     if (query.search) {
       queryBuilder.andWhere(
-        '(hospital.name ILIKE :search OR hospital.hospitalCode ILIKE :search OR hospital.address ILIKE :search OR hospital.province ILIKE :search OR hospital.ward ILIKE :search)',
+        '(hospital.name ILIKE :search OR hospital.hospitalCode ILIKE :search)',
         { search: `%${query.search}%` },
       );
     }
 
-    // Filter by facilityType
-    if (query.facilityType) {
-      queryBuilder.andWhere('hospital.facilityType = :facilityType', {
-        facilityType: query.facilityType,
-      });
-    }
-
-    // Filter by provinceCode
-    if (query.provinceCode) {
-      queryBuilder.andWhere('hospital.provinceCode = :provinceCode', {
-        provinceCode: query.provinceCode,
-      });
-    }
-
-    // Filter by province name (exact match)
-    if (query.province) {
-      queryBuilder.andWhere('hospital.province ILIKE :province', {
-        province: `%${query.province}%`,
-      });
-    }
-
-    // Filter by wardCode
-    if (query.wardCode) {
-      queryBuilder.andWhere('hospital.wardCode = :wardCode', {
-        wardCode: query.wardCode,
-      });
-    }
-
-    // Filter by ward name (exact match)
-    if (query.ward) {
-      queryBuilder.andWhere('hospital.ward ILIKE :ward', {
-        ward: `%${query.ward}%`,
-      });
+    // Filter by city
+    if (query.city) {
+      queryBuilder.andWhere('hospital.city = :city', { city: query.city });
     }
 
     const [data, total] = await queryBuilder
@@ -229,6 +199,14 @@ export class HospitalService {
   async delete(id: string): Promise<ResponseCommon<null>> {
     await this.findById(id);
 
+    // TODO: Check if hospital has active schedules/appointments
+    // const hasActiveSchedules = await this.scheduleRepository.count({
+    //   where: { hospitalId: id }
+    // });
+    // if (hasActiveSchedules > 0) {
+    //   throw new ConflictException('Không thể xóa bệnh viện đang có lịch làm việc');
+    // }
+
     await this.hospitalRepository.softDelete(id);
     return new ResponseCommon(200, 'Xóa bệnh viện thành công', null);
   }
@@ -257,39 +235,21 @@ export class HospitalService {
   }
 
   /**
-   * Lấy danh sách facility types (dùng cho filter)
+   * Lấy danh sách cities (dùng cho filter)
    */
-  async getFacilityTypes(): Promise<ResponseCommon<string[]>> {
-    const types = await this.hospitalRepository
+  async getCities(): Promise<ResponseCommon<string[]>> {
+    const cities = await this.hospitalRepository
       .createQueryBuilder('hospital')
-      .select('DISTINCT hospital.facilityType', 'facilityType')
+      .select('DISTINCT hospital.city', 'city')
       .where('hospital.deletedAt IS NULL')
-      .orderBy('hospital.facilityType', 'ASC')
-      .getRawMany();
+      .orderBy('hospital.city', 'ASC')
+      .getRawMany<{ city: string | null }>();
 
     return new ResponseCommon(
       200,
       'SUCCESS',
-      types.map((t) => t.facilityType).filter(Boolean),
+      cities.map((c) => c.city).filter((city): city is string => Boolean(city)),
     );
-  }
-
-  /**
-   * Lấy danh sách provinces (dùng cho filter)
-   */
-  async getProvinces(): Promise<
-    ResponseCommon<{ provinceCode: string; province: string }[]>
-  > {
-    const provinces = await this.hospitalRepository
-      .createQueryBuilder('hospital')
-      .select('DISTINCT hospital.provinceCode', 'provinceCode')
-      .addSelect('hospital.province', 'province')
-      .where('hospital.deletedAt IS NULL')
-      .andWhere('hospital.provinceCode IS NOT NULL')
-      .orderBy('hospital.province', 'ASC')
-      .getRawMany();
-
-    return new ResponseCommon(200, 'SUCCESS', provinces);
   }
 
   /**
