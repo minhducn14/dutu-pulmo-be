@@ -1,7 +1,7 @@
 import { IsOptional, IsUUID, IsEnum } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { PaginationDto } from 'src/common/dto/pagination.dto';
-import { SpecialtyEnum } from 'src/modules/common/enums/specialty.enum';
+import { PaginationDto } from '@/common/dto/pagination.dto';
+import { SpecialtyEnum } from '@/modules/common/enums/specialty.enum';
 
 export class FindDoctorsDto extends PaginationDto {
   @ApiPropertyOptional({

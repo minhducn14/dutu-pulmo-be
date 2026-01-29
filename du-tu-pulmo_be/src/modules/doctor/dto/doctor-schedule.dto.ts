@@ -13,10 +13,10 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ArrayMaxSize, ArrayMinSize, ValidateNested } from 'class-validator';
-import { ScheduleType } from 'src/modules/common/enums/schedule-type.enum';
+import { ScheduleType } from '@/modules/common/enums/schedule-type.enum';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
-import { IsValidBookingWindow } from '../validators/is-valid-booking-window.decorator';
+import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
+import { IsValidBookingWindow } from '@/modules/doctor/validators/is-valid-booking-window.decorator';
 
 /**
  * DTO for creating a regular (fixed) doctor schedule.

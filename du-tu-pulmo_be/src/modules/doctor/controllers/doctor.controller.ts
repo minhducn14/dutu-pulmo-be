@@ -26,25 +26,27 @@ import {
   ApiConsumes,
   ApiBody,
 } from '@nestjs/swagger';
-import { DoctorService } from './doctor.service';
-import { JwtAuthGuard } from '../core/auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../core/auth/guards/roles.guard';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { FindDoctorsDto } from './dto/find-doctors.dto';
-import { CreateDoctorDto } from './dto/create-doctor.dto';
-import { UpdateDoctorDto } from './dto/update-doctor.dto';
-import { ResponseCommon } from 'src/common/dto/response.dto';
-import { RoleEnum } from '../common/enums/role.enum';
-import { CurrentUser } from 'src/common/decorators/user.decorator';
-import type { JwtUser } from '../core/auth/strategies/jwt.strategy';
-import { CloudinaryService } from '../cloudinary/cloudinary.service';
-import { DoctorResponseDto } from './dto/doctor-response.dto';
+import { DoctorService } from '@/modules/doctor/services/doctor.service';
+import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { FindDoctorsDto } from '@/modules/doctor/dto/find-doctors.dto';
+import { CreateDoctorDto } from '@/modules/doctor/dto/create-doctor.dto';
+import { UpdateDoctorDto } from '@/modules/doctor/dto/update-doctor.dto';
+import { ResponseCommon } from '@/common/dto/response.dto';
+import { RoleEnum } from '@/modules/common/enums/role.enum';
+import { CurrentUser } from '@/common/decorators/user.decorator';
+import type { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
+import { CloudinaryService } from '@/modules/cloudinary/cloudinary.service';
+import { DoctorResponseDto } from '@/modules/doctor/dto/doctor-response.dto';
+import { Doctor } from '@/modules/doctor/entities/doctor.entity';
+import { PaginatedResponseDto } from '@/common/dto/pagination.dto';
 import {
   fileTypeConfigs,
   FileDefaults,
-} from 'src/common/config/file-type.config';
-import { SpecialtyEnum } from '../common/enums/specialty.enum';
-import { DoctorTitle } from '../common/enums/doctor-title.enum';
+} from '@/common/config/file-type.config';
+import { SpecialtyEnum } from '@/modules/common/enums/specialty.enum';
+import { DoctorTitle } from '@/modules/common/enums/doctor-title.enum';
 
 @ApiTags('Doctors')
 @Controller('doctors')
@@ -58,14 +60,25 @@ export class DoctorController {
 
   @Get()
   @ApiOperation({ summary: 'Lấy danh sách bác sĩ (có phân trang)' })
-  @ApiResponse({ status: HttpStatus.OK, type: [DoctorResponseDto] })
+  @ApiResponse({ status: HttpStatus.OK, type: PaginatedResponseDto })
   async findAll(
     @Query() dto: FindDoctorsDto,
-  ): Promise<ResponseCommon<DoctorResponseDto[]>> {
+  ): Promise<ResponseCommon<PaginatedResponseDto<DoctorResponseDto>>> {
     const response = await this.doctorService.findAllPaginated(dto);
-    const doctors = response.data?.items ?? [];
-    const data = doctors.map((doc) => this.toResponseDto(doc));
-    return new ResponseCommon(response.code, response.message, data);
+    const fallback = new PaginatedResponseDto<Doctor>(
+      [],
+      0,
+      dto.page ?? 1,
+      dto.limit ?? 10,
+    );
+    const paginated = response.data ?? fallback;
+    const items = (paginated.items ?? []).map((doc) =>
+      DoctorResponseDto.fromEntity(doc),
+    );
+    return new ResponseCommon(response.code, response.message, {
+      items,
+      meta: paginated.meta,
+    });
   }
 
   @Get(':id')
@@ -93,7 +106,7 @@ export class DoctorController {
     return new ResponseCommon(
       response.code,
       response.message,
-      this.toResponseDto(doc),
+      DoctorResponseDto.fromEntity(doc),
     );
   }
 
@@ -144,7 +157,7 @@ export class DoctorController {
         specialty: {
           type: 'string',
           example: SpecialtyEnum.PULMONOLOGY,
-          enum: Object.values(SpecialtyEnum ),
+          enum: Object.values(SpecialtyEnum),
         },
         defaultConsultationFee: { type: 'number', example: 100000 },
       },
@@ -191,10 +204,13 @@ export class DoctorController {
 
     const response = await this.doctorService.create(dto);
     const doc = response.data;
+    if (!doc) {
+      throw new NotFoundException('KhÃ´ng tÃ¬m tháº¥y bÃ¡c sÄ©');
+    }
     return new ResponseCommon(
       response.code,
       response.message,
-      this.toResponseDto(doc),
+      DoctorResponseDto.fromEntity(doc),
     );
   }
 
@@ -229,7 +245,7 @@ export class DoctorController {
     return new ResponseCommon(
       response.code,
       response.message,
-      this.toResponseDto(doc),
+      DoctorResponseDto.fromEntity(doc),
     );
   }
 
@@ -254,8 +270,8 @@ export class DoctorController {
     const response = await this.doctorService.findDeleted();
     const doctors = response.data ?? [];
     const data = doctors.map((doc) => ({
-      ...this.toResponseDto(doc),
-      deletedAt: (doc as any).deletedAt,
+      ...DoctorResponseDto.fromEntity(doc),
+      deletedAt: doc.deletedAt,
     }));
     return new ResponseCommon(response.code, response.message, data);
   }
@@ -276,49 +292,7 @@ export class DoctorController {
     return new ResponseCommon(
       response.code,
       response.message,
-      this.toResponseDto(doc),
+      DoctorResponseDto.fromEntity(doc),
     );
-  }
-
-  /**
-   * Map Doctor entity to DoctorResponseDto
-   */
-  private toResponseDto(doctor: any): DoctorResponseDto {
-    const user = doctor.user;
-
-    return {
-      id: doctor.id,
-      userId: doctor.userId,
-      fullName: user?.fullName,
-      phone: user?.phone,
-      dateOfBirth: user?.dateOfBirth,
-      gender: user?.gender,
-      avatarUrl: user?.avatarUrl,
-      status: user?.status,
-      CCCD: user?.CCCD,
-      province: user?.province,
-      ward: user?.ward,
-      address: user?.address,
-      practiceStartYear: doctor.practiceStartYear,
-      licenseNumber: doctor.licenseNumber,
-      licenseImageUrls: doctor.licenseImageUrls,
-      title: doctor.title,
-      position: doctor.position,
-      specialty: doctor.specialty,
-      yearsOfExperience: doctor.yearsOfExperience,
-      primaryHospitalId: doctor.primaryHospitalId,
-      expertiseDescription: doctor.expertiseDescription,
-      bio: doctor.bio,
-      workExperience: doctor.workExperience,
-      education: doctor.education,
-      certifications: doctor.certifications,
-      awardsResearch: doctor.awardsResearch,
-      trainingUnits: doctor.trainingUnits,
-      averageRating: doctor.averageRating,
-      totalReviews: doctor.totalReviews,
-      verifiedAt: doctor.verifiedAt,
-      createdAt: doctor.createdAt,
-      updatedAt: doctor.updatedAt,
-    };
   }
 }

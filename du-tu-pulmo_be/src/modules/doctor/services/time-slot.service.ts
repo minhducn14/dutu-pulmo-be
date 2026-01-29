@@ -5,20 +5,11 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import {
-  Repository,
-  Between,
-  DataSource,
-  MoreThanOrEqual,
-  Not,
-  In,
-  IsNull,
-} from 'typeorm';
-import { TimeSlot } from './entities/time-slot.entity';
-import { CreateTimeSlotDto, UpdateTimeSlotDto } from './dto/time-slot.dto';
-import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
-import { ResponseCommon } from 'src/common/dto/response.dto';
-import { DoctorSchedule } from './entities/doctor-schedule.entity';
+import { Repository, Between, DataSource, MoreThanOrEqual, In } from 'typeorm';
+import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
+import { CreateTimeSlotDto, UpdateTimeSlotDto } from '@/modules/doctor/dto/time-slot.dto';
+import { ResponseCommon } from '@/common/dto/response.dto';
+import { DoctorSchedule } from '@/modules/doctor/entities/doctor-schedule.entity';
 
 const MAX_SLOTS_PER_REQUEST = 100;
 const MAX_SLOTS_PER_DAY = 50;
@@ -55,11 +46,7 @@ export class TimeSlotService {
     return new ResponseCommon(200, 'SUCCESS', slot);
   }
 
-  async findByDoctorId(
-    doctorId: string,
-    limit = 100,
-    offset = 0,
-  ): Promise<ResponseCommon<TimeSlot[]>> {
+  async findByDoctorId(doctorId: string): Promise<ResponseCommon<TimeSlot[]>> {
     const now = new Date();
     const slots = await this.timeSlotRepository.find({
       where: {
@@ -227,14 +214,19 @@ export class TimeSlotService {
     if (dto.scheduleId) {
       doctorSchedule = await this.scheduleRepository.findOne({
         where: { id: dto.scheduleId },
-        select: ['id', 'version', 'minimumBookingTime', 'maxAdvanceBookingDays'],
+        select: [
+          'id',
+          'version',
+          'minimumBookingTime',
+          'maxAdvanceBookingDays',
+        ],
       });
 
       // Validate version match if provided
       if (dto.scheduleVersion !== undefined && doctorSchedule) {
         if (dto.scheduleVersion !== doctorSchedule.version) {
           throw new BadRequestException(
-            `Schedule version không khớp. Hiện tại: ${doctorSchedule.version}, Nhận được: ${dto.scheduleVersion}`
+            `Schedule version không khớp. Hiện tại: ${doctorSchedule.version}, Nhận được: ${dto.scheduleVersion}`,
           );
         }
       }
@@ -471,7 +463,9 @@ export class TimeSlotService {
         await this.timeSlotRepository.update(slotId, { isAvailable });
         success++;
       } catch (error) {
-        errors.push(`Slot ${slotId}: ${error.message}`);
+        const errorMessage =
+          error instanceof Error ? error.message : 'Lỗi không xác định';
+        errors.push(`Slot ${slotId}: ${errorMessage}`);
         failed++;
       }
     }
@@ -544,8 +538,6 @@ export class TimeSlotService {
 
       await this.checkOverlap(existing.doctorId, startTime, endTime, id);
     }
-
-    const newAppointmentTypes = existing.allowedAppointmentTypes;
 
     if (dto.isAvailable === false && existing.bookedCount > 0) {
       throw new BadRequestException(
@@ -625,90 +617,5 @@ export class TimeSlotService {
 
     const result = await queryBuilder.execute();
     return result.affected || 0;
-  }
-
-  async findSlotsGroupedByDate(
-    doctorId: string,
-    startDate: Date,
-    endDate: Date,
-  ): Promise<ResponseCommon<Record<string, { morning: TimeSlot[]; afternoon: TimeSlot[] }>>> {
-    const slots = await this.findSlotsInRange(doctorId, startDate, endDate);
-
-    const groupedByDate: Record<string, { morning: TimeSlot[]; afternoon: TimeSlot[] }> = {};
-
-    slots.forEach((slot) => {
-      const localDate = new Date(slot.startTime);
-      const dateKey = localDate.toISOString().split('T')[0];
-      
-      if (!groupedByDate[dateKey]) {
-        groupedByDate[dateKey] = { morning: [], afternoon: [] };
-      }
-
-      const hour = localDate.getUTCHours() + 7; 
-      
-      if (hour < 12) {
-        groupedByDate[dateKey].morning.push(slot);
-      } else {
-        groupedByDate[dateKey].afternoon.push(slot);
-      }
-    });
-
-    return new ResponseCommon(200, 'SUCCESS', groupedByDate);
-  }
-
-  async countSlotsByDateRange(
-    doctorId: string,
-    startDate: Date,
-    endDate: Date,
-  ): Promise<ResponseCommon<Record<string, number>>> {
-    const slots = await this.findSlotsInRange(doctorId, startDate, endDate);
-
-    const countByDate: Record<string, number> = {};
-
-    slots.forEach((slot) => {
-      const localDate = new Date(slot.startTime);
-      const dateKey = localDate.toISOString().split('T')[0];
-      
-      countByDate[dateKey] = (countByDate[dateKey] ?? 0) + slot.capacity;
-    });
-
-    return new ResponseCommon(200, 'SUCCESS', countByDate);
-  }
-
-  async findAvailableSlotsByDateGrouped(
-    doctorId: string,
-    date: Date,
-  ): Promise<ResponseCommon<{ morning: TimeSlot[]; afternoon: TimeSlot[] }>> {
-    if (isNaN(date.getTime())) {
-      throw new BadRequestException('Ngày không hợp lệ');
-    }
-
-    const now = new Date();
-    const queryDate = new Date(date);
-    queryDate.setHours(0, 0, 0, 0);
-
-    if (queryDate < new Date(now.setHours(0, 0, 0, 0))) {
-      return new ResponseCommon(200, 'Ngày đã qua', { morning: [], afternoon: [] });
-    }
-
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
-
-    const slots = await this.findAvailableSlots(doctorId, startOfDay, endOfDay);
-
-    const morning = slots.filter((slot) => {
-      const hour = new Date(slot.startTime).getUTCHours() + 7;
-      return hour < 12;
-    });
-
-    const afternoon = slots.filter((slot) => {
-      const hour = new Date(slot.startTime).getUTCHours() + 7;
-      return hour >= 12;
-    });
-
-    return new ResponseCommon(200, 'SUCCESS', { morning, afternoon });
   }
 }

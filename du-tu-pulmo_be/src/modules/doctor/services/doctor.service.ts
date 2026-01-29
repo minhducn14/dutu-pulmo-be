@@ -3,22 +3,21 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
-  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, Not, IsNull } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
-import { Doctor } from './entities/doctor.entity';
-import { Account } from '../account/entities/account.entity';
-import { User } from '../user/entities/user.entity';
-import { FindDoctorsDto } from './dto/find-doctors.dto';
-import { CreateDoctorDto } from './dto/create-doctor.dto';
-import { PaginatedResponseDto } from 'src/common/dto/pagination.dto';
-import { UpdateDoctorDto } from './dto/update-doctor.dto';
-import { ResponseCommon } from 'src/common/dto/response.dto';
-import { RoleEnum } from '../common/enums/role.enum';
-import { VerificationStatus } from '../common/enums/doctor-verification-status.enum';
+import { Doctor } from '@/modules/doctor/entities/doctor.entity';
+import { Account } from '@/modules/account/entities/account.entity';
+import { User } from '@/modules/user/entities/user.entity';
+import { FindDoctorsDto } from '@/modules/doctor/dto/find-doctors.dto';
+import { CreateDoctorDto } from '@/modules/doctor/dto/create-doctor.dto';
+import { PaginatedResponseDto } from '@/common/dto/pagination.dto';
+import { UpdateDoctorDto } from '@/modules/doctor/dto/update-doctor.dto';
+import { ResponseCommon } from '@/common/dto/response.dto';
+import { RoleEnum } from '@/modules/common/enums/role.enum';
+import { VerificationStatus } from '@/modules/common/enums/doctor-verification-status.enum';
 
 @Injectable()
 export class DoctorService {

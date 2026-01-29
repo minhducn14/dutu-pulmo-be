@@ -11,12 +11,12 @@ import {
   OneToOne,
   Index,
 } from 'typeorm';
-import { User } from '../../user/entities/user.entity';
-import { SpecialtyEnum } from 'src/modules/common/enums/specialty.enum';
-import { DoctorTitle } from 'src/modules/common/enums/doctor-title.enum';
-import { VerificationStatus } from 'src/modules/common/enums/doctor-verification-status.enum';
-import { DoctorSchedule } from './doctor-schedule.entity';
-import { Hospital } from '../../hospital/entities/hospital.entity';
+import { User } from '@/modules/user/entities/user.entity';
+import { SpecialtyEnum } from '@/modules/common/enums/specialty.enum';
+import { DoctorTitle } from '@/modules/common/enums/doctor-title.enum';
+import { VerificationStatus } from '@/modules/common/enums/doctor-verification-status.enum';
+import { DoctorSchedule } from '@/modules/doctor/entities/doctor-schedule.entity';
+import { Hospital } from '@/modules/hospital/entities/hospital.entity';
 
 @Entity('doctors')
 @Index(['verificationStatus'])

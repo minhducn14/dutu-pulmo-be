@@ -1,6 +1,6 @@
 import { PartialType, OmitType, IntersectionType } from '@nestjs/swagger';
-import { CreateDoctorDto } from './create-doctor.dto';
-import { UpdateUserDto } from '../../user/dto/update-user.dto';
+import { CreateDoctorDto } from '@/modules/doctor/dto/create-doctor.dto';
+import { UpdateUserDto } from '@/modules/user/dto/update-user.dto';
 
 class UpdateDoctorUserFieldsDto extends OmitType(UpdateUserDto, [
   'status',

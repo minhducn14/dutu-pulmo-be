@@ -18,8 +18,8 @@ import {
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { SpecialtyEnum } from 'src/modules/common/enums/specialty.enum';
-import { DoctorTitle } from 'src/modules/common/enums/doctor-title.enum';
+import { SpecialtyEnum } from '@/modules/common/enums/specialty.enum';
+import { DoctorTitle } from '@/modules/common/enums/doctor-title.enum';
 
 class LicenseImageDto {
   @ApiProperty({ description: 'URL ảnh giấy phép hành nghề' })

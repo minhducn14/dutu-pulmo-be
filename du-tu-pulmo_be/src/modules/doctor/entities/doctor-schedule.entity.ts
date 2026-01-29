@@ -12,10 +12,10 @@ import {
   Index,
   VersionColumn,
 } from 'typeorm';
-import { Doctor } from './doctor.entity';
-import { TimeSlot } from './time-slot.entity';
-import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
-import { ScheduleType } from 'src/modules/common/enums/schedule-type.enum';
+import { Doctor } from '@/modules/doctor/entities/doctor.entity';
+import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
+import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
+import { ScheduleType } from '@/modules/common/enums/schedule-type.enum';
 
 @Entity('doctor_schedules')
 @Index(
@@ -90,7 +90,7 @@ export class DoctorSchedule {
   })
   appointmentType: AppointmentTypeEnum;
 
-  @Column({ name: 'minimum_booking_time', type: 'integer', default: 60 })
+  @Column({ name: 'minimum_booking_time', type: 'integer', default: 0 })
   minimumBookingTime: number;
 
   @Column({ name: 'max_advance_booking_days', type: 'integer', default: 30 })

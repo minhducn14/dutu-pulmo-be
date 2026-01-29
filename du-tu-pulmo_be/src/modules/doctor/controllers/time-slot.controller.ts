@@ -21,12 +21,12 @@ import {
   ApiQuery,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { TimeSlotService } from './time-slot.service';
-import { JwtAuthGuard } from '../core/auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../core/auth/guards/roles.guard';
-import { DoctorOwnershipGuard } from '../core/auth/guards/doctor-ownership.guard';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { RoleEnum } from '../common/enums/role.enum';
+import { TimeSlotService } from '@/modules/doctor/services/time-slot.service';
+import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
+import { DoctorOwnershipGuard } from '@/modules/core/auth/guards/doctor-ownership.guard';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { RoleEnum } from '@/modules/common/enums/role.enum';
 import {
   CreateTimeSlotDto,
   BulkCreateTimeSlotsDto,
@@ -34,8 +34,9 @@ import {
   ToggleSlotAvailabilityDto,
   BulkToggleSlotsDto,
   DisableSlotsForDayDto,
-} from './dto/time-slot.dto';
-import { TimeSlotResponseDto } from './dto/schedule-response.dto';
+} from '@/modules/doctor/dto/time-slot.dto';
+import { TimeSlotResponseDto } from '@/modules/doctor/dto/schedule-response.dto';
+import { ResponseCommon } from '@/common/dto/response.dto';
 
 @ApiTags('Time Slots')
 @ApiBearerAuth('JWT-auth')
@@ -44,66 +45,21 @@ export class TimeSlotController {
   constructor(private readonly timeSlotService: TimeSlotService) {}
 
   @Get()
-  @ApiOperation({ 
-    summary: 'Lấy time slots của bác sĩ',
-    description: 'Có thể lọc theo khoảng thời gian và group theo ngày' 
-  })
+  @ApiOperation({ summary: 'Lấy tất cả time slots của bác sĩ' })
   @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
-  @ApiQuery({
-    name: 'startDate',
-    description: 'Ngày bắt đầu (YYYY-MM-DD) - optional',
-    required: false,
-  })
-  @ApiQuery({
-    name: 'endDate',
-    description: 'Ngày kết thúc (YYYY-MM-DD) - optional',
-    required: false,
-  })
-  @ApiQuery({
-    name: 'grouped',
-    description: 'true để group theo ngày và buổi',
-    type: Boolean,
-    default: true,
-    required: false,
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Danh sách time slots',
+    type: [TimeSlotResponseDto],
   })
   async findByDoctor(
     @Param('doctorId', ParseUUIDPipe) doctorId: string,
-    @Query('startDate') startDateStr?: string,
-    @Query('endDate') endDateStr?: string,
-    @Query('grouped') grouped?: boolean,
-  ) {
-    if (startDateStr && endDateStr && grouped === true) {
-      const startDate = new Date(startDateStr);
-      const endDate = new Date(endDateStr);
-      
-      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        throw new BadRequestException('Ngày không hợp lệ');
-      }
-
-      return this.timeSlotService.findSlotsGroupedByDate(doctorId, startDate, endDate);
-    }
-
-    if (startDateStr && endDateStr) {
-      const startDate = new Date(startDateStr);
-      const endDate = new Date(endDateStr);
-      
-      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        throw new BadRequestException('Ngày không hợp lệ');
-      }
-
-      const slots = await this.timeSlotService.findSlotsInRange(
-        doctorId, 
-        startDate, 
-        endDate
-      );
-      return {
-        code: 200,
-        message: 'SUCCESS',
-        data: slots,
-      };
-    }
-
-    return this.timeSlotService.findByDoctorId(doctorId);
+  ): Promise<ResponseCommon<TimeSlotResponseDto[]>> {
+    const result = await this.timeSlotService.findByDoctorId(doctorId);
+    const data = (result.data ?? []).map((slot) =>
+      TimeSlotResponseDto.fromEntity(slot),
+    );
+    return new ResponseCommon(result.code, result.message, data);
   }
 
   @Get('available')
@@ -119,10 +75,10 @@ export class TimeSlotController {
     description: 'Danh sách time slots còn trống',
     type: [TimeSlotResponseDto],
   })
-  findAvailable(
+  async findAvailable(
     @Param('doctorId', ParseUUIDPipe) doctorId: string,
     @Query('date') dateStr: string,
-  ) {
+  ): Promise<ResponseCommon<TimeSlotResponseDto[]>> {
     if (!dateStr) {
       throw new BadRequestException('Ngày không được để trống');
     }
@@ -132,7 +88,14 @@ export class TimeSlotController {
         'Ngày không hợp lệ, sử dụng format YYYY-MM-DD',
       );
     }
-    return this.timeSlotService.findAvailableSlotsByDate(doctorId, date);
+    const result = await this.timeSlotService.findAvailableSlotsByDate(
+      doctorId,
+      date,
+    );
+    const data = (result.data ?? []).map((slot) =>
+      TimeSlotResponseDto.fromEntity(slot),
+    );
+    return new ResponseCommon(result.code, result.message, data);
   }
 
   @Get(':id')
@@ -148,8 +111,15 @@ export class TimeSlotController {
     status: HttpStatus.NOT_FOUND,
     description: 'Không tìm thấy time slot',
   })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.timeSlotService.findById(id);
+  async findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ResponseCommon<TimeSlotResponseDto>> {
+    const result = await this.timeSlotService.findById(id);
+    return new ResponseCommon(
+      result.code,
+      result.message,
+      TimeSlotResponseDto.fromEntity(result.data!),
+    );
   }
 
   @Post()
@@ -171,11 +141,16 @@ export class TimeSlotController {
     status: HttpStatus.FORBIDDEN,
     description: 'Không có quyền hoặc không phải lịch của mình',
   })
-  create(
+  async create(
     @Param('doctorId', ParseUUIDPipe) doctorId: string,
     @Body() dto: CreateTimeSlotDto,
-  ) {
-    return this.timeSlotService.create(doctorId, dto);
+  ): Promise<ResponseCommon<TimeSlotResponseDto>> {
+    const result = await this.timeSlotService.create(doctorId, dto);
+    return new ResponseCommon(
+      result.code,
+      result.message,
+      TimeSlotResponseDto.fromEntity(result.data!),
+    );
   }
 
   @Post('bulk')
@@ -193,11 +168,15 @@ export class TimeSlotController {
     status: HttpStatus.BAD_REQUEST,
     description: 'Vượt quá giới hạn hoặc dữ liệu không hợp lệ',
   })
-  createMany(
+  async createMany(
     @Param('doctorId', ParseUUIDPipe) doctorId: string,
     @Body() dto: BulkCreateTimeSlotsDto,
-  ) {
-    return this.timeSlotService.createMany(doctorId, dto.slots);
+  ): Promise<ResponseCommon<TimeSlotResponseDto[]>> {
+    const result = await this.timeSlotService.createMany(doctorId, dto.slots);
+    const data = (result.data ?? []).map((slot) =>
+      TimeSlotResponseDto.fromEntity(slot),
+    );
+    return new ResponseCommon(result.code, result.message, data);
   }
 
   @Patch(':id/availability')
@@ -216,11 +195,19 @@ export class TimeSlotController {
     status: HttpStatus.BAD_REQUEST,
     description: 'Không thể tắt slot đã có booking',
   })
-  toggleAvailability(
+  async toggleAvailability(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ToggleSlotAvailabilityDto,
-  ) {
-    return this.timeSlotService.toggleSlotAvailability(id, dto.isAvailable);
+  ): Promise<ResponseCommon<TimeSlotResponseDto>> {
+    const result = await this.timeSlotService.toggleSlotAvailability(
+      id,
+      dto.isAvailable,
+    );
+    return new ResponseCommon(
+      result.code,
+      result.message,
+      TimeSlotResponseDto.fromEntity(result.data!),
+    );
   }
 
   @Post('bulk-toggle')
@@ -270,11 +257,16 @@ export class TimeSlotController {
     status: HttpStatus.FORBIDDEN,
     description: 'Không có quyền hoặc không phải lịch của mình',
   })
-  update(
+  async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateTimeSlotDto,
-  ) {
-    return this.timeSlotService.update(id, dto);
+  ): Promise<ResponseCommon<TimeSlotResponseDto>> {
+    const result = await this.timeSlotService.update(id, dto);
+    return new ResponseCommon(
+      result.code,
+      result.message,
+      TimeSlotResponseDto.fromEntity(result.data!),
+    );
   }
 
   @Delete(':id')

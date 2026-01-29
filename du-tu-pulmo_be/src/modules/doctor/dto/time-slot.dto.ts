@@ -13,7 +13,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
+import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
 
 /**
  * DTO for creating a single time slot.

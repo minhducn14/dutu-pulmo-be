@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
-import { ScheduleType } from 'src/modules/common/enums/schedule-type.enum';
+import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
+import { ScheduleType } from '@/modules/common/enums/schedule-type.enum';
 
 /**
  * Response DTO for DoctorSchedule entity

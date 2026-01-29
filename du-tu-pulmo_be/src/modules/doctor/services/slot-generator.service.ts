@@ -4,16 +4,13 @@ import {
   Inject,
   forwardRef,
 } from '@nestjs/common';
-import { DoctorSchedule } from './entities/doctor-schedule.entity';
-import { TimeSlot } from './entities/time-slot.entity';
-import { DoctorScheduleService } from './doctor-schedule.service';
-import { TimeSlotService } from './time-slot.service';
-import { CreateTimeSlotDto } from './dto/time-slot.dto';
-import { ResponseCommon } from 'src/common/dto/response.dto';
-import {
-  ScheduleType,
-  SCHEDULE_TYPE_PRIORITY,
-} from 'src/modules/common/enums/schedule-type.enum';
+import { DoctorSchedule } from '@/modules/doctor/entities/doctor-schedule.entity';
+import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
+import { DoctorScheduleService } from '@/modules/doctor/services/doctor-schedule.service';
+import { TimeSlotService } from '@/modules/doctor/services/time-slot.service';
+import { CreateTimeSlotDto } from '@/modules/doctor/dto/time-slot.dto';
+import { ResponseCommon } from '@/common/dto/response.dto';
+import { ScheduleType } from 'src/modules/common/enums/schedule-type.enum';
 
 @Injectable()
 export class SlotGeneratorService {
@@ -94,19 +91,19 @@ export class SlotGeneratorService {
     if (allSlots.length === 0) {
       return new ResponseCommon(
         200,
-        '2 Không có slot nào được tạo trong khoảng thời gian này (do nghỉ hoặc không có lịch)',
+        'Không có slot nào được tạo trong khoảng thời gian này (do nghỉ hoặc không có lịch)',
         [],
       );
     }
 
-    // 5. Get existing slots to filter out overlaps
+    // 6. Get existing slots to filter out overlaps
     const existingSlots = await this.timeSlotService.findSlotsInRange(
       schedule.doctorId,
       startDate,
       endDate,
     );
 
-    // 6. Filter out overlapping slots
+    // 7. Filter out overlapping slots
     const nonOverlapping = allSlots.filter((newSlot) => {
       return !existingSlots.some(
         (existingSlot) =>
@@ -123,7 +120,7 @@ export class SlotGeneratorService {
       );
     }
 
-    // 7. Convert to DTOs and bulk create
+    // 8. Convert to DTOs and bulk create
     const dtos: CreateTimeSlotDto[] = nonOverlapping.map((slot) => ({
       startTime: slot.startTime!.toISOString(),
       endTime: slot.endTime!.toISOString(),
@@ -144,6 +141,17 @@ export class SlotGeneratorService {
     );
   }
 
+  /**
+   * 🎯 Generate slots for a specific day following Winner-Takes-All principle
+   * 
+   * SPEC: Winner-Takes-All Logic
+   * - Step 1: Check if there are any FLEXIBLE schedules for this day
+   * - Step 2: 
+   *   - If FLEXIBLE exists → Use ONLY FLEXIBLE (completely exclude REGULAR)
+   *   - If NO FLEXIBLE → Use REGULAR
+   * - Step 3: Generate slots from selected schedules
+   * - Step 4: Filter out slots overlapping with TIME_OFF periods
+   */
   private async generateSlotsForDay(
     targetDate: Date,
     sortedSchedules: DoctorSchedule[],
@@ -194,24 +202,31 @@ export class SlotGeneratorService {
       return [];
     }
 
-    // 🎯 STEP 1: Tìm priority cao nhất trong working schedules
-    const maxPriority = Math.max(
-      ...workingSchedules.map((s) => SCHEDULE_TYPE_PRIORITY[s.scheduleType]),
+    // 🎯 STEP 1: Check if there are any FLEXIBLE schedules
+    const flexibleSchedules = workingSchedules.filter(
+      (s) => s.scheduleType === ScheduleType.FLEXIBLE,
     );
 
-    // 🎯 STEP 2: Lấy TẤT CẢ schedules có priority cao nhất và isAvailable = true
-    const highestPrioritySchedules = workingSchedules.filter(
-      (s) =>
-        SCHEDULE_TYPE_PRIORITY[s.scheduleType] === maxPriority && s.isAvailable,
-    );
+    // 🎯 STEP 2: Winner-Takes-All - Choose schedules based on FLEXIBLE existence
+    let selectedSchedules: DoctorSchedule[];
+    
+    if (flexibleSchedules.length > 0) {
+      // CÓ FLEXIBLE → CHỈ lấy FLEXIBLE (loại bỏ HOÀN TOÀN REGULAR)
+      selectedSchedules = flexibleSchedules;
+    } else {
+      // KHÔNG CÓ FLEXIBLE → Lấy REGULAR
+      selectedSchedules = workingSchedules.filter(
+        (s) => s.scheduleType === ScheduleType.REGULAR,
+      );
+    }
 
-    if (highestPrioritySchedules.length === 0) {
+    if (selectedSchedules.length === 0) {
       return [];
     }
 
-    // 🎯 STEP 3: Generate slots từ working schedules
+    // 🎯 STEP 3: Generate slots from selected schedules
     let slots: Partial<TimeSlot>[] = [];
-    for (const schedule of highestPrioritySchedules) {
+    for (const schedule of selectedSchedules) {
       slots.push(...this.generateSlotsFromSchedule(schedule, targetDate));
     }
 
@@ -434,7 +449,7 @@ export class SlotGeneratorService {
     if (allSlots.length === 0) {
       return new ResponseCommon(
         200,
-        '1 Không có slot nào được tạo trong khoảng thời gian này (do nghỉ hoặc không có lịch)',
+        'Không có slot nào được tạo trong khoảng thời gian này (do nghỉ hoặc không có lịch)',
         [],
       );
     }
@@ -507,6 +522,16 @@ export class SlotGeneratorService {
     return true;
   }
 
+  /**
+   * 🎯 Handle overridden slots following Winner-Takes-All principle
+   * 
+   * When a higher-priority schedule exists, disable slots from lower-priority schedules
+   * 
+   * SPEC: Winner-Takes-All Logic
+   * - If FLEXIBLE exists for a day → Disable all REGULAR slots
+   * - If only REGULAR exists → Keep REGULAR slots active
+   * - TIME_OFF is handled separately (filters out time periods, doesn't override schedules)
+   */
   private async handleOverriddenSlots(
     doctorId: string,
     startDate: Date,
@@ -522,36 +547,55 @@ export class SlotGeneratorService {
 
     while (currentDate <= endDateCopy) {
       const dayOfWeek = currentDate.getDay();
+      const targetDateStr = currentDate.toISOString().split('T')[0];
 
-      // Lấy schedules active trong ngày này (EXCLUDE TIME_OFF)
-      // TIME_OFF chỉ block khung giờ, không override schedules khác
-      const daySchedules = sortedSchedules.filter(
-        (s) =>
-          s.dayOfWeek === dayOfWeek &&
-          s.scheduleType !== ScheduleType.TIME_OFF &&
-          this.isScheduleActiveOnDate(s, currentDate),
-      );
+      // Get schedules active on this day (EXCLUDE TIME_OFF)
+      // TIME_OFF only blocks time periods, doesn't override other schedules
+      const daySchedules = sortedSchedules.filter((s) => {
+        if (s.scheduleType === ScheduleType.TIME_OFF) return false;
+        if (!this.isScheduleActiveOnDate(s, currentDate)) return false;
+
+        // FLEXIBLE: check specificDate
+        if (s.scheduleType === ScheduleType.FLEXIBLE) {
+          if (!s.specificDate) return false;
+          const specificDateStr = new Date(s.specificDate)
+            .toISOString()
+            .split('T')[0];
+          return specificDateStr === targetDateStr;
+        }
+
+        // REGULAR: check dayOfWeek
+        return s.dayOfWeek === dayOfWeek;
+      });
 
       if (daySchedules.length === 0) {
         currentDate.setDate(currentDate.getDate() + 1);
         continue;
       }
 
-      // Tìm priority cao nhất (không bao gồm TIME_OFF)
-      const maxPriority = Math.max(
-        ...daySchedules.map((s) => SCHEDULE_TYPE_PRIORITY[s.scheduleType]),
+      // 🎯 Winner-Takes-All logic
+      const flexibleSchedules = daySchedules.filter(
+        (s) => s.scheduleType === ScheduleType.FLEXIBLE,
       );
 
-      // Lấy tất cả schedule IDs có priority cao nhất
-      const highestPriorityScheduleIds = daySchedules
-        .filter((s) => SCHEDULE_TYPE_PRIORITY[s.scheduleType] === maxPriority)
-        .map((s) => s.id);
+      let winnerScheduleIds: string[];
 
-      // Disable slots không thuộc priority cao nhất
+      if (flexibleSchedules.length > 0) {
+        // CÓ FLEXIBLE → Chỉ giữ lại FLEXIBLE schedules
+        winnerScheduleIds = flexibleSchedules.map((s) => s.id);
+      } else {
+        // KHÔNG CÓ FLEXIBLE → Giữ lại REGULAR schedules
+        const regularSchedules = daySchedules.filter(
+          (s) => s.scheduleType === ScheduleType.REGULAR,
+        );
+        winnerScheduleIds = regularSchedules.map((s) => s.id);
+      }
+
+      // Disable slots that don't belong to winner schedules
       const disabled = await this.timeSlotService.disableSlotsNotInSchedules(
         doctorId,
         currentDate,
-        highestPriorityScheduleIds,
+        winnerScheduleIds,
       );
 
       totalDisabled += disabled;

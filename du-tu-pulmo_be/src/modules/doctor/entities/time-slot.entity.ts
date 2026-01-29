@@ -11,10 +11,10 @@ import {
   Index,
   Check,
 } from 'typeorm';
-import { Doctor } from './doctor.entity';
-import { DoctorSchedule } from './doctor-schedule.entity';
-import { Appointment } from '../../appointment/entities/appointment.entity';
-import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
+import { Doctor } from '@/modules/doctor/entities/doctor.entity';
+import { DoctorSchedule } from '@/modules/doctor/entities/doctor-schedule.entity';
+import { Appointment } from '@/modules/appointment/entities/appointment.entity';
+import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
 
 @Entity('time_slots')
 // Partial unique index: only check non-deleted records

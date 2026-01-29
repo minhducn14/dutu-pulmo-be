@@ -1,8 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { SpecialtyEnum } from 'src/modules/common/enums/specialty.enum';
-import { DoctorTitle } from 'src/modules/common/enums/doctor-title.enum';
-import { UserStatusEnum } from '../../common/enums/user-status.enum';
-import { GenderEnum } from '../../common/enums/gender.enum';
+import { SpecialtyEnum } from '@/modules/common/enums/specialty.enum';
+import { DoctorTitle } from '@/modules/common/enums/doctor-title.enum';
+import { UserStatusEnum } from '@/modules/common/enums/user-status.enum';
+import { GenderEnum } from '@/modules/common/enums/gender.enum';
 
 export class DoctorResponseDto {
   // ====== Doctor base ======

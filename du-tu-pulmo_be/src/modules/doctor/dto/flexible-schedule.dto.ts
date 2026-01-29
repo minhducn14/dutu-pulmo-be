@@ -11,8 +11,8 @@ import {
   IsBoolean,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
-import { IsValidBookingWindow } from '../validators/is-valid-booking-window.decorator';
+import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
+import { IsValidBookingWindow } from '@/modules/doctor/validators/is-valid-booking-window.decorator';
 
 /**
  * DTO for creating a flexible working schedule (single date, non-recurring)

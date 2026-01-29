@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsDateString, IsNotEmpty, Matches } from 'class-validator';
-import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
+import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
 
 // ============================================
 // Preview Flexible Schedule Conflicts

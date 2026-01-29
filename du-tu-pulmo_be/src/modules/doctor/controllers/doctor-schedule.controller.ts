@@ -19,35 +19,36 @@ import {
   ApiQuery,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { DoctorScheduleService } from './doctor-schedule.service';
-import { SlotGeneratorService } from './slot-generator.service';
-import { JwtAuthGuard } from '../core/auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../core/auth/guards/roles.guard';
-import { DoctorOwnershipGuard } from '../core/auth/guards/doctor-ownership.guard';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { RoleEnum } from '../common/enums/role.enum';
+import { DoctorScheduleService } from '@/modules/doctor/services/doctor-schedule.service';
+import { SlotGeneratorService } from '@/modules/doctor/services/slot-generator.service';
+import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
+import { DoctorOwnershipGuard } from '@/modules/core/auth/guards/doctor-ownership.guard';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { RoleEnum } from '@/modules/common/enums/role.enum';
 import {
   CreateDoctorScheduleDto,
   UpdateDoctorScheduleDto,
   BulkCreateDoctorSchedulesDto,
   BulkUpdateDoctorSchedulesDto,
-} from './dto/doctor-schedule.dto';
+} from '@/modules/doctor/dto/doctor-schedule.dto';
 import {
   CreateFlexibleScheduleDto,
   UpdateFlexibleScheduleDto,
-} from './dto/flexible-schedule.dto';
-import { CreateTimeOffDto, UpdateTimeOffDto } from './dto/time-off.dto';
+} from '@/modules/doctor/dto/flexible-schedule.dto';
+import { CreateTimeOffDto, UpdateTimeOffDto } from '@/modules/doctor/dto/time-off.dto';
 import {
   PreviewFlexibleScheduleConflictsDto,
   PreviewTimeOffConflictsDto,
   PreviewConflictsResponseDto,
-} from './dto/preview-conflicts.dto';
-import { GenerateSlotsDto } from './dto/time-slot.dto';
+} from '@/modules/doctor/dto/preview-conflicts.dto';
+import { GenerateSlotsDto } from '@/modules/doctor/dto/time-slot.dto';
 import {
   DoctorScheduleResponseDto,
   TimeSlotResponseDto,
-} from './dto/schedule-response.dto';
-import { ScheduleType } from 'src/modules/common/enums/schedule-type.enum';
+} from '@/modules/doctor/dto/schedule-response.dto';
+import { ScheduleType } from '@/modules/common/enums/schedule-type.enum';
+import { ResponseCommon } from '@/common/dto/response.dto';
 
 @ApiTags('Doctor Schedules')
 @ApiBearerAuth('JWT-auth')
@@ -67,14 +68,18 @@ export class DoctorScheduleController {
     description: 'Danh sách lịch làm việc',
     type: [DoctorScheduleResponseDto],
   })
-  async findByDoctor(@Param('doctorId', ParseUUIDPipe) doctorId: string) {
+  async findByDoctor(
+    @Param('doctorId', ParseUUIDPipe) doctorId: string,
+  ): Promise<ResponseCommon<DoctorScheduleResponseDto[]>> {
     const result = await this.scheduleService.findByDoctorId(doctorId);
     const enrichedSchedules =
       await this.scheduleService.enrichSchedulesWithEffectiveFee(
         result.data ?? [],
       );
-    result.data = enrichedSchedules;
-    return result;
+    const data = (enrichedSchedules ?? []).map((schedule) =>
+      DoctorScheduleResponseDto.fromEntity(schedule),
+    );
+    return new ResponseCommon(result.code, result.message, data);
   }
 
   @Get('available')
@@ -94,7 +99,7 @@ export class DoctorScheduleController {
   async findAvailable(
     @Param('doctorId', ParseUUIDPipe) doctorId: string,
     @Query('dayOfWeek') dayOfWeek?: string,
-  ) {
+  ): Promise<ResponseCommon<DoctorScheduleResponseDto[]>> {
     const day = dayOfWeek ? parseInt(dayOfWeek, 10) : undefined;
     const result = await this.scheduleService.findAvailableByDoctor(
       doctorId,
@@ -104,8 +109,10 @@ export class DoctorScheduleController {
       await this.scheduleService.enrichSchedulesWithEffectiveFee(
         result.data ?? [],
       );
-    result.data = enrichedSchedules;
-    return result;
+    const data = (enrichedSchedules ?? []).map((schedule) =>
+      DoctorScheduleResponseDto.fromEntity(schedule),
+    );
+    return new ResponseCommon(result.code, result.message, data);
   }
 
   // ========================================
@@ -143,11 +150,16 @@ export class DoctorScheduleController {
     status: HttpStatus.CONFLICT,
     description: 'Trùng lịch với lịch hiện có',
   })
-  createRegularSchedule(
+  async createRegularSchedule(
     @Param('doctorId', ParseUUIDPipe) doctorId: string,
     @Body() dto: CreateDoctorScheduleDto,
-  ) {
-    return this.scheduleService.createRegular(doctorId, dto);
+  ): Promise<ResponseCommon<DoctorScheduleResponseDto>> {
+    const result = await this.scheduleService.createRegular(doctorId, dto);
+    return new ResponseCommon(
+      result.code,
+      result.message,
+      DoctorScheduleResponseDto.fromEntity(result.data!),
+    );
   }
 
   @Post('regular/bulk')
@@ -172,11 +184,18 @@ export class DoctorScheduleController {
     status: HttpStatus.CONFLICT,
     description: 'Trùng lịch với lịch hiện có hoặc giữa các lịch trong request',
   })
-  createMany(
+  async createMany(
     @Param('doctorId', ParseUUIDPipe) doctorId: string,
     @Body() dto: BulkCreateDoctorSchedulesDto,
-  ) {
-    return this.scheduleService.createManyRegular(doctorId, dto.schedules);
+  ): Promise<ResponseCommon<DoctorScheduleResponseDto[]>> {
+    const result = await this.scheduleService.createManyRegular(
+      doctorId,
+      dto.schedules,
+    );
+    const data = (result.data ?? []).map((schedule) =>
+      DoctorScheduleResponseDto.fromEntity(schedule),
+    );
+    return new ResponseCommon(result.code, result.message, data);
   }
 
   @Patch('regular/bulk')
@@ -200,11 +219,33 @@ export class DoctorScheduleController {
     status: HttpStatus.NOT_FOUND,
     description: 'Không tìm thấy một hoặc nhiều lịch',
   })
-  updateManyRegular(
+  async updateManyRegular(
     @Param('doctorId', ParseUUIDPipe) doctorId: string,
     @Body() dto: BulkUpdateDoctorSchedulesDto,
-  ) {
-    return this.scheduleService.updateManyRegular(doctorId, dto.schedules);
+  ): Promise<
+    ResponseCommon<{
+      updatedSchedules: DoctorScheduleResponseDto[];
+      totalGeneratedSlots: number;
+      totalWarningAppointments: number;
+      failedUpdates: { id: string; reason: string }[];
+    }>
+  > {
+    const result = await this.scheduleService.updateManyRegular(
+      doctorId,
+      dto.schedules,
+    );
+    const data = result.data ?? {
+      updatedSchedules: [],
+      totalGeneratedSlots: 0,
+      totalWarningAppointments: 0,
+      failedUpdates: [],
+    };
+    return new ResponseCommon(result.code, result.message, {
+      ...data,
+      updatedSchedules: (data.updatedSchedules ?? []).map((schedule) =>
+        DoctorScheduleResponseDto.fromEntity(schedule),
+      ),
+    });
   }
 
   @Get('regular')
@@ -217,11 +258,15 @@ export class DoctorScheduleController {
   })
   async findRegularSchedules(
     @Param('doctorId', ParseUUIDPipe) doctorId: string,
-  ) {
-    return this.scheduleService.findByDoctorIdAndType(
+  ): Promise<ResponseCommon<DoctorScheduleResponseDto[]>> {
+    const result = await this.scheduleService.findByDoctorIdAndType(
       doctorId,
       ScheduleType.REGULAR,
     );
+    const data = (result.data ?? []).map((schedule) =>
+      DoctorScheduleResponseDto.fromEntity(schedule),
+    );
+    return new ResponseCommon(result.code, result.message, data);
   }
 
   @Patch('regular/:id')
@@ -243,11 +288,16 @@ export class DoctorScheduleController {
     status: HttpStatus.BAD_REQUEST,
     description: 'Lịch này không phải là lịch cố định (REGULAR)',
   })
-  updateRegularSchedule(
+  async updateRegularSchedule(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateDoctorScheduleDto,
-  ) {
-    return this.scheduleService.updateRegular(id, dto);
+  ): Promise<ResponseCommon<DoctorScheduleResponseDto>> {
+    const result = await this.scheduleService.updateRegular(id, dto);
+    return new ResponseCommon(
+      result.code,
+      result.message,
+      DoctorScheduleResponseDto.fromEntity(result.data!),
+    );
   }
 
   @Delete('regular/:id')
@@ -294,15 +344,20 @@ export class DoctorScheduleController {
     status: HttpStatus.FORBIDDEN,
     description: 'Không có quyền hoặc không phải lịch của mình',
   })
-  generateSlotsForDoctor(
+  async generateSlotsForDoctor(
     @Param('doctorId', ParseUUIDPipe) doctorId: string,
     @Body() dto: GenerateSlotsDto,
-  ) {
-    return this.slotGeneratorService.generateAndSaveSlotsForDoctor(
-      doctorId,
-      new Date(dto.startDate),
-      new Date(dto.endDate),
+  ): Promise<ResponseCommon<TimeSlotResponseDto[]>> {
+    const result =
+      await this.slotGeneratorService.generateAndSaveSlotsForDoctor(
+        doctorId,
+        new Date(dto.startDate),
+        new Date(dto.endDate),
+      );
+    const data = (result.data ?? []).map((slot) =>
+      TimeSlotResponseDto.fromEntity(slot),
     );
+    return new ResponseCommon(result.code, result.message, data);
   }
 
   // ========================================
@@ -320,11 +375,15 @@ export class DoctorScheduleController {
   @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
   async findFlexibleSchedules(
     @Param('doctorId', ParseUUIDPipe) doctorId: string,
-  ) {
-    return this.scheduleService.findByDoctorIdAndType(
+  ): Promise<ResponseCommon<DoctorScheduleResponseDto[]>> {
+    const result = await this.scheduleService.findByDoctorIdAndType(
       doctorId,
       ScheduleType.FLEXIBLE,
     );
+    const data = (result.data ?? []).map((schedule) =>
+      DoctorScheduleResponseDto.fromEntity(schedule),
+    );
+    return new ResponseCommon(result.code, result.message, data);
   }
 
   @Post('flexible')
@@ -349,11 +408,28 @@ export class DoctorScheduleController {
     status: HttpStatus.CONFLICT,
     description: 'Trùng lịch với lịch hiện có',
   })
-  createFlexibleSchedule(
+  async createFlexibleSchedule(
     @Param('doctorId', ParseUUIDPipe) doctorId: string,
     @Body() dto: CreateFlexibleScheduleDto,
-  ) {
-    return this.scheduleService.createFlexibleSchedule(doctorId, dto);
+  ): Promise<
+    ResponseCommon<
+      DoctorScheduleResponseDto & {
+        cancelledAppointments: number;
+        generatedSlots: number;
+      }
+    >
+  > {
+    const result = await this.scheduleService.createFlexibleSchedule(
+      doctorId,
+      dto,
+    );
+    const data = result.data!;
+    const scheduleDto = DoctorScheduleResponseDto.fromEntity(data);
+    return new ResponseCommon(result.code, result.message, {
+      ...scheduleDto,
+      cancelledAppointments: data.cancelledAppointments,
+      generatedSlots: data.generatedSlots,
+    });
   }
 
   @Post('flexible/preview-conflicts')
@@ -396,11 +472,16 @@ export class DoctorScheduleController {
     status: HttpStatus.BAD_REQUEST,
     description: 'Lịch này không phải là lịch linh hoạt',
   })
-  updateFlexibleSchedule(
+  async updateFlexibleSchedule(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateFlexibleScheduleDto,
-  ) {
-    return this.scheduleService.updateFlexibleSchedule(id, dto);
+  ): Promise<ResponseCommon<DoctorScheduleResponseDto>> {
+    const result = await this.scheduleService.updateFlexibleSchedule(id, dto);
+    return new ResponseCommon(
+      result.code,
+      result.message,
+      DoctorScheduleResponseDto.fromEntity(result.data!),
+    );
   }
 
   @Delete('flexible/:id')
@@ -440,11 +521,15 @@ export class DoctorScheduleController {
   })
   async findTimeOffSchedules(
     @Param('doctorId', ParseUUIDPipe) doctorId: string,
-  ) {
-    return this.scheduleService.findByDoctorIdAndType(
+  ): Promise<ResponseCommon<DoctorScheduleResponseDto[]>> {
+    const result = await this.scheduleService.findByDoctorIdAndType(
       doctorId,
       ScheduleType.TIME_OFF,
     );
+    const data = (result.data ?? []).map((schedule) =>
+      DoctorScheduleResponseDto.fromEntity(schedule),
+    );
+    return new ResponseCommon(result.code, result.message, data);
   }
 
   @Post('time-off')
@@ -469,11 +554,16 @@ export class DoctorScheduleController {
     status: HttpStatus.CONFLICT,
     description: 'Trùng lịch với lịch hiện có',
   })
-  createTimeOff(
+  async createTimeOff(
     @Param('doctorId', ParseUUIDPipe) doctorId: string,
     @Body() dto: CreateTimeOffDto,
-  ) {
-    return this.scheduleService.createTimeOff(doctorId, dto);
+  ): Promise<ResponseCommon<DoctorScheduleResponseDto>> {
+    const result = await this.scheduleService.createTimeOff(doctorId, dto);
+    return new ResponseCommon(
+      result.code,
+      result.message,
+      DoctorScheduleResponseDto.fromEntity(result.data!),
+    );
   }
 
   @Post('time-off/preview-conflicts')
@@ -516,11 +606,16 @@ export class DoctorScheduleController {
     status: HttpStatus.BAD_REQUEST,
     description: 'Lịch này không phải là lịch nghỉ',
   })
-  updateTimeOff(
+  async updateTimeOff(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateTimeOffDto,
-  ) {
-    return this.scheduleService.updateTimeOff(id, dto);
+  ): Promise<ResponseCommon<DoctorScheduleResponseDto>> {
+    const result = await this.scheduleService.updateTimeOff(id, dto);
+    return new ResponseCommon(
+      result.code,
+      result.message,
+      DoctorScheduleResponseDto.fromEntity(result.data!),
+    );
   }
 
   @Delete('time-off/:id')
