@@ -717,101 +717,100 @@ export class DoctorScheduleRegularService {
           checkDate.setHours(0, 0, 0, 0);
 
           while (checkDate <= actualRangeEnd) {
-            const isOldDay = checkDate.getDay() === existing.dayOfWeek;
-            const isNewDay = checkDate.getDay() === newDayOfWeek;
-            const dayChanged =
-              dto.dayOfWeek !== undefined &&
-              dto.dayOfWeek !== existing.dayOfWeek;
+            // Check if this date matches the OLD or NEW weekday
+            const matchesOldDay = checkDate.getDay() === existing.dayOfWeek;
+            const matchesNewDay = checkDate.getDay() === newDayOfWeek;
 
-            if (
-              (dayChanged && (isOldDay || isNewDay)) ||
-              (!dayChanged && isNewDay)
-            ) {
-              const dayStart = new Date(checkDate);
-              dayStart.setHours(0, 0, 0, 0);
-              const dayEnd = new Date(checkDate);
-              dayEnd.setHours(23, 59, 59, 999);
+            if (!matchesOldDay && !matchesNewDay) {
+              checkDate.setDate(checkDate.getDate() + 1);
+              continue;
+            }
 
-              const dayAppointments = await manager.find(Appointment, {
-                where: {
-                  doctorId: existing.doctorId,
-                  scheduledAt: Between(dayStart, dayEnd),
-                  status: In([
-                    AppointmentStatusEnum.CONFIRMED,
-                    AppointmentStatusEnum.PENDING_PAYMENT,
-                    AppointmentStatusEnum.PENDING,
-                  ]),
-                },
-                relations: [
-                  'patient',
-                  'patient.user',
-                  'doctor',
-                  'doctor.user',
-                  'timeSlot',
-                  'timeSlot.schedule',
-                ],
-              });
+            const dayStart = new Date(checkDate);
+            dayStart.setHours(0, 0, 0, 0);
+            const dayEnd = new Date(checkDate);
+            dayEnd.setHours(23, 59, 59, 999);
 
-              if (dayAppointments.length > 0) {
-                for (const apt of dayAppointments) {
-                  let isAffected = false;
+            const dayAppointments = await manager.find(Appointment, {
+              where: {
+                doctorId: existing.doctorId,
+                scheduledAt: Between(dayStart, dayEnd),
+                status: In([
+                  AppointmentStatusEnum.CONFIRMED,
+                  AppointmentStatusEnum.PENDING_PAYMENT,
+                  AppointmentStatusEnum.PENDING,
+                ]),
+              },
+              relations: ['timeSlot', 'timeSlot.schedule'],
+            });
 
-                  if (dayChanged && isOldDay && !isNewDay) {
-                    isAffected = true;
-                  }
+            for (const apt of dayAppointments) {
+              let shouldCancel = false;
 
-                  if (dto.startTime || dto.endTime) {
-                    const [newStartH, newStartM] = newStartTime
-                      .split(':')
-                      .map(Number);
-                    const [newEndH, newEndM] = newEndTime
-                      .split(':')
-                      .map(Number);
-
-                    const newScheduleStart = new Date(checkDate);
-                    newScheduleStart.setHours(newStartH, newStartM, 0, 0);
-
-                    const newScheduleEnd = new Date(checkDate);
-                    newScheduleEnd.setHours(newEndH, newEndM, 0, 0);
-
-                    const aptEnd = new Date(
-                      apt.scheduledAt.getTime() +
-                        apt.timeSlot.schedule.slotDuration * 60 * 1000,
-                    );
-
-                    if (
-                      apt.scheduledAt < newScheduleStart ||
-                      aptEnd > newScheduleEnd
-                    ) {
-                      isAffected = true;
-                    }
-                  }
-
-                  if (
-                    dto.appointmentType &&
-                    apt.appointmentType !== newAppointmentType
-                  ) {
-                    isAffected = true;
-                  }
-
-                  if (isAffected) {
-                    apt.status = AppointmentStatusEnum.CANCELLED;
-                    apt.cancelledAt = new Date();
-                    apt.cancellationReason = 'SCHEDULE_CHANGE';
-                    apt.cancelledBy = 'DOCTOR';
-                    await manager.save(apt);
-
-                    if (apt.timeSlotId) {
-                      await manager
-                        .createQueryBuilder()
-                        .softDelete()
-                        .from(TimeSlot)
-                        .where('id = :id', { id: apt.timeSlotId })
-                        .execute();
-                    }
-                    cancelledAppointments.push(apt);
-                  }
+              // Case 1: Weekday changed
+              if (
+                dto.dayOfWeek !== undefined &&
+                dto.dayOfWeek !== existing.dayOfWeek
+              ) {
+                // If appointment is on OLD day and it doesn't match NEW day -> Cancel
+                if (matchesOldDay && !matchesNewDay) {
+                  shouldCancel = true;
                 }
+              }
+
+              // Case 2: Time range changed (on days matching NEW schedule)
+              if (matchesNewDay && !shouldCancel) {
+                const [newStartH, newStartM] = newStartTime
+                  .split(':')
+                  .map(Number);
+                const [newEndH, newEndM] = newEndTime.split(':').map(Number);
+
+                const newScheduleStart = new Date(checkDate);
+                newScheduleStart.setHours(newStartH, newStartM, 0, 0);
+
+                const newScheduleEnd = new Date(checkDate);
+                newScheduleEnd.setHours(newEndH, newEndM, 0, 0);
+
+                const aptEnd = new Date(
+                  apt.scheduledAt.getTime() +
+                    apt.timeSlot.schedule.slotDuration * 60 * 1000,
+                );
+
+                // Cancel if appointment is NOT completely inside the new range
+                if (
+                  apt.scheduledAt < newScheduleStart ||
+                  aptEnd > newScheduleEnd
+                ) {
+                  shouldCancel = true;
+                }
+              }
+
+              // Case 3: Appointment Type changed
+              if (
+                dto.appointmentType &&
+                apt.appointmentType !== newAppointmentType &&
+                !shouldCancel
+              ) {
+                shouldCancel = true;
+              }
+
+              if (shouldCancel) {
+                apt.status = AppointmentStatusEnum.CANCELLED;
+                apt.cancelledAt = new Date();
+                apt.cancellationReason = 'SCHEDULE_CHANGE';
+                apt.cancelledBy = 'DOCTOR';
+                await manager.save(apt);
+
+                if (apt.timeSlotId) {
+                  await manager
+                    .createQueryBuilder()
+                    .softDelete()
+                    .from(TimeSlot)
+                    .where('id = :id', { id: apt.timeSlotId })
+                    .execute();
+                }
+
+                cancelledAppointments.push(apt);
               }
             }
 
@@ -1040,8 +1039,25 @@ export class DoctorScheduleRegularService {
           .split(':')
           .map(Number);
 
+        // ✅ THÊM: Lấy danh sách ngày có FLEXIBLE
+        const flexibleDates = await manager
+          .createQueryBuilder(DoctorSchedule, 'ds')
+          .select('ds.specificDate')
+          .where('ds.doctorId = :doctorId', { doctorId: schedule.doctorId })
+          .andWhere('ds.scheduleType = :type', { type: ScheduleType.FLEXIBLE })
+          .andWhere('ds.specificDate >= :now', { now })
+          .getMany();
+
+        const flexibleDateSet = new Set(
+          flexibleDates.map(d => d.specificDate!.toISOString().split('T')[0])
+        );
+
         const appointmentsToCancel = futureAppointments.filter((apt) => {
           const aptDate = new Date(apt.scheduledAt);
+
+          // ✅ BỎ QUA nếu ngày đó có FLEXIBLE
+          const aptDateStr = aptDate.toISOString().split('T')[0];
+          if (flexibleDateSet.has(aptDateStr)) return false;
 
           if (aptDate.getDay() !== schedule.dayOfWeek) return false;
           if (schedule.effectiveFrom && aptDate < schedule.effectiveFrom)
