@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { PaymentStatus } from '../entities/payment.entity';
+import { PaymentStatus } from '@/modules/payment/entities/payment.entity';
 import { IsOptional, IsString } from 'class-validator';
 
 export class PaymentResponseDto {

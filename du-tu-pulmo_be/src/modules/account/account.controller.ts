@@ -17,17 +17,17 @@ import {
   ApiBearerAuth,
   ApiParam,
 } from '@nestjs/swagger';
-import { AUTH_ERRORS } from 'src/common/constants/error-messages.constant';
-import { AccountService } from './account.service';
-import { AdminUpdateAccountDto } from './dto/update-account.dto';
-import { AccountResponseDto } from './dto/account-response.dto';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { JwtAuthGuard } from '../core/auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../core/auth/guards/roles.guard';
-import { ResponseCommon } from 'src/common/dto/response.dto';
-import { CurrentUser } from 'src/common/decorators/user.decorator';
-import type { JwtUser } from '../core/auth/strategies/jwt.strategy';
-import { RoleEnum } from '../common/enums/role.enum';
+import { AUTH_ERRORS } from '@/common/constants/error-messages.constant';
+import { AccountService } from '@/modules/account/account.service';
+import { AdminUpdateAccountDto } from '@/modules/account/dto/update-account.dto';
+import { AccountResponseDto } from '@/modules/account/dto/account-response.dto';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
+import { ResponseCommon } from '@/common/dto/response.dto';
+import { CurrentUser } from '@/common/decorators/user.decorator';
+import type { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
+import { RoleEnum } from '@/modules/common/enums/role.enum';
 
 @ApiTags('Accounts')
 @Controller('accounts')

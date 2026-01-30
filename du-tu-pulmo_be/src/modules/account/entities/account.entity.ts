@@ -11,9 +11,9 @@ import {
   BeforeInsert,
   BeforeUpdate,
 } from 'typeorm';
-import { User } from '../../user/entities/user.entity';
-import { RoleEnum } from 'src/modules/common/enums/role.enum';
-import { AccountStatusEnum } from 'src/modules/common/enums/account-status.enum';
+import { User } from '@/modules/user/entities/user.entity';
+import { RoleEnum } from '@/modules/common/enums/role.enum';
+import { AccountStatusEnum } from '@/modules/common/enums/account-status.enum';
 
 @Entity('accounts')
 @Index('idx_accounts_email_lower', { synchronize: false })

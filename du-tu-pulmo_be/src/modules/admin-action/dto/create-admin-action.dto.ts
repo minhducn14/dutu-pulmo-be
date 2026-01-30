@@ -6,7 +6,7 @@ import {
   IsEnum,
   IsUUID,
 } from 'class-validator';
-import { AdminActionType } from '../entities/admin-action.entity';
+import { AdminActionType } from '@/modules/admin-action/entities/admin-action.entity';
 
 export class CreateAdminActionDto {
   @IsOptional()

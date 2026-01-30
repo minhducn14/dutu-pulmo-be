@@ -7,8 +7,8 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { User } from '../../user/entities/user.entity';
-import { ConfigValueTypeEnum } from '../../common/enums/config-value-type.enum';
+import { User } from '@/modules/user/entities/user.entity';
+import { ConfigValueTypeEnum } from '@/modules/common/enums/config-value-type.enum';
 
 @Entity('system_configs')
 export class SystemConfig {

@@ -7,8 +7,8 @@ import {
   DeleteDateColumn,
   OneToMany,
 } from 'typeorm';
-import { Doctor } from '../../doctor/entities/doctor.entity';
-import { FacilityTypeEnum } from 'src/modules/common/enums/facility-type.enum';
+import { Doctor } from '@/modules/doctor/entities/doctor.entity';
+import { FacilityTypeEnum } from '@/modules/common/enums/facility-type.enum';
 
 @Entity('hospitals')
 export class Hospital {

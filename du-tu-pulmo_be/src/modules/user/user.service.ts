@@ -1,14 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User } from './entities/user.entity';
-import { UpdateUserDto } from './dto/update-user.dto';
-import { ResponseCommon } from 'src/common/dto/response.dto';
-import { USER_ERRORS } from 'src/common/constants/error-messages.constant';
-import { RoleEnum } from '../common/enums/role.enum';
-import { Doctor } from '../doctor/entities/doctor.entity';
-import { Patient } from '../patient/entities/patient.entity';
-import { UserQueryDto } from './dto/user-query.dto';
+import { User } from '@/modules/user/entities/user.entity';
+import { UpdateUserDto } from '@/modules/user/dto/update-user.dto';
+import { ResponseCommon } from '@/common/dto/response.dto';
+import { USER_ERRORS } from '@/common/constants/error-messages.constant';
+import { RoleEnum } from '@/modules/common/enums/role.enum';
+import { Doctor } from '@/modules/doctor/entities/doctor.entity';
+import { Patient } from '@/modules/patient/entities/patient.entity';
+import { UserQueryDto } from '@/modules/user/dto/user-query.dto';
 
 @Injectable()
 export class UserService {

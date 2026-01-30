@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { EnumController } from './enum.controller';
-import { EnumService } from './enum.service';
+import { EnumController } from '@/modules/enum/enum.controller';
+import { EnumService } from '@/modules/enum/enum.service';
 
 @Module({
   controllers: [EnumController],

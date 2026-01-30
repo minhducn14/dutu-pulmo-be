@@ -8,7 +8,7 @@ import {
   IsDateString,
   MaxLength,
 } from 'class-validator';
-import { AppointmentStatusEnum } from '../../common/enums/appointment-status.enum';
+import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 
 // ============================================================================
 // EXISTING DTOs

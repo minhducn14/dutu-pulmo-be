@@ -7,10 +7,13 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, LessThan, In } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import { Payment, PaymentStatus } from './entities/payment.entity';
-import { PayosService, WebhookData } from './payos.service';
-import { Appointment } from '../appointment/entities/appointment.entity';
-import { AppointmentStatusEnum } from '../common/enums/appointment-status.enum';
+import {
+  Payment,
+  PaymentStatus,
+} from '@/modules/payment/entities/payment.entity';
+import { PayosService, WebhookData } from '@/modules/payment/payos.service';
+import { Appointment } from '@/modules/appointment/entities/appointment.entity';
+import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 
 export interface CreatePaymentDto {
   appointmentId: string;

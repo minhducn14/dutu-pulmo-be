@@ -10,7 +10,7 @@ import { DoctorScheduleService } from '@/modules/doctor/services/doctor-schedule
 import { TimeSlotService } from '@/modules/doctor/services/time-slot.service';
 import { CreateTimeSlotDto } from '@/modules/doctor/dto/time-slot.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
-import { ScheduleType } from 'src/modules/common/enums/schedule-type.enum';
+import { ScheduleType } from '@/modules/common/enums/schedule-type.enum';
 
 @Injectable()
 export class SlotGeneratorService {

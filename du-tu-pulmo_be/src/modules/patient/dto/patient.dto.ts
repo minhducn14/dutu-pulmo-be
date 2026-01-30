@@ -1,6 +1,6 @@
 import { IsOptional, IsString, MaxLength, IsDateString } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { PaginationDto } from '@/common/dto/pagination.dto';
 
 /**
  * DTO for query patients with pagination and filtering

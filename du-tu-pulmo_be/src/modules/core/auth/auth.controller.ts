@@ -9,9 +9,9 @@ import {
   Res,
   BadRequestException,
 } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
+import { AuthService } from '@/modules/core/auth/auth.service';
+import { RegisterDto } from '@/modules/core/auth/dto/register.dto';
+import { LoginDto } from '@/modules/core/auth/dto/login.dto';
 import {
   ApiTags,
   ApiOperation,
@@ -19,25 +19,25 @@ import {
   ApiQuery,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { RegisterResponseDto } from './dto/register-response.dto';
-import { LoginResponseDto } from './dto/login-response.dto';
-import { ResetPasswordResponseDto } from './dto/reset-password-response.dto';
-import { ForgotPasswordDto } from './dto/forgot-password.dto';
-import { ResetPasswordWithTokenDto } from './dto/reset-password-with-token.dto';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
-import { ResendVerificationDto } from './dto/resend-verification.dto';
-import { RefreshTokenResponseDto } from './dto/refresh-token-response.dto';
+import { RegisterResponseDto } from '@/modules/core/auth/dto/register-response.dto';
+import { LoginResponseDto } from '@/modules/core/auth/dto/login-response.dto';
+import { ResetPasswordResponseDto } from '@/modules/core/auth/dto/reset-password-response.dto';
+import { ForgotPasswordDto } from '@/modules/core/auth/dto/forgot-password.dto';
+import { ResetPasswordWithTokenDto } from '@/modules/core/auth/dto/reset-password-with-token.dto';
+import { RefreshTokenDto } from '@/modules/core/auth/dto/refresh-token.dto';
+import { ResendVerificationDto } from '@/modules/core/auth/dto/resend-verification.dto';
+import { RefreshTokenResponseDto } from '@/modules/core/auth/dto/refresh-token-response.dto';
 import express from 'express';
 import { Throttle } from '@nestjs/throttler';
-import { JwtLogoutGuard } from './guards/jwt-logout.guard';
+import { JwtLogoutGuard } from '@/modules/core/auth/guards/jwt-logout.guard';
 import { UseGuards } from '@nestjs/common';
-import { CurrentUser } from 'src/common/decorators/user.decorator';
-import * as jwtStrategy from './strategies/jwt.strategy';
-import { ResponseCommon } from 'src/common/dto/response.dto';
+import { CurrentUser } from '@/common/decorators/user.decorator';
+import * as jwtStrategy from '@/modules/core/auth/strategies/jwt.strategy';
+import { ResponseCommon } from '@/common/dto/response.dto';
 import { ConfigService } from '@nestjs/config';
-import { VerifyOtpDto } from './dto/verify-otp.dto';
-import { AuthMessageResponseDto } from './dto/auth-message-response.dto';
-import { ResetPasswordWithOtpDto } from './dto/reset-password-with-otp.dto';
+import { VerifyOtpDto } from '@/modules/core/auth/dto/verify-otp.dto';
+import { AuthMessageResponseDto } from '@/modules/core/auth/dto/auth-message-response.dto';
+import { ResetPasswordWithOtpDto } from '@/modules/core/auth/dto/reset-password-with-otp.dto';
 
 @ApiTags('Auth')
 @Throttle({ default: { limit: 15, ttl: 60000 } })

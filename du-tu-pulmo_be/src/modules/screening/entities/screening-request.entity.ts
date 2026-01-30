@@ -9,14 +9,14 @@ import {
   OneToMany,
   Index,
 } from 'typeorm';
-import { Patient } from '../../patient/entities/patient.entity';
-import { Doctor } from '../../doctor/entities/doctor.entity';
-import { ScreeningTypeEnum } from '../../common/enums/screening-type.enum';
-import { ScreeningStatusEnum } from '../../common/enums/screening-status.enum';
-import { ScreeningPriorityEnum } from '../../common/enums/screening-priority.enum';
-import { MedicalImage } from './medical-image.entity';
-import { AiAnalysis } from './ai-analysis.entity';
-import { ScreeningConclusion } from './screening-conclusion.entity';
+import { Patient } from '@/modules/patient/entities/patient.entity';
+import { Doctor } from '@/modules/doctor/entities/doctor.entity';
+import { ScreeningTypeEnum } from '@/modules/common/enums/screening-type.enum';
+import { ScreeningStatusEnum } from '@/modules/common/enums/screening-status.enum';
+import { ScreeningPriorityEnum } from '@/modules/common/enums/screening-priority.enum';
+import { MedicalImage } from '@/modules/screening/entities/medical-image.entity';
+import { AiAnalysis } from '@/modules/screening/entities/ai-analysis.entity';
+import { ScreeningConclusion } from '@/modules/screening/entities/screening-conclusion.entity';
 
 @Entity('screening_requests')
 export class ScreeningRequest {

@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
-import { ReportType } from '../entities/report.entity';
+import { ReportType } from '@/modules/report/entities/report.entity';
 
 export class CreateReportDto {
   @IsOptional()

@@ -1,10 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { AiDiagnosisStatusEnum } from '../../common/enums/ai-diagnosis-status.enum';
+import { AiDiagnosisStatusEnum } from '@/modules/common/enums/ai-diagnosis-status.enum';
 import type {
   AiFinding,
   AiGrayZoneNote,
   AiPrimaryDiagnosis,
-} from '../entities/ai-analysis.entity';
+} from '@/modules/screening/entities/ai-analysis.entity';
 
 export class AiAnalysisResponseDto {
   @ApiProperty({ example: '1e2f3a4b-5c6d-7e8f-9012-3456789abcde' })

@@ -5,8 +5,8 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { Prescription } from './prescription.entity';
-import { Medicine } from './medicine.entity';
+import { Prescription } from '@/modules/medical/entities/prescription.entity';
+import { Medicine } from '@/modules/medical/entities/medicine.entity';
 
 @Entity('prescription_items')
 export class PrescriptionItem {

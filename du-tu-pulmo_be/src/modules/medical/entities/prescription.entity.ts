@@ -8,13 +8,13 @@ import {
   JoinColumn,
   OneToMany,
 } from 'typeorm';
-import { Patient } from '../../patient/entities/patient.entity';
-import { Doctor } from '../../doctor/entities/doctor.entity';
-import { Appointment } from '../../appointment/entities/appointment.entity';
-import { AiAnalysis } from '../../screening/entities/ai-analysis.entity';
-import { MedicalRecord } from './medical-record.entity';
-import { PrescriptionItem } from './prescription-item.entity';
-import { PrescriptionStatusEnum } from '../../common/enums/prescription-status.enum';
+import { Patient } from '@/modules/patient/entities/patient.entity';
+import { Doctor } from '@/modules/doctor/entities/doctor.entity';
+import { Appointment } from '@/modules/appointment/entities/appointment.entity';
+import { AiAnalysis } from '@/modules/screening/entities/ai-analysis.entity';
+import { MedicalRecord } from '@/modules/medical/entities/medical-record.entity';
+import { PrescriptionItem } from '@/modules/medical/entities/prescription-item.entity';
+import { PrescriptionStatusEnum } from '@/modules/common/enums/prescription-status.enum';
 
 @Entity('prescriptions')
 export class Prescription {

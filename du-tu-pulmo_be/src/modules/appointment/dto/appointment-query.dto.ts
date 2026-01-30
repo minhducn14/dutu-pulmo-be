@@ -1,8 +1,8 @@
 import { IsOptional, IsEnum, IsDateString } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { PaginationDto } from 'src/common/dto/pagination.dto';
-import { AppointmentStatusEnum } from '../../common/enums/appointment-status.enum';
-import { AppointmentTypeEnum } from '../../common/enums/appointment-type.enum';
+import { PaginationDto } from '@/common/dto/pagination.dto';
+import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
+import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
 
 /**
  * DTO cho query danh sách lịch hẹn với phân trang và bộ lọc

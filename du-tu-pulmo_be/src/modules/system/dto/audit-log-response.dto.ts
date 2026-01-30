@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { AuditActionEnum } from '../../common/enums/audit-action.enum';
+import { AuditActionEnum } from '@/modules/common/enums/audit-action.enum';
 
 export class AuditLogResponseDto {
   @ApiProperty({ example: 'b65a4f0b-1e4c-4f55-8a7b-0b2e5c0d96a8' })

@@ -1,11 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ChatRoom } from './entities/chatroom.entity';
-import { CreateChatRoomDto } from './dto/create-chatroom.dto';
-import { UpdateChatRoomDto } from './dto/update-chatroom.dto';
-import { ResponseCommon } from 'src/common/dto/response.dto';
-import { CHATROOM_ERRORS } from 'src/common/constants/error-messages.constant';
+import { ChatRoom } from '@/modules/chatroom/entities/chatroom.entity';
+import { CreateChatRoomDto } from '@/modules/chatroom/dto/create-chatroom.dto';
+import { UpdateChatRoomDto } from '@/modules/chatroom/dto/update-chatroom.dto';
+import { ResponseCommon } from '@/common/dto/response.dto';
+import { CHATROOM_ERRORS } from '@/common/constants/error-messages.constant';
 
 @Injectable()
 export class ChatRoomService {

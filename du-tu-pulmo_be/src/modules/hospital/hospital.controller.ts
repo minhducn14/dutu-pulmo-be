@@ -19,21 +19,21 @@ import {
   ApiBearerAuth,
   ApiQuery,
 } from '@nestjs/swagger';
-import { HospitalService } from './hospital.service';
+import { HospitalService } from '@/modules/hospital/hospital.service';
 import {
   CreateHospitalDto,
   UpdateHospitalDto,
   HospitalQueryDto,
-} from './dto/hospital.dto';
-import { HospitalResponseDto } from './dto/hospital-response.dto';
-import { JwtAuthGuard } from '../core/auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../core/auth/guards/roles.guard';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { RoleEnum } from '../common/enums/role.enum';
-import { ResponseCommon } from 'src/common/dto/response.dto';
-import { PaginatedResponseDto } from 'src/common/dto/pagination.dto';
-import { DoctorResponseDto } from '../doctor/dto/doctor-response.dto';
-import { Doctor } from '../doctor/entities/doctor.entity';
+} from '@/modules/hospital/dto/hospital.dto';
+import { HospitalResponseDto } from '@/modules/hospital/dto/hospital-response.dto';
+import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { RoleEnum } from '@/modules/common/enums/role.enum';
+import { ResponseCommon } from '@/common/dto/response.dto';
+import { PaginatedResponseDto } from '@/common/dto/pagination.dto';
+import { DoctorResponseDto } from '@/modules/doctor/dto/doctor-response.dto';
+import { Doctor } from '@/modules/doctor/entities/doctor.entity';
 
 @ApiTags('Hospitals')
 @Controller('hospitals')

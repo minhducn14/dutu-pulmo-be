@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { EmailService } from '../email/email.service';
-import { Appointment } from '../appointment/entities/appointment.entity';
+import { EmailService } from '@/modules/email/email.service';
+import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 
 export type CancellationReason = 'SCHEDULE_CHANGE' | 'TIME_OFF';
 

@@ -20,16 +20,16 @@ import {
   ApiQuery,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { CloudinaryService } from './cloudinary.service';
-import { JwtAuthGuard } from '../core/auth/guards/jwt-auth.guard';
-import { CurrentUser } from 'src/common/decorators/user.decorator';
-import type { JwtUser } from '../core/auth/strategies/jwt.strategy';
+import { CloudinaryService } from '@/modules/cloudinary/cloudinary.service';
+import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
+import { CurrentUser } from '@/common/decorators/user.decorator';
+import type { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
 import {
   fileTypeConfigs,
   FileDefaults,
-} from 'src/common/config/file-type.config';
-import { ResponseCommon } from 'src/common/dto/response.dto';
-import { CloudinaryUploadResponseDto } from './dto/cloudinary-upload-response.dto';
+} from '@/common/config/file-type.config';
+import { ResponseCommon } from '@/common/dto/response.dto';
+import { CloudinaryUploadResponseDto } from '@/modules/cloudinary/dto/cloudinary-upload-response.dto';
 
 @ApiTags('Upload')
 @Controller('upload')

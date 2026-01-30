@@ -10,7 +10,7 @@ import {
   Min,
   Max,
 } from 'class-validator';
-import { AiRiskLevelEnum } from '../../common/enums/ai-risk-level.enum';
+import { AiRiskLevelEnum } from '@/modules/common/enums/ai-risk-level.enum';
 
 /**
  * Bounding box coordinates from YOLO detection

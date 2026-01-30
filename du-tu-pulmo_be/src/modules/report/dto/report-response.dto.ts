@@ -1,5 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ReportType, ReportStatus } from '../entities/report.entity';
+import {
+  ReportType,
+  ReportStatus,
+} from '@/modules/report/entities/report.entity';
 
 export class ReportResponseDto {
   @ApiProperty({ example: '9c6c6b92-913c-4638-a2a6-54f8d3c4e3df' })

@@ -7,7 +7,7 @@ import {
   CreateDateColumn,
   Index,
 } from 'typeorm';
-import { Account } from '../../../account/entities/account.entity';
+import { Account } from '@/modules/account/entities/account.entity';
 
 @Entity('refresh_tokens')
 @Index(['accountId'])

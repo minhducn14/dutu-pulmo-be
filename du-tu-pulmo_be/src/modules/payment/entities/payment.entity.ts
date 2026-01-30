@@ -9,7 +9,7 @@ import {
   Index,
   BeforeInsert,
 } from 'typeorm';
-import { Appointment } from '../../appointment/entities/appointment.entity';
+import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import * as crypto from 'crypto';
 
 export enum PaymentStatus {

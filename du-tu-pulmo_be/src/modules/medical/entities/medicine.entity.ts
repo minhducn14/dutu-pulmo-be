@@ -11,7 +11,7 @@ import {
   MedicineGroup,
   RouteOfAdministration,
   UnitOfMeasure,
-} from '../enums/medicine.enums';
+} from '@/modules/medical/enums/medicine.enums';
 
 @Entity('medicines')
 export class Medicine {

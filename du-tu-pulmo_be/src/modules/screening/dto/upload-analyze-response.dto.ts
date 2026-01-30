@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { AiAnalysisResponseDto } from './ai-analysis-entity-response.dto';
-import { MedicalImageResponseDto } from './medical-image-response.dto';
-import { ScreeningRequestResponseDto } from './screening-request-response.dto';
+import { AiAnalysisResponseDto } from '@/modules/screening/dto/ai-analysis-entity-response.dto';
+import { MedicalImageResponseDto } from '@/modules/screening/dto/medical-image-response.dto';
+import { ScreeningRequestResponseDto } from '@/modules/screening/dto/screening-request-response.dto';
 
 export class UploadAnalyzeResponseDto {
   @ApiProperty({ type: () => ScreeningRequestResponseDto })

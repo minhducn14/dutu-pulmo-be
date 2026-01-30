@@ -7,11 +7,11 @@ import {
   IsDateString,
   Matches,
 } from 'class-validator';
-import { UserStatusEnum } from '../../common/enums/user-status.enum';
-import { GenderEnum } from '../../common/enums/gender.enum';
-import { CountryEnum } from '../../common/enums/country.enum';
-import { EthnicityEnum } from '../../common/enums/ethnicity.enum';
-import { OccupationEnum } from '../../common/enums/job.enum';
+import { UserStatusEnum } from '@/modules/common/enums/user-status.enum';
+import { GenderEnum } from '@/modules/common/enums/gender.enum';
+import { CountryEnum } from '@/modules/common/enums/country.enum';
+import { EthnicityEnum } from '@/modules/common/enums/ethnicity.enum';
+import { OccupationEnum } from '@/modules/common/enums/job.enum';
 
 export class UpdateUserDto {
   @ApiPropertyOptional({

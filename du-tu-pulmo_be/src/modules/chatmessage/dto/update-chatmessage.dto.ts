@@ -1,5 +1,5 @@
 import { PartialType } from '@nestjs/mapped-types';
-import { CreateChatMessageDto } from './create-chatmessage.dto';
+import { CreateChatMessageDto } from '@/modules/chatmessage/dto/create-chatmessage.dto';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateChatMessageDto extends PartialType(CreateChatMessageDto) {

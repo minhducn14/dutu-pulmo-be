@@ -8,9 +8,9 @@ import {
   Unique,
   Index,
 } from 'typeorm';
-import { ScreeningRequest } from './screening-request.entity';
-import { MedicalImage } from './medical-image.entity';
-import { AiDiagnosisStatusEnum } from '../../common/enums/ai-diagnosis-status.enum';
+import { ScreeningRequest } from '@/modules/screening/entities/screening-request.entity';
+import { MedicalImage } from '@/modules/screening/entities/medical-image.entity';
+import { AiDiagnosisStatusEnum } from '@/modules/common/enums/ai-diagnosis-status.enum';
 
 export interface AiPrimaryDiagnosis {
   label: string;

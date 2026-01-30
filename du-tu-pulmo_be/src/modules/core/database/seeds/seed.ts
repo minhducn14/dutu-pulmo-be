@@ -4,34 +4,34 @@ import { fakerVI as faker } from '@faker-js/faker';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 
-import { Doctor } from '../../../doctor/entities/doctor.entity';
-import { DoctorSchedule } from '../../../doctor/entities/doctor-schedule.entity';
-import { TimeSlot } from '../../../doctor/entities/time-slot.entity';
-import { Account } from '../../../account/entities/account.entity';
-import { User } from '../../../user/entities/user.entity';
-import { Patient } from '../../../patient/entities/patient.entity';
-import { Hospital } from '../../../hospital/entities/hospital.entity';
-import { Appointment } from '../../../appointment/entities/appointment.entity';
-import { MedicalRecord } from '../../../medical/entities/medical-record.entity';
-import { Prescription } from '../../../medical/entities/prescription.entity';
-import { PrescriptionItem } from '../../../medical/entities/prescription-item.entity';
-import { Medicine } from '../../../medical/entities/medicine.entity';
+import { Doctor } from '@/modules/doctor/entities/doctor.entity';
+import { DoctorSchedule } from '@/modules/doctor/entities/doctor-schedule.entity';
+import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
+import { Account } from '@/modules/account/entities/account.entity';
+import { User } from '@/modules/user/entities/user.entity';
+import { Patient } from '@/modules/patient/entities/patient.entity';
+import { Hospital } from '@/modules/hospital/entities/hospital.entity';
+import { Appointment } from '@/modules/appointment/entities/appointment.entity';
+import { MedicalRecord } from '@/modules/medical/entities/medical-record.entity';
+import { Prescription } from '@/modules/medical/entities/prescription.entity';
+import { PrescriptionItem } from '@/modules/medical/entities/prescription-item.entity';
+import { Medicine } from '@/modules/medical/entities/medicine.entity';
 
-import { DoctorTitle } from '../../../common/enums/doctor-title.enum';
-import { SpecialtyEnum } from '../../../common/enums/specialty.enum';
-import { RoleEnum } from '../../../common/enums/role.enum';
-import { UserStatusEnum } from '../../../common/enums/user-status.enum';
-import { ScheduleType } from '../../../common/enums/schedule-type.enum';
-import { AppointmentTypeEnum } from '../../../common/enums/appointment-type.enum';
-import { AppointmentStatusEnum } from '../../../common/enums/appointment-status.enum';
-import { GenderEnum } from '../../../common/enums/gender.enum';
-import { PrescriptionStatusEnum } from '../../../common/enums/prescription-status.enum';
+import { DoctorTitle } from '@/modules/common/enums/doctor-title.enum';
+import { SpecialtyEnum } from '@/modules/common/enums/specialty.enum';
+import { RoleEnum } from '@/modules/common/enums/role.enum';
+import { UserStatusEnum } from '@/modules/common/enums/user-status.enum';
+import { ScheduleType } from '@/modules/common/enums/schedule-type.enum';
+import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
+import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
+import { GenderEnum } from '@/modules/common/enums/gender.enum';
+import { PrescriptionStatusEnum } from '@/modules/common/enums/prescription-status.enum';
 import {
   GoodsType,
   MedicineGroup,
   RouteOfAdministration,
   UnitOfMeasure,
-} from '../../../medical/enums/medicine.enums';
+} from '@/modules/medical/enums/medicine.enums';
 
 async function seed() {
   dotenv.config();

@@ -7,10 +7,10 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { ScreeningRequest } from './screening-request.entity';
-import { AiAnalysis } from './ai-analysis.entity';
-import { Patient } from '../../patient/entities/patient.entity';
-import { Doctor } from '../../doctor/entities/doctor.entity';
+import { ScreeningRequest } from '@/modules/screening/entities/screening-request.entity';
+import { AiAnalysis } from '@/modules/screening/entities/ai-analysis.entity';
+import { Patient } from '@/modules/patient/entities/patient.entity';
+import { Doctor } from '@/modules/doctor/entities/doctor.entity';
 
 @Entity('screening_conclusions')
 export class ScreeningConclusion {

@@ -7,7 +7,7 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { User } from '../../user/entities/user.entity';
+import { User } from '@/modules/user/entities/user.entity';
 
 export enum AdminActionType {
   // User management

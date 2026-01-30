@@ -16,12 +16,12 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../core/auth/guards/jwt-auth.guard';
-import { CurrentUser } from 'src/common/decorators/user.decorator';
-import type { JwtUser } from '../core/auth/strategies/jwt.strategy';
-import { DailyService } from './daily.service';
-import { CallStateService } from './call-state.service';
-import { AppointmentService } from '../appointment/appointment.service';
+import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
+import { CurrentUser } from '@/common/decorators/user.decorator';
+import type { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
+import { DailyService } from '@/modules/video_call/daily.service';
+import { CallStateService } from '@/modules/video_call/call-state.service';
+import { AppointmentService } from '@/modules/appointment/appointment.service';
 import {
   CreateRoomDto,
   JoinCallDto,
@@ -29,8 +29,8 @@ import {
   JoinCallResponseDto,
   CallStatusResponseDto,
   LeaveCallResponseDto,
-} from './dto';
-import { AppointmentTypeEnum } from '../common/enums/appointment-type.enum';
+} from '@/modules/video_call/dto';
+import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
 
 @ApiTags('Video Call')
 @Controller('video-call')

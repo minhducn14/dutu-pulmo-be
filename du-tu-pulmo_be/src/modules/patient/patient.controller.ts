@@ -18,26 +18,29 @@ import {
   ApiBearerAuth,
   ApiQuery,
 } from '@nestjs/swagger';
-import { PatientService } from './patient.service';
-import { PatientQueryDto, UpdatePatientDto } from './dto/patient.dto';
+import { PatientService } from '@/modules/patient/patient.service';
+import {
+  PatientQueryDto,
+  UpdatePatientDto,
+} from '@/modules/patient/dto/patient.dto';
 import {
   PatientResponseDto,
   PaginatedPatientResponseDto,
   PatientProfileResponseDto,
-} from './dto/patient-response.dto';
-import { JwtAuthGuard } from '../core/auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../core/auth/guards/roles.guard';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { CurrentUser } from 'src/common/decorators/user.decorator';
-import type { JwtUser } from '../core/auth/strategies/jwt.strategy';
-import { RoleEnum } from '../common/enums/role.enum';
-import { AppointmentStatusEnum } from '../common/enums/appointment-status.enum';
+} from '@/modules/patient/dto/patient-response.dto';
+import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { CurrentUser } from '@/common/decorators/user.decorator';
+import type { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
+import { RoleEnum } from '@/modules/common/enums/role.enum';
+import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import {
   PaginatedAppointmentResponseDto,
   AppointmentResponseDto,
-} from '../appointment/dto/appointment-response.dto';
-import { ResponseCommon } from 'src/common/dto/response.dto';
-import { Patient } from './entities/patient.entity';
+} from '@/modules/appointment/dto/appointment-response.dto';
+import { ResponseCommon } from '@/common/dto/response.dto';
+import { Patient } from '@/modules/patient/entities/patient.entity';
 
 @ApiTags('Patients')
 @Controller('patients')

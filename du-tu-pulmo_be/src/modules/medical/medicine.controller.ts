@@ -1,5 +1,5 @@
 import { Controller } from '@nestjs/common';
-import { MedicineService } from './medicine.service';
+import { MedicineService } from '@/modules/medical/medicine.service';
 import { ApiTags } from '@nestjs/swagger';
 
 @ApiTags('Medicines')

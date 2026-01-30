@@ -8,9 +8,9 @@ import {
   Matches,
   IsEnum,
 } from 'class-validator';
-import { CountryEnum } from 'src/modules/common/enums/country.enum';
-import { EthnicityEnum } from 'src/modules/common/enums/ethnicity.enum';
-import { OccupationEnum } from 'src/modules/common/enums/job.enum';
+import { CountryEnum } from '@/modules/common/enums/country.enum';
+import { EthnicityEnum } from '@/modules/common/enums/ethnicity.enum';
+import { OccupationEnum } from '@/modules/common/enums/job.enum';
 
 export class RegisterDto {
   @IsEmail()

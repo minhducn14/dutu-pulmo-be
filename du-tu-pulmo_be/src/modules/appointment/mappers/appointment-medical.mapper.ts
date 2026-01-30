@@ -1,15 +1,15 @@
-import { AppointmentResponseDto } from '../dto/appointment-response.dto';
-import { DoctorResponseDto } from '../../doctor/dto/doctor-response.dto';
-import { PatientResponseDto } from '../../patient/dto/patient-response.dto';
+import { AppointmentResponseDto } from '@/modules/appointment/dto/appointment-response.dto';
+import { DoctorResponseDto } from '@/modules/doctor/dto/doctor-response.dto';
+import { PatientResponseDto } from '@/modules/patient/dto/patient-response.dto';
 import {
   MedicalRecordResponseDto,
   VitalSignResponseDto,
   PrescriptionResponseDto,
   PrescriptionItemResponseDto,
-} from '../../medical/dto/medical-response.dto';
-import { MedicalRecord } from '../../medical/entities/medical-record.entity';
-import { Prescription } from '../../medical/entities/prescription.entity';
-import { VitalSign } from '../../medical/entities/vital-sign.entity';
+} from '@/modules/medical/dto/medical-response.dto';
+import { MedicalRecord } from '@/modules/medical/entities/medical-record.entity';
+import { Prescription } from '@/modules/medical/entities/prescription.entity';
+import { VitalSign } from '@/modules/medical/entities/vital-sign.entity';
 
 export const mapMedicalRecordToDto = (
   record: MedicalRecord,

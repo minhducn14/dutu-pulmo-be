@@ -8,9 +8,9 @@ import {
   Unique,
   JoinColumn,
 } from 'typeorm';
-import { User } from '../../user/entities/user.entity';
-import { NotificationTypeEnum } from '../../common/enums/notification-type.enum';
-import { StatusEnum } from '../../common/enums/status.enum';
+import { User } from '@/modules/user/entities/user.entity';
+import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.enum';
+import { StatusEnum } from '@/modules/common/enums/status.enum';
 
 @Entity('notifications')
 @Unique('uk_notification_idempotency', ['userId', 'type', 'refId'])

@@ -1,12 +1,12 @@
 import { Controller, Get, Query, HttpStatus } from '@nestjs/common';
 import { ApiOperation, ApiTags, ApiResponse, ApiQuery } from '@nestjs/swagger';
-import { EnumService } from './enum.service';
+import { EnumService } from '@/modules/enum/enum.service';
 import {
   PaginationDto,
   PaginatedResponseDto,
-} from 'src/common/dto/pagination.dto';
-import { ResponseCommon } from 'src/common/dto/response.dto';
-import { EnumItemDto } from './dto/enum-item.dto';
+} from '@/common/dto/pagination.dto';
+import { ResponseCommon } from '@/common/dto/response.dto';
+import { EnumItemDto } from '@/modules/enum/dto/enum-item.dto';
 
 @ApiTags('Enum - Danh mục')
 @Controller('enums')

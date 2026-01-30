@@ -1,8 +1,8 @@
 import { Controller, UseGuards } from '@nestjs/common';
-import { ReportService } from './report.service';
+import { ReportService } from '@/modules/report/report.service';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../core/auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../core/auth/guards/roles.guard';
+import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
 
 @ApiTags('Reports')
 @Controller('reports')

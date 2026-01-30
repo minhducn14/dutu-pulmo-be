@@ -6,15 +6,15 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Hospital } from './entities/hospital.entity';
-import { Doctor } from '../doctor/entities/doctor.entity';
+import { Hospital } from '@/modules/hospital/entities/hospital.entity';
+import { Doctor } from '@/modules/doctor/entities/doctor.entity';
 import {
   CreateHospitalDto,
   UpdateHospitalDto,
   HospitalQueryDto,
-} from './dto/hospital.dto';
-import { ResponseCommon } from 'src/common/dto/response.dto';
-import { PaginatedResponseDto } from 'src/common/dto/pagination.dto';
+} from '@/modules/hospital/dto/hospital.dto';
+import { ResponseCommon } from '@/common/dto/response.dto';
+import { PaginatedResponseDto } from '@/common/dto/pagination.dto';
 
 @Injectable()
 export class HospitalService {

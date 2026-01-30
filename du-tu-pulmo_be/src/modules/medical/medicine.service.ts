@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Medicine } from './entities/medicine.entity';
+import { Medicine } from '@/modules/medical/entities/medicine.entity';
 
 @Injectable()
 export class MedicineService {

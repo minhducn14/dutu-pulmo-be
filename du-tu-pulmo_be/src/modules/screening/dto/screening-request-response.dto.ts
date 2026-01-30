@@ -1,12 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ScreeningPriorityEnum } from '../../common/enums/screening-priority.enum';
-import { ScreeningStatusEnum } from '../../common/enums/screening-status.enum';
-import { ScreeningTypeEnum } from '../../common/enums/screening-type.enum';
-import { DoctorResponseDto } from '../../doctor/dto/doctor-response.dto';
-import { PatientResponseDto } from '../../patient/dto/patient-response.dto';
-import { AiAnalysisResponseDto } from './ai-analysis-entity-response.dto';
-import { MedicalImageResponseDto } from './medical-image-response.dto';
-import { ScreeningConclusionResponseDto } from './screening-conclusion-response.dto';
+import { ScreeningPriorityEnum } from '@/modules/common/enums/screening-priority.enum';
+import { ScreeningStatusEnum } from '@/modules/common/enums/screening-status.enum';
+import { ScreeningTypeEnum } from '@/modules/common/enums/screening-type.enum';
+import { DoctorResponseDto } from '@/modules/doctor/dto/doctor-response.dto';
+import { PatientResponseDto } from '@/modules/patient/dto/patient-response.dto';
+import { AiAnalysisResponseDto } from '@/modules/screening/dto/ai-analysis-entity-response.dto';
+import { MedicalImageResponseDto } from '@/modules/screening/dto/medical-image-response.dto';
+import { ScreeningConclusionResponseDto } from '@/modules/screening/dto/screening-conclusion-response.dto';
 
 export class ScreeningRequestResponseDto {
   @ApiProperty({ example: 'd2c1b3a4-5e6f-7890-1234-56789abcdef0' })

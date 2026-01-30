@@ -8,8 +8,8 @@ import {
   BeforeInsert,
   BeforeUpdate,
 } from 'typeorm';
-import { Patient } from '../../patient/entities/patient.entity';
-import { MedicalRecord } from './medical-record.entity';
+import { Patient } from '@/modules/patient/entities/patient.entity';
+import { MedicalRecord } from '@/modules/medical/entities/medical-record.entity';
 
 @Entity('vital_signs')
 export class VitalSign {

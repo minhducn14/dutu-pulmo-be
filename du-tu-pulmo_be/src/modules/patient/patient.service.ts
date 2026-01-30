@@ -1,11 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Patient } from './entities/patient.entity';
-import { ResponseCommon } from 'src/common/dto/response.dto';
-import { AppointmentService } from '../appointment/appointment.service';
-import { PatientQueryDto, UpdatePatientDto } from './dto/patient.dto';
-import { AppointmentStatusEnum } from '../common/enums/appointment-status.enum';
+import { Patient } from '@/modules/patient/entities/patient.entity';
+import { ResponseCommon } from '@/common/dto/response.dto';
+import { AppointmentService } from '@/modules/appointment/appointment.service';
+import {
+  PatientQueryDto,
+  UpdatePatientDto,
+} from '@/modules/patient/dto/patient.dto';
+import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 
 export interface PaginatedPatientResponseDto {
   items: Patient[];

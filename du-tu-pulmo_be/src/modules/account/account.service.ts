@@ -5,10 +5,10 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not, IsNull } from 'typeorm';
-import { Account } from './entities/account.entity';
-import { AdminUpdateAccountDto } from './dto/update-account.dto';
-import { ResponseCommon } from 'src/common/dto/response.dto';
-import { RoleEnum } from '../common/enums/role.enum';
+import { Account } from '@/modules/account/entities/account.entity';
+import { AdminUpdateAccountDto } from '@/modules/account/dto/update-account.dto';
+import { ResponseCommon } from '@/common/dto/response.dto';
+import { RoleEnum } from '@/modules/common/enums/role.enum';
 
 @Injectable()
 export class AccountService {

@@ -1,9 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { UserStatusEnum } from '../../common/enums/user-status.enum';
-import { GenderEnum } from '../../common/enums/gender.enum';
-import { CountryEnum } from '../../common/enums/country.enum';
-import { EthnicityEnum } from '../../common/enums/ethnicity.enum';
-import { OccupationEnum } from '../../common/enums/job.enum';
+import { UserStatusEnum } from '@/modules/common/enums/user-status.enum';
+import { GenderEnum } from '@/modules/common/enums/gender.enum';
+import { CountryEnum } from '@/modules/common/enums/country.enum';
+import { EthnicityEnum } from '@/modules/common/enums/ethnicity.enum';
+import { OccupationEnum } from '@/modules/common/enums/job.enum';
 
 export class UserResponseDto {
   @ApiProperty({
@@ -190,7 +190,7 @@ export class UserResponseDto {
 // PAGINATED RESPONSE DTO
 // ============================================================================
 
-import { PaginationMeta } from 'src/common/dto/pagination.dto';
+import { PaginationMeta } from '@/common/dto/pagination.dto';
 
 export class PaginatedUserResponseDto {
   @ApiProperty({

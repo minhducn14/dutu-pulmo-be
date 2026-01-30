@@ -1,8 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { PaginationMeta } from 'src/common/dto/pagination.dto';
-import { AppointmentResponseDto } from 'src/modules/appointment/dto/appointment-response.dto';
-import { DoctorResponseDto } from 'src/modules/doctor/dto/doctor-response.dto';
-import { PatientResponseDto } from 'src/modules/patient/dto/patient-response.dto';
+import { PaginationMeta } from '@/common/dto/pagination.dto';
+import { AppointmentResponseDto } from '@/modules/appointment/dto/appointment-response.dto';
+import { DoctorResponseDto } from '@/modules/doctor/dto/doctor-response.dto';
+import { PatientResponseDto } from '@/modules/patient/dto/patient-response.dto';
 
 // ============================================================================
 // MEDICAL RECORD RESPONSE DTOs

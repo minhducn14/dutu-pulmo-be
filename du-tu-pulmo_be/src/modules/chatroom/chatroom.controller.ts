@@ -11,22 +11,22 @@ import {
   UseGuards,
   ForbiddenException,
 } from '@nestjs/common';
-import { ChatRoomService } from './chatroom.service';
-import { UpdateChatRoomDto } from './dto/update-chatroom.dto';
+import { ChatRoomService } from '@/modules/chatroom/chatroom.service';
+import { UpdateChatRoomDto } from '@/modules/chatroom/dto/update-chatroom.dto';
 import {
   ApiBearerAuth,
   ApiOperation,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { ChatRoomResponseDto } from './dto/chatroom-response.dto';
-import { JwtAuthGuard } from '../core/auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../core/auth/guards/roles.guard';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { CreateChatRoomDto } from './dto/create-chatroom.dto';
-import { CurrentUser } from 'src/common/decorators/user.decorator';
-import type { JwtUser } from '../core/auth/strategies/jwt.strategy';
-import { ResponseCommon } from 'src/common/dto/response.dto';
+import { ChatRoomResponseDto } from '@/modules/chatroom/dto/chatroom-response.dto';
+import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { CreateChatRoomDto } from '@/modules/chatroom/dto/create-chatroom.dto';
+import { CurrentUser } from '@/common/decorators/user.decorator';
+import type { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
+import { ResponseCommon } from '@/common/dto/response.dto';
 
 @ApiTags('Chat')
 @Controller('chatrooms')

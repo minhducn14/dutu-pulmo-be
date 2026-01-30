@@ -16,8 +16,8 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Logger, UseFilters } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { ChatMessageService } from '../chatmessage/chatmessage.service';
-import { ChatRoomService } from '../chatroom/chatroom.service';
+import { ChatMessageService } from '@/modules/chatmessage/chatmessage.service';
+import { ChatRoomService } from '@/modules/chatroom/chatroom.service';
 
 // WebSocket Exception Filter
 import { Catch, ArgumentsHost } from '@nestjs/common';

@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AuditLog } from './entities/audit-log.entity';
-import { SystemConfig } from './entities/system-config.entity';
-import { UserActivity } from './entities/user-activity.entity';
+import { AuditLog } from '@/modules/system/entities/audit-log.entity';
+import { SystemConfig } from '@/modules/system/entities/system-config.entity';
+import { UserActivity } from '@/modules/system/entities/user-activity.entity';
 
 @Injectable()
 export class SystemService {

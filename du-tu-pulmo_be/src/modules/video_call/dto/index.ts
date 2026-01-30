@@ -1,3 +1,3 @@
-export * from './create-room.dto';
-export * from './join-call.dto';
-export * from './room-response.dto';
+export * from '@/modules/video_call/dto/create-room.dto';
+export * from '@/modules/video_call/dto/join-call.dto';
+export * from '@/modules/video_call/dto/room-response.dto';

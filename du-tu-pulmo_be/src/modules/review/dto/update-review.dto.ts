@@ -1,5 +1,5 @@
 import { PartialType, OmitType } from '@nestjs/mapped-types';
-import { CreateReviewDto } from './create-review.dto';
+import { CreateReviewDto } from '@/modules/review/dto/create-review.dto';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString } from 'class-validator';
 

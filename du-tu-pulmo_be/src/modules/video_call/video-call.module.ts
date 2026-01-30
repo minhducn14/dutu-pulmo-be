@@ -1,9 +1,9 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
-import { VideoCallController } from './video-call.controller';
-import { DailyService } from './daily.service';
-import { CallStateService } from './call-state.service';
-import { AppointmentModule } from '../appointment/appointment.module';
+import { VideoCallController } from '@/modules/video_call/video-call.controller';
+import { DailyService } from '@/modules/video_call/daily.service';
+import { CallStateService } from '@/modules/video_call/call-state.service';
+import { AppointmentModule } from '@/modules/appointment/appointment.module';
 
 @Module({
   imports: [

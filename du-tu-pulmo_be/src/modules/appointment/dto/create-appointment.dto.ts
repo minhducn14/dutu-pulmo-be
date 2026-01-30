@@ -7,9 +7,9 @@ import {
   IsArray,
   IsNotEmpty,
 } from 'class-validator';
-import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
-import { AppointmentSubTypeEnum } from 'src/modules/common/enums/appointment-sub-type.enum';
-import { SourceTypeEnum } from 'src/modules/common/enums/source-type.enum';
+import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
+import { AppointmentSubTypeEnum } from '@/modules/common/enums/appointment-sub-type.enum';
+import { SourceTypeEnum } from '@/modules/common/enums/source-type.enum';
 
 /**
  * DTO for creating a new appointment

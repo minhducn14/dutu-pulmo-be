@@ -4,7 +4,7 @@ import {
   ApiOkResponse,
   getSchemaPath,
 } from '@nestjs/swagger';
-import { ResponseCommon } from '../dto/response.dto';
+import { ResponseCommon } from '@/common/dto/response.dto';
 
 export const ApiOkResponseCommon = <TModel extends Type<unknown>>(
   model: TModel,

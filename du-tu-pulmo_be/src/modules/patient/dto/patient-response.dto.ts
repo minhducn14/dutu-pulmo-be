@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { PaginationMeta } from 'src/common/dto/pagination.dto';
+import { PaginationMeta } from '@/common/dto/pagination.dto';
 
 /**
  * Response DTO for Patient

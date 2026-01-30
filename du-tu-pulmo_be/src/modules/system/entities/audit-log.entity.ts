@@ -7,8 +7,8 @@ import {
   JoinColumn,
   Index,
 } from 'typeorm';
-import { User } from '../../user/entities/user.entity';
-import { AuditActionEnum } from '../../common/enums/audit-action.enum';
+import { User } from '@/modules/user/entities/user.entity';
+import { AuditActionEnum } from '@/modules/common/enums/audit-action.enum';
 
 @Entity('audit_logs')
 @Index(['tableName', 'createdAt'])

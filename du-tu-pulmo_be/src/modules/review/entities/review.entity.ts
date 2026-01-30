@@ -7,9 +7,9 @@ import {
   UpdateDateColumn,
   JoinColumn,
 } from 'typeorm';
-import { User } from '../../user/entities/user.entity';
-import { Doctor } from '../../doctor/entities/doctor.entity';
-import { Appointment } from '../../appointment/entities/appointment.entity';
+import { User } from '@/modules/user/entities/user.entity';
+import { Doctor } from '@/modules/doctor/entities/doctor.entity';
+import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 
 @Entity('reviews')
 export class Review {

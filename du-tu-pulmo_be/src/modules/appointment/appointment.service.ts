@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Appointment } from './entities/appointment.entity';
+import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 
 @Injectable()
 export class AppointmentService {

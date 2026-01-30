@@ -7,7 +7,7 @@ import {
   IsUUID,
   IsNotEmpty,
 } from 'class-validator';
-import { ScreeningTypeEnum } from '../../common/enums/screening-type.enum';
+import { ScreeningTypeEnum } from '@/modules/common/enums/screening-type.enum';
 
 export class CreateScreeningRequestDto {
   @ApiProperty({

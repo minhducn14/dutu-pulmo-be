@@ -1,12 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { AppointmentStatusEnum } from '../../common/enums/appointment-status.enum';
-import { AppointmentTypeEnum } from '../../common/enums/appointment-type.enum';
-import { AppointmentSubTypeEnum } from '../../common/enums/appointment-sub-type.enum';
-import { SourceTypeEnum } from '../../common/enums/source-type.enum';
-import { PaginationMeta } from 'src/common/dto/pagination.dto';
-import { DoctorResponseDto } from 'src/modules/doctor/dto/doctor-response.dto';
-import { PatientResponseDto } from 'src/modules/patient/dto/patient-response.dto';
-import type { Appointment } from '../entities/appointment.entity';
+import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
+import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
+import { AppointmentSubTypeEnum } from '@/modules/common/enums/appointment-sub-type.enum';
+import { SourceTypeEnum } from '@/modules/common/enums/source-type.enum';
+import { PaginationMeta } from '@/common/dto/pagination.dto';
+import { DoctorResponseDto } from '@/modules/doctor/dto/doctor-response.dto';
+import { PatientResponseDto } from '@/modules/patient/dto/patient-response.dto';
+import type { Appointment } from '@/modules/appointment/entities/appointment.entity';
 
 export class AppointmentResponseDto {
   @ApiProperty()

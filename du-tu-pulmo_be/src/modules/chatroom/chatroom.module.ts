@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ChatRoom } from './entities/chatroom.entity';
-import { ChatRoomService } from './chatroom.service';
-import { ChatRoomController } from './chatroom.controller';
+import { ChatRoom } from '@/modules/chatroom/entities/chatroom.entity';
+import { ChatRoomService } from '@/modules/chatroom/chatroom.service';
+import { ChatRoomController } from '@/modules/chatroom/chatroom.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([ChatRoom])],

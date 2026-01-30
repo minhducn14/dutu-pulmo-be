@@ -1,2 +1,2 @@
-export * from './cloudinary.module';
-export * from './cloudinary.service';
+export * from '@/modules/cloudinary/cloudinary.module';
+export * from '@/modules/cloudinary/cloudinary.service';

@@ -6,8 +6,8 @@ import {
   JoinColumn,
   OneToMany,
 } from 'typeorm';
-import { ScreeningRequest } from './screening-request.entity';
-import { AiAnalysis } from './ai-analysis.entity';
+import { ScreeningRequest } from '@/modules/screening/entities/screening-request.entity';
+import { AiAnalysis } from '@/modules/screening/entities/ai-analysis.entity';
 
 @Entity('medical_images')
 export class MedicalImage {

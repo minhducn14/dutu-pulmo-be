@@ -1,9 +1,9 @@
 import { Controller, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
-import { AdminActionService } from './admin-action.service';
-import { JwtAuthGuard } from '../core/auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../core/auth/guards/roles.guard';
-import { Roles } from 'src/common/decorators/roles.decorator';
+import { AdminActionService } from '@/modules/admin-action/admin-action.service';
+import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
+import { Roles } from '@/common/decorators/roles.decorator';
 
 @ApiTags('Admin Actions (Audit Log)')
 @Controller('admin-actions')

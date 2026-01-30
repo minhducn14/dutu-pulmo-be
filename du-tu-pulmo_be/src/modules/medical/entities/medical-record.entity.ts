@@ -10,12 +10,12 @@ import {
   OneToMany,
   Index,
 } from 'typeorm';
-import { Patient } from '../../patient/entities/patient.entity';
-import { Doctor } from '../../doctor/entities/doctor.entity';
-import { Appointment } from '../../appointment/entities/appointment.entity';
-import { VitalSign } from './vital-sign.entity';
-import { Prescription } from './prescription.entity';
-import { MedicalRecordStatusEnum } from 'src/modules/common/enums/medical-record-status.enum';
+import { Patient } from '@/modules/patient/entities/patient.entity';
+import { Doctor } from '@/modules/doctor/entities/doctor.entity';
+import { Appointment } from '@/modules/appointment/entities/appointment.entity';
+import { VitalSign } from '@/modules/medical/entities/vital-sign.entity';
+import { Prescription } from '@/modules/medical/entities/prescription.entity';
+import { MedicalRecordStatusEnum } from '@/modules/common/enums/medical-record-status.enum';
 
 @Entity('medical_records')
 @Index('ux_medical_record_appointment', ['appointmentId'], { unique: true })

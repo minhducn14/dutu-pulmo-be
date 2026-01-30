@@ -7,10 +7,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { Request } from 'express';
-import { JwtUser } from '../strategies/jwt.strategy';
-import { RoleEnum } from 'src/modules/common/enums/role.enum';
-import { DoctorSchedule } from 'src/modules/doctor/entities/doctor-schedule.entity';
-import { TimeSlot } from 'src/modules/doctor/entities/time-slot.entity';
+import { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
+import { RoleEnum } from '@/modules/common/enums/role.enum';
+import { DoctorSchedule } from '@/modules/doctor/entities/doctor-schedule.entity';
+import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
 
 @Injectable()
 export class DoctorOwnershipGuard implements CanActivate {

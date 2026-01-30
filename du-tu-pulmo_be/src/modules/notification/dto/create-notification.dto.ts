@@ -1,6 +1,6 @@
 import { IsNotEmpty, IsString, IsEnum } from 'class-validator';
-import { NotificationTypeEnum } from '../../common/enums/notification-type.enum';
-import { StatusEnum } from '../../common/enums/status.enum';
+import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.enum';
+import { StatusEnum } from '@/modules/common/enums/status.enum';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateNotificationDto {

@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ChatMessage } from './entities/chatmessage.entity';
-import { CreateChatMessageDto } from './dto/create-chatmessage.dto';
-import { UpdateChatMessageDto } from './dto/update-chatmessage.dto';
-import { ResponseCommon } from 'src/common/dto/response.dto';
+import { ChatMessage } from '@/modules/chatmessage/entities/chatmessage.entity';
+import { CreateChatMessageDto } from '@/modules/chatmessage/dto/create-chatmessage.dto';
+import { UpdateChatMessageDto } from '@/modules/chatmessage/dto/update-chatmessage.dto';
+import { ResponseCommon } from '@/common/dto/response.dto';
 
 @Injectable()
 export class ChatMessageService {

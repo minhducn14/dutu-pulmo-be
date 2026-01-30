@@ -8,7 +8,7 @@ import {
   IsUUID,
   IsDateString,
 } from 'class-validator';
-import { AdminActionType } from '../entities/admin-action.entity';
+import { AdminActionType } from '@/modules/admin-action/entities/admin-action.entity';
 import { Type } from 'class-transformer';
 
 export class QueryAdminActionDto {

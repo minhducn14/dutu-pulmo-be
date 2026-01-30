@@ -3,10 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
-import { ScreeningRequest } from './entities/screening-request.entity';
-import { MedicalImage } from './entities/medical-image.entity';
-import { AiAnalysis } from './entities/ai-analysis.entity';
-import { ScreeningConclusion } from './entities/screening-conclusion.entity';
+import { ScreeningRequest } from '@/modules/screening/entities/screening-request.entity';
+import { MedicalImage } from '@/modules/screening/entities/medical-image.entity';
+import { AiAnalysis } from '@/modules/screening/entities/ai-analysis.entity';
+import { ScreeningConclusion } from '@/modules/screening/entities/screening-conclusion.entity';
 
 @Injectable()
 export class ScreeningService {

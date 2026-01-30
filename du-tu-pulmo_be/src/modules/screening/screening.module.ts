@@ -1,16 +1,16 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { HttpModule } from '@nestjs/axios';
-import { ScreeningRequest } from './entities/screening-request.entity';
-import { MedicalImage } from './entities/medical-image.entity';
-import { AiAnalysis } from './entities/ai-analysis.entity';
-import { ScreeningService } from './screening.service';
-import { ScreeningController } from './screening.controller';
-import { CloudinaryModule } from '../cloudinary/cloudinary.module';
-import { FileValidationService } from './file-validation.service';
-import { Patient } from '../patient/entities/patient.entity';
-import { PatientModule } from '../patient/patient.module';
-import { ScreeningConclusion } from './entities/screening-conclusion.entity';
+import { ScreeningRequest } from '@/modules/screening/entities/screening-request.entity';
+import { MedicalImage } from '@/modules/screening/entities/medical-image.entity';
+import { AiAnalysis } from '@/modules/screening/entities/ai-analysis.entity';
+import { ScreeningService } from '@/modules/screening/screening.service';
+import { ScreeningController } from '@/modules/screening/screening.controller';
+import { CloudinaryModule } from '@/modules/cloudinary/cloudinary.module';
+import { FileValidationService } from '@/modules/screening/file-validation.service';
+import { Patient } from '@/modules/patient/entities/patient.entity';
+import { PatientModule } from '@/modules/patient/patient.module';
+import { ScreeningConclusion } from '@/modules/screening/entities/screening-conclusion.entity';
 
 @Module({
   imports: [

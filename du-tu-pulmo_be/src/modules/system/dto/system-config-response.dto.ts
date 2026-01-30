@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ConfigValueTypeEnum } from '../../common/enums/config-value-type.enum';
+import { ConfigValueTypeEnum } from '@/modules/common/enums/config-value-type.enum';
 
 export class SystemConfigResponseDto {
   @ApiProperty({ example: '8c9a9b3f-2e7f-4e5b-9b4d-5c7c6b0a2f6e' })

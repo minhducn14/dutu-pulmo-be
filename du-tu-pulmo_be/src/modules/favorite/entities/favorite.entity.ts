@@ -6,9 +6,9 @@ import {
   JoinColumn,
   Column,
 } from 'typeorm';
-import { User } from '../../user/entities/user.entity';
-import { Doctor } from '../../doctor/entities/doctor.entity';
-import { Hospital } from '../../hospital/entities/hospital.entity';
+import { User } from '@/modules/user/entities/user.entity';
+import { Doctor } from '@/modules/doctor/entities/doctor.entity';
+import { Hospital } from '@/modules/hospital/entities/hospital.entity';
 
 @Entity('favorites')
 export class Favorite {

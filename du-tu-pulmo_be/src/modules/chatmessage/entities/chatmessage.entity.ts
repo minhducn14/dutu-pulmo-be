@@ -5,8 +5,8 @@ import {
   ManyToOne,
   CreateDateColumn,
 } from 'typeorm';
-import { User } from '../../user/entities/user.entity';
-import { ChatRoom } from '../../chatroom/entities/chatroom.entity';
+import { User } from '@/modules/user/entities/user.entity';
+import { ChatRoom } from '@/modules/chatroom/entities/chatroom.entity';
 
 @Entity()
 export class ChatMessage {

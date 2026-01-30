@@ -21,18 +21,18 @@ import {
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
-import { JwtAuthGuard } from '../core/auth/guards/jwt-auth.guard';
-import { PaymentService } from './payment.service';
-import type { WebhookData } from './payos.service';
+import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
+import { PaymentService } from '@/modules/payment/payment.service';
+import type { WebhookData } from '@/modules/payment/payos.service';
 import {
   CancelPaymentDto,
   PaymentResponseDto,
-} from './dto/payment-response.dto';
-import { CreatePaymentDto } from './dto/create-payment.dto';
-import { RolesGuard } from '../core/auth/guards/roles.guard';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { RoleEnum } from '../common/enums/role.enum';
-import { ResponseCommon } from 'src/common/dto/response.dto';
+} from '@/modules/payment/dto/payment-response.dto';
+import { CreatePaymentDto } from '@/modules/payment/dto/create-payment.dto';
+import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { RoleEnum } from '@/modules/common/enums/role.enum';
+import { ResponseCommon } from '@/common/dto/response.dto';
 
 @ApiTags('Payment')
 @Controller('payment')

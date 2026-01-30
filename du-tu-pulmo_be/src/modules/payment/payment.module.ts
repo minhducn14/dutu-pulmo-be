@@ -1,14 +1,14 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { PaymentController } from './payment.controller';
-import { PaymentService } from './payment.service';
-import { PayosService } from './payos.service';
-import { Payment } from './entities/payment.entity';
-import { Appointment } from '../appointment/entities/appointment.entity';
-import { Patient } from '../patient/entities/patient.entity';
-import { Doctor } from '../doctor/entities/doctor.entity';
-import { User } from '../user/entities/user.entity';
-import { Account } from '../account/entities/account.entity';
+import { PaymentController } from '@/modules/payment/payment.controller';
+import { PaymentService } from '@/modules/payment/payment.service';
+import { PayosService } from '@/modules/payment/payos.service';
+import { Payment } from '@/modules/payment/entities/payment.entity';
+import { Appointment } from '@/modules/appointment/entities/appointment.entity';
+import { Patient } from '@/modules/patient/entities/patient.entity';
+import { Doctor } from '@/modules/doctor/entities/doctor.entity';
+import { User } from '@/modules/user/entities/user.entity';
+import { Account } from '@/modules/account/entities/account.entity';
 
 @Module({
   imports: [

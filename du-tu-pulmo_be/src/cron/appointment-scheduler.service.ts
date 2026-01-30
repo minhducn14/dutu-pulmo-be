@@ -2,11 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan, In, Not, IsNull } from 'typeorm';
-import { Appointment } from '../modules/appointment/entities/appointment.entity';
-import { AppointmentStatusEnum } from '../modules/common/enums/appointment-status.enum';
-import { AppointmentTypeEnum } from '../modules/common/enums/appointment-type.enum';
-import { DailyService } from '../modules/video_call/daily.service';
-import { TimeSlot } from '../modules/doctor/entities/time-slot.entity';
+import { Appointment } from '@/modules/appointment/entities/appointment.entity';
+import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
+import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
+import { DailyService } from '@/modules/video_call/daily.service';
+import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
 
 @Injectable()
 export class AppointmentSchedulerService {

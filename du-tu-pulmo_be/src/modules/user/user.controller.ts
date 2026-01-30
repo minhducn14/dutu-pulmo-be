@@ -17,20 +17,20 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { UserService } from './user.service';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { UserService } from '@/modules/user/user.service';
+import { UpdateUserDto } from '@/modules/user/dto/update-user.dto';
 import {
   UserResponseDto,
   PaginatedUserResponseDto,
-} from './dto/user-response.dto';
-import { UserQueryDto } from './dto/user-query.dto';
-import { JwtAuthGuard } from '../core/auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../core/auth/guards/roles.guard';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { CurrentUser } from 'src/common/decorators/user.decorator';
-import type { JwtUser } from '../core/auth/strategies/jwt.strategy';
-import { RoleEnum } from '../common/enums/role.enum';
-import { ResponseCommon } from 'src/common/dto/response.dto';
+} from '@/modules/user/dto/user-response.dto';
+import { UserQueryDto } from '@/modules/user/dto/user-query.dto';
+import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { CurrentUser } from '@/common/decorators/user.decorator';
+import type { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
+import { RoleEnum } from '@/modules/common/enums/role.enum';
+import { ResponseCommon } from '@/common/dto/response.dto';
 
 @ApiTags('Users')
 @Controller('users')

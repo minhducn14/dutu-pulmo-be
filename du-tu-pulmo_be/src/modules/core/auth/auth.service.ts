@@ -10,21 +10,21 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
-import { Account } from '../../account/entities/account.entity';
-import { User } from '../../user/entities/user.entity';
-import { Patient } from '../../patient/entities/patient.entity';
-import { Doctor } from '../../doctor/entities/doctor.entity';
-import { RefreshToken } from './entities/refresh-token.entity';
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
-import { RoleEnum } from '../../common/enums/role.enum';
-import { ResponseCommon } from 'src/common/dto/response.dto';
+import { Account } from '@/modules/account/entities/account.entity';
+import { User } from '@/modules/user/entities/user.entity';
+import { Patient } from '@/modules/patient/entities/patient.entity';
+import { Doctor } from '@/modules/doctor/entities/doctor.entity';
+import { RefreshToken } from '@/modules/core/auth/entities/refresh-token.entity';
+import { RegisterDto } from '@/modules/core/auth/dto/register.dto';
+import { LoginDto } from '@/modules/core/auth/dto/login.dto';
+import { RoleEnum } from '@/modules/common/enums/role.enum';
+import { ResponseCommon } from '@/common/dto/response.dto';
 import { Logger } from '@nestjs/common';
-import { vnNow } from 'src/common/datetime';
+import { vnNow } from '@/common/datetime';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
-import { EmailService } from 'src/modules/email/email.service';
-import { AUTH_ERRORS } from 'src/common/constants/error-messages.constant';
+import { EmailService } from '@/modules/email/email.service';
+import { AUTH_ERRORS } from '@/common/constants/error-messages.constant';
 import * as crypto from 'crypto';
 import {
   VerifyEmailResult,
@@ -34,7 +34,7 @@ import {
   SendResetPasswordOtpResult,
   VerifyResetPasswordOtpResult,
   ResetPasswordWithOtpResult,
-} from './auth.types';
+} from '@/modules/core/auth/auth.types';
 
 @Injectable()
 export class AuthService {

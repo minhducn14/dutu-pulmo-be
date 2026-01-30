@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-jwt';
-import { JwtPayload, JwtUser } from './jwt.strategy';
+import {
+  JwtPayload,
+  JwtUser,
+} from '@/modules/core/auth/strategies/jwt.strategy';
 
 const bearerTokenExtractor = (req: Request): string | null => {
   // Access the header in a case-insensitive way
