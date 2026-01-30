@@ -7,7 +7,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, DataSource, MoreThanOrEqual, In } from 'typeorm';
 import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
-import { CreateTimeSlotDto, UpdateTimeSlotDto } from '@/modules/doctor/dto/time-slot.dto';
+import {
+  CreateTimeSlotDto,
+  UpdateTimeSlotDto,
+} from '@/modules/doctor/dto/time-slot.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { DoctorSchedule } from '@/modules/doctor/entities/doctor-schedule.entity';
 

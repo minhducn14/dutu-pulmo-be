@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Between, In, Repository } from 'typeorm';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
+import { DoctorSchedule } from '@/modules/doctor/entities/doctor-schedule.entity';
+import { ScheduleType } from '@/modules/common/enums/schedule-type.enum';
 import {
   PreviewFlexibleScheduleConflictsDto,
   PreviewTimeOffConflictsDto,
@@ -19,6 +21,8 @@ export class DoctorSchedulePreviewService {
     private readonly appointmentRepository: Repository<Appointment>,
     @InjectRepository(TimeSlot)
     private readonly timeSlotRepository: Repository<TimeSlot>,
+    @InjectRepository(DoctorSchedule)
+    private readonly doctorScheduleRepository: Repository<DoctorSchedule>,
   ) {}
 
   async previewFlexibleScheduleConflicts(
@@ -191,6 +195,131 @@ export class DoctorSchedulePreviewService {
     return new ResponseCommon(200, message, {
       conflictingAppointments,
       affectedSlotsCount: affectedSlots,
+      message,
+    });
+  }
+
+  async previewUpdateRegularConflicts(
+    scheduleId: string,
+    newStartTime: string,
+    newEndTime: string,
+  ): Promise<ResponseCommon<PreviewConflictsResponseDto>> {
+    const schedule = await this.doctorScheduleRepository.findOne({
+      where: { id: scheduleId },
+    });
+    if (!schedule || schedule.scheduleType !== ScheduleType.REGULAR) {
+      throw new BadRequestException('Schedule not found or not REGULAR');
+    }
+
+    if (newStartTime >= newEndTime) {
+      throw new BadRequestException('Start time must be before end time');
+    }
+
+    const [newStartH, newStartM] = newStartTime.split(':').map(Number);
+    const [newEndH, newEndM] = newEndTime.split(':').map(Number);
+
+    const futureAppointments = await this.appointmentRepository.find({
+      where: {
+        doctorId: schedule.doctorId,
+        scheduledAt: Between(new Date(), new Date('2100-01-01')),
+        status: In([
+          AppointmentStatusEnum.CONFIRMED,
+          AppointmentStatusEnum.PENDING_PAYMENT,
+        ]),
+        timeSlot: {
+          scheduleId: schedule.id,
+        },
+      },
+      relations: ['timeSlot', 'timeSlot.schedule', 'patient', 'patient.user'],
+    });
+
+    const conflicting: Appointment[] = [];
+
+    for (const apt of futureAppointments) {
+      const aptDate = apt.scheduledAt;
+
+      const newScheduleStart = new Date(aptDate);
+      newScheduleStart.setHours(newStartH, newStartM, 0, 0);
+
+      const newScheduleEnd = new Date(aptDate);
+      newScheduleEnd.setHours(newEndH, newEndM, 0, 0);
+
+      if (!apt.timeSlot?.schedule?.slotDuration) continue;
+
+      const aptEnd = new Date(
+        apt.scheduledAt.getTime() +
+          apt.timeSlot.schedule.slotDuration * 60 * 1000,
+      );
+
+      const fitsInNew =
+        apt.scheduledAt >= newScheduleStart && aptEnd <= newScheduleEnd;
+
+      if (!fitsInNew) {
+        conflicting.push(apt);
+      }
+    }
+
+    const conflictingAppointments: ConflictingAppointmentDto[] =
+      conflicting.map((apt) => ({
+        id: apt.id,
+        appointmentNumber: apt.appointmentNumber,
+        patientName: apt.patient?.user?.fullName || 'Unknown',
+        scheduledAt: apt.scheduledAt,
+        durationMinutes: apt.timeSlot?.schedule?.slotDuration ?? 30,
+        appointmentType: apt.appointmentType,
+        status: apt.status,
+      }));
+
+    const message = `Cập nhật lịch này sẽ ảnh hưởng đến ${conflicting.length} lịch hẹn hiện tại.`;
+
+    return new ResponseCommon(200, message, {
+      conflictingAppointments,
+      affectedSlotsCount: 0,
+      message,
+    });
+  }
+
+  async previewDeleteRegularConflicts(
+    scheduleId: string,
+  ): Promise<ResponseCommon<PreviewConflictsResponseDto>> {
+    const schedule = await this.doctorScheduleRepository.findOne({
+      where: { id: scheduleId },
+    });
+    if (!schedule || schedule.scheduleType !== ScheduleType.REGULAR) {
+      throw new BadRequestException('Schedule not found or not REGULAR');
+    }
+
+    const futureAppointments = await this.appointmentRepository.find({
+      where: {
+        doctorId: schedule.doctorId,
+        scheduledAt: Between(new Date(), new Date('2100-01-01')),
+        status: In([
+          AppointmentStatusEnum.CONFIRMED,
+          AppointmentStatusEnum.PENDING_PAYMENT,
+        ]),
+        timeSlot: {
+          scheduleId: schedule.id,
+        },
+      },
+      relations: ['timeSlot', 'timeSlot.schedule', 'patient', 'patient.user'],
+    });
+
+    const conflictingAppointments: ConflictingAppointmentDto[] =
+      futureAppointments.map((apt) => ({
+        id: apt.id,
+        appointmentNumber: apt.appointmentNumber,
+        patientName: apt.patient?.user?.fullName || 'Unknown',
+        scheduledAt: apt.scheduledAt,
+        durationMinutes: apt.timeSlot?.schedule?.slotDuration ?? 30,
+        appointmentType: apt.appointmentType,
+        status: apt.status,
+      }));
+
+    const message = `Xóa lịch này sẽ hủy ${futureAppointments.length} lịch hẹn trong tương lai.`;
+
+    return new ResponseCommon(200, message, {
+      conflictingAppointments,
+      affectedSlotsCount: 0,
       message,
     });
   }

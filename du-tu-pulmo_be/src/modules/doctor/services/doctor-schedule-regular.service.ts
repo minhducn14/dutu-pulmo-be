@@ -1049,7 +1049,7 @@ export class DoctorScheduleRegularService {
           .getMany();
 
         const flexibleDateSet = new Set(
-          flexibleDates.map(d => d.specificDate!.toISOString().split('T')[0])
+          flexibleDates.map((d) => d.specificDate!.toISOString().split('T')[0]),
         );
 
         const appointmentsToCancel = futureAppointments.filter((apt) => {

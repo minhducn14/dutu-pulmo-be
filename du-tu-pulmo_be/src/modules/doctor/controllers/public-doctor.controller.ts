@@ -15,7 +15,6 @@ import { DoctorResponseDto } from '@/modules/doctor/dto/doctor-response.dto';
 import { PaginatedResponseDto } from '@/common/dto/pagination.dto';
 import { Doctor } from '@/modules/doctor/entities/doctor.entity';
 
-
 @ApiTags('Public - Doctors')
 @Controller('public/doctors')
 export class PublicDoctorController {

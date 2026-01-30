@@ -36,7 +36,10 @@ import {
   CreateFlexibleScheduleDto,
   UpdateFlexibleScheduleDto,
 } from '@/modules/doctor/dto/flexible-schedule.dto';
-import { CreateTimeOffDto, UpdateTimeOffDto } from '@/modules/doctor/dto/time-off.dto';
+import {
+  CreateTimeOffDto,
+  UpdateTimeOffDto,
+} from '@/modules/doctor/dto/time-off.dto';
 import {
   PreviewFlexibleScheduleConflictsDto,
   PreviewTimeOffConflictsDto,

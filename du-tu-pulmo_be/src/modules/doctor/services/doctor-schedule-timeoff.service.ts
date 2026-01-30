@@ -386,6 +386,8 @@ export class DoctorScheduleTimeOffService {
       }
 
       let restoredSlots = 0;
+      let totalPreviouslyCancelled = 0; // ✅ Track this
+
       const rangesToRestore: Array<{ start: Date; end: Date }> = [];
 
       if (scheduleStart > oldScheduleStart) {
@@ -413,6 +415,17 @@ export class DoctorScheduleTimeOffService {
             range.end,
           );
         restoredSlots += restored;
+
+        const previouslyCancelled = await manager.find(Appointment, {
+          where: {
+            doctorId: existing.doctorId,
+            scheduledAt: Between(range.start, range.end),
+            status: AppointmentStatusEnum.CANCELLED,
+            cancellationReason: 'TIME_OFF',
+          },
+        });
+
+        totalPreviouslyCancelled += previouslyCancelled.length;
       }
 
       await manager.update(DoctorSchedule, id, {
@@ -429,6 +442,13 @@ export class DoctorScheduleTimeOffService {
         cancelledAppointments: allCancelledAppointments,
         disabledSlots,
         restoredSlots,
+        previouslyCancelledCount: totalPreviouslyCancelled,
+      } as {
+        schedule: DoctorSchedule;
+        cancelledAppointments: Appointment[];
+        disabledSlots: number;
+        restoredSlots: number;
+        previouslyCancelledCount: number;
       };
     });
 
@@ -447,6 +467,9 @@ export class DoctorScheduleTimeOffService {
     }
     if (result.restoredSlots > 0) {
       message += ` ${result.restoredSlots} time slots đã được khôi phục.`;
+    }
+    if (result.previouslyCancelledCount > 0) {
+      message += ` ⚠️ LIÊN QUAN ĐẾN KHÔI PHỤC: ${result.previouslyCancelledCount} lịch hẹn đã bị hủy trước đó trong khoảng thời gian khôi phục sẽ KHÔNG được tự động mở lại.`;
     }
 
     return new ResponseCommon(200, message, result.schedule);

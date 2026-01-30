@@ -135,7 +135,12 @@ export class DoctorScheduleFlexibleService {
           apt.scheduledAt.getTime() +
             apt.timeSlot.schedule.slotDuration * 60 * 1000,
         );
-        return apt.scheduledAt < scheduleEnd && aptEnd > scheduleStart;
+        // KEEP if completely inside [scheduleStart, scheduleEnd]
+        // CANCEL if NOT completely inside
+        const isCompletelyInside =
+          apt.scheduledAt >= scheduleStart && aptEnd <= scheduleEnd;
+
+        return !isCompletelyInside;
       });
 
       for (const apt of conflicting) {
@@ -246,7 +251,7 @@ export class DoctorScheduleFlexibleService {
 
     const message =
       result.cancelledAppointments.length > 0
-        ? `Tạo lịch làm việc linh hoạt thành công. ${result.cancelledAppointments.length} lịch hẹn đã được hủy. Đã tạo ${result.generatedSlotsCount} time slots.`
+        ? `Tạo lịch làm việc linh hoạt thành công. ${result.cancelledAppointments.length} lịch hẹn NGOÀI khung giờ mới đã bị hủy. Đã tạo ${result.generatedSlotsCount} time slots.`
         : `Tạo lịch làm việc linh hoạt thành công. Đã tạo ${result.generatedSlotsCount} time slots.`;
 
     return new ResponseCommon(201, message, {
@@ -348,29 +353,24 @@ export class DoctorScheduleFlexibleService {
         ],
       });
 
-      const conflicting = appointments.filter((apt) => {
+      // count appointments outside new range and MARK as conflict
+      const appointmentsOutsideNewRange = appointments.filter((apt) => {
+        if (!apt.timeSlot?.schedule?.slotDuration) return false;
         const aptEnd = new Date(
           apt.scheduledAt.getTime() +
             apt.timeSlot.schedule.slotDuration * 60 * 1000,
         );
-        return apt.scheduledAt < scheduleEnd && aptEnd > scheduleStart;
+
+        const isCompletelyInside =
+          apt.scheduledAt >= scheduleStart && aptEnd <= scheduleEnd;
+
+        return !isCompletelyInside;
       });
 
-      for (const apt of conflicting) {
-        apt.status = AppointmentStatusEnum.CANCELLED;
-        apt.cancelledAt = new Date();
-        apt.cancellationReason = 'SCHEDULE_CHANGE';
-        apt.cancelledBy = 'SYSTEM';
+      for (const apt of appointmentsOutsideNewRange) {
+        apt.conflict = true;
+        apt.conflictReason = 'OUTSIDE_FLEXIBLE_SCHEDULE';
         await manager.save(apt);
-
-        if (apt.timeSlotId) {
-          await manager
-            .createQueryBuilder()
-            .softDelete()
-            .from(TimeSlot)
-            .where('id = :id', { id: apt.timeSlotId })
-            .execute();
-        }
       }
 
       await manager
@@ -449,26 +449,21 @@ export class DoctorScheduleFlexibleService {
         await manager.save(TimeSlot, slotEntities);
       }
 
-      if (conflicting.length > 0) {
-        this.notificationService
-          .notifyCancelledAppointments(conflicting, 'SCHEDULE_CHANGE')
-          .catch((err) => {
-            console.error('Failed to send notifications:', err);
-          });
-      }
+      // Notification for cancellation removed since we don't auto-cancel anymore
+      // Doctor will be warned via the response message.
 
       const updated = await manager.findOne(DoctorSchedule, { where: { id } });
 
       return {
         schedule: updated!,
-        cancelledCount: conflicting.length,
+        appointmentsOutsideCount: appointmentsOutsideNewRange.length,
         generatedSlots: slotEntities.length,
       };
     });
 
     let message = `Cập nhật lịch thành công.`;
-    if (result.cancelledCount > 0) {
-      message += ` ${result.cancelledCount} lịch hẹn đã bị hủy.`;
+    if (result.appointmentsOutsideCount > 0) {
+      message += ` ⚠️ CÓ ${result.appointmentsOutsideCount} lịch hẹn nằm NGOÀI khung giờ mới. Vui lòng kiểm tra và xử lý.`;
     }
     message += ` Đã tạo ${result.generatedSlots} time slots mới.`;
 
@@ -479,7 +474,8 @@ export class DoctorScheduleFlexibleService {
 
   async deleteFlexibleSchedule(id: string): Promise<
     ResponseCommon<{
-      cancelledAppointments: number;
+      appointmentsCount: number;
+      appointmentsOutsideRegular: number;
       deletedSlots: number;
       restoredSlots: number;
     }>
@@ -535,28 +531,48 @@ export class DoctorScheduleFlexibleService {
         ],
       });
 
-      const appointmentsToCancel = dayAppointments.filter((apt) => {
-        const aptTime = new Date(apt.scheduledAt);
-        const aptEnd = new Date(
-          aptTime.getTime() + apt.timeSlot.schedule.slotDuration * 60 * 1000,
-        );
-        // Cancel if ANY overlap exists (not just fully contained)
-        return aptTime < scheduleEnd && aptEnd > scheduleStart;
+      // 1. Find REGULAR schedules for this day for coverage check
+      const regularSchedules = await manager.find(DoctorSchedule, {
+        where: {
+          doctorId: schedule.doctorId,
+          dayOfWeek,
+          scheduleType: ScheduleType.REGULAR,
+          isAvailable: true,
+        },
       });
 
-      for (const apt of appointmentsToCancel) {
-        apt.status = AppointmentStatusEnum.CANCELLED;
-        apt.cancelledAt = new Date();
-        apt.cancellationReason = 'SCHEDULE_DELETED';
-        apt.cancelledBy = 'DOCTOR';
-        await manager.save(apt);
+      // 2. Count appointments that will be outside REGULAR range
+      let appointmentsOutsideRegular = 0;
+      for (const apt of dayAppointments) {
+        if (!apt.timeSlot?.schedule?.slotDuration) continue;
+        const aptEnd = new Date(
+          apt.scheduledAt.getTime() +
+            apt.timeSlot.schedule.slotDuration * 60 * 1000,
+        );
 
-        await manager
-          .createQueryBuilder()
-          .softDelete()
-          .from(TimeSlot)
-          .where('id = :id', { id: apt.timeSlotId })
-          .execute();
+        let isCoveredByRegular = false;
+        for (const reg of regularSchedules) {
+          const [regStartH, regStartM] = reg.startTime.split(':').map(Number);
+          const [regEndH, regEndM] = reg.endTime.split(':').map(Number);
+
+          const regStart = new Date(specificDate);
+          regStart.setHours(regStartH, regStartM, 0, 0);
+
+          const regEnd = new Date(specificDate);
+          regEnd.setHours(regEndH, regEndM, 0, 0);
+
+          if (apt.scheduledAt >= regStart && aptEnd <= regEnd) {
+            isCoveredByRegular = true;
+            break;
+          }
+        }
+
+        if (!isCoveredByRegular) {
+          appointmentsOutsideRegular++;
+          apt.conflict = true;
+          apt.conflictReason = 'OUTSIDE_REGULAR_SCHEDULE';
+          await manager.save(apt);
+        }
       }
 
       const deleteResult = await manager
@@ -580,22 +596,21 @@ export class DoctorScheduleFlexibleService {
         );
 
       return {
-        cancelledAppointments: appointmentsToCancel.length,
+        appointmentsCount: dayAppointments.length,
+        appointmentsOutsideRegular,
         deletedSlots: deleteResult.affected || 0,
         restoredSlots,
-        appointmentsList: appointmentsToCancel,
       };
     });
 
-    if (result.appointmentsList.length > 0) {
-      this.notificationService
-        .notifyCancelledAppointments(result.appointmentsList, 'SCHEDULE_CHANGE')
-        .catch((err) => console.error('Failed to send notifications:', err));
-    }
+    // Notifications removed since we don't auto-cancel anymore
 
     let message = 'Xóa lịch linh hoạt thành công.';
-    if (result.cancelledAppointments > 0) {
-      message += ` Đã hủy ${result.cancelledAppointments} lịch hẹn.`;
+    if (result.appointmentsCount > 0) {
+      message += ` ${result.appointmentsCount} lịch hẹn được giữ nguyên.`;
+      if (result.appointmentsOutsideRegular > 0) {
+        message += ` ⚠️ CẢNH BÁO: ${result.appointmentsOutsideRegular} lịch hẹn nằm NGOÀI lịch cố định. Vui lòng kiểm tra và xử lý.`;
+      }
     }
     if (result.deletedSlots > 0) {
       message += ` Đã xóa ${result.deletedSlots} time slots.`;
@@ -605,7 +620,8 @@ export class DoctorScheduleFlexibleService {
     }
 
     return new ResponseCommon(200, message, {
-      cancelledAppointments: result.cancelledAppointments,
+      appointmentsCount: result.appointmentsCount,
+      appointmentsOutsideRegular: result.appointmentsOutsideRegular,
       deletedSlots: result.deletedSlots,
       restoredSlots: result.restoredSlots,
     });

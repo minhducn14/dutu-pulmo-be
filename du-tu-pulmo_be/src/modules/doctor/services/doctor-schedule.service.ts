@@ -8,7 +8,10 @@ import {
   CreateFlexibleScheduleDto,
   UpdateFlexibleScheduleDto,
 } from '@/modules/doctor/dto/flexible-schedule.dto';
-import { CreateTimeOffDto, UpdateTimeOffDto } from '@/modules/doctor/dto/time-off.dto';
+import {
+  CreateTimeOffDto,
+  UpdateTimeOffDto,
+} from '@/modules/doctor/dto/time-off.dto';
 import {
   PreviewFlexibleScheduleConflictsDto,
   PreviewTimeOffConflictsDto,
@@ -195,7 +198,8 @@ export class DoctorScheduleService {
 
   deleteFlexibleSchedule(id: string): Promise<
     ResponseCommon<{
-      cancelledAppointments: number;
+      appointmentsCount: number;
+      appointmentsOutsideRegular: number;
       deletedSlots: number;
       restoredSlots: number;
     }>

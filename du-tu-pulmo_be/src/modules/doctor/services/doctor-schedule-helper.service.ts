@@ -143,7 +143,7 @@ export class DoctorScheduleHelperService {
       // 3.2 Logic for FLEXIBLE / TIME_OFF (Priority > 1)
       if (isFlexibleOrTimeOff) {
         // Check Specific Date Match
-        const newSpecific = effectiveFrom; 
+        const newSpecific = effectiveFrom;
         const exSpecific = existing.specificDate;
 
         if (newSpecific && exSpecific) {
@@ -151,14 +151,17 @@ export class DoctorScheduleHelperService {
           const d2 = new Date(exSpecific).toISOString().split('T')[0];
 
           if (d1 === d2) {
-             // Same Date -> Check Time Overlap [start, end)
-             // Allow Split Shifts: If times do NOT overlap, it is valid.
-             if (existing.startTime >= endTime || existing.endTime <= startTime) {
-               continue;
-             }
-             
-             // Same Date AND Time Overlap -> Conflict
-             this.throwConflict(existing, 'FLEXIBLE/TIMEOFF vs SAME PRIORITY');
+            // Same Date -> Check Time Overlap [start, end)
+            // Allow Split Shifts: Multiple non-overlapping records for the same day are valid.
+            if (
+              existing.startTime >= endTime ||
+              existing.endTime <= startTime
+            ) {
+              continue;
+            }
+
+            // Same Date AND Time Overlap -> Conflict
+            this.throwConflict(existing, 'FLEXIBLE/TIMEOFF vs SAME PRIORITY');
           }
         }
       }
@@ -204,10 +207,14 @@ export class DoctorScheduleHelperService {
       .andWhere('s.endTime > :startTime', { startTime });
 
     if (effectiveFrom) {
-      queryBuilder.andWhere('s.specificDate >= :effectiveFrom', { effectiveFrom });
+      queryBuilder.andWhere('s.specificDate >= :effectiveFrom', {
+        effectiveFrom,
+      });
     }
     if (effectiveUntil) {
-      queryBuilder.andWhere('s.specificDate <= :effectiveUntil', { effectiveUntil });
+      queryBuilder.andWhere('s.specificDate <= :effectiveUntil', {
+        effectiveUntil,
+      });
     }
 
     queryBuilder.andWhere('EXTRACT(DOW FROM s.specific_date) = :dayOfWeek', {
