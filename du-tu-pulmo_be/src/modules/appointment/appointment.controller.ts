@@ -10,5 +10,4 @@ import { RolesGuard } from '../core/auth/guards/roles.guard';
 @ApiBearerAuth('JWT-auth')
 export class AppointmentController {
   constructor(private readonly appointmentService: AppointmentService) {}
-
 }

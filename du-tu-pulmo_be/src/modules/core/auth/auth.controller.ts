@@ -163,7 +163,9 @@ export class AuthController {
     description:
       'OTP đã được gửi (nếu tồn tại). Response luôn trả về success để bảo mật.',
   })
-  async forgotPasswordOtp(@Body() dto: ForgotPasswordDto): Promise<ResponseCommon<AuthMessageResponseDto>> {
+  async forgotPasswordOtp(
+    @Body() dto: ForgotPasswordDto,
+  ): Promise<ResponseCommon<AuthMessageResponseDto>> {
     const response = await this.authService.sendForgotPasswordOtp(dto.email);
     return new ResponseCommon(response.code, response.message, {
       message: response.data?.message ?? '',
@@ -183,8 +185,14 @@ export class AuthController {
     status: HttpStatus.UNAUTHORIZED,
     description: 'OTP không hợp lệ hoặc đã hết hạn',
   })
-  async resetPasswordWithOtp(@Body() dto: ResetPasswordWithOtpDto): Promise<ResponseCommon<ResetPasswordResponseDto>> {
-    const response = await this.authService.resetPasswordWithOtp(dto.email, dto.otp, dto.newPassword);
+  async resetPasswordWithOtp(
+    @Body() dto: ResetPasswordWithOtpDto,
+  ): Promise<ResponseCommon<ResetPasswordResponseDto>> {
+    const response = await this.authService.resetPasswordWithOtp(
+      dto.email,
+      dto.otp,
+      dto.newPassword,
+    );
     return new ResponseCommon(response.code, response.message, {
       message: response.data?.message ?? '',
     });

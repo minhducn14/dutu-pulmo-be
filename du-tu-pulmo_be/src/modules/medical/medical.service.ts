@@ -24,5 +24,4 @@ export class MedicalService {
     @InjectRepository(Appointment)
     private readonly appointmentRepository: Repository<Appointment>,
   ) {}
-
 }

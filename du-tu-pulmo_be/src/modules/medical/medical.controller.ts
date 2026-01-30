@@ -14,5 +14,4 @@ export class MedicalController {
     private readonly medicalService: MedicalService,
     private readonly appointmentService: AppointmentService,
   ) {}
-
 }

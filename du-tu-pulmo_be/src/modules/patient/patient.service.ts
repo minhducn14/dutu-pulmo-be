@@ -139,7 +139,7 @@ export class PatientService {
     await this.patientRepository.update(id, updateData);
     return this.findOne(id);
   }
-  
+
   // ============================================================================
   // PROFILE SUMMARY
   // ============================================================================
@@ -154,7 +154,6 @@ export class PatientService {
       throw new NotFoundException('Bệnh nhân không tồn tại');
     }
 
-    
     return new ResponseCommon(200, 'SUCCESS', {
       patient,
       summary: {

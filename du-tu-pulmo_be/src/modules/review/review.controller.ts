@@ -8,5 +8,4 @@ import { JwtAuthGuard } from '../core/auth/guards/jwt-auth.guard';
 @UseGuards(JwtAuthGuard)
 export class ReviewController {
   constructor(private readonly reviewService: ReviewService) {}
-
 }

@@ -9,15 +9,15 @@ import {
   Index,
   OneToOne,
 } from 'typeorm';
-import { Patient } from '../../patient/entities/patient.entity';
-import { Doctor } from '../../doctor/entities/doctor.entity';
-import { User } from '../../user/entities/user.entity';
-import { Hospital } from '../../hospital/entities/hospital.entity';
-import { TimeSlot } from '../../doctor/entities/time-slot.entity';
-import { AppointmentTypeEnum } from '../../common/enums/appointment-type.enum';
-import { AppointmentStatusEnum } from '../../common/enums/appointment-status.enum';
-import { AppointmentSubTypeEnum } from '../../common/enums/appointment-sub-type.enum';
-import { SourceTypeEnum } from '../../common/enums/source-type.enum';
+import { Patient } from '@/modules/patient/entities/patient.entity';
+import { Doctor } from '@/modules/doctor/entities/doctor.entity';
+import { User } from '@/modules/user/entities/user.entity';
+import { Hospital } from '@/modules/hospital/entities/hospital.entity';
+import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
+import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
+import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
+import { AppointmentSubTypeEnum } from '@/modules/common/enums/appointment-sub-type.enum';
+import { SourceTypeEnum } from '@/modules/common/enums/source-type.enum';
 
 @Entity('appointments')
 @Index('idx_appointment_patient_slot', ['patientId', 'timeSlotId'])
@@ -89,6 +89,12 @@ export class Appointment {
     default: AppointmentStatusEnum.PENDING_PAYMENT,
   })
   status: AppointmentStatusEnum;
+
+  @Column({ name: 'conflict', default: false })
+  conflict: boolean;
+
+  @Column({ name: 'conflict_reason', type: 'text', nullable: true })
+  conflictReason: string | null;
 
   @Column({
     name: 'appointment_type',

@@ -664,7 +664,6 @@ export class PaymentService {
     let count = 0;
 
     for (const payment of oldPayments) {
-
       this.logger.debug(`Would archive payment ${payment.id}`);
       count++;
     }

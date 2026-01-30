@@ -9,5 +9,4 @@ export class MedicineService {
     @InjectRepository(Medicine)
     private readonly medicineRepository: Repository<Medicine>,
   ) {}
-
 }

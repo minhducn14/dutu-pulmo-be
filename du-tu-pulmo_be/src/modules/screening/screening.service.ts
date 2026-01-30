@@ -31,5 +31,4 @@ export class ScreeningService {
       'http://localhost:5000',
     );
   }
-
 }

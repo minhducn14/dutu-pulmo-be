@@ -9,5 +9,4 @@ export class FavoriteService {
     @InjectRepository(Favorite)
     private favoriteRepository: Repository<Favorite>,
   ) {}
-
 }

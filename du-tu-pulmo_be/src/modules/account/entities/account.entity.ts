@@ -40,20 +40,19 @@ export class Account {
   })
   resetPasswordToken: string | null;
 
-
-  @Column({ 
-    type: 'varchar', 
-    length: 6, 
+  @Column({
+    type: 'varchar',
+    length: 6,
     nullable: true,
-    select: false, 
-    comment: 'OTP for password reset'
+    select: false,
+    comment: 'OTP for password reset',
   })
   resetPasswordOtp?: string | null;
 
-  @Column({ 
-    type: 'timestamp', 
+  @Column({
+    type: 'timestamp',
     nullable: true,
-    comment: 'Reset password OTP expiration time'
+    comment: 'Reset password OTP expiration time',
   })
   resetPasswordOtpExpiry?: Date | null;
 
@@ -100,14 +99,14 @@ export class Account {
     nullable: true,
     select: false,
   })
-  verificationOtp: string | null
+  verificationOtp: string | null;
 
   @Column({
     name: 'verification_otp_expiry',
     type: 'timestamptz',
     nullable: true,
   })
-  verificationOtpExpiry: Date | null
+  verificationOtpExpiry: Date | null;
 
   @Column({
     name: 'verified_at',

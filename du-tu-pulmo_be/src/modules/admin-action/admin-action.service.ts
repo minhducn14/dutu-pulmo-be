@@ -9,5 +9,4 @@ export class AdminActionService {
     @InjectRepository(AdminAction)
     private adminActionRepository: Repository<AdminAction>,
   ) {}
-
 }

@@ -46,15 +46,13 @@ import payosConfig from './config/payos.config';
 import * as Joi from 'joi';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 
-
-
 @Module({
   imports: [
     TypeOrmModule.forRootAsync({
       useFactory: async () => (await AppDataSourcePromise).options,
     }),
     ConfigModule.forRoot({
-      isGlobal: true, 
+      isGlobal: true,
       load: [vnpayConfig, frontendConfig, cloudinaryConfig, payosConfig],
       validationSchema: Joi.object({
         // Frontend validation

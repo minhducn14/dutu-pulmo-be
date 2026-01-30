@@ -8,5 +8,4 @@ export class ReportService {
     @InjectRepository(Report)
     private reportRepository: Repository<Report>,
   ) {}
-
 }

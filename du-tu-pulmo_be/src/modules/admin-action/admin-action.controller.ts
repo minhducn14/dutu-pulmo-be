@@ -12,5 +12,4 @@ import { Roles } from 'src/common/decorators/roles.decorator';
 @ApiBearerAuth('JWT-auth')
 export class AdminActionController {
   constructor(private readonly adminActionService: AdminActionService) {}
-
 }

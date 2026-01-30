@@ -1,11 +1,5 @@
-import {
-  Controller,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  ApiTags,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { Controller, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { ScreeningService } from './screening.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { FileValidationService } from './file-validation.service';
@@ -24,5 +18,4 @@ export class ScreeningController {
     private readonly fileValidationService: FileValidationService,
     private readonly patientService: PatientService,
   ) {}
-
 }

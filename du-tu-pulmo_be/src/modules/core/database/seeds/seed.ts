@@ -33,7 +33,6 @@ import {
   UnitOfMeasure,
 } from '../../../medical/enums/medicine.enums';
 
-
 async function seed() {
   dotenv.config();
 

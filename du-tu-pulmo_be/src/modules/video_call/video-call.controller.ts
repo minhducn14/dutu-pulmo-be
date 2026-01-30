@@ -42,5 +42,4 @@ export class VideoCallController {
     private readonly callStateService: CallStateService,
     private readonly appointmentService: AppointmentService,
   ) {}
-
 }
