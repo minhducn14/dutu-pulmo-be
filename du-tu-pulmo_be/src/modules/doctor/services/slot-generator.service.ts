@@ -141,6 +141,51 @@ export class SlotGeneratorService {
     );
   }
 
+  private mergeTimeOffPeriods(
+    schedules: DoctorSchedule[],
+    targetDate: Date,
+  ): Array<{ start: Date; end: Date }> {
+    // 1. Parse all TIME_OFF to periods
+    const periods = schedules
+      .map((s) => {
+        const [h1, m1] = s.startTime.split(':').map(Number);
+        const [h2, m2] = s.endTime.split(':').map(Number);
+
+        const start = new Date(targetDate);
+        start.setHours(h1, m1, 0, 0);
+
+        const end = new Date(targetDate);
+        end.setHours(h2, m2, 0, 0);
+
+        return { start, end };
+      })
+      .sort((a, b) => a.start.getTime() - b.start.getTime());
+
+    // 2. Merge overlapping periods
+    const merged: Array<{ start: Date; end: Date }> = [];
+
+    for (const period of periods) {
+      if (merged.length === 0) {
+        merged.push(period);
+      } else {
+        const last = merged[merged.length - 1];
+
+        // Check if current period overlaps with last merged period
+        if (period.start <= last.end) {
+          // Extend last period if needed
+          last.end = new Date(
+            Math.max(last.end.getTime(), period.end.getTime()),
+          );
+        } else {
+          // No overlap, add as new period
+          merged.push(period);
+        }
+      }
+    }
+
+    return merged;
+  }
+
   /**
    * 🎯 Generate slots for a specific day following Winner-Takes-All principle
    * 
@@ -214,10 +259,8 @@ export class SlotGeneratorService {
       // CÓ FLEXIBLE → CHỈ lấy FLEXIBLE (loại bỏ HOÀN TOÀN REGULAR)
       selectedSchedules = flexibleSchedules;
     } else {
-      // KHÔNG CÓ FLEXIBLE → Lấy REGULAR
-      selectedSchedules = workingSchedules.filter(
-        (s) => s.scheduleType === ScheduleType.REGULAR,
-      );
+      // KHÔNG CÓ FLEXIBLE → Lấy tất cả working schedules (bao gồm REGULAR và các loại khác nếu có)
+      selectedSchedules = workingSchedules;
     }
 
     if (selectedSchedules.length === 0) {
@@ -232,25 +275,19 @@ export class SlotGeneratorService {
 
     // 🎯 STEP 4: Filter out slots that overlap with TIME_OFF periods
     if (timeOffSchedules.length > 0) {
+      // ✅ MERGE TIME_OFF trước khi filter
+      const mergedTimeOffPeriods = this.mergeTimeOffPeriods(
+        timeOffSchedules,
+        targetDate,
+      );
+
       slots = slots.filter((slot) => {
         const slotStart = slot.startTime as Date;
         const slotEnd = slot.endTime as Date;
 
-        // Check if slot overlaps with any TIME_OFF period
-        for (const timeOff of timeOffSchedules) {
-          const [offStartH, offStartM] = timeOff.startTime
-            .split(':')
-            .map(Number);
-          const [offEndH, offEndM] = timeOff.endTime.split(':').map(Number);
-
-          const offStart = new Date(targetDate);
-          offStart.setHours(offStartH, offStartM, 0, 0);
-
-          const offEnd = new Date(targetDate);
-          offEnd.setHours(offEndH, offEndM, 0, 0);
-
-          // Check overlap: slot overlaps if slotStart < offEnd AND slotEnd > offStart
-          if (slotStart < offEnd && slotEnd > offStart) {
+        // Check overlap với merged periods
+        for (const period of mergedTimeOffPeriods) {
+          if (slotStart < period.end && slotEnd > period.start) {
             return false; // Exclude this slot
           }
         }
