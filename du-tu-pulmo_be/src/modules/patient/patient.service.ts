@@ -3,12 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Patient } from '@/modules/patient/entities/patient.entity';
 import { ResponseCommon } from '@/common/dto/response.dto';
-import { AppointmentService } from '@/modules/appointment/appointment.service';
+import { AppointmentService } from '@/modules/appointment/services/appointment.service';
 import {
   PatientQueryDto,
   UpdatePatientDto,
 } from '@/modules/patient/dto/patient.dto';
-import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 
 export interface PaginatedPatientResponseDto {
   items: Patient[];

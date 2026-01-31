@@ -3,7 +3,6 @@ import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { MedicalService } from '@/modules/medical/medical.service';
 import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
-import { AppointmentService } from '@/modules/appointment/appointment.service';
 
 @ApiTags('Medical Records')
 @Controller('medical')
@@ -12,6 +11,5 @@ import { AppointmentService } from '@/modules/appointment/appointment.service';
 export class MedicalController {
   constructor(
     private readonly medicalService: MedicalService,
-    private readonly appointmentService: AppointmentService,
   ) {}
 }
