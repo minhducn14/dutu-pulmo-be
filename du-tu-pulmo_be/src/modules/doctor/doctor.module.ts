@@ -24,6 +24,7 @@ import { DoctorScheduleController } from '@/modules/doctor/controllers/doctor-sc
 import { TimeSlotController } from '@/modules/doctor/controllers/time-slot.controller';
 import { SlotGeneratorService } from '@/modules/doctor/services/slot-generator.service';
 import { PublicDoctorController } from '@/modules/doctor/controllers/public-doctor.controller';
+import { PublicTimeSlotController } from '@/modules/doctor/controllers/public-time-slot.controller';
 import { NotificationModule } from '@/modules/notification/notification.module';
 
 @Module({
@@ -43,6 +44,7 @@ import { NotificationModule } from '@/modules/notification/notification.module';
     PublicDoctorController,
     TimeSlotController,
     DoctorScheduleController,
+    PublicTimeSlotController,
   ],
   providers: [
     DoctorService,
