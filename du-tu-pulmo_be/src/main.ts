@@ -26,7 +26,17 @@ async function bootstrap() {
     )
     .setVersion('1.0')
     .addBasicAuth()
-    .addBearerAuth({ type: 'http', scheme: 'bearer' }, 'JWT-auth')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'Authorization',
+        description: 'Enter JWT token',
+        in: 'header',
+      },
+      'JWT-auth',
+    )
     .addServer('http://localhost:3000', 'Local Development')
     .build();
 
