@@ -48,7 +48,7 @@ export class DoctorOwnershipGuard implements CanActivate {
     const scheduleId = request.params.scheduleId;
     if (scheduleId) {
       const schedule = await this.scheduleRepository.findOne({
-        where: { id: scheduleId },
+        where: { id: scheduleId as string },
         select: ['id', 'doctorId'],
       });
       if (!schedule) {
@@ -62,7 +62,7 @@ export class DoctorOwnershipGuard implements CanActivate {
     const slotId = request.params.id;
     if (slotId && request.path.includes('/time-slots/')) {
       const slot = await this.timeSlotRepository.findOne({
-        where: { id: slotId },
+        where: { id: slotId as string },
         select: ['id', 'doctorId'],
       });
       if (!slot) {
