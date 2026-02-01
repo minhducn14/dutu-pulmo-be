@@ -10,7 +10,7 @@ import { DoctorScheduleService } from '@/modules/doctor/services/doctor-schedule
 import { TimeSlotService } from '@/modules/doctor/services/time-slot.service';
 import { CreateTimeSlotDto } from '@/modules/doctor/dto/time-slot.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
-import { ScheduleType } from '@/modules/common/enums/schedule-type.enum';
+import { ScheduleType } from 'src/modules/common/enums/schedule-type.enum';
 
 @Injectable()
 export class SlotGeneratorService {
@@ -188,10 +188,10 @@ export class SlotGeneratorService {
 
   /**
    * 🎯 Generate slots for a specific day following Winner-Takes-All principle
-   *
+   * 
    * SPEC: Winner-Takes-All Logic
    * - Step 1: Check if there are any FLEXIBLE schedules for this day
-   * - Step 2:
+   * - Step 2: 
    *   - If FLEXIBLE exists → Use ONLY FLEXIBLE (completely exclude REGULAR)
    *   - If NO FLEXIBLE → Use REGULAR
    * - Step 3: Generate slots from selected schedules
@@ -254,7 +254,7 @@ export class SlotGeneratorService {
 
     // 🎯 STEP 2: Winner-Takes-All - Choose schedules based on FLEXIBLE existence
     let selectedSchedules: DoctorSchedule[];
-
+    
     if (flexibleSchedules.length > 0) {
       // CÓ FLEXIBLE → CHỈ lấy FLEXIBLE (loại bỏ HOÀN TOÀN REGULAR)
       selectedSchedules = flexibleSchedules;
@@ -561,9 +561,9 @@ export class SlotGeneratorService {
 
   /**
    * 🎯 Handle overridden slots following Winner-Takes-All principle
-   *
+   * 
    * When a higher-priority schedule exists, disable slots from lower-priority schedules
-   *
+   * 
    * SPEC: Winner-Takes-All Logic
    * - If FLEXIBLE exists for a day → Disable all REGULAR slots
    * - If only REGULAR exists → Keep REGULAR slots active

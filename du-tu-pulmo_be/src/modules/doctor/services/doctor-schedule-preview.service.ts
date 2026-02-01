@@ -227,8 +227,8 @@ export class DoctorSchedulePreviewService {
           AppointmentStatusEnum.PENDING_PAYMENT,
         ]),
         timeSlot: {
-          scheduleId: schedule.id,
-        },
+            scheduleId: schedule.id
+        }
       },
       relations: ['timeSlot', 'timeSlot.schedule', 'patient', 'patient.user'],
     });
@@ -237,7 +237,7 @@ export class DoctorSchedulePreviewService {
 
     for (const apt of futureAppointments) {
       const aptDate = apt.scheduledAt;
-
+      
       const newScheduleStart = new Date(aptDate);
       newScheduleStart.setHours(newStartH, newStartM, 0, 0);
 
@@ -245,17 +245,16 @@ export class DoctorSchedulePreviewService {
       newScheduleEnd.setHours(newEndH, newEndM, 0, 0);
 
       if (!apt.timeSlot?.schedule?.slotDuration) continue;
-
+      
       const aptEnd = new Date(
         apt.scheduledAt.getTime() +
           apt.timeSlot.schedule.slotDuration * 60 * 1000,
       );
 
-      const fitsInNew =
-        apt.scheduledAt >= newScheduleStart && aptEnd <= newScheduleEnd;
-
+      const fitsInNew = apt.scheduledAt >= newScheduleStart && aptEnd <= newScheduleEnd;
+      
       if (!fitsInNew) {
-        conflicting.push(apt);
+         conflicting.push(apt);
       }
     }
 
@@ -273,9 +272,9 @@ export class DoctorSchedulePreviewService {
     const message = `Cập nhật lịch này sẽ ảnh hưởng đến ${conflicting.length} lịch hẹn hiện tại.`;
 
     return new ResponseCommon(200, message, {
-      conflictingAppointments,
-      affectedSlotsCount: 0,
-      message,
+        conflictingAppointments,
+        affectedSlotsCount: 0,
+        message
     });
   }
 
@@ -298,14 +297,14 @@ export class DoctorSchedulePreviewService {
           AppointmentStatusEnum.PENDING_PAYMENT,
         ]),
         timeSlot: {
-          scheduleId: schedule.id,
-        },
+            scheduleId: schedule.id
+        }
       },
       relations: ['timeSlot', 'timeSlot.schedule', 'patient', 'patient.user'],
     });
 
     const conflictingAppointments: ConflictingAppointmentDto[] =
-      futureAppointments.map((apt) => ({
+    futureAppointments.map((apt) => ({
         id: apt.id,
         appointmentNumber: apt.appointmentNumber,
         patientName: apt.patient?.user?.fullName || 'Unknown',
@@ -318,9 +317,9 @@ export class DoctorSchedulePreviewService {
     const message = `Xóa lịch này sẽ hủy ${futureAppointments.length} lịch hẹn trong tương lai.`;
 
     return new ResponseCommon(200, message, {
-      conflictingAppointments,
-      affectedSlotsCount: 0,
-      message,
+        conflictingAppointments,
+        affectedSlotsCount: 0,
+        message
     });
   }
 }

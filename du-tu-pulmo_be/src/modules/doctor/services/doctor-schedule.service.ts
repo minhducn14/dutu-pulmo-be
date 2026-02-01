@@ -27,7 +27,6 @@ import { DoctorScheduleTimeOffService } from '@/modules/doctor/services/doctor-s
 import { DoctorScheduleFeeService } from '@/modules/doctor/services/doctor-schedule-fee.service';
 import { DoctorSchedulePreviewService } from '@/modules/doctor/services/doctor-schedule-preview.service';
 import { DoctorScheduleSlotService } from '@/modules/doctor/services/doctor-schedule-slot.service';
-import { UpdateManyRegularItem } from '@/modules/doctor/services/doctor-schedule-regular.service';
 
 @Injectable()
 export class DoctorScheduleService {
@@ -104,7 +103,7 @@ export class DoctorScheduleService {
 
   updateManyRegular(
     doctorId: string,
-    items: UpdateManyRegularItem[],
+    items: UpdateDoctorScheduleDto[],
   ): Promise<
     ResponseCommon<{
       updatedSchedules: DoctorSchedule[];

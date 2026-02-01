@@ -135,8 +135,6 @@ export class DoctorScheduleFlexibleService {
           apt.scheduledAt.getTime() +
             apt.timeSlot.schedule.slotDuration * 60 * 1000,
         );
-        // KEEP if completely inside [scheduleStart, scheduleEnd]
-        // CANCEL if NOT completely inside
         const isCompletelyInside =
           apt.scheduledAt >= scheduleStart && aptEnd <= scheduleEnd;
 
@@ -283,6 +281,7 @@ export class DoctorScheduleFlexibleService {
     }
 
     const updateDto: UpdateDoctorScheduleDto = {
+      id,
       slotCapacity: dto.slotCapacity,
       slotDuration: dto.slotDuration,
       appointmentType: dto.appointmentType,
@@ -367,6 +366,7 @@ export class DoctorScheduleFlexibleService {
         return !isCompletelyInside;
       });
 
+      // DO NOT cancel appointments automatically. Mark them as conflicted.
       for (const apt of appointmentsOutsideNewRange) {
         apt.conflict = true;
         apt.conflictReason = 'OUTSIDE_FLEXIBLE_SCHEDULE';

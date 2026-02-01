@@ -18,6 +18,7 @@ import { Doctor } from '@/modules/doctor/entities/doctor.entity';
 import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import {
+  BulkUpdateDoctorSchedulesDto,
   CreateDoctorScheduleDto,
   UpdateDoctorScheduleDto,
 } from '@/modules/doctor/dto/doctor-schedule.dto';
@@ -31,8 +32,6 @@ import {
 import { NotificationService } from '@/modules/notification/notification.service';
 import { DoctorScheduleHelperService } from '@/modules/doctor/services/doctor-schedule-helper.service';
 import { DoctorScheduleSlotService } from '@/modules/doctor/services/doctor-schedule-slot.service';
-
-export type UpdateManyRegularItem = UpdateDoctorScheduleDto & { id: string };
 
 @Injectable()
 export class DoctorScheduleRegularService {
@@ -120,29 +119,30 @@ export class DoctorScheduleRegularService {
       effectiveUntil: effectiveUntilDate,
     });
 
-    const saved = await this.scheduleRepository.save(schedule);
+    const { saved, generatedSlotsCount } = await this.dataSource.transaction(
+      async (manager) => {
+        const saved = await manager.save(DoctorSchedule, schedule);
 
-    let generatedSlotsCount = 0;
-    try {
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
 
-      const startDate = new Date(now);
-      startDate.setDate(startDate.getDate() + 1);
+        const startDate = new Date(now);
+        startDate.setDate(startDate.getDate() + 1);
 
-      const endDate = new Date(now);
-      endDate.setDate(endDate.getDate() + 7);
+        const endDate = new Date(now);
+        endDate.setDate(endDate.getDate() + 7);
 
-      generatedSlotsCount = await this.slotService.generateSlotsForSchedule(
-        saved,
-        startDate,
-        endDate,
-      );
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Lỗi không xác định';
-      console.error('Failed to auto-generate slots:', errorMessage);
-    }
+        const generatedSlotsCount =
+          await this.slotService.generateSlotsForSchedule(
+            saved,
+            startDate,
+            endDate,
+            manager,
+          );
+
+        return { saved, generatedSlotsCount };
+      },
+    );
 
     let message = 'Tạo lịch làm việc cố định thành công';
     if (!effectiveUntilDate) {
@@ -271,7 +271,7 @@ export class DoctorScheduleRegularService {
       }
     }
 
-    const result = await this.dataSource.transaction(
+    const { result, totalGeneratedSlots } = await this.dataSource.transaction(
       async (manager: EntityManager) => {
         const entities = dtosWithPriority.map((dto) =>
           manager.create(DoctorSchedule, {
@@ -294,53 +294,33 @@ export class DoctorScheduleRegularService {
           }),
         );
 
-        return manager.save(DoctorSchedule, entities);
+        const savedSchedules = await manager.save(DoctorSchedule, entities);
+
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+
+        const startDate = new Date(now);
+        startDate.setDate(startDate.getDate() + 1);
+
+        const endDate = new Date(now);
+        endDate.setDate(endDate.getDate() + 7);
+
+        let slotsCount = 0;
+        await Promise.all(
+          savedSchedules.map(async (schedule) => {
+            const count = await this.slotService.generateSlotsForSchedule(
+              schedule,
+              startDate,
+              endDate,
+              manager,
+            );
+            slotsCount += count;
+          }),
+        );
+
+        return { result: savedSchedules, totalGeneratedSlots: slotsCount };
       },
     );
-
-    let totalGeneratedSlots = 0;
-    try {
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
-
-      const startDate = new Date(now);
-      startDate.setDate(startDate.getDate() + 1);
-
-      const endDate = new Date(now);
-      endDate.setDate(endDate.getDate() + 7);
-
-      const slotCounts = await Promise.all(
-        result.map((schedule) =>
-          this.slotService
-            .generateSlotsForSchedule(schedule, startDate, endDate)
-            .catch((err) => {
-              const errorMessage =
-                err instanceof Error ? err.message : 'Lỗi không xác định';
-              console.error(
-                `[SlotGeneration] Failed for schedule ${schedule.id}:`,
-                {
-                  scheduleId: schedule.id,
-                  doctorId: schedule.doctorId,
-                  dayOfWeek: schedule.dayOfWeek,
-                  error: errorMessage,
-                },
-              );
-              return 0;
-            }),
-        ),
-      );
-      totalGeneratedSlots = slotCounts.reduce((sum, count) => sum + count, 0);
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Lỗi không xác định';
-      console.error(
-        '[SlotGeneration] Failed to auto-generate slots for multiple schedules:',
-        {
-          scheduleIds: result.map((s) => s.id),
-          error: errorMessage,
-        },
-      );
-    }
 
     let hasShadowing = false;
     for (const dto of dtosWithPriority) {
@@ -488,7 +468,7 @@ export class DoctorScheduleRegularService {
 
   async updateManyRegular(
     doctorId: string,
-    items: UpdateManyRegularItem[],
+    items: UpdateDoctorScheduleDto[],
   ): Promise<
     ResponseCommon<{
       updatedSchedules: DoctorSchedule[];
@@ -560,6 +540,7 @@ export class DoctorScheduleRegularService {
       try {
         if (updateData.startTime || updateData.endTime) {
           const tempDto: UpdateDoctorScheduleDto = {
+            id,
             startTime: updateData.startTime ?? existing.startTime,
             endTime: updateData.endTime ?? existing.endTime,
             slotDuration: updateData.slotDuration ?? existing.slotDuration,
@@ -583,6 +564,7 @@ export class DoctorScheduleRegularService {
 
         if (hasCriticalChanges) {
           const updateDto: UpdateDoctorScheduleDto = {
+            id,
             dayOfWeek: updateData.dayOfWeek,
             startTime: updateData.startTime,
             endTime: updateData.endTime,
@@ -1049,7 +1031,7 @@ export class DoctorScheduleRegularService {
           .getMany();
 
         const flexibleDateSet = new Set(
-          flexibleDates.map((d) => d.specificDate!.toISOString().split('T')[0]),
+          flexibleDates.map(d => d.specificDate!.toISOString().split('T')[0])
         );
 
         const appointmentsToCancel = futureAppointments.filter((apt) => {

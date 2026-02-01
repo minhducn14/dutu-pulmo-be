@@ -201,7 +201,7 @@ export class DoctorScheduleTimeOffService {
       ...result.schedule,
       cancelledAppointments: result.cancelledAppointments.length,
       disabledSlots: result.disabledSlotsCount,
-    });
+    } as any);
   }
 
   // ==================== UPDATE ====================
@@ -225,6 +225,7 @@ export class DoctorScheduleTimeOffService {
     }
 
     const updateDto: UpdateDoctorScheduleDto = {
+      id,
       note: dto.note,
       isAvailable: dto.isAvailable,
     };
