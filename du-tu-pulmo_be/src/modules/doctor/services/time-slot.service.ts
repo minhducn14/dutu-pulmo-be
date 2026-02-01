@@ -13,6 +13,7 @@ import {
 } from '@/modules/doctor/dto/time-slot.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { DoctorSchedule } from '@/modules/doctor/entities/doctor-schedule.entity';
+import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
 
 const MAX_SLOTS_PER_REQUEST = 100;
 const MAX_SLOTS_PER_DAY = 50;
@@ -182,12 +183,8 @@ export class TimeSlotService {
       );
     }
 
-    if (
-      !dto.allowedAppointmentTypes ||
-      dto.allowedAppointmentTypes.length === 0
-    ) {
-      throw new BadRequestException('Phải có ít nhất 1 loại hình khám');
-    }
+    this.validateAppointmentTypes(dto.allowedAppointmentTypes);
+    
   }
 
   private async countSlotsForDate(
@@ -257,7 +254,6 @@ export class TimeSlotService {
       capacity: dto.capacity ?? 1,
       isAvailable: dto.isAvailable ?? true,
       scheduleId: dto.scheduleId ?? null,
-      // Use current schedule version if available
       scheduleVersion: doctorSchedule?.version ?? null,
     });
 
@@ -620,5 +616,20 @@ export class TimeSlotService {
 
     const result = await queryBuilder.execute();
     return result.affected || 0;
+  }
+
+  private validateAppointmentTypes(types: AppointmentTypeEnum[]): void {
+    if (!types || types.length === 0) {
+      throw new BadRequestException('Phải có ít nhất 1 loại hình khám');
+    }
+
+    const validTypes = Object.values(AppointmentTypeEnum);
+    const invalidTypes = types.filter(type => !validTypes.includes(type));
+    
+    if (invalidTypes.length > 0) {
+      throw new BadRequestException(
+        `Loại hình khám không hợp lệ: ${invalidTypes.join(', ')}`
+      );
+    }
   }
 }

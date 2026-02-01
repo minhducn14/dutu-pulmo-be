@@ -17,6 +17,7 @@ import { ScheduleType } from '@/modules/common/enums/schedule-type.enum';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
 import { IsValidBookingWindow } from '@/modules/doctor/validators/is-valid-booking-window.decorator';
+import { PartialType } from '@nestjs/mapped-types';
 
 /**
  * DTO for creating a regular (fixed) doctor schedule.
@@ -152,119 +153,14 @@ export class CreateDoctorScheduleDto {
 /**
  * DTO for updating a doctor schedule (all fields optional).
  */
-export class UpdateDoctorScheduleDto {
-  @ApiPropertyOptional({
-    description: 'Ngày trong tuần (0=CN, 1=T2, ..., 6=T7)',
-    minimum: 0,
-    maximum: 6,
+export class UpdateDoctorScheduleDto extends PartialType(CreateDoctorScheduleDto) {
+  @ApiProperty({
+    description: 'ID của lịch cần cập nhật (UUID)',
+    example: '550e8400-e29b-41d4-a716-446655440000',
   })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(6)
-  dayOfWeek?: number;
-
-  @ApiPropertyOptional({
-    enum: ScheduleType,
-    example: ScheduleType.REGULAR,
-    description: 'Loại lịch',
-  })
-  @IsOptional()
-  @IsEnum(ScheduleType)
-  scheduleType?: ScheduleType;
-
-  @ApiPropertyOptional({
-    example: 'Ghi chú',
-    maxLength: 500,
-  })
-  @IsOptional()
   @IsString()
-  @MaxLength(500)
-  note?: string;
-
-  @ApiPropertyOptional({ description: 'Giờ bắt đầu (HH:mm)', example: '09:00' })
-  @IsOptional()
-  @IsString()
-  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, {
-    message: 'startTime phải đúng format HH:mm',
-  })
-  startTime?: string;
-
-  @ApiPropertyOptional({
-    description: 'Giờ kết thúc (HH:mm)',
-    example: '17:00',
-  })
-  @IsOptional()
-  @IsString()
-  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, {
-    message: 'endTime phải đúng format HH:mm',
-  })
-  endTime?: string;
-
-  @ApiPropertyOptional({ description: 'Thời gian mỗi slot (phút)' })
-  @IsOptional()
-  @IsInt()
-  @Min(10)
-  @Max(120)
-  slotDuration?: number;
-
-  @ApiPropertyOptional({ description: 'Số lượng bệnh nhân mỗi slot' })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(10)
-  slotCapacity?: number;
-
-  @ApiPropertyOptional({
-    description: 'Loại hình khám',
-    enum: AppointmentTypeEnum,
-  })
-  @IsOptional()
-  @IsEnum(AppointmentTypeEnum)
-  appointmentType?: AppointmentTypeEnum;
-
-  @ApiPropertyOptional({ description: 'Số ngày phải đặt khám trước' })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(30)
-  minimumBookingDays?: number;
-
-  @ApiPropertyOptional({ description: 'Số ngày đặt khám xa nhất' })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(365)
-  @IsValidBookingWindow()
-  maxAdvanceBookingDays?: number;
-
-  @ApiPropertyOptional({ description: 'Phí khám (VND)' })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  consultationFee?: number | null;
-
-  @ApiPropertyOptional({ description: 'Mô tả thêm' })
-  @IsOptional()
-  @IsString()
-  description?: string | null;
-
-  @ApiPropertyOptional({ description: 'Trạng thái hoạt động' })
-  @IsOptional()
-  @IsBoolean()
-  isAvailable?: boolean;
-
-  @ApiPropertyOptional({ description: 'Ngày bắt đầu hiệu lực (YYYY-MM-DD)' })
-  @IsOptional()
-  @IsDateString()
-  effectiveFrom?: string | null;
-
-  @ApiPropertyOptional({ description: 'Ngày kết thúc hiệu lực (YYYY-MM-DD)' })
-  @IsOptional()
-  @IsDateString()
-  effectiveUntil?: string | null;
+  id: string;
 }
-
 /**
  * DTO for bulk creating multiple doctor schedules in one request.
  * Useful for setting up weekly schedules with multiple time slots per day.
@@ -296,108 +192,13 @@ export class BulkCreateDoctorSchedulesDto {
 }
 
 /**
- * DTO for single item in bulk update request.
- * Kết hợp schedule ID với dữ liệu cần cập nhật.
- */
-export class BulkUpdateItemDto {
-  @ApiProperty({
-    description: 'ID của lịch cần cập nhật (UUID)',
-    example: '550e8400-e29b-41d4-a716-446655440000',
-  })
-  @IsString()
-  id: string;
-
-  @ApiPropertyOptional({
-    description: 'Ngày trong tuần (0=CN, 1=T2, ..., 6=T7)',
-    minimum: 0,
-    maximum: 6,
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(6)
-  dayOfWeek?: number;
-
-  @ApiPropertyOptional({
-    example: 'Ghi chú',
-    maxLength: 500,
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  note?: string;
-
-  @ApiPropertyOptional({ description: 'Giờ bắt đầu (HH:mm)', example: '09:00' })
-  @IsOptional()
-  @IsString()
-  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, {
-    message: 'startTime phải đúng format HH:mm',
-  })
-  startTime?: string;
-
-  @ApiPropertyOptional({
-    description: 'Giờ kết thúc (HH:mm)',
-    example: '17:00',
-  })
-  @IsOptional()
-  @IsString()
-  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, {
-    message: 'endTime phải đúng format HH:mm',
-  })
-  endTime?: string;
-
-  @ApiPropertyOptional({ description: 'Thời gian mỗi slot (phút)' })
-  @IsOptional()
-  @IsInt()
-  @Min(10)
-  @Max(120)
-  slotDuration?: number;
-
-  @ApiPropertyOptional({ description: 'Số lượng bệnh nhân mỗi slot' })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(10)
-  slotCapacity?: number;
-
-  @ApiPropertyOptional({
-    description: 'Loại hình khám',
-    enum: AppointmentTypeEnum,
-  })
-  @IsOptional()
-  @IsEnum(AppointmentTypeEnum)
-  appointmentType?: AppointmentTypeEnum;
-
-  @ApiPropertyOptional({ description: 'Phí khám (VND)' })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  consultationFee?: number | null;
-
-  @ApiPropertyOptional({ description: 'Trạng thái hoạt động' })
-  @IsOptional()
-  @IsBoolean()
-  isAvailable?: boolean;
-
-  @ApiPropertyOptional({ description: 'Ngày bắt đầu hiệu lực (YYYY-MM-DD)' })
-  @IsOptional()
-  @IsDateString()
-  effectiveFrom?: string | null;
-
-  @ApiPropertyOptional({ description: 'Ngày kết thúc hiệu lực (YYYY-MM-DD)' })
-  @IsOptional()
-  @IsDateString()
-  effectiveUntil?: string | null;
-}
-
-/**
  * DTO for bulk updating multiple doctor schedules in one request.
  * Cho phép cập nhật nhiều lịch REGULAR cùng lúc.
  */
 export class BulkUpdateDoctorSchedulesDto {
   @ApiProperty({
     description: 'Danh sách lịch làm việc cần cập nhật (tối đa 20)',
-    type: [BulkUpdateItemDto],
+    type: [UpdateDoctorScheduleDto],
     example: [
       {
         id: '550e8400-e29b-41d4-a716-446655440000',
@@ -411,8 +212,8 @@ export class BulkUpdateDoctorSchedulesDto {
     ],
   })
   @ValidateNested({ each: true })
-  @Type(() => BulkUpdateItemDto)
+  @Type(() => UpdateDoctorScheduleDto)
   @ArrayMinSize(1, { message: 'Phải có ít nhất 1 lịch làm việc' })
   @ArrayMaxSize(20, { message: 'Tối đa 20 lịch làm việc mỗi request' })
-  schedules: BulkUpdateItemDto[];
+  schedules: UpdateDoctorScheduleDto[];
 }

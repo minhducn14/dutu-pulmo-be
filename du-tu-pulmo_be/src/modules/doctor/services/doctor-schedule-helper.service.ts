@@ -10,6 +10,7 @@ import {
   CreateDoctorScheduleDto,
   UpdateDoctorScheduleDto,
 } from '@/modules/doctor/dto/doctor-schedule.dto';
+import { SCHEDULE_TYPE_PRIORITY } from '@/modules/common/enums/schedule-type.enum';
 
 @Injectable()
 export class DoctorScheduleHelperService {
@@ -93,8 +94,8 @@ export class DoctorScheduleHelperService {
     excludeId?: string,
   ): Promise<void> {
     // 1. Identify the Schedule Type based on priority/input context
-    const isRegular = priority === 1;
-    const isFlexibleOrTimeOff = priority > 1;
+    const isRegular = priority === SCHEDULE_TYPE_PRIORITY.REGULAR;
+    const isFlexibleOrTimeOff = priority > SCHEDULE_TYPE_PRIORITY.REGULAR;
 
     // 2. Build Query
     const queryBuilder = this.scheduleRepository
@@ -116,8 +117,12 @@ export class DoctorScheduleHelperService {
         if (existing.dayOfWeek !== dayOfWeek) continue;
 
         // Check Time Overlap: [start, end)
-        // If times do NOT overlap, it's fine (e.g. 08:00-12:00 and 13:00-17:00 both Regular on Monday)
-        if (existing.startTime >= endTime || existing.endTime <= startTime) {
+        const exStart = existing.startTime.slice(0, 5);
+        const exEnd = existing.endTime.slice(0, 5);
+        const newStart = startTime.slice(0, 5);
+        const newEnd = endTime.slice(0, 5);
+
+        if (exStart >= newEnd || exEnd <= newStart) {
           continue;
         }
 
@@ -196,7 +201,7 @@ export class DoctorScheduleHelperService {
     effectiveUntil: Date | null,
     priority: number,
   ): Promise<boolean> {
-    if (priority !== 1) return false;
+    if (priority !== SCHEDULE_TYPE_PRIORITY.REGULAR) return false;
 
     const queryBuilder = this.scheduleRepository
       .createQueryBuilder('s')
@@ -207,14 +212,10 @@ export class DoctorScheduleHelperService {
       .andWhere('s.endTime > :startTime', { startTime });
 
     if (effectiveFrom) {
-      queryBuilder.andWhere('s.specificDate >= :effectiveFrom', {
-        effectiveFrom,
-      });
+      queryBuilder.andWhere('s.specificDate >= :effectiveFrom', { effectiveFrom });
     }
     if (effectiveUntil) {
-      queryBuilder.andWhere('s.specificDate <= :effectiveUntil', {
-        effectiveUntil,
-      });
+      queryBuilder.andWhere('s.specificDate <= :effectiveUntil', { effectiveUntil });
     }
 
     queryBuilder.andWhere('EXTRACT(DOW FROM s.specific_date) = :dayOfWeek', {

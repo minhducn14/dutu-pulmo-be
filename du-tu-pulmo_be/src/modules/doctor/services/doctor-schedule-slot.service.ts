@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, DataSource, MoreThan, Repository } from 'typeorm';
+import { Between, DataSource, EntityManager, MoreThan, Repository } from 'typeorm';
 import { DoctorSchedule } from '@/modules/doctor/entities/doctor-schedule.entity';
 import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
 import {
@@ -22,9 +22,11 @@ export class DoctorScheduleSlotService {
     schedule: DoctorSchedule,
     startDate: Date,
     endDate: Date,
+    manager?: EntityManager,
   ): Promise<number> {
     const regularPriority = SCHEDULE_TYPE_PRIORITY[ScheduleType.REGULAR];
     let totalGeneratedSlots = 0;
+    const currentManager = manager || this.dataSource.manager;
 
     const currentDate = new Date(startDate);
     currentDate.setHours(0, 0, 0, 0);
@@ -63,7 +65,7 @@ export class DoctorScheduleSlotService {
         const scheduleEnd = new Date(currentDate);
         scheduleEnd.setHours(endH, endM, 0, 0);
 
-        const existingSlots = await this.dataSource.manager.find(TimeSlot, {
+        const existingSlots = await currentManager.find(TimeSlot, {
           where: {
             doctorId: schedule.doctorId,
             startTime: Between(scheduleStart, scheduleEnd),
@@ -83,7 +85,7 @@ export class DoctorScheduleSlotService {
           );
 
           if (!hasOverlap) {
-            const slot = this.dataSource.manager.create(TimeSlot, {
+            const slot = currentManager.create(TimeSlot, {
               doctorId: schedule.doctorId,
               scheduleId: schedule.id,
               scheduleVersion: schedule.version,
@@ -101,7 +103,7 @@ export class DoctorScheduleSlotService {
         }
 
         if (newSlots.length > 0) {
-          await this.dataSource.manager.save(TimeSlot, newSlots);
+          await currentManager.save(TimeSlot, newSlots);
           totalGeneratedSlots += newSlots.length;
         }
       }
