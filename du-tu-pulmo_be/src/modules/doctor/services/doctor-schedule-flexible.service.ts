@@ -163,9 +163,9 @@ export class DoctorScheduleFlexibleService {
         .delete()
         .from(TimeSlot)
         .where('doctorId = :doctorId', { doctorId })
-        .andWhere('startTime < :scheduleEnd AND endTime > :scheduleStart', {
-          scheduleStart,
-          scheduleEnd,
+        .andWhere('startTime < :endOfDay AND endTime > :startOfDay', {
+          endOfDay,
+          startOfDay,
         })
         .andWhere('bookedCount = 0')
         .execute();
@@ -378,9 +378,9 @@ export class DoctorScheduleFlexibleService {
         .delete()
         .from(TimeSlot)
         .where('doctorId = :doctorId', { doctorId: existing.doctorId })
-        .andWhere('startTime < :scheduleEnd AND endTime > :scheduleStart', {
-          scheduleStart,
-          scheduleEnd,
+        .andWhere('startTime < :endOfDay AND endTime > :startOfDay', {
+          endOfDay,
+          startOfDay,
         })
         .andWhere('bookedCount = 0')
         .execute();
@@ -448,9 +448,6 @@ export class DoctorScheduleFlexibleService {
       if (slotEntities.length > 0) {
         await manager.save(TimeSlot, slotEntities);
       }
-
-      // Notification for cancellation removed since we don't auto-cancel anymore
-      // Doctor will be warned via the response message.
 
       const updated = await manager.findOne(DoctorSchedule, { where: { id } });
 
@@ -586,10 +583,9 @@ export class DoctorScheduleFlexibleService {
       await manager.remove(schedule);
 
       const restoredSlots =
-        await this.restoreService.restoreSlotsFromRegularSchedules(
+        await this.restoreService.restoreSlots(
           manager,
           schedule.doctorId,
-          dayOfWeek,
           specificDate,
           scheduleStart,
           scheduleEnd,

@@ -387,7 +387,7 @@ export class DoctorScheduleTimeOffService {
       }
 
       let restoredSlots = 0;
-      let totalPreviouslyCancelled = 0; // ✅ Track this
+      let totalPreviouslyCancelled = 0;
 
       const rangesToRestore: Array<{ start: Date; end: Date }> = [];
 
@@ -407,10 +407,9 @@ export class DoctorScheduleTimeOffService {
 
       for (const range of rangesToRestore) {
         const restored =
-          await this.restoreService.restoreSlotsFromRegularSchedules(
+          await this.restoreService.restoreSlots(
             manager,
             existing.doctorId,
-            dayOfWeek,
             specificDate,
             range.start,
             range.end,
@@ -512,10 +511,9 @@ export class DoctorScheduleTimeOffService {
       await manager.remove(schedule);
 
       const restoredSlots =
-        await this.restoreService.restoreSlotsFromRegularSchedules(
+        await this.restoreService.restoreSlots(
           manager,
           schedule.doctorId,
-          dayOfWeek,
           specificDate,
           scheduleStart,
           scheduleEnd,

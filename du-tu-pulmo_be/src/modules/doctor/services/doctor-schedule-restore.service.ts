@@ -9,14 +9,36 @@ import {
 
 @Injectable()
 export class DoctorScheduleRestoreService {
-  async restoreSlotsFromRegularSchedules(
+  async restoreSlots(
     manager: EntityManager,
     doctorId: string,
-    dayOfWeek: number,
     specificDate: Date,
     rangeStart: Date,
     rangeEnd: Date,
   ): Promise<number> {
+    // 1. Try to find active FLEXIBLE schedule for this date
+    const flexibleSchedule = await manager.findOne(DoctorSchedule, {
+      where: {
+        doctorId,
+        scheduleType: ScheduleType.FLEXIBLE,
+        specificDate: specificDate,
+        isAvailable: true,
+      },
+    });
+
+    if (flexibleSchedule) {
+      return this.restoreFromSchedules(
+        manager,
+        doctorId,
+        specificDate,
+        rangeStart,
+        rangeEnd,
+        [flexibleSchedule],
+      );
+    }
+
+    // 2. Fallback to REGULAR
+    const dayOfWeek = specificDate.getDay();
     const regularSchedules = await manager.find(DoctorSchedule, {
       where: {
         doctorId,
@@ -24,7 +46,6 @@ export class DoctorScheduleRestoreService {
         scheduleType: ScheduleType.REGULAR,
         isAvailable: true,
       },
-      relations: ['doctor'],
     });
 
     const activeSchedules = regularSchedules.filter((schedule) => {
@@ -41,7 +62,6 @@ export class DoctorScheduleRestoreService {
       return true;
     });
 
-    // Fix 3: Only restore from highest priority schedules
     if (activeSchedules.length === 0) return 0;
 
     const maxPriority = Math.max(
@@ -51,25 +71,41 @@ export class DoctorScheduleRestoreService {
       (s) => SCHEDULE_TYPE_PRIORITY[s.scheduleType] === maxPriority,
     );
 
+    return this.restoreFromSchedules(
+      manager,
+      doctorId,
+      specificDate,
+      rangeStart,
+      rangeEnd,
+      highestPrioritySchedules,
+    );
+  }
+
+  private async restoreFromSchedules(
+    manager: EntityManager,
+    doctorId: string,
+    specificDate: Date,
+    rangeStart: Date,
+    rangeEnd: Date,
+    schedules: DoctorSchedule[],
+  ): Promise<number> {
     let totalRestoredSlots = 0;
 
-    for (const regularSchedule of highestPrioritySchedules) {
-      const [regStartH, regStartM] = regularSchedule.startTime
-        .split(':')
-        .map(Number);
-      const [regEndH, regEndM] = regularSchedule.endTime.split(':').map(Number);
+    for (const schedule of schedules) {
+      const [startH, startM] = schedule.startTime.split(':').map(Number);
+      const [endH, endM] = schedule.endTime.split(':').map(Number);
 
-      const regScheduleStart = new Date(specificDate);
-      regScheduleStart.setHours(regStartH, regStartM, 0, 0);
+      const scheduleStart = new Date(specificDate);
+      scheduleStart.setHours(startH, startM, 0, 0);
 
-      const regScheduleEnd = new Date(specificDate);
-      regScheduleEnd.setHours(regEndH, regEndM, 0, 0);
+      const scheduleEnd = new Date(specificDate);
+      scheduleEnd.setHours(endH, endM, 0, 0);
 
       const overlapStart = new Date(
-        Math.max(regScheduleStart.getTime(), rangeStart.getTime()),
+        Math.max(scheduleStart.getTime(), rangeStart.getTime()),
       );
       const overlapEnd = new Date(
-        Math.min(regScheduleEnd.getTime(), rangeEnd.getTime()),
+        Math.min(scheduleEnd.getTime(), rangeEnd.getTime()),
       );
 
       if (overlapStart >= overlapEnd) {
@@ -83,7 +119,7 @@ export class DoctorScheduleRestoreService {
         },
       });
 
-      const slotDurationMs = regularSchedule.slotDuration * 60 * 1000;
+      const slotDurationMs = schedule.slotDuration * 60 * 1000;
       let currentStart = new Date(overlapStart);
       const newSlots: TimeSlot[] = [];
 
@@ -99,20 +135,20 @@ export class DoctorScheduleRestoreService {
         if (matchingSlot) {
           if (!matchingSlot.isAvailable && matchingSlot.bookedCount === 0) {
             matchingSlot.isAvailable = true;
-            matchingSlot.capacity = regularSchedule.slotCapacity;
-            matchingSlot.scheduleId = regularSchedule.id;
+            matchingSlot.capacity = schedule.slotCapacity;
+            matchingSlot.scheduleId = schedule.id;
             await manager.save(matchingSlot);
             totalRestoredSlots++;
           }
         } else {
           const slot = manager.create(TimeSlot, {
             doctorId,
-            scheduleId: regularSchedule.id,
-            scheduleVersion: regularSchedule.version,
+            scheduleId: schedule.id,
+            scheduleVersion: schedule.version,
             startTime: new Date(currentStart),
             endTime: new Date(slotEnd),
-            capacity: regularSchedule.slotCapacity,
-            allowedAppointmentTypes: [regularSchedule.appointmentType],
+            capacity: schedule.slotCapacity,
+            allowedAppointmentTypes: [schedule.appointmentType],
             isAvailable: true,
             bookedCount: 0,
           });
