@@ -1021,7 +1021,6 @@ export class DoctorScheduleRegularService {
           .split(':')
           .map(Number);
 
-        // ✅ THÊM: Lấy danh sách ngày có FLEXIBLE
         const flexibleDates = await manager
           .createQueryBuilder(DoctorSchedule, 'ds')
           .select('ds.specificDate')
@@ -1031,13 +1030,12 @@ export class DoctorScheduleRegularService {
           .getMany();
 
         const flexibleDateSet = new Set(
-          flexibleDates.map(d => d.specificDate!.toISOString().split('T')[0])
+          flexibleDates.map((d) => new Date(d.specificDate!).toISOString().split('T')[0]),
         );
 
         const appointmentsToCancel = futureAppointments.filter((apt) => {
           const aptDate = new Date(apt.scheduledAt);
 
-          // ✅ BỎ QUA nếu ngày đó có FLEXIBLE
           const aptDateStr = aptDate.toISOString().split('T')[0];
           if (flexibleDateSet.has(aptDateStr)) return false;
 
