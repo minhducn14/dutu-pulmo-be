@@ -6,6 +6,7 @@ import {
   ScheduleType,
   SCHEDULE_TYPE_PRIORITY,
 } from '@/modules/common/enums/schedule-type.enum';
+import { endOfDayVN, startOfDayVN } from '@/common/datetime';
 
 @Injectable()
 export class DoctorScheduleRestoreService {
@@ -50,13 +51,11 @@ export class DoctorScheduleRestoreService {
 
     const activeSchedules = regularSchedules.filter((schedule) => {
       if (schedule.effectiveFrom) {
-        const from = new Date(schedule.effectiveFrom);
-        from.setHours(0, 0, 0, 0);
+        const from = startOfDayVN(new Date(schedule.effectiveFrom));
         if (specificDate < from) return false;
       }
       if (schedule.effectiveUntil) {
-        const until = new Date(schedule.effectiveUntil);
-        until.setHours(23, 59, 59, 999);
+        const until = endOfDayVN(new Date(schedule.effectiveUntil));
         if (specificDate > until) return false;
       }
       return true;
@@ -94,12 +93,11 @@ export class DoctorScheduleRestoreService {
     for (const schedule of schedules) {
       const [startH, startM] = schedule.startTime.split(':').map(Number);
       const [endH, endM] = schedule.endTime.split(':').map(Number);
+      
+      const baseDate = startOfDayVN(specificDate);
 
-      const scheduleStart = new Date(specificDate);
-      scheduleStart.setHours(startH, startM, 0, 0);
-
-      const scheduleEnd = new Date(specificDate);
-      scheduleEnd.setHours(endH, endM, 0, 0);
+      const scheduleStart = new Date(baseDate.getTime() + (startH * 60 + startM) * 60000);
+      const scheduleEnd = new Date(baseDate.getTime() + (endH * 60 + endM) * 60000);
 
       const overlapStart = new Date(
         Math.max(scheduleStart.getTime(), rangeStart.getTime()),

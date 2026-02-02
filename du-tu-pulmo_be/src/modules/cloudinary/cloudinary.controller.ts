@@ -142,53 +142,6 @@ export class CloudinaryController {
     return new ResponseCommon(HttpStatus.CREATED, 'SUCCESS', data);
   }
 
-  @Post('avatar')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      limits: { fileSize: FileDefaults.MAX_AVATAR_SIZE },
-      fileFilter: (req, file, callback) => {
-        if (!file.mimetype.match(/^image\/(jpg|jpeg|png|webp)$/)) {
-          return callback(
-            new BadRequestException(
-              'Only image files are allowed (jpg, jpeg, png, webp)',
-            ),
-            false,
-          );
-        }
-        callback(null, true);
-      },
-    }),
-  )
-  @ApiOperation({ summary: 'Upload user avatar' })
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        file: {
-          type: 'string',
-          format: 'binary',
-        },
-      },
-    },
-  })
-  async uploadAvatar(
-    @UploadedFile() file: Express.Multer.File,
-    @CurrentUser() user: JwtUser,
-  ): Promise<ResponseCommon<CloudinaryUploadResponseDto>> {
-    if (!file) {
-      throw new BadRequestException('No file provided');
-    }
-    const result = await this.cloudinaryService.uploadAvatar(file, user.userId);
-    return new ResponseCommon(
-      HttpStatus.CREATED,
-      'SUCCESS',
-      CloudinaryUploadResponseDto.fromEntity(result),
-    );
-  }
-
   @Delete(':publicId')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')

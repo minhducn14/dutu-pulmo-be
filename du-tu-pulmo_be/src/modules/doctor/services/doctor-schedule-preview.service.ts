@@ -13,6 +13,11 @@ import {
 } from '@/modules/doctor/dto/preview-conflicts.dto';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import { ResponseCommon } from '@/common/dto/response.dto';
+import {
+  endOfDayVN,
+  startOfDayVN,
+  vnNow,
+} from '@/common/datetime';
 
 @Injectable()
 export class DoctorSchedulePreviewService {
@@ -31,8 +36,7 @@ export class DoctorSchedulePreviewService {
   ): Promise<ResponseCommon<PreviewConflictsResponseDto>> {
     const specificDate = new Date(dto.specificDate);
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = startOfDayVN(vnNow());
     if (specificDate < today) {
       throw new BadRequestException(
         'Không thể xem trước cho ngày trong quá khứ',
@@ -45,17 +49,15 @@ export class DoctorSchedulePreviewService {
 
     const [startH, startM] = dto.startTime.split(':').map(Number);
     const [endH, endM] = dto.endTime.split(':').map(Number);
+    
+    // safe base date
+    const baseDate = startOfDayVN(specificDate);
 
-    const scheduleStart = new Date(specificDate);
-    scheduleStart.setHours(startH, startM, 0, 0);
+    const scheduleStart = new Date(baseDate.getTime() + (startH * 60 + startM) * 60000);
+    const scheduleEnd = new Date(baseDate.getTime() + (endH * 60 + endM) * 60000);
 
-    const scheduleEnd = new Date(specificDate);
-    scheduleEnd.setHours(endH, endM, 0, 0);
-
-    const startOfDay = new Date(specificDate);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(specificDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    const startOfDay = startOfDayVN(specificDate);
+    const endOfDay = endOfDayVN(specificDate);
 
     const appointments = await this.appointmentRepository.find({
       where: {
@@ -122,8 +124,7 @@ export class DoctorSchedulePreviewService {
   ): Promise<ResponseCommon<PreviewConflictsResponseDto>> {
     const specificDate = new Date(dto.specificDate);
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = startOfDayVN(vnNow());
     if (specificDate < today) {
       throw new BadRequestException(
         'Không thể xem trước cho ngày trong quá khứ',
@@ -136,17 +137,14 @@ export class DoctorSchedulePreviewService {
 
     const [startH, startM] = dto.startTime.split(':').map(Number);
     const [endH, endM] = dto.endTime.split(':').map(Number);
+    
+    const baseDate = startOfDayVN(specificDate);
 
-    const scheduleStart = new Date(specificDate);
-    scheduleStart.setHours(startH, startM, 0, 0);
+    const scheduleStart = new Date(baseDate.getTime() + (startH * 60 + startM) * 60000);
+    const scheduleEnd = new Date(baseDate.getTime() + (endH * 60 + endM) * 60000);
 
-    const scheduleEnd = new Date(specificDate);
-    scheduleEnd.setHours(endH, endM, 0, 0);
-
-    const startOfDay = new Date(specificDate);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(specificDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    const startOfDay = startOfDayVN(specificDate);
+    const endOfDay = endOfDayVN(specificDate);
 
     const appointments = await this.appointmentRepository.find({
       where: {
@@ -238,11 +236,10 @@ export class DoctorSchedulePreviewService {
     for (const apt of futureAppointments) {
       const aptDate = apt.scheduledAt;
       
-      const newScheduleStart = new Date(aptDate);
-      newScheduleStart.setHours(newStartH, newStartM, 0, 0);
-
-      const newScheduleEnd = new Date(aptDate);
-      newScheduleEnd.setHours(newEndH, newEndM, 0, 0);
+      const baseDate = startOfDayVN(aptDate);
+      
+      const newScheduleStart = new Date(baseDate.getTime() + (newStartH * 60 + newStartM) * 60000);
+      const newScheduleEnd = new Date(baseDate.getTime() + (newEndH * 60 + newEndM) * 60000);
 
       if (!apt.timeSlot?.schedule?.slotDuration) continue;
       

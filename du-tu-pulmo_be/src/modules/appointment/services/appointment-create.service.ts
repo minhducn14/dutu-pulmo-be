@@ -18,6 +18,7 @@ import { ResponseCommon } from '@/common/dto/response.dto';
 import { AppointmentResponseDto } from '@/modules/appointment/dto/appointment-response.dto';
 import { DailyService } from '@/modules/video_call/daily.service';
 import { AppointmentMapperService } from '@/modules/appointment/services/appointment-mapper.service';
+import { diffMinutes, isBeforeVN, vnNow } from '@/common/datetime';
 
 @Injectable()
 export class AppointmentCreateService {
@@ -77,7 +78,7 @@ export class AppointmentCreateService {
         throw new ConflictException('Khung giờ đã hết chỗ');
       }
 
-      if (slot.startTime < new Date()) {
+      if (isBeforeVN(slot.startTime, vnNow())) {
         throw new BadRequestException('Không thể đặt lịch cho slot quá khứ');
       }
 
@@ -134,9 +135,7 @@ export class AppointmentCreateService {
       const isFree = finalFee === 0;
 
       const scheduledAt = slot.startTime;
-      const durationMinutes = Math.floor(
-        (slot.endTime.getTime() - slot.startTime.getTime()) / 60000,
-      );
+      const durationMinutes = diffMinutes(slot.endTime, slot.startTime);
 
       if (durationMinutes <= 0) {
         throw new BadRequestException('Slot có thời gian không hợp lệ');

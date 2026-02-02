@@ -26,6 +26,11 @@ import { DoctorScheduleHelperService } from '@/modules/doctor/services/doctor-sc
 import { DoctorScheduleQueryService } from '@/modules/doctor/services/doctor-schedule-query.service';
 import { DoctorScheduleUpdateService } from '@/modules/doctor/services/doctor-schedule-update.service';
 import { DoctorScheduleRestoreService } from '@/modules/doctor/services/doctor-schedule-restore.service';
+import {
+  endOfDayVN,
+  startOfDayVN,
+  vnNow,
+} from '@/common/datetime';
 
 @Injectable()
 export class DoctorScheduleFlexibleService {
@@ -61,8 +66,7 @@ export class DoctorScheduleFlexibleService {
       throw new BadRequestException('Giờ bắt đầu phải trước giờ kết thúc');
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = startOfDayVN(vnNow());
     if (specificDate < today) {
       throw new BadRequestException(
         'Không thể tạo lịch cho ngày trong quá khứ',
@@ -97,18 +101,20 @@ export class DoctorScheduleFlexibleService {
 
     const [startH, startM] = dto.startTime.split(':').map(Number);
     const [endH, endM] = dto.endTime.split(':').map(Number);
+    
+    // specificDate usually is 00:00 VN if it came from normalized source or simple YYYY-MM-DD
+    // But safely: derive base from it.
+    // If specificDate is already a valid Date object?
+    // Let's assume specificDate IS the base.
+    
+    const baseDate = startOfDayVN(specificDate);
 
-    const scheduleStart = new Date(specificDate);
-    scheduleStart.setHours(startH, startM, 0, 0);
-
-    const scheduleEnd = new Date(specificDate);
-    scheduleEnd.setHours(endH, endM, 0, 0);
+    const scheduleStart = new Date(baseDate.getTime() + (startH * 60 + startM) * 60000);
+    const scheduleEnd = new Date(baseDate.getTime() + (endH * 60 + endM) * 60000);
 
     const result = await this.dataSource.transaction(async (manager) => {
-      const startOfDay = new Date(specificDate);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(specificDate);
-      endOfDay.setHours(23, 59, 59, 999);
+      const startOfDay = startOfDayVN(specificDate);
+      const endOfDay = endOfDayVN(specificDate);
 
       const appointments = await manager.find(Appointment, {
         where: {
@@ -311,12 +317,11 @@ export class DoctorScheduleFlexibleService {
 
     const [startH, startM] = newStartTime.split(':').map(Number);
     const [endH, endM] = newEndTime.split(':').map(Number);
+    
+    const baseDate = startOfDayVN(specificDate);
 
-    const scheduleStart = new Date(specificDate);
-    scheduleStart.setHours(startH, startM, 0, 0);
-
-    const scheduleEnd = new Date(specificDate);
-    scheduleEnd.setHours(endH, endM, 0, 0);
+    const scheduleStart = new Date(baseDate.getTime() + (startH * 60 + startM) * 60000);
+    const scheduleEnd = new Date(baseDate.getTime() + (endH * 60 + endM) * 60000);
 
     const result = await this.dataSource.transaction(async (manager) => {
       await manager
@@ -327,10 +332,8 @@ export class DoctorScheduleFlexibleService {
         .andWhere('bookedCount = 0')
         .execute();
 
-      const startOfDay = new Date(specificDate);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(specificDate);
-      endOfDay.setHours(23, 59, 59, 999);
+      const startOfDay = startOfDayVN(specificDate);
+      const endOfDay = endOfDayVN(specificDate);
 
       const appointments = await manager.find(Appointment, {
         where: {
@@ -495,18 +498,15 @@ export class DoctorScheduleFlexibleService {
 
     const [startH, startM] = schedule.startTime.split(':').map(Number);
     const [endH, endM] = schedule.endTime.split(':').map(Number);
+    
+    const baseDate = startOfDayVN(specificDate);
 
-    const scheduleStart = new Date(specificDate);
-    scheduleStart.setHours(startH, startM, 0, 0);
-
-    const scheduleEnd = new Date(specificDate);
-    scheduleEnd.setHours(endH, endM, 0, 0);
+    const scheduleStart = new Date(baseDate.getTime() + (startH * 60 + startM) * 60000);
+    const scheduleEnd = new Date(baseDate.getTime() + (endH * 60 + endM) * 60000);
 
     const result = await this.dataSource.transaction(async (manager) => {
-      const dayStart = new Date(specificDate);
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(specificDate);
-      dayEnd.setHours(23, 59, 59, 999);
+      const dayStart = startOfDayVN(specificDate);
+      const dayEnd = endOfDayVN(specificDate);
 
       const dayAppointments = await manager.find(Appointment, {
         where: {
@@ -552,11 +552,10 @@ export class DoctorScheduleFlexibleService {
           const [regStartH, regStartM] = reg.startTime.split(':').map(Number);
           const [regEndH, regEndM] = reg.endTime.split(':').map(Number);
 
-          const regStart = new Date(specificDate);
-          regStart.setHours(regStartH, regStartM, 0, 0);
-
-          const regEnd = new Date(specificDate);
-          regEnd.setHours(regEndH, regEndM, 0, 0);
+          const base = startOfDayVN(specificDate);
+          
+          const regStart = new Date(base.getTime() + (regStartH * 60 + regStartM) * 60000);
+          const regEnd = new Date(base.getTime() + (regEndH * 60 + regEndM) * 60000);
 
           if (apt.scheduledAt >= regStart && aptEnd <= regEnd) {
             isCoveredByRegular = true;

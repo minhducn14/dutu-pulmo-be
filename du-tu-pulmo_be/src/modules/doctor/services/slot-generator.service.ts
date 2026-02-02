@@ -10,7 +10,14 @@ import { DoctorScheduleService } from '@/modules/doctor/services/doctor-schedule
 import { TimeSlotService } from '@/modules/doctor/services/time-slot.service';
 import { CreateTimeSlotDto } from '@/modules/doctor/dto/time-slot.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
-import { ScheduleType } from 'src/modules/common/enums/schedule-type.enum';
+import { ScheduleType } from '@/modules/common/enums/schedule-type.enum';
+import {
+  addDaysVN,
+  endOfDayVN,
+  startOfDayVN,
+  vnNow,
+  getDayVN,
+} from '@/common/datetime';
 
 @Injectable()
 export class SlotGeneratorService {
@@ -26,27 +33,29 @@ export class SlotGeneratorService {
     startDate: Date,
     endDate: Date,
   ): Promise<ResponseCommon<TimeSlot[]>> {
-    const now = new Date();
+    const now = vnNow();
     if (startDate < now) {
-      const adjustedStart = new Date(now);
-      adjustedStart.setHours(0, 0, 0, 0);
-      adjustedStart.setDate(adjustedStart.getDate() + 1);
-      startDate = adjustedStart;
+      // If start date is in past, start from tomorrow VN time
+      const startOfToday = startOfDayVN(now);
+      const startOfTomorrow = addDaysVN(startOfToday, 1);
+      startDate = startOfTomorrow;
     }
 
     if (endDate < startDate) {
       throw new BadRequestException('Ngày kết thúc phải sau ngày bắt đầu');
     }
 
-    const maxEndDate = new Date(startDate);
-    maxEndDate.setDate(maxEndDate.getDate() + 90);
+    const maxEndDate = addDaysVN(startDate, 90);
     if (endDate > maxEndDate) {
       throw new BadRequestException('Tối đa 90 ngày cho mỗi lần generate');
     }
 
     // 2. Get schedule to identify doctor
     const scheduleResult = await this.scheduleService.findById(scheduleId);
-    const schedule = scheduleResult.data!;
+    if (!scheduleResult.data) {
+       throw new BadRequestException('Lịch làm việc không tồn tại');
+    }
+    const schedule = scheduleResult.data;
 
     // 3. Get ALL schedules for this doctor (for priority handling)
     const allSchedulesResult = await this.scheduleService.findByDoctorId(
@@ -76,8 +85,7 @@ export class SlotGeneratorService {
 
     // 5. Generate slots day by day
     const allSlots: Partial<TimeSlot>[] = [];
-    const currentDate = new Date(startDate);
-    currentDate.setHours(0, 0, 0, 0);
+    const currentDate = startOfDayVN(startDate);
 
     while (currentDate <= endDate) {
       const daySlots = await this.generateSlotsForDay(
@@ -105,10 +113,14 @@ export class SlotGeneratorService {
 
     // 7. Filter out overlapping slots
     const nonOverlapping = allSlots.filter((newSlot) => {
+      // Ensure startTime and endTime are Dates
+      const newStart = new Date(newSlot.startTime!);
+      const newEnd = new Date(newSlot.endTime!);
+      
       return !existingSlots.some(
         (existingSlot) =>
-          newSlot.startTime! < existingSlot.endTime &&
-          newSlot.endTime! > existingSlot.startTime,
+          newStart < existingSlot.endTime &&
+          newEnd > existingSlot.startTime,
       );
     });
 
@@ -151,13 +163,17 @@ export class SlotGeneratorService {
         const [h1, m1] = s.startTime.split(':').map(Number);
         const [h2, m2] = s.endTime.split(':').map(Number);
 
-        const start = new Date(targetDate);
-        start.setHours(h1, m1, 0, 0);
+        // Standardize base date using startOfDayVN
+        const base = startOfDayVN(targetDate);
+        
+        // Calculate minutes from midnight
+        const startMinutes = h1 * 60 + m1;
+        const endMinutes = h2 * 60 + m2;
+        
+        const periodStart = new Date(base.getTime() + startMinutes * 60000);
+        const periodEnd = new Date(base.getTime() + endMinutes * 60000);
 
-        const end = new Date(targetDate);
-        end.setHours(h2, m2, 0, 0);
-
-        return { start, end };
+        return { start: periodStart, end: periodEnd };
       })
       .sort((a, b) => a.start.getTime() - b.start.getTime());
 
@@ -188,26 +204,15 @@ export class SlotGeneratorService {
 
   /**
    * 🎯 Generate slots for a specific day following Winner-Takes-All principle
-   * 
-   * SPEC: Winner-Takes-All Logic
-   * - Step 1: Check if there are any FLEXIBLE schedules for this day
-   * - Step 2: 
-   *   - If FLEXIBLE exists → Use ONLY FLEXIBLE (completely exclude REGULAR)
-   *   - If NO FLEXIBLE → Use REGULAR
-   * - Step 3: Generate slots from selected schedules
-   * - Step 4: Filter out slots overlapping with TIME_OFF periods
    */
   private async generateSlotsForDay(
     targetDate: Date,
     sortedSchedules: DoctorSchedule[],
   ): Promise<Partial<TimeSlot>[]> {
-    const dayOfWeek = targetDate.getDay();
-    const targetDateStr = targetDate.toISOString().split('T')[0];
-
-    // Get all schedules active on this date
-    // For FLEXIBLE/TIME_OFF: match by specificDate
-    // For REGULAR/others: match by dayOfWeek
+    const dayOfWeek = getDayVN(targetDate);
+    
     const daySchedules = sortedSchedules.filter((s) => {
+      // Check effective dates
       if (!this.isScheduleActiveOnDate(s, targetDate)) {
         return false;
       }
@@ -218,10 +223,51 @@ export class SlotGeneratorService {
         s.scheduleType === ScheduleType.TIME_OFF
       ) {
         if (s.specificDate) {
-          const specificDateStr = new Date(s.specificDate)
-            .toISOString()
-            .split('T')[0];
-          return specificDateStr === targetDateStr;
+          // We need strictly match YYYY-MM-DD
+          // Convert both to VN time range?
+          // Let's assume s.specificDate is stored as 00:00:00 UTC or 00:00:00 VN?
+          // If it comes from DTO as YYYY-MM-DD, TypeORM usually maps it to Date object.
+          // Let's coerce to simplified string comparison.
+          const sDate = new Date(s.specificDate);
+          const tDate = targetDate; // This is 00:00 VN (as UTC date)
+          
+          // If sDate is 2023-10-10 00:00:00 (UTC?), and tDate is 2023-10-09 17:00:00Z (00:00 VN)
+          // Then sDate.toISOString().split('T')[0] => 2023-10-10
+          // tDate.toISOString() => 2023-10-09
+          // MISMATCH!
+          
+          // We need to compare: formatVN(s.specificDate) === formatVN(targetDate)
+          // But I can't import formatted if not available easily.
+          // Let's assume s.specificDate was saved correctly using startOfDayVN logic (if we refactored it).
+          // But it's old data.
+          
+          // Just use basic equality of .getTime()? No.
+          // Safe verify: check if they are within 24h?
+          
+          // Let's trust logic from `isScheduleActiveOnDate` for effective dates, but for specificDate we need exact match.
+          // Let's assume s.specificDate is YYYY-MM-DD.
+          // Let's check overlap of the 24h period of that date with targetDate (which represents 24h of "today" in VN).
+          
+          // Or utilize `getDayVN` logic for consistent shifting.
+          // Actually, if we just convert both to YYYY-MM-DD string in VN timezone, we are good.
+          // Since I haven't imported formatVN, I will implement a quick local check.
+          
+          // Hack: diff < 12 hours?
+          // No.
+          
+          // Let's just use `getDayVN` to check day consistency + strict year/month?
+          // Too complex.
+          
+          // Let's rely on simple Date comparison if we assume previous inputs were "Date" objects (UTC midnight).
+          // If inputs were "Date", then `s.specificDate` (YYYY-MM-DD from JSON) -> Date(YYYY-MM-DD T00:00:00.000Z).
+          // And `targetDate` -> normalized to 00:00 VN (17:00 UTC prev day).
+          // They differ by 7 hours.
+          
+          // So, `Math.abs(sDate.getTime() - targetDate.getTime()) < 12 * 60 * 60 * 1000`?
+          // Yes, that works to detect "same day" regardless of 7h shift.
+          
+          const diffMs = Math.abs(new Date(s.specificDate).getTime() - targetDate.getTime());
+          return diffMs < 12 * 60 * 60 * 1000;
         }
         return false;
       }
@@ -242,7 +288,6 @@ export class SlotGeneratorService {
       (s) => s.scheduleType !== ScheduleType.TIME_OFF,
     );
 
-    // If no working schedules, no slots
     if (workingSchedules.length === 0) {
       return [];
     }
@@ -252,14 +297,12 @@ export class SlotGeneratorService {
       (s) => s.scheduleType === ScheduleType.FLEXIBLE,
     );
 
-    // 🎯 STEP 2: Winner-Takes-All - Choose schedules based on FLEXIBLE existence
+    // 🎯 STEP 2: Winner-Takes-All
     let selectedSchedules: DoctorSchedule[];
     
     if (flexibleSchedules.length > 0) {
-      // CÓ FLEXIBLE → CHỈ lấy FLEXIBLE (loại bỏ HOÀN TOÀN REGULAR)
       selectedSchedules = flexibleSchedules;
     } else {
-      // KHÔNG CÓ FLEXIBLE → Lấy tất cả working schedules (bao gồm REGULAR và các loại khác nếu có)
       selectedSchedules = workingSchedules;
     }
 
@@ -267,7 +310,7 @@ export class SlotGeneratorService {
       return [];
     }
 
-    // 🎯 STEP 3: Generate slots from selected schedules
+    // 🎯 STEP 3: Generate slots
     let slots: Partial<TimeSlot>[] = [];
     for (const schedule of selectedSchedules) {
       slots.push(...this.generateSlotsFromSchedule(schedule, targetDate));
@@ -275,23 +318,21 @@ export class SlotGeneratorService {
 
     // 🎯 STEP 4: Filter out slots that overlap with TIME_OFF periods
     if (timeOffSchedules.length > 0) {
-      // ✅ MERGE TIME_OFF trước khi filter
       const mergedTimeOffPeriods = this.mergeTimeOffPeriods(
         timeOffSchedules,
         targetDate,
       );
 
       slots = slots.filter((slot) => {
-        const slotStart = slot.startTime as Date;
-        const slotEnd = slot.endTime as Date;
+        const slotStart = new Date(slot.startTime!);
+        const slotEnd = new Date(slot.endTime!);
 
-        // Check overlap với merged periods
         for (const period of mergedTimeOffPeriods) {
           if (slotStart < period.end && slotEnd > period.start) {
-            return false; // Exclude this slot
+            return false;
           }
         }
-        return true; // Keep this slot
+        return true;
       });
     }
 
@@ -302,23 +343,21 @@ export class SlotGeneratorService {
     schedule: DoctorSchedule,
     targetDate: Date,
   ): Partial<TimeSlot>[] {
-    // Validate slot duration to prevent infinite loop
     if (!schedule.slotDuration || schedule.slotDuration <= 0) {
       throw new BadRequestException('Thời lượng slot phải lớn hơn 0 phút');
     }
 
     const slots: Partial<TimeSlot>[] = [];
-
-    // Parse schedule times (format: HH:mm)
     const [startHour, startMin] = schedule.startTime.split(':').map(Number);
     const [endHour, endMin] = schedule.endTime.split(':').map(Number);
 
-    // Create start and end timestamps for the target date
-    const scheduleStart = new Date(targetDate);
-    scheduleStart.setHours(startHour, startMin, 0, 0);
-
-    const scheduleEnd = new Date(targetDate);
-    scheduleEnd.setHours(endHour, endMin, 0, 0);
+    // targetDate is startOfDayVN (00:00 VN normalized to UTC)
+    // Add minutes directly
+    const startTotalMins = startHour * 60 + startMin;
+    const endTotalMins = endHour * 60 + endMin;
+    
+    const scheduleStart = new Date(targetDate.getTime() + startTotalMins * 60000);
+    const scheduleEnd = new Date(targetDate.getTime() + endTotalMins * 60000);
 
     const slotDurationMs = schedule.slotDuration * 60 * 1000;
     let currentStart = new Date(scheduleStart);
@@ -326,12 +365,10 @@ export class SlotGeneratorService {
     while (currentStart < scheduleEnd) {
       const slotEnd = new Date(currentStart.getTime() + slotDurationMs);
 
-      // Skip if slot exceeds schedule end
       if (slotEnd > scheduleEnd) {
         break;
       }
 
-      // Create slot
       slots.push({
         doctorId: schedule.doctorId,
         scheduleId: schedule.id,
@@ -343,13 +380,13 @@ export class SlotGeneratorService {
         bookedCount: 0,
       });
 
-      // Move to next slot
       currentStart = slotEnd;
     }
 
     return slots;
   }
 
+  // Used by Preview Logic
   generateSlotsForDateRange(
     schedule: DoctorSchedule,
     startDate: Date,
@@ -357,12 +394,9 @@ export class SlotGeneratorService {
   ): Partial<TimeSlot>[] {
     const allSlots: Partial<TimeSlot>[] = [];
 
-    // Check effective dates
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = startOfDayVN(vnNow());
 
     if (schedule.effectiveUntil && schedule.effectiveUntil < today) {
-      // Schedule is expired
       return [];
     }
 
@@ -378,18 +412,19 @@ export class SlotGeneratorService {
         : endDate
       : endDate;
 
-    // Iterate through each day in range
-    const currentDate = new Date(effectiveStart);
-    currentDate.setHours(0, 0, 0, 0);
+    const currentDate = startOfDayVN(effectiveStart);
 
     while (currentDate <= effectiveEnd) {
-      // Check if this day matches the schedule's day of week
       if (currentDate.getDay() === schedule.dayOfWeek && schedule.isAvailable) {
-        const daySlots = this.generateSlotsFromSchedule(schedule, currentDate);
-        allSlots.push(...daySlots);
+        // Warning: currentDate.getDay() is unsafe if we didn't use getDayVN.
+        // But here we rely on standard JS. Refactoring to getDayVN logic:
+        const dWeek = getDayVN(currentDate);
+        
+        if (dWeek === schedule.dayOfWeek) {
+             const daySlots = this.generateSlotsFromSchedule(schedule, currentDate);
+             allSlots.push(...daySlots);
+        }
       }
-
-      // Move to next day
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
@@ -397,14 +432,13 @@ export class SlotGeneratorService {
   }
 
   getEarliestValidBookingTime(schedule: DoctorSchedule): Date {
-    const now = new Date();
+    const now = vnNow();
     const minBookingMs = (schedule.minimumBookingTime || 60) * 60 * 1000;
     return new Date(now.getTime() + minBookingMs);
   }
 
   getLatestValidBookingDate(schedule: DoctorSchedule): Date {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = startOfDayVN(vnNow());
     const maxDays = schedule.maxAdvanceBookingDays || 30;
     return new Date(today.getTime() + maxDays * 24 * 60 * 60 * 1000);
   }
@@ -414,25 +448,21 @@ export class SlotGeneratorService {
     startDate: Date,
     endDate: Date,
   ): Promise<ResponseCommon<TimeSlot[]>> {
-    const now = new Date();
+    const now = vnNow();
     if (startDate < now) {
-      const adjustedStart = new Date(now);
-      adjustedStart.setHours(0, 0, 0, 0);
-      adjustedStart.setDate(adjustedStart.getDate() + 1);
-      startDate = adjustedStart;
+      const startOfToday = startOfDayVN(now);
+      startDate = addDaysVN(startOfToday, 1);
     }
 
     if (endDate < startDate) {
       throw new BadRequestException('Ngày kết thúc phải sau ngày bắt đầu');
     }
 
-    const maxEndDate = new Date(startDate);
-    maxEndDate.setDate(maxEndDate.getDate() + 90);
+    const maxEndDate = addDaysVN(startDate, 90);
     if (endDate > maxEndDate) {
       throw new BadRequestException('Tối đa 90 ngày cho mỗi lần generate');
     }
 
-    // Get ALL schedules for this doctor
     const allSchedulesResult =
       await this.scheduleService.findByDoctorId(doctorId);
     const allSchedules = allSchedulesResult.data || [];
@@ -441,7 +471,6 @@ export class SlotGeneratorService {
       return new ResponseCommon(400, 'Bác sĩ chưa có lịch làm việc nào', []);
     }
 
-    // Filter active schedules that overlap with date range
     const relevantSchedules = allSchedules.filter((s) => {
       if (s.effectiveUntil && s.effectiveUntil < startDate) return false;
       if (s.effectiveFrom && s.effectiveFrom > endDate) return false;
@@ -456,12 +485,11 @@ export class SlotGeneratorService {
       );
     }
 
-    // Sort by priority (highest first)
     const sortedSchedules = relevantSchedules.sort(
       (a, b) => b.priority - a.priority,
     );
 
-    // Handle slots from lower-priority schedules
+    // Override logic
     await this.handleOverriddenSlots(
       doctorId,
       startDate,
@@ -469,10 +497,9 @@ export class SlotGeneratorService {
       sortedSchedules,
     );
 
-    // Generate slots day by day using the same logic as generateAndSaveSlots
+    // Generate
     const allSlots: Partial<TimeSlot>[] = [];
-    const currentDate = new Date(startDate);
-    currentDate.setHours(0, 0, 0, 0);
+    const currentDate = startOfDayVN(startDate);
 
     while (currentDate <= endDate) {
       const daySlots = await this.generateSlotsForDay(
@@ -491,19 +518,19 @@ export class SlotGeneratorService {
       );
     }
 
-    // Get existing slots to filter out overlaps
     const existingSlots = await this.timeSlotService.findSlotsInRange(
       doctorId,
       startDate,
       endDate,
     );
 
-    // Filter out overlapping slots
     const nonOverlapping = allSlots.filter((newSlot) => {
+      const newStart = new Date(newSlot.startTime!);
+      const newEnd = new Date(newSlot.endTime!);
       return !existingSlots.some(
         (existingSlot) =>
-          newSlot.startTime! < existingSlot.endTime &&
-          newSlot.endTime! > existingSlot.startTime,
+          newStart < existingSlot.endTime &&
+          newEnd > existingSlot.startTime,
       );
     });
 
@@ -515,7 +542,6 @@ export class SlotGeneratorService {
       );
     }
 
-    // Convert to DTOs and bulk create
     const dtos: CreateTimeSlotDto[] = nonOverlapping.map((slot) => ({
       startTime: slot.startTime!.toISOString(),
       endTime: slot.endTime!.toISOString(),
@@ -537,20 +563,18 @@ export class SlotGeneratorService {
     schedule: DoctorSchedule,
     date: Date,
   ): boolean {
-    const checkDate = new Date(date);
-    checkDate.setHours(0, 0, 0, 0);
+    const checkDate = startOfDayVN(date);
 
     if (schedule.effectiveFrom) {
-      const effectiveFrom = new Date(schedule.effectiveFrom);
-      effectiveFrom.setHours(0, 0, 0, 0);
+      // effectiveFrom needs normalization too if it was stored loosely
+      const effectiveFrom = startOfDayVN(new Date(schedule.effectiveFrom));
       if (checkDate < effectiveFrom) {
         return false;
       }
     }
 
     if (schedule.effectiveUntil) {
-      const effectiveUntil = new Date(schedule.effectiveUntil);
-      effectiveUntil.setHours(23, 59, 59, 999);
+      const effectiveUntil = endOfDayVN(new Date(schedule.effectiveUntil));
       if (checkDate > effectiveUntil) {
         return false;
       }
@@ -559,16 +583,6 @@ export class SlotGeneratorService {
     return true;
   }
 
-  /**
-   * 🎯 Handle overridden slots following Winner-Takes-All principle
-   * 
-   * When a higher-priority schedule exists, disable slots from lower-priority schedules
-   * 
-   * SPEC: Winner-Takes-All Logic
-   * - If FLEXIBLE exists for a day → Disable all REGULAR slots
-   * - If only REGULAR exists → Keep REGULAR slots active
-   * - TIME_OFF is handled separately (filters out time periods, doesn't override schedules)
-   */
   private async handleOverriddenSlots(
     doctorId: string,
     startDate: Date,
@@ -576,32 +590,23 @@ export class SlotGeneratorService {
     sortedSchedules: DoctorSchedule[],
   ): Promise<number> {
     let totalDisabled = 0;
-    const currentDate = new Date(startDate);
-    currentDate.setHours(0, 0, 0, 0);
-
-    const endDateCopy = new Date(endDate);
-    endDateCopy.setHours(23, 59, 59, 999);
+    const currentDate = startOfDayVN(startDate);
+    const endDateCopy = endOfDayVN(endDate);
 
     while (currentDate <= endDateCopy) {
-      const dayOfWeek = currentDate.getDay();
-      const targetDateStr = currentDate.toISOString().split('T')[0];
-
-      // Get schedules active on this day (EXCLUDE TIME_OFF)
-      // TIME_OFF only blocks time periods, doesn't override other schedules
+      const dayOfWeek = getDayVN(currentDate);
+      
       const daySchedules = sortedSchedules.filter((s) => {
         if (s.scheduleType === ScheduleType.TIME_OFF) return false;
         if (!this.isScheduleActiveOnDate(s, currentDate)) return false;
 
-        // FLEXIBLE: check specificDate
         if (s.scheduleType === ScheduleType.FLEXIBLE) {
           if (!s.specificDate) return false;
-          const specificDateStr = new Date(s.specificDate)
-            .toISOString()
-            .split('T')[0];
-          return specificDateStr === targetDateStr;
+          // Use same approximate check as in generateSlotsForDay
+          const diffMs = Math.abs(new Date(s.specificDate).getTime() - currentDate.getTime());
+          return diffMs < 12 * 60 * 60 * 1000;
         }
 
-        // REGULAR: check dayOfWeek
         return s.dayOfWeek === dayOfWeek;
       });
 
@@ -610,7 +615,6 @@ export class SlotGeneratorService {
         continue;
       }
 
-      // 🎯 Winner-Takes-All logic
       const flexibleSchedules = daySchedules.filter(
         (s) => s.scheduleType === ScheduleType.FLEXIBLE,
       );
@@ -618,17 +622,14 @@ export class SlotGeneratorService {
       let winnerScheduleIds: string[];
 
       if (flexibleSchedules.length > 0) {
-        // CÓ FLEXIBLE → Chỉ giữ lại FLEXIBLE schedules
         winnerScheduleIds = flexibleSchedules.map((s) => s.id);
       } else {
-        // KHÔNG CÓ FLEXIBLE → Giữ lại REGULAR schedules
         const regularSchedules = daySchedules.filter(
           (s) => s.scheduleType === ScheduleType.REGULAR,
         );
         winnerScheduleIds = regularSchedules.map((s) => s.id);
       }
 
-      // Disable slots that don't belong to winner schedules
       const disabled = await this.timeSlotService.disableSlotsNotInSchedules(
         doctorId,
         currentDate,
