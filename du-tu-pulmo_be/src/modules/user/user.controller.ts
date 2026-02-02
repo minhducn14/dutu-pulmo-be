@@ -10,12 +10,20 @@ import {
   UseGuards,
   ForbiddenException,
   Query,
+  Post,
+  UseInterceptors,
+  UploadedFile,
+  Req,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
   ApiOperation,
   ApiResponse,
   ApiTags,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { UserService } from '@/modules/user/user.service';
 import { UpdateUserDto } from '@/modules/user/dto/update-user.dto';
@@ -31,6 +39,7 @@ import { CurrentUser } from '@/common/decorators/user.decorator';
 import type { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
 import { RoleEnum } from '@/modules/common/enums/role.enum';
 import { ResponseCommon } from '@/common/dto/response.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @ApiTags('Users')
 @Controller('users')
@@ -144,6 +153,59 @@ export class UserController {
       UserResponseDto.fromEntity(response.data!),
     );
   }
+
+  @Post('me/avatar')
+  @ApiOperation({ summary: 'Upload avatar cho user hiện tại' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Avatar file',
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Ảnh avatar (jpg, png, jpeg, webp)',
+        },
+      },
+      required: ['file'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Upload avatar thành công',
+    schema: {
+      type: 'object',
+      properties: {
+        user: { $ref: '#/components/schemas/UserResponseDto' },
+        upload: {
+          type: 'object',
+          properties: {
+            url: { type: 'string', example: 'https://res.cloudinary.com/.../image/upload/...png' },
+            publicId: { type: 'string', example: 'avatars/avatar-uuid-20260202' },
+            width: { type: 'number', example: 400 },
+            height: { type: 'number', example: 400 },
+            format: { type: 'string', example: 'png' },
+            bytes: { type: 'number', example: 123456 },
+          },
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'File không hợp lệ hoặc upload thất bại',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Chưa đăng nhập / token không hợp lệ',
+  })
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadMyAvatar(
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.userService.updateAvatar(user.userId, file);
+  }
+
 
   @Delete(':id')
   @Roles(RoleEnum.ADMIN)

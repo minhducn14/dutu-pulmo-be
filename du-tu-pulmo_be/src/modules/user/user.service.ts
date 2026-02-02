@@ -9,6 +9,8 @@ import { RoleEnum } from '@/modules/common/enums/role.enum';
 import { Doctor } from '@/modules/doctor/entities/doctor.entity';
 import { Patient } from '@/modules/patient/entities/patient.entity';
 import { UserQueryDto } from '@/modules/user/dto/user-query.dto';
+import { UserResponseDto } from './dto/user-response.dto';
+import { CloudinaryService } from '../cloudinary';
 
 @Injectable()
 export class UserService {
@@ -19,6 +21,8 @@ export class UserService {
     private doctorRepository: Repository<Doctor>,
     @InjectRepository(Patient)
     private patientRepository: Repository<Patient>,
+
+    private readonly cloudinaryService: CloudinaryService
   ) {}
 
   async findAll(query?: UserQueryDto): Promise<
@@ -144,4 +148,31 @@ export class UserService {
       message: 'Xóa user thành công',
     });
   }
+
+
+  async updateAvatar(userId: string, file: Express.Multer.File) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) throw new NotFoundException('User not found');
+
+    const uploaded = await this.cloudinaryService.uploadAvatar(file, userId);
+    if (user.avatarPublicId) {
+      try {
+        await this.cloudinaryService.deleteImage(user.avatarPublicId);
+      } catch (_) {}
+    }
+
+    user.avatarUrl = uploaded.url;
+    user.avatarPublicId = uploaded.publicId;
+
+    const saved = await this.userRepository.save(user);
+
+    return {
+      user: UserResponseDto.fromEntity(saved),
+      upload: uploaded,
+    };
+  }
+
 }

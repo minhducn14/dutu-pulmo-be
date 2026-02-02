@@ -41,6 +41,9 @@ export class User {
   @Column({ name: 'avatar_url', nullable: true })
   avatarUrl: string;
 
+  @Column({ name: 'avatar_public_id', nullable: true })
+  avatarPublicId: string;
+
   @Column({
     type: 'enum',
     enum: UserStatusEnum,
