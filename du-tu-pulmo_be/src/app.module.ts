@@ -29,7 +29,6 @@ import { PaymentModule } from '@/modules/payment/payment.module';
 import { ReportModule } from '@/modules/report/report.module';
 import { ReviewModule } from '@/modules/review/review.module';
 import { ScreeningModule } from '@/modules/screening/screening.module';
-import { SystemModule } from '@/modules/system/system.module';
 import { UserModule } from '@/modules/user/user.module';
 import { VideoCallModule } from '@/modules/video_call/video-call.module';
 import { CloudinaryModule } from '@/modules/cloudinary';
@@ -110,7 +109,6 @@ import { LoggerMiddleware } from '@/common/middleware/logger.middleware';
     ReportModule,
     ReviewModule,
     ScreeningModule,
-    SystemModule,
     UserModule,
     VideoCallModule,
   ],

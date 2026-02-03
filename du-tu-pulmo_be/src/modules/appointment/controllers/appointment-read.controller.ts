@@ -1,4 +1,3 @@
-
 import {
   Controller,
   Get,
@@ -40,12 +39,10 @@ import { ResponseCommon } from '@/common/dto/response.dto';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth('JWT-auth')
 export class AppointmentReadController {
-  constructor(
-    private readonly appointmentService: AppointmentService,
-  ) {}
+  constructor(private readonly appointmentService: AppointmentService) {}
 
   @Get()
-  @Roles(RoleEnum.ADMIN)
+  @Roles(RoleEnum.ADMIN, RoleEnum.RECEPTIONIST)
   @ApiOperation({
     summary: 'Lấy tất cả lịch hẹn (Admin)',
     description: 'Hỗ trợ phân trang và lọc theo status, type, date range',
