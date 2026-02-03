@@ -145,6 +145,35 @@ async function seed() {
       console.log('   ℹ️ Admin account exists.');
     }
 
+    // ========== SEED RECEPTIONIST ==========
+    const receptionEmail = 'reception@dutupulmo.vn';
+    const receptionAccount = await accountRepo.findOne({
+      where: { email: receptionEmail },
+    });
+    if (!receptionAccount) {
+      const receptionUser = await userRepo.save(
+        userRepo.create({
+          fullName: 'Lễ tân',
+          status: UserStatusEnum.ACTIVE,
+        }),
+      );
+      await accountRepo.save(
+        accountRepo.create({
+          email: receptionEmail,
+          password: await bcrypt.hash(
+            process.env.RECEPTION_PASSWORD || 'Reception@123',
+            12,
+          ),
+          roles: [RoleEnum.RECEPTIONIST],
+          isVerified: true,
+          userId: receptionUser.id,
+        }),
+      );
+      console.log('   ✅ Reception account created.');
+    } else {
+      console.log('   ℹ️ Reception account exists.');
+    }
+
     // ========== SEED MEDICINES ==========
     console.log('\n💊 Seeding Medicines...');
     const medicineData = [
