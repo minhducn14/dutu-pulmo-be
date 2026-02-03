@@ -77,7 +77,6 @@ export class TimeSlotService {
         startTime: Between(effectiveStart, endDate),
       },
       order: { startTime: 'ASC' },
-      take: 100,
     });
 
     return slots.filter((slot) => slot.bookedCount < slot.capacity);
@@ -184,7 +183,6 @@ export class TimeSlotService {
     }
 
     this.validateAppointmentTypes(dto.allowedAppointmentTypes);
-    
   }
 
   private async countSlotsForDate(
@@ -624,12 +622,47 @@ export class TimeSlotService {
     }
 
     const validTypes = Object.values(AppointmentTypeEnum);
-    const invalidTypes = types.filter(type => !validTypes.includes(type));
-    
+    const invalidTypes = types.filter((type) => !validTypes.includes(type));
+
     if (invalidTypes.length > 0) {
       throw new BadRequestException(
-        `Loại hình khám không hợp lệ: ${invalidTypes.join(', ')}`
+        `Loại hình khám không hợp lệ: ${invalidTypes.join(', ')}`,
       );
     }
+  }
+
+  async getAvailabilitySummary(
+    doctorId: string,
+    fromDate: Date,
+    toDate: Date,
+  ): Promise<ResponseCommon<any[]>> {
+    const startOfDay = new Date(fromDate);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(toDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const result = await this.timeSlotRepository
+      .createQueryBuilder('slot')
+      .select("TO_CHAR(slot.startTime, 'YYYY-MM-DD')", 'date')
+      .addSelect('COUNT(slot.id)', 'count')
+      .where('slot.doctorId = :doctorId', { doctorId })
+      .andWhere('slot.startTime BETWEEN :start AND :end', {
+        start: startOfDay,
+        end: endOfDay,
+      })
+      .andWhere('slot.isAvailable = :isAvailable', { isAvailable: true })
+      .andWhere('slot.bookedCount < slot.capacity')
+      .groupBy("TO_CHAR(slot.startTime, 'YYYY-MM-DD')")
+      .orderBy("TO_CHAR(slot.startTime, 'YYYY-MM-DD')", 'ASC')
+      .getRawMany();
+
+    const summary = result.map((item) => ({
+      date: item.date,
+      count: parseInt(item.count, 10),
+      hasAvailability: parseInt(item.count, 10) > 0,
+    }));
+
+    return new ResponseCommon(200, 'SUCCESS', summary);
   }
 }

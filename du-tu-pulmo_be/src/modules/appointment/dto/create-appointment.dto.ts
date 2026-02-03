@@ -26,14 +26,6 @@ export class CreateAppointmentDto {
   patientId: string;
 
   @ApiPropertyOptional({
-    description: 'ID bệnh viện (dùng cho IN_CLINIC)',
-    format: 'uuid',
-  })
-  @IsOptional()
-  @IsUUID()
-  hospitalId?: string;
-
-  @ApiPropertyOptional({
     description:
       'Loại con (INSTANT: Khám ngay, SCHEDULED: Đặt lịch, RE_EXAM: Tái khám)',
     enum: AppointmentSubTypeEnum,

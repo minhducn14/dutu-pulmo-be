@@ -287,4 +287,56 @@ export class TimeSlotController {
   delete(@Param('id', ParseUUIDPipe) id: string) {
     return this.timeSlotService.delete(id);
   }
+
+  @Get('summary')
+  @ApiOperation({
+    summary:
+      'Lấy tóm tắt số lượng slot còn trống (Mặc định 7 ngày từ hiện tại)',
+  })
+  @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
+  @ApiQuery({
+    name: 'from',
+    description: 'Ngày bắt đầu (YYYY-MM-DD)',
+    required: false,
+  })
+  @ApiQuery({
+    name: 'to',
+    description: 'Ngày kết thúc (YYYY-MM-DD)',
+    required: false,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Danh sách tóm tắt',
+  })
+  async getAvailabilitySummary(
+    @Param('doctorId', ParseUUIDPipe) doctorId: string,
+    @Query('from') fromStr?: string,
+    @Query('to') toStr?: string,
+  ) {
+    let fromDate: Date;
+    let toDate: Date;
+
+    if (fromStr) {
+      fromDate = new Date(fromStr);
+    } else {
+      fromDate = new Date();
+    }
+
+    if (toStr) {
+      toDate = new Date(toStr);
+    } else {
+      toDate = new Date(fromDate);
+      toDate.setDate(toDate.getDate() + 6);
+    }
+
+    if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+      throw new BadRequestException('Ngày không hợp lệ (YYYY-MM-DD)');
+    }
+
+    return this.timeSlotService.getAvailabilitySummary(
+      doctorId,
+      fromDate,
+      toDate,
+    );
+  }
 }

@@ -39,7 +39,9 @@ import { ResponseCommon } from '@/common/dto/response.dto';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth('JWT-auth')
 export class AppointmentReadController {
-  constructor(private readonly appointmentService: AppointmentService) {}
+  constructor(private readonly appointmentService: AppointmentService) {
+    
+  }
 
   @Get()
   @Roles(RoleEnum.ADMIN, RoleEnum.RECEPTIONIST)
