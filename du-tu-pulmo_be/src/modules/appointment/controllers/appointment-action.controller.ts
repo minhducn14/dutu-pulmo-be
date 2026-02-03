@@ -41,9 +41,7 @@ import { ResponseCommon } from '@/common/dto/response.dto';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth('JWT-auth')
 export class AppointmentActionController {
-  constructor(
-    private readonly appointmentService: AppointmentService,
-  ) {}
+  constructor(private readonly appointmentService: AppointmentService) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -61,15 +59,27 @@ export class AppointmentActionController {
     @Body() dto: CreateAppointmentDto,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<AppointmentResponseDto>> {
-    if (
+    const isPatientOnly =
       user.roles?.includes(RoleEnum.PATIENT) &&
-      !user.roles?.includes(RoleEnum.ADMIN)
-    ) {
+      !user.roles?.some((role) =>
+        [RoleEnum.ADMIN, RoleEnum.DOCTOR, RoleEnum.RECEPTIONIST].includes(
+          role as RoleEnum,
+        ),
+      );
+
+    if (isPatientOnly) {
       if (!user.patientId) {
         throw new ForbiddenException('Không tìm thấy thông tin bệnh nhân');
       }
+
+      if (dto.patientId && dto.patientId !== user.patientId) {
+        throw new ForbiddenException('Bạn chỉ có thể đặt lịch cho chính mình');
+      }
+
+      dto.patientId = user.patientId;
+    } else {
       if (!dto.patientId) {
-        dto.patientId = user.patientId;
+        throw new BadRequestException('Vui lòng chọn bệnh nhân');
       }
     }
 
