@@ -17,3 +17,14 @@ export const APPOINTMENT_AUTH_RELATIONS = [
   'hospital',
   'timeSlot',
 ];
+
+export const CHECKIN_TIME_THRESHOLDS = {
+  IN_CLINIC: {
+    EARLY_MINUTES: 30,
+    LATE_MINUTES: 15,
+  },
+  VIDEO: {
+    EARLY_MINUTES: 60,
+    LATE_MINUTES: 30,
+  },
+};
