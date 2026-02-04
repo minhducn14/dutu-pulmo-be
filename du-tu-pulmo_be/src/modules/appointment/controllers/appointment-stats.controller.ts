@@ -18,8 +18,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { AppointmentService } from '@/modules/appointment/services/appointment.service';
-import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
-import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
+import { DashboardStatsService } from '@/modules/appointment/services/dashboard-stats.service';
 import { RoleEnum } from '@/modules/common/enums/role.enum';
 import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
@@ -32,9 +31,9 @@ import {
   DoctorQueueDto,
 } from '@/modules/appointment/dto/appointment-response.dto';
 import {
-  UserCallStatusResponseDto,
-  VideoCallStatusResponseDto,
-} from '@/modules/appointment/dto/video-call-response.dto';
+  DashboardQueryDto,
+  DashboardStatsDto,
+} from '@/modules/appointment/dto/dashboard-stats.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
 
 @ApiTags('Appointment Statistics')
@@ -42,7 +41,10 @@ import { ResponseCommon } from '@/common/dto/response.dto';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth('JWT-auth')
 export class AppointmentStatsController {
-  constructor(private readonly appointmentService: AppointmentService) {}
+  constructor(
+    private readonly appointmentService: AppointmentService,
+    private readonly dashboardStatsService: DashboardStatsService,
+  ) {}
 
   @Get('doctor/:doctorId/queue')
   @Roles(RoleEnum.DOCTOR, RoleEnum.ADMIN, RoleEnum.RECEPTIONIST)
@@ -130,6 +132,37 @@ export class AppointmentStatsController {
       endDate ? new Date(endDate) : undefined,
     );
     return this.wrapGeneric(response);
+  }
+
+  @Get('my/doctor/dashboard')
+  @Roles(RoleEnum.DOCTOR)
+  @ApiOperation({
+    summary: 'Lấy báo cáo tổng quan dashboard của bác sĩ',
+    description: 'Trả về thống kê doanh thu, lượt khám, bệnh nhân mới/cũ theo kỳ',
+  })
+  @ApiResponse({ status: HttpStatus.OK, type: DashboardStatsDto })
+  async getMyDashboard(
+    @CurrentUser() user: JwtUser,
+    @Query() query: DashboardQueryDto,
+  ): Promise<ResponseCommon<DashboardStatsDto>> {
+    if (!user.doctorId) {
+      throw new ForbiddenException('Không tìm thấy thông tin bác sĩ');
+    }
+    return this.dashboardStatsService.getStats(user.doctorId, query.period);
+  }
+
+  @Get('doctor/:doctorId/dashboard')
+  @Roles(RoleEnum.ADMIN)
+  @ApiOperation({
+    summary: 'Lấy báo cáo tổng quan dashboard của bác sĩ (Admin)',
+  })
+  @ApiParam({ name: 'doctorId', description: 'Doctor ID (UUID)' })
+  @ApiResponse({ status: HttpStatus.OK, type: DashboardStatsDto })
+  async getDoctorDashboard(
+    @Param('doctorId', ParseUUIDPipe) doctorId: string,
+    @Query() query: DashboardQueryDto,
+  ): Promise<ResponseCommon<DashboardStatsDto>> {
+    return this.dashboardStatsService.getStats(doctorId, query.period);
   }
 
   @Get('my/patient/statistics')
