@@ -3,6 +3,7 @@ import {
   Controller,
   Post,
   Put,
+  Patch,
   Param,
   Body,
   HttpStatus,
@@ -11,6 +12,7 @@ import {
   ForbiddenException,
   ParseUUIDPipe,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -21,6 +23,7 @@ import {
 } from '@nestjs/swagger';
 import { AppointmentService } from '@/modules/appointment/services/appointment.service';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
+import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
 import { RoleEnum } from '@/modules/common/enums/role.enum';
 import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
@@ -87,6 +90,91 @@ export class AppointmentActionController {
       ...dto,
       bookedByUserId: user.id,
     });
+    return this.wrapAppointment(response);
+  }
+
+  @Post(':id/check-in')
+  @Roles(RoleEnum.DOCTOR, RoleEnum.PATIENT, RoleEnum.ADMIN, RoleEnum.RECEPTIONIST)
+  @ApiOperation({
+    summary: 'Check-in bệnh nhân',
+    description: `
+      - IN_CLINIC: Lễ tân/bác sĩ check-in khi bệnh nhân đến (30 phút trước - 15 phút sau)
+      - VIDEO: Bệnh nhân/bác sĩ check-in trước khi join call (1 giờ trước - 30 phút sau)
+    `,
+  })
+  @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
+  @ApiResponse({ status: HttpStatus.OK, type: AppointmentResponseDto })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Không thể check-in (sai trạng thái, sai thời gian)',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Không có quyền check-in',
+  })
+  async checkIn(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<AppointmentResponseDto>> {
+    const result = await this.appointmentService.findById(id);
+    const appointment = result.data!;
+
+    if (appointment.appointmentType === AppointmentTypeEnum.IN_CLINIC) {
+      const canCheckIn =
+        user.roles?.includes(RoleEnum.ADMIN) ||
+        user.roles?.includes(RoleEnum.RECEPTIONIST) ||
+        (user.roles?.includes(RoleEnum.DOCTOR) &&
+          appointment.doctor.id === user.doctorId);
+
+      if (!canCheckIn) {
+        throw new ForbiddenException(
+          'Chỉ lễ tân, y tá hoặc bác sĩ mới có thể check-in cho lịch hẹn tại phòng khám',
+        );
+      }
+    } else if (appointment.appointmentType === AppointmentTypeEnum.VIDEO) {
+      const isPatient = appointment.patient.id === user.patientId;
+      const isDoctor = appointment.doctor.id === user.doctorId;
+      const isAdmin = user.roles?.includes(RoleEnum.ADMIN);
+
+      if (!isPatient && !isDoctor && !isAdmin) {
+        throw new ForbiddenException(
+          'Chỉ bệnh nhân hoặc bác sĩ của cuộc hẹn mới có thể check-in',
+        );
+      }
+    }
+
+    const response = await this.appointmentService.checkIn(id);
+    return this.wrapAppointment(response);
+  }
+
+  @Post(':id/check-in/video')
+  @Roles(RoleEnum.PATIENT, RoleEnum.DOCTOR)
+  @ApiOperation({
+    summary: 'Check-in cho cuộc hẹn VIDEO (bệnh nhân hoặc bác sĩ)',
+    description:
+      'Cho phép check-in trước giờ hẹn 1 tiếng để chuẩn bị join video call',
+  })
+  @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
+  @ApiResponse({ status: HttpStatus.OK, type: AppointmentResponseDto })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Không phải VIDEO appointment hoặc chưa đến giờ',
+  })
+  async checkInVideo(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<AppointmentResponseDto>> {
+    const result = await this.appointmentService.findById(id);
+    const appointment = result.data!;
+
+    const isPatient = appointment.patient.id === user.patientId;
+    const isDoctor = appointment.doctor.id === user.doctorId;
+
+    if (!isPatient && !isDoctor && !user.roles?.includes(RoleEnum.ADMIN)) {
+      throw new ForbiddenException('Bạn không có quyền check-in cuộc hẹn này');
+    }
+
+    const response = await this.appointmentService.checkInVideo(id);
     return this.wrapAppointment(response);
   }
 

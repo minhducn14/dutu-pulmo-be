@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import {
   AppointmentResponseDto,
+  AppointmentStatisticsDto,
+  DoctorQueueDto,
   PaginatedAppointmentResponseDto,
 } from '@/modules/appointment/dto/appointment-response.dto';
 import {
@@ -15,6 +17,9 @@ import { AppointmentEntityService } from '@/modules/appointment/services/appoint
 import { AppointmentCreateService } from '@/modules/appointment/services/appointment-create.service';
 import { AppointmentSchedulingService } from '@/modules/appointment/services/appointment-scheduling.service';
 import { AppointmentStatusService } from '@/modules/appointment/services/appointment-status.service';
+import { AppointmentCheckinService } from '@/modules/appointment/services/appointment-checkin.service';
+import { AppointmentStatsService } from '@/modules/appointment/services/appointment-stats.service';
+import { AppointmentCalendarService } from '@/modules/appointment/services/appointment-calendar.service';
 
 @Injectable()
 export class AppointmentService {
@@ -24,6 +29,9 @@ export class AppointmentService {
     private readonly appointmentCreateService: AppointmentCreateService,
     private readonly appointmentSchedulingService: AppointmentSchedulingService,
     private readonly appointmentStatusService: AppointmentStatusService,
+    private readonly appointmentCheckinService: AppointmentCheckinService,
+    private readonly appointmentStatsService: AppointmentStatsService,
+    private readonly appointmentCalendarService: AppointmentCalendarService,
   ) {}
 
   findAll(
@@ -111,4 +119,45 @@ export class AppointmentService {
     return this.appointmentEntityService.hasAnyAppointment(doctorId, patientId);
   }
 
+  checkIn(id: string): Promise<ResponseCommon<AppointmentResponseDto>> {
+    return this.appointmentCheckinService.checkIn(id);
+  }
+
+  checkInVideo(id: string): Promise<ResponseCommon<AppointmentResponseDto>> {
+    return this.appointmentCheckinService.checkInVideo(id);
+  }
+
+  getDoctorQueue(doctorId: string): Promise<ResponseCommon<DoctorQueueDto>> {
+    return this.appointmentStatsService.getDoctorQueue(doctorId);
+  }
+
+  getDoctorStatistics(
+    doctorId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<ResponseCommon<AppointmentStatisticsDto>> {
+    return this.appointmentStatsService.getDoctorStatistics(
+      doctorId,
+      startDate,
+      endDate,
+    );
+  }
+
+  getPatientStatistics(
+    patientId: string,
+  ): Promise<ResponseCommon<AppointmentStatisticsDto>> {
+    return this.appointmentStatsService.getPatientStatistics(patientId);
+  }
+
+  getCalendar(
+    doctorId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<ResponseCommon<AppointmentResponseDto[]>> {
+    return this.appointmentCalendarService.getCalendar(
+      doctorId,
+      startDate,
+      endDate,
+    );
+  }
 }
