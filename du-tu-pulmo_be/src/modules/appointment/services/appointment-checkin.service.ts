@@ -11,14 +11,18 @@ import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status
 import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { AppointmentResponseDto } from '@/modules/appointment/dto/appointment-response.dto';
+import { MedicalService } from '@/modules/medical/medical.service';
+import { MedicalRecord } from '@/modules/medical/entities/medical-record.entity';
+import { DailyService } from '@/modules/video_call/daily.service';
+import { CallStateService } from '@/modules/video_call/call-state.service';
 import { AppointmentReadService } from '@/modules/appointment/services/appointment-read.service';
 import { AppointmentEntityService } from '@/modules/appointment/services/appointment-entity.service';
+import { CompleteExaminationDto } from '@/modules/appointment/dto/update-appointment.dto';
 import {
   endOfDayVN,
   startOfDayVN,
   vnNow,
 } from '@/common/datetime';
-import { CallStateService } from 'src/modules/video_call/call-state.service';
 
 @Injectable()
 export class AppointmentCheckinService {
@@ -27,6 +31,9 @@ export class AppointmentCheckinService {
   constructor(
     @InjectRepository(Appointment)
     private readonly appointmentRepository: Repository<Appointment>,
+    private readonly dataSource: DataSource,
+    private readonly medicalService: MedicalService,
+    private readonly dailyService: DailyService,
     private readonly callStateService: CallStateService,
     private readonly appointmentReadService: AppointmentReadService,
     private readonly appointmentEntityService: AppointmentEntityService,
@@ -113,6 +120,22 @@ export class AppointmentCheckinService {
     );
 
     return this.appointmentReadService.findById(id);
+  }
+
+  async checkInByNumber(
+    appointmentNumber: string,
+  ): Promise<ResponseCommon<AppointmentResponseDto>> {
+    const appointment = await this.appointmentRepository.findOne({
+      where: { appointmentNumber },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException(
+        `Không tìm thấy lịch hẹn với mã ${appointmentNumber}`,
+      );
+    }
+
+    return this.checkIn(appointment.id);
   }
 
   async checkInVideo(

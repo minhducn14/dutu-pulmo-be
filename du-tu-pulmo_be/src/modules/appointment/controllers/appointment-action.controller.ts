@@ -35,6 +35,7 @@ import {
   UpdateStatusDto,
   CancelAppointmentDto,
   RescheduleAppointmentDto,
+  CheckInByNumberDto,
 } from '@/modules/appointment/dto/update-appointment.dto';
 import { AppointmentResponseDto } from '@/modules/appointment/dto/appointment-response.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
@@ -144,6 +145,33 @@ export class AppointmentActionController {
     }
 
     const response = await this.appointmentService.checkIn(id);
+    return this.wrapAppointment(response);
+  }
+
+  @Post('check-in-by-number')
+  @Roles(RoleEnum.ADMIN, RoleEnum.RECEPTIONIST, RoleEnum.DOCTOR)
+  @ApiOperation({
+    summary: 'Check-in bằng mã lịch hẹn (QR code)',
+    description: `
+      Dùng cho lễ tân/bác sĩ quét QR code hoặc nhập mã lịch hẹn để check-in.
+      Endpoint này chỉ hỗ trợ IN_CLINIC appointments.
+    `,
+  })
+  @ApiResponse({ status: HttpStatus.OK, type: AppointmentResponseDto })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Không tìm thấy lịch hẹn với mã này',
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Không thể check-in (sai trạng thái, sai thời gian)',
+  })
+  async checkInByNumber(
+    @Body() dto: CheckInByNumberDto,
+  ): Promise<ResponseCommon<AppointmentResponseDto>> {
+    const response = await this.appointmentService.checkInByNumber(
+      dto.appointmentNumber,
+    );
     return this.wrapAppointment(response);
   }
 

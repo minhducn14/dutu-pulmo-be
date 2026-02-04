@@ -123,6 +123,12 @@ export class AppointmentService {
     return this.appointmentCheckinService.checkIn(id);
   }
 
+  checkInByNumber(
+    appointmentNumber: string,
+  ): Promise<ResponseCommon<AppointmentResponseDto>> {
+    return this.appointmentCheckinService.checkInByNumber(appointmentNumber);
+  }
+
   checkInVideo(id: string): Promise<ResponseCommon<AppointmentResponseDto>> {
     return this.appointmentCheckinService.checkInVideo(id);
   }
