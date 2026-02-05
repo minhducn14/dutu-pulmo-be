@@ -14,7 +14,16 @@ import { PrescriptionItem } from '@/modules/medical/entities/prescription-item.e
 import { Medicine } from '@/modules/medical/entities/medicine.entity';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { ResponseCommon } from '@/common/dto/response.dto';
-import { MEDICAL_ERRORS } from '@/common/constants/error-messages.constant';
+import { RoleEnum } from '@/modules/common/enums/role.enum';
+import type { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
+import {
+  MedicalRecordDetailResponseDto,
+  SignedStatusEnum,
+} from '@/modules/medical/dto/get-medical-record-detail.dto';
+import { SignMedicalRecordDto } from '@/modules/medical/dto/sign-medical-record.dto';
+import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
+import { PrescriptionStatusEnum } from '@/modules/common/enums/prescription-status.enum';
+import { MEDICAL_ERRORS, APPOINTMENT_ERRORS } from '@/common/constants/error-messages.constant';
 
 @Injectable()
 export class MedicalService {
@@ -33,6 +42,168 @@ export class MedicalService {
     private readonly appointmentRepository: Repository<Appointment>,
     private readonly dataSource: DataSource,
   ) {}
+
+  // Medical Records
+  /**
+   * Find records by patient, optionally filtered by doctor
+   */
+  async findRecordsByPatient(
+    patientId: string,
+    doctorId?: string,
+  ): Promise<ResponseCommon<MedicalRecord[]>> {
+    const where: { patientId: string; doctorId?: string } = { patientId };
+    if (doctorId) {
+      where.doctorId = doctorId;
+    }
+    const records = await this.recordRepository.find({
+      where,
+      relations: [
+        'patient',
+        'patient.user',
+        'doctor',
+        'doctor.user',
+        'appointment',
+        'patient',
+        'vitalSigns',
+        'prescriptions',
+        'prescriptions.items',
+        'prescriptions.items.medicine',
+      ],
+      order: { createdAt: 'DESC' },
+    });
+    return new ResponseCommon(HttpStatus.OK, 'Thành công', records);
+  }
+
+  // Internal helper for PatientService (Raw return)
+  async findRecordsByPatientRaw(
+    patientId: string,
+    doctorId?: string,
+  ): Promise<MedicalRecord[]> {
+    const where: { patientId: string; doctorId?: string } = { patientId };
+    if (doctorId) where.doctorId = doctorId;
+    return this.recordRepository.find({
+      where,
+      relations: ['doctor', 'appointment'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async createRecord(
+    data: Partial<MedicalRecord>,
+  ): Promise<ResponseCommon<MedicalRecord>> {
+    const record = this.recordRepository.create({
+      ...data,
+      recordNumber: this.generateRecordNumber(),
+    });
+    const result = await this.recordRepository.save(record);
+    return new ResponseCommon(
+      HttpStatus.CREATED,
+      'Tạo hồ sơ thành công',
+      result,
+    );
+  }
+
+  // Vital Signs
+  async addVitalSign(
+    data: Partial<VitalSign>,
+  ): Promise<ResponseCommon<VitalSign>> {
+    const vitalSign = this.vitalSignRepository.create(data);
+    const result = await this.vitalSignRepository.save(vitalSign);
+    return new ResponseCommon(
+      HttpStatus.CREATED,
+      'Ghi nhận thành công',
+      result,
+    );
+  }
+
+  /**
+   * Find vital signs by patient, ensuring doctor access rules
+   */
+  async findVitalSignsByPatient(
+    patientId: string,
+    doctorId?: string,
+  ): Promise<ResponseCommon<VitalSign[]>> {
+    const qb = this.vitalSignRepository.createQueryBuilder('vs');
+    qb.leftJoinAndSelect('vs.medicalRecord', 'mr');
+    qb.where('vs.patientId = :patientId', { patientId });
+
+    if (doctorId) {
+      // Strict filtering: Only vital signs linked to records created by this doctor
+      qb.andWhere('mr.doctorId = :doctorId', { doctorId });
+    }
+
+    qb.orderBy('vs.createdAt', 'DESC');
+    qb.take(100);
+
+    const data = await qb.getMany();
+    return new ResponseCommon(HttpStatus.OK, 'Thành công', data);
+  }
+
+  // Internal for PatientService
+  async findVitalSignsByPatientRaw(patientId: string): Promise<VitalSign[]> {
+    return this.vitalSignRepository.find({
+      where: { patientId },
+      order: { createdAt: 'DESC' },
+      take: 100,
+    });
+  }
+
+  // Prescriptions
+  async createPrescription(
+    data: Partial<Prescription>,
+  ): Promise<ResponseCommon<Prescription>> {
+    const prescription = this.prescriptionRepository.create({
+      ...data,
+      prescriptionNumber: this.generatePrescriptionNumber(),
+    });
+    const result = await this.prescriptionRepository.save(prescription);
+    return new ResponseCommon(
+      HttpStatus.CREATED,
+      'Tạo đơn thuốc thành công',
+      result,
+    );
+  }
+
+  async addPrescriptionItem(
+    data: Partial<PrescriptionItem>,
+  ): Promise<ResponseCommon<PrescriptionItem>> {
+    const item = this.prescriptionItemRepository.create(data);
+    const result = await this.prescriptionItemRepository.save(item);
+    return new ResponseCommon(
+      HttpStatus.CREATED,
+      'Thêm thuốc thành công',
+      result,
+    );
+  }
+
+  async findPrescriptionsByPatient(
+    patientId: string,
+    doctorId?: string,
+  ): Promise<ResponseCommon<Prescription[]>> {
+    const where: { patientId: string; doctorId?: string } = { patientId };
+
+    if (doctorId) {
+      where.doctorId = doctorId;
+    }
+
+    const data = await this.prescriptionRepository.find({
+      where,
+      relations: ['items', 'doctor'],
+      order: { createdAt: 'DESC' },
+    });
+    return new ResponseCommon(HttpStatus.OK, 'Thành công', data);
+  }
+
+  // Internal for PatientService
+  async findPrescriptionsByPatientRaw(
+    patientId: string,
+  ): Promise<Prescription[]> {
+    return this.prescriptionRepository.find({
+      where: { patientId },
+      relations: ['items', 'doctor'],
+      order: { createdAt: 'DESC' },
+    });
+  }
 
   // ============================================================================
   // RECORD NUMBER GENERATION
@@ -54,6 +225,7 @@ export class MedicalService {
   // ENCOUNTER MANAGEMENT
   // ============================================================================
 
+  // KEEP RAW: Used in Transaction by AppointmentService
   async upsertEncounterInTx(
     manager: EntityManager,
     appointment: Appointment,
@@ -98,4 +270,522 @@ export class MedicalService {
     return new ResponseCommon(HttpStatus.OK, 'Thành công', record);
   }
 
+  async updateEncounterByAppointment(
+    appointmentId: string,
+    data: Partial<MedicalRecord> & {
+      followUpRequired?: boolean;
+      nextAppointmentDate?: string;
+      followUpNotes?: string;
+    },
+  ): Promise<ResponseCommon<MedicalRecord>> {
+    // Wrap in transaction to ensure atomicity between medical record and appointment updates
+    return this.dataSource.transaction(async (manager) => {
+      const appointment = await manager.findOne(Appointment, {
+        where: { id: appointmentId },
+      });
+      if (!appointment) {
+        throw new NotFoundException(APPOINTMENT_ERRORS.APPOINTMENT_NOT_FOUND);
+      }
+
+      let record = await manager.findOne(MedicalRecord, {
+        where: { appointmentId },
+      });
+
+      // Valid statuses for editing
+      const canEdit = [
+        AppointmentStatusEnum.IN_PROGRESS,
+        AppointmentStatusEnum.COMPLETED,
+        AppointmentStatusEnum.CHECKED_IN, // Allow prepping before start
+        AppointmentStatusEnum.CONFIRMED, // Allow prepping before start
+      ].includes(appointment.status);
+
+      if (!canEdit && !record) {
+        throw new BadRequestException(
+          `Không thể tạo hồ sơ bệnh án khi lịch hẹn ở trạng thái ${appointment.status}`,
+        );
+      }
+
+      if (!record) {
+        // Create new if missing (Upsert)
+        record = manager.create(MedicalRecord, {
+          appointmentId: appointment.id,
+          patientId: appointment.patientId,
+          doctorId: appointment.doctorId,
+          recordNumber: this.generateRecordNumber(),
+          chiefComplaint:
+            data.chiefComplaint || appointment.chiefComplaint || null,
+          presentIllness: data.presentIllness || appointment.patientNotes || null,
+          medicalHistory: data.medicalHistory || null,
+          physicalExamNotes: data.physicalExamNotes || null,
+          assessment: data.assessment || null,
+          treatmentPlan: data.treatmentPlan || null,
+          diagnosisNotes: data.diagnosisNotes || null,
+        });
+        record = await manager.save(record);
+      }
+
+      // Update fields
+      Object.assign(record, data);
+
+      // Only update sensitive fields if provided (don't overwrite with undefined if Partial)
+      // Note: Object.assign handles this well for defined keys in data.
+
+      const result = await manager.save(record);
+
+      // Update appointment fields
+      let apptChanged = false;
+      if (
+        data.chiefComplaint &&
+        data.chiefComplaint !== appointment.chiefComplaint
+      ) {
+        appointment.chiefComplaint = data.chiefComplaint;
+        apptChanged = true;
+      }
+      if (
+        data.presentIllness &&
+        data.presentIllness !== appointment.patientNotes
+      ) {
+        appointment.patientNotes = data.presentIllness;
+        apptChanged = true;
+      }
+      if (
+        data.followUpRequired !== undefined &&
+        data.followUpRequired !== appointment.followUpRequired
+      ) {
+        appointment.followUpRequired = data.followUpRequired;
+        apptChanged = true;
+      }
+      if (data.nextAppointmentDate) {
+        appointment.nextAppointmentDate = new Date(data.nextAppointmentDate);
+        apptChanged = true;
+      }
+
+      if (apptChanged) {
+        await manager.save(appointment);
+      }
+
+      return new ResponseCommon(HttpStatus.OK, 'Cập nhật thành công', result);
+    });
+  }
+
+  // ============================================================================
+  // ENCOUNTER-BASED VITAL SIGNS & PRESCRIPTIONS
+  // ============================================================================
+
+  async addVitalSignToEncounter(
+    encounterId: string,
+    patientId: string,
+    data: Partial<VitalSign>,
+  ): Promise<ResponseCommon<VitalSign>> {
+    const vitalSign = this.vitalSignRepository.create({
+      ...data,
+      patientId,
+      medicalRecordId: encounterId,
+    });
+    const result = await this.vitalSignRepository.save(vitalSign);
+    return new ResponseCommon(
+      HttpStatus.CREATED,
+      'Ghi nhận thành công',
+      result,
+    );
+  }
+
+  async createPrescriptionForEncounter(
+    encounterId: string,
+    patientId: string,
+    doctorId: string,
+    appointmentId: string,
+    data: {
+      diagnosis?: string;
+      notes?: string;
+      items: Array<{
+        medicineId?: string;
+        medicineName: string;
+        dosage: string;
+        frequency: string;
+        duration: string;
+        unit?: string;
+        quantity?: number;
+        instructions?: string;
+      }>;
+    },
+  ): Promise<ResponseCommon<Prescription>> {
+    const combinedNotes = [
+      data.diagnosis ? `Chẩn đoán: ${data.diagnosis}` : null,
+      data.notes,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    const prescription = this.prescriptionRepository.create({
+      prescriptionNumber: this.generatePrescriptionNumber(),
+      patientId,
+      doctorId,
+      medicalRecordId: encounterId,
+      appointmentId,
+      notes: combinedNotes,
+    });
+
+    const savedPrescription =
+      await this.prescriptionRepository.save(prescription);
+
+    const medicineIds = data.items
+      .map((i) => i.medicineId)
+      .filter(Boolean) as string[];
+    let medicineMap = new Map<string, Medicine>();
+    if (medicineIds.length > 0) {
+      const medicines = await this.medicineRepository.findBy({
+        id: In(medicineIds),
+      });
+      medicineMap = new Map(medicines.map((m) => [m.id, m]));
+    }
+
+    const startDate = new Date();
+
+    const itemEntities = data.items.map((item) => {
+      let finalName = item.medicineName;
+      let finalUnit = item.unit;
+      if (item.medicineId) {
+        const medicine = medicineMap.get(item.medicineId);
+        if (!medicine) {
+          throw new NotFoundException(
+            MEDICAL_ERRORS.MEDICINE_NOT_FOUND,
+          );
+        }
+        finalName = medicine.name;
+        finalUnit = finalUnit || medicine.unit;
+      } else {
+        if (!finalName) {
+          throw new BadRequestException(
+            'Tên thuốc là bắt buộc nếu không chọn từ danh mục',
+          );
+        }
+      }
+
+      const durationDays = parseInt(item.duration) || 1;
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + durationDays);
+
+      return this.prescriptionItemRepository.create({
+        prescription: savedPrescription,
+        medicineId: item.medicineId || undefined,
+        medicineName: finalName,
+        dosage: item.dosage,
+        frequency: item.frequency,
+        durationDays: durationDays,
+        quantity: item.quantity || 0,
+        instructions: item.instructions,
+        startDate: startDate,
+        endDate: endDate,
+        unit: finalUnit || 'viên',
+      });
+    });
+
+    await this.prescriptionItemRepository.save(itemEntities);
+
+    const result = await this.prescriptionRepository.findOne({
+      where: { id: savedPrescription.id },
+      relations: ['items', 'doctor'],
+    });
+
+    return new ResponseCommon(
+      HttpStatus.CREATED,
+      'Kê đơn thành công',
+      result as Prescription,
+    );
+  }
+
+  async cancelPrescription(
+    prescriptionId: string,
+    user: JwtUser,
+  ): Promise<ResponseCommon<Prescription>> {
+    const prescription = await this.prescriptionRepository.findOne({
+      where: { id: prescriptionId },
+      relations: ['doctor'],
+    });
+
+    if (!prescription) {
+      throw new NotFoundException(MEDICAL_ERRORS.PRESCRIPTION_NOT_FOUND);
+    }
+
+    // Permission Check
+    if (!user.roles?.includes(RoleEnum.ADMIN)) {
+      if (user.roles?.includes(RoleEnum.DOCTOR)) {
+        if (prescription.doctor?.id !== user.doctorId) {
+          throw new ForbiddenException(MEDICAL_ERRORS.CANCEL_PRESCRIPTION_FORBIDDEN);
+        }
+      } else {
+        throw new ForbiddenException(MEDICAL_ERRORS.ACCESS_DENIED_MEDICAL);
+      }
+    }
+
+    if (prescription.status === PrescriptionStatusEnum.FILLED) {
+      throw new BadRequestException(MEDICAL_ERRORS.CANNOT_CANCEL_DISPENSED);
+    }
+
+    prescription.status = PrescriptionStatusEnum.CANCELLED;
+    const result = await this.prescriptionRepository.save(prescription);
+
+    return new ResponseCommon(
+      HttpStatus.OK,
+      'Hủy đơn thuốc thành công',
+      result,
+    );
+  }
+
+  async updatePrescription(
+    prescriptionId: string,
+    dto: {
+      diagnosis?: string;
+      notes?: string;
+        items: Array<{
+        medicineId?: string;
+        medicineName: string;
+        dosage: string;
+        frequency: string;
+        duration: string;
+        unit?: string;
+        quantity?: number;
+        instructions?: string;
+      }>;
+    },
+    user: JwtUser,
+  ): Promise<ResponseCommon<Prescription>> {
+    const prescription = await this.prescriptionRepository.findOne({
+      where: { id: prescriptionId },
+      relations: ['doctor', 'items'],
+    });
+
+    if (!prescription) {
+      throw new NotFoundException(MEDICAL_ERRORS.PRESCRIPTION_NOT_FOUND);
+    }
+
+    // Permission Check
+    if (!user.roles?.includes(RoleEnum.ADMIN)) {
+      if (user.roles?.includes(RoleEnum.DOCTOR)) {
+        if (prescription.doctor?.id !== user.doctorId) {
+          throw new ForbiddenException(
+            MEDICAL_ERRORS.EDIT_PRESCRIPTION_FORBIDDEN,
+          );
+        }
+      } else {
+        throw new ForbiddenException(MEDICAL_ERRORS.ACCESS_DENIED_MEDICAL);
+      }
+    }
+
+    if (prescription.status !== PrescriptionStatusEnum.ACTIVE) {
+      throw new BadRequestException(
+        MEDICAL_ERRORS.INVALID_PRESCRIPTION_STATUS,
+      );
+    }
+
+    // Prepare Update
+    prescription.notes = dto.notes || '';
+
+    // Transaction: Save Prescription -> Delete Items -> Create Items
+    await this.prescriptionRepository.manager.transaction(async (manager) => {
+      await manager.save(prescription);
+
+      // Delete old items
+      await manager.delete(PrescriptionItem, { prescriptionId });
+
+      // Prepare new items
+      const medicineIds = dto.items
+        .map((i) => i.medicineId)
+        .filter(Boolean) as string[];
+      let medicineMap = new Map<string, Medicine>();
+      if (medicineIds.length > 0) {
+        const medicines = await this.medicineRepository.findBy({
+          id: In(medicineIds),
+        });
+        medicineMap = new Map(medicines.map((m) => [m.id, m]));
+      }
+
+      const startDate = new Date();
+      const itemEntities = dto.items.map((item) => {
+        let finalName = item.medicineName;
+        if (item.medicineId) {
+          const medicine = medicineMap.get(item.medicineId);
+          if (!medicine)
+            throw new NotFoundException(
+              MEDICAL_ERRORS.MEDICINE_NOT_FOUND,
+            );
+          finalName = medicine.name;
+        }
+
+        const durationDays = parseInt(item.duration) || 1;
+        const endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + durationDays);
+
+        return this.prescriptionItemRepository.create({
+          prescription: prescription,
+          medicineId: item.medicineId || undefined,
+          medicineName: finalName,
+          dosage: item.dosage,
+          frequency: item.frequency,
+          durationDays: durationDays,
+          quantity: item.quantity || 0,
+          instructions: item.instructions,
+          startDate: startDate,
+          endDate: endDate,
+          unit: item.unit || 'viên',
+        });
+      });
+
+      await manager.save(PrescriptionItem, itemEntities);
+    });
+
+    const result = await this.prescriptionRepository.findOne({
+      where: { id: prescriptionId },
+      relations: ['items', 'doctor'],
+    });
+
+    return new ResponseCommon(
+      HttpStatus.OK,
+      'Cập nhật đơn thuốc thành công',
+      result as Prescription,
+    );
+  }
+
+  // KEEP RAW (Internal usage)
+  async getLatestVitalSign(patientId: string): Promise<VitalSign | null> {
+    return this.vitalSignRepository.findOne({
+      where: { patientId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  // ============================================================================
+  // MEDICAL RECORD DETAIL (Read-only Page)
+  // ============================================================================
+
+  async getMedicalRecordDetail(
+    recordId: string,
+    user: JwtUser,
+  ): Promise<ResponseCommon<MedicalRecordDetailResponseDto>> {
+    const record = await this.recordRepository.findOne({
+      where: { id: recordId },
+      relations: [
+        'patient',
+        'patient.user',
+        'doctor',
+        'doctor.user',
+        'appointment',
+        'vitalSigns',
+        'prescriptions',
+        'prescriptions.items',
+      ],
+    });
+
+    if (!record) {
+      throw new NotFoundException(MEDICAL_ERRORS.MEDICAL_RECORD_NOT_FOUND);
+    }
+
+    // Permission check
+    if (user.roles?.includes(RoleEnum.PATIENT)) {
+      if (user.patientId !== record.patientId) {
+        throw new ForbiddenException(
+          MEDICAL_ERRORS.ACCESS_DENIED_MEDICAL,
+        );
+      }
+    } else if (user.roles?.includes(RoleEnum.DOCTOR)) {
+      if (user.doctorId !== record.doctorId) {
+        throw new ForbiddenException(MEDICAL_ERRORS.ACCESS_DENIED_MEDICAL);
+      }
+    } else if (!user.roles?.includes(RoleEnum.ADMIN)) {
+      throw new ForbiddenException(MEDICAL_ERRORS.ACCESS_DENIED_MEDICAL);
+    }
+
+    // Get latest vital sign
+    const latestVitalSign = record.vitalSigns?.[0] || ({} as VitalSign);
+
+    // Build response
+    const response: MedicalRecordDetailResponseDto = {
+      id: record.id,
+      recordNumber: record.recordNumber,
+      patient: {
+        id: record.patient.id,
+        fullName: record.patient.user?.fullName || 'N/A',
+        gender: record.patient.user?.gender || 'N/A',
+        dateOfBirth: record.patient.user?.dateOfBirth || new Date(),
+      },
+      doctor: {
+        id: record.doctor?.id || '',
+        fullName: record.doctor?.user?.fullName || 'N/A',
+      },
+      appointment: {
+        id: record.appointment?.id || '',
+        appointmentNumber: record.appointment?.appointmentNumber || '',
+        status: record.appointment?.status || '',
+        scheduledAt: record.appointment?.scheduledAt || new Date(),
+      },
+      signedStatus:
+        (record.signedStatus as SignedStatusEnum) ||
+        SignedStatusEnum.NOT_SIGNED,
+      signedAt: record.signedAt || undefined,
+      digitalSignature: record.digitalSignature || undefined,
+      recordType: record.recordType || 'Bệnh án Ngoại trú chung',
+      specialty: record.specialty || undefined,
+      createdAt: record.createdAt,
+      patientCategory: record.patientCategory || undefined,
+      insuranceNumber: record.insuranceNumber || undefined,
+      insuranceExpiry: record.insuranceExpiry || undefined,
+      emergencyContactName: record.emergencyContactName || undefined,
+      emergencyContactPhone: record.emergencyContactPhone || undefined,
+      emergencyContactAddress: record.emergencyContactAddress || undefined,
+      referralDiagnosis: record.referralDiagnosis || undefined,
+      chiefComplaint: record.chiefComplaint || undefined,
+      vitalSigns: {
+        pulse: latestVitalSign.heartRate,
+        temperature: latestVitalSign.temperature
+          ? Number(latestVitalSign.temperature)
+          : undefined,
+        respiratoryRate: latestVitalSign.respiratoryRate,
+        weight: latestVitalSign.weight,
+        bloodPressure: latestVitalSign.bloodPressure,
+        heartRate: latestVitalSign.heartRate,
+        height: latestVitalSign.height,
+        bmi: latestVitalSign.bmi ? Number(latestVitalSign.bmi) : undefined,
+      },
+      presentIllness: record.presentIllness || undefined,
+      medicalHistory: record.medicalHistory || undefined,
+      familyHistory: record.familyHistory || undefined,
+      physicalExamNotes: record.physicalExamNotes || undefined,
+      systemsReview: record.systemsReview || undefined,
+      labSummary: record.labSummary || undefined,
+      initialDiagnosis: record.initialDiagnosis || undefined,
+      treatmentGiven: record.treatmentGiven || undefined,
+      dischargeDiagnosis: record.dischargeDiagnosis || undefined,
+      treatmentStartDate: record.treatmentStartDate || undefined,
+      treatmentEndDate: record.treatmentEndDate || undefined,
+      prescriptions:
+        record.prescriptions?.map((p) => ({
+          id: p.id,
+          prescriptionNumber: p.prescriptionNumber,
+          items:
+            p.items?.map((item) => ({
+              medicineName: item.medicineName,
+              quantity: item.quantity,
+              unit: item.unit || 'viên',
+              dosage: item.dosage,
+              frequency: item.frequency,
+              duration: `${item.durationDays} ngày`,
+            })) || [],
+          notes: p.notes || undefined,
+          createdAt: p.createdAt,
+        })) || [],
+      progressNotes: record.progressNotes || undefined,
+      significantLabFindings: record.significantLabFindings || undefined,
+      primaryDiagnosis: record.primaryDiagnosis || undefined,
+      secondaryDiagnosis: record.secondaryDiagnosis || undefined,
+      treatmentPlan: record.treatmentPlan || undefined,
+      dischargeCondition: record.dischargeCondition || undefined,
+      followUpInstructions: record.followUpInstructions || undefined,
+      imagingRecords: record.imagingRecords || undefined,
+      status: record.appointment?.status || 'UNKNOWN',
+      updatedAt: record.updatedAt,
+    };
+
+    return new ResponseCommon(HttpStatus.OK, 'Thành công', response);
+  }
 }
