@@ -166,4 +166,10 @@ export class AppointmentService {
       endDate,
     );
   }
+
+  startExamination(
+    id: string,
+  ): Promise<ResponseCommon<AppointmentResponseDto>> {
+    return this.appointmentCheckinService.startExamination(id);
+  }
 }

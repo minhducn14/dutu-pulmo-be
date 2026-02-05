@@ -360,4 +360,32 @@ export class AppointmentActionController {
       AppointmentResponseDto.fromData(response.data as AppointmentResponseDto),
     );
   }
+
+  @Post(':id/start-examination')
+  @Roles(RoleEnum.DOCTOR)
+  @ApiOperation({ summary: 'Bác sĩ bắt đầu khám bệnh' })
+  @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
+  @ApiResponse({ status: HttpStatus.OK, type: AppointmentResponseDto })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Không thể bắt đầu khám (sai trạng thái)',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Không phải bác sĩ của cuộc hẹn này',
+  })
+  async startExamination(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<AppointmentResponseDto>> {
+    const result = await this.appointmentService.findById(id);
+    const appointment = result.data!;
+
+    if (appointment.doctor.id !== user.doctorId) {
+      throw new ForbiddenException('Bạn chỉ có thể khám bệnh nhân của mình');
+    }
+
+    const response = await this.appointmentService.startExamination(id);
+    return this.wrapAppointment(response);
+  }
 }

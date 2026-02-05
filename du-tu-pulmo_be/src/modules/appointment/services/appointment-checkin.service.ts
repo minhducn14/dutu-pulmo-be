@@ -190,4 +190,37 @@ export class AppointmentCheckinService {
     return this.appointmentReadService.findById(id);
   }
 
+  async startExamination(
+    id: string,
+  ): Promise<ResponseCommon<AppointmentResponseDto>> {
+    return this.dataSource.transaction(async (manager) => {
+      const appointment = await manager.findOne(Appointment, {
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!appointment) {
+        throw new NotFoundException('Appointment not found');
+      }
+
+      if (appointment.status !== AppointmentStatusEnum.CHECKED_IN) {
+        throw new BadRequestException(
+          `Không thể bắt đầu khám từ trạng thái ${appointment.status}. ` +
+            'Chỉ có thể bắt đầu khám khi ở trạng thái CHECKED_IN',
+        );
+      }
+
+      appointment.status = AppointmentStatusEnum.IN_PROGRESS;
+      appointment.startedAt = new Date();
+      await manager.save(appointment);
+
+      await this.medicalService.upsertEncounterInTx(manager, appointment);
+
+      this.logger.log(`Examination started for appointment ${id}`);
+
+      return this.appointmentReadService.findById(id);
+    });
+  }
+
+  
 }
