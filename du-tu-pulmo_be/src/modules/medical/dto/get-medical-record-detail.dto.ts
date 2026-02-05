@@ -139,30 +139,7 @@ export class MedicalRecordDetailResponseDto {
     createdAt: Date;
   }>;
 
-  @ApiProperty({ description: 'Kết quả CLS files', type: Array })
-  labResults: Array<{
-    id: string;
-    fileName: string;
-    fileUrl: string;
-    uploadedAt: Date;
-  }>;
-
-  // TAB 3: PHIẾU CHĂM SÓC
-  @ApiProperty({ description: 'Lịch sử chăm sóc', type: Array })
-  careLogs: Array<{
-    id: string;
-    createdDate: Date;
-    createdTime: string;
-    weight?: number;
-    temperature?: number;
-    bloodPressure?: string;
-    heartRate?: number;
-    respiratoryRate?: number;
-    spo2?: number;
-    bmi?: number;
-  }>;
-
-  // TAB 4: TỔNG KẾT
+  // TAB 3: TỔNG KẾT
   @ApiPropertyOptional({ description: 'Quá trình bệnh lý và diễn biến' })
   progressNotes?: string;
 
