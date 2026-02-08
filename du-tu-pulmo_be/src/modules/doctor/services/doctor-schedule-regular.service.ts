@@ -17,11 +17,9 @@ import { DoctorSchedule } from '@/modules/doctor/entities/doctor-schedule.entity
 import { Doctor } from '@/modules/doctor/entities/doctor.entity';
 import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
-import {
-  BulkUpdateDoctorSchedulesDto,
-  CreateDoctorScheduleDto,
-  UpdateDoctorScheduleDto,
-} from '@/modules/doctor/dto/doctor-schedule.dto';
+import { BulkUpdateDoctorSchedulesDto } from '@/modules/doctor/dto/bulk-update-doctor-schedules.dto';
+import { CreateDoctorScheduleDto } from '@/modules/doctor/dto/create-doctor-schedule.dto';
+import { UpdateDoctorScheduleDto } from '@/modules/doctor/dto/update-doctor-schedule.dto';
 import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import { ResponseCommon } from '@/common/dto/response.dto';

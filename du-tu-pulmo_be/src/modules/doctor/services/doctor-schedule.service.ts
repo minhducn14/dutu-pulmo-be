@@ -1,9 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ResponseCommon } from '@/common/dto/response.dto';
-import {
-  CreateDoctorScheduleDto,
-  UpdateDoctorScheduleDto,
-} from '@/modules/doctor/dto/doctor-schedule.dto';
+import { CreateDoctorScheduleDto } from '@/modules/doctor/dto/create-doctor-schedule.dto';
+import { UpdateDoctorScheduleDto } from '@/modules/doctor/dto/update-doctor-schedule.dto';
 import {
   CreateFlexibleScheduleDto,
   UpdateFlexibleScheduleDto,

@@ -6,10 +6,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { DoctorSchedule } from '@/modules/doctor/entities/doctor-schedule.entity';
-import {
-  CreateDoctorScheduleDto,
-  UpdateDoctorScheduleDto,
-} from '@/modules/doctor/dto/doctor-schedule.dto';
+import { CreateDoctorScheduleDto } from '@/modules/doctor/dto/create-doctor-schedule.dto';
+import { UpdateDoctorScheduleDto } from '@/modules/doctor/dto/update-doctor-schedule.dto';
 import { SCHEDULE_TYPE_PRIORITY } from '@/modules/common/enums/schedule-type.enum';
 
 @Injectable()

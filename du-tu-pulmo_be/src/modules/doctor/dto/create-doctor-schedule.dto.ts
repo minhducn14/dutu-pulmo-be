@@ -11,13 +11,9 @@ import {
   IsDateString,
   MaxLength,
 } from 'class-validator';
-import { Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, ValidateNested } from 'class-validator';
-import { ScheduleType } from '@/modules/common/enums/schedule-type.enum';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
 import { IsValidBookingWindow } from '@/modules/doctor/validators/is-valid-booking-window.decorator';
-import { PartialType } from '@nestjs/mapped-types';
 
 /**
  * DTO for creating a regular (fixed) doctor schedule.
@@ -148,72 +144,4 @@ export class CreateDoctorScheduleDto {
   @IsOptional()
   @IsDateString()
   effectiveUntil?: string;
-}
-
-/**
- * DTO for updating a doctor schedule (all fields optional).
- */
-export class UpdateDoctorScheduleDto extends PartialType(CreateDoctorScheduleDto) {
-  @ApiProperty({
-    description: 'ID của lịch cần cập nhật (UUID)',
-    example: '550e8400-e29b-41d4-a716-446655440000',
-  })
-  @IsString()
-  id: string;
-}
-/**
- * DTO for bulk creating multiple doctor schedules in one request.
- * Useful for setting up weekly schedules with multiple time slots per day.
- */
-export class BulkCreateDoctorSchedulesDto {
-  @ApiProperty({
-    description: 'Danh sách lịch làm việc cần tạo (tối đa 20)',
-    type: [CreateDoctorScheduleDto],
-    example: [
-      {
-        dayOfWeek: 1,
-        startTime: '09:00',
-        endTime: '12:00',
-        appointmentType: 'IN_CLINIC',
-      },
-      {
-        dayOfWeek: 1,
-        startTime: '13:00',
-        endTime: '17:00',
-        appointmentType: 'IN_CLINIC',
-      },
-    ],
-  })
-  @ValidateNested({ each: true })
-  @Type(() => CreateDoctorScheduleDto)
-  @ArrayMinSize(1, { message: 'Phải có ít nhất 1 lịch làm việc' })
-  @ArrayMaxSize(20, { message: 'Tối đa 20 lịch làm việc mỗi request' })
-  schedules: CreateDoctorScheduleDto[];
-}
-
-/**
- * DTO for bulk updating multiple doctor schedules in one request.
- * Cho phép cập nhật nhiều lịch REGULAR cùng lúc.
- */
-export class BulkUpdateDoctorSchedulesDto {
-  @ApiProperty({
-    description: 'Danh sách lịch làm việc cần cập nhật (tối đa 20)',
-    type: [UpdateDoctorScheduleDto],
-    example: [
-      {
-        id: '550e8400-e29b-41d4-a716-446655440000',
-        startTime: '08:00',
-        endTime: '12:00',
-      },
-      {
-        id: '550e8400-e29b-41d4-a716-446655440001',
-        isAvailable: false,
-      },
-    ],
-  })
-  @ValidateNested({ each: true })
-  @Type(() => UpdateDoctorScheduleDto)
-  @ArrayMinSize(1, { message: 'Phải có ít nhất 1 lịch làm việc' })
-  @ArrayMaxSize(20, { message: 'Tối đa 20 lịch làm việc mỗi request' })
-  schedules: UpdateDoctorScheduleDto[];
 }

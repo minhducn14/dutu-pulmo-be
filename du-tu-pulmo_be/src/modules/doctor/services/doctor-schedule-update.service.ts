@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { DoctorSchedule } from '@/modules/doctor/entities/doctor-schedule.entity';
 import { ResponseCommon } from '@/common/dto/response.dto';
-import { UpdateDoctorScheduleDto } from '@/modules/doctor/dto/doctor-schedule.dto';
+import { UpdateDoctorScheduleDto } from '@/modules/doctor/dto/update-doctor-schedule.dto';
 import { DoctorScheduleHelperService } from '@/modules/doctor/services/doctor-schedule-helper.service';
 import { DoctorScheduleQueryService } from '@/modules/doctor/services/doctor-schedule-query.service';
 

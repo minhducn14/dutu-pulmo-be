@@ -236,6 +236,7 @@ export class DoctorSchedulePreviewService {
     for (const apt of futureAppointments) {
       const aptDate = apt.scheduledAt;
       
+      // Calculate start/end based on aptDate's VN Day
       const baseDate = startOfDayVN(aptDate);
       
       const newScheduleStart = new Date(baseDate.getTime() + (newStartH * 60 + newStartM) * 60000);

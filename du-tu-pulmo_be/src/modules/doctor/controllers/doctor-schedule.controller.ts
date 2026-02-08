@@ -26,20 +26,15 @@ import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
 import { DoctorOwnershipGuard } from '@/modules/core/auth/guards/doctor-ownership.guard';
 import { Roles } from '@/common/decorators/roles.decorator';
 import { RoleEnum } from '@/modules/common/enums/role.enum';
-import {
-  CreateDoctorScheduleDto,
-  UpdateDoctorScheduleDto,
-  BulkCreateDoctorSchedulesDto,
-  BulkUpdateDoctorSchedulesDto,
-} from '@/modules/doctor/dto/doctor-schedule.dto';
+import { CreateDoctorScheduleDto } from '@/modules/doctor/dto/create-doctor-schedule.dto';
+import { UpdateDoctorScheduleDto } from '@/modules/doctor/dto/update-doctor-schedule.dto';
+import { BulkCreateDoctorSchedulesDto } from '@/modules/doctor/dto/bulk-create-doctor-schedules.dto';
+import { BulkUpdateDoctorSchedulesDto } from '@/modules/doctor/dto/bulk-update-doctor-schedules.dto';
 import {
   CreateFlexibleScheduleDto,
   UpdateFlexibleScheduleDto,
 } from '@/modules/doctor/dto/flexible-schedule.dto';
-import {
-  CreateTimeOffDto,
-  UpdateTimeOffDto,
-} from '@/modules/doctor/dto/time-off.dto';
+import { CreateTimeOffDto, UpdateTimeOffDto } from '@/modules/doctor/dto/time-off.dto';
 import {
   PreviewFlexibleScheduleConflictsDto,
   PreviewTimeOffConflictsDto,

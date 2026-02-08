@@ -38,7 +38,7 @@ import {
 import { TimeSlotResponseDto } from '@/modules/doctor/dto/schedule-response.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
 
-@ApiTags('Public Time Slots')
+@ApiTags('Time Slots')
 @Controller('public/doctors/:doctorId/time-slots')
 export class PublicTimeSlotController {
   constructor(private readonly timeSlotService: TimeSlotService) {}

@@ -102,6 +102,7 @@ export class UpdateTimeSlotDto {
   @IsOptional()
   @IsDateString()
   endTime?: string;
+  @ApiPropertyOptional()
 
   // @ApiPropertyOptional({
   //   description: 'Các loại hình khám được phép',
@@ -195,4 +196,37 @@ export class DisableSlotsForDayDto {
   })
   @IsDateString()
   date: string;
+}
+
+/**
+ * DTO for querying availability summary.
+ */
+export class AvailabilitySummaryQueryDto {
+  @ApiProperty({
+    description: 'Ngày bắt đầu (YYYY-MM-DD)',
+    example: '2026-03-13',
+  })
+  @IsDateString()
+  from: string;
+
+  @ApiProperty({
+    description: 'Ngày kết thúc (YYYY-MM-DD)',
+    example: '2026-03-20',
+  })
+  @IsDateString()
+  to: string;
+}
+
+/**
+ * DTO for availability summary response.
+ */
+export class AvailabilitySummaryResponseDto {
+  @ApiProperty({ description: 'Ngày (YYYY-MM-DD)' })
+  date: string;
+
+  @ApiProperty({ description: 'Số lượng slot còn trống' })
+  count: number;
+
+  @ApiProperty({ description: 'Có slot nào trống không' })
+  hasAvailability: boolean;
 }

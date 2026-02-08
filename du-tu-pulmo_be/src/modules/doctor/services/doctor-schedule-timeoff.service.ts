@@ -13,7 +13,7 @@ import {
   CreateTimeOffDto,
   UpdateTimeOffDto,
 } from '@/modules/doctor/dto/time-off.dto';
-import { UpdateDoctorScheduleDto } from '@/modules/doctor/dto/doctor-schedule.dto';
+import { UpdateDoctorScheduleDto } from '@/modules/doctor/dto/update-doctor-schedule.dto';
 import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import { ResponseCommon } from '@/common/dto/response.dto';
