@@ -146,48 +146,8 @@ export class AiAnalysis {
   })
   confidenceScore: number;
 
-  @Column({ name: 'alternative_predictions', type: 'jsonb', nullable: true })
-  alternativePredictions: { condition: string; score: number }[];
-
-  @Column({ name: 'heatmap_url', length: 500, nullable: true })
-  heatmapUrl: string;
-
-  @Column({ name: 'gradcam_url', length: 500, nullable: true })
-  gradcamUrl: string;
-
-  @Column({ name: 'detection_boxes', type: 'jsonb', nullable: true })
-  detectionBoxes: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    label: string;
-    confidence: number;
-  }[];
-
-  @Column({ name: 'segmentation_mask_url', length: 500, nullable: true })
-  segmentationMaskUrl: string;
-
-  @Column({ name: 'processing_time_ms', type: 'integer', nullable: true })
-  processingTimeMs: number;
-
-  @Column({ name: 'gpu_used', length: 50, nullable: true })
-  gpuUsed: string;
-
-  @Column({ name: 'memory_used_mb', type: 'integer', nullable: true })
-  memoryUsedMb: number;
-
-  @Column({ name: 'image_quality_passed', default: true })
-  imageQualityPassed: boolean;
-
-  @Column({ name: 'quality_issues', type: 'text', array: true, nullable: true })
-  qualityIssues: string[];
-
   @Column({ name: 'raw_predictions', type: 'jsonb', nullable: true })
   rawPredictions: Record<string, any>;
-
-  @Column({ name: 'feature_importance', type: 'jsonb', nullable: true })
-  featureImportance: Record<string, number>;
 
   @Column({ name: 'error_message', type: 'text', nullable: true })
   errorMessage: string;

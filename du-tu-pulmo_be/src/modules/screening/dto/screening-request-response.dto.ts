@@ -76,15 +76,6 @@ export class ScreeningRequestResponseDto {
   @ApiPropertyOptional({ example: 'SYSTEM' })
   cancelledBy?: string;
 
-  @ApiPropertyOptional({ example: 'WEB' })
-  source?: string;
-
-  @ApiPropertyOptional({ type: Object })
-  deviceInfo?: Record<string, unknown>;
-
-  @ApiPropertyOptional({ example: 'yolo11-vinbigdata-v1' })
-  aiModelVersion?: string;
-
   @ApiProperty({ example: '2024-10-11T09:30:00.000Z' })
   createdAt: Date;
 
@@ -129,9 +120,6 @@ export class ScreeningRequestResponseDto {
     cancelledAt?: Date | null;
     cancellationReason?: string | null;
     cancelledBy?: string | null;
-    source?: string | null;
-    deviceInfo?: Record<string, unknown> | null;
-    aiModelVersion?: string | null;
     createdAt: Date;
     updatedAt: Date;
     patient?: Parameters<typeof PatientResponseDto.fromEntity>[0] | null;
@@ -167,9 +155,6 @@ export class ScreeningRequestResponseDto {
     dto.cancelledAt = screening.cancelledAt ?? undefined;
     dto.cancellationReason = screening.cancellationReason ?? undefined;
     dto.cancelledBy = screening.cancelledBy ?? undefined;
-    dto.source = screening.source ?? undefined;
-    dto.deviceInfo = screening.deviceInfo ?? undefined;
-    dto.aiModelVersion = screening.aiModelVersion ?? undefined;
     dto.createdAt = screening.createdAt;
     dto.updatedAt = screening.updatedAt;
     dto.patient = screening.patient

@@ -11,6 +11,7 @@ import { FileValidationService } from '@/modules/screening/file-validation.servi
 import { Patient } from '@/modules/patient/entities/patient.entity';
 import { PatientModule } from '@/modules/patient/patient.module';
 import { ScreeningConclusion } from '@/modules/screening/entities/screening-conclusion.entity';
+import { MedicalRecord } from '../medical/entities/medical-record.entity';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { ScreeningConclusion } from '@/modules/screening/entities/screening-conc
       AiAnalysis,
       ScreeningConclusion,
       Patient,
+      MedicalRecord
     ]),
   ],
   controllers: [ScreeningController],

@@ -21,9 +21,6 @@ export class MedicalImage {
   @Column({ name: 'screening_id', type: 'uuid' })
   screeningId: string;
 
-  @Column({ name: 'medical_record_id', type: 'uuid', nullable: true })
-  medicalRecordId: string;
-
   @Column({ name: 'file_url', length: 500 })
   fileUrl: string;
 
@@ -44,9 +41,6 @@ export class MedicalImage {
 
   @Column({ type: 'integer', nullable: true })
   height: number;
-
-  @Column({ type: 'integer', nullable: true })
-  dpi: number;
 
   // Relations
   @OneToMany(() => AiAnalysis, (analysis) => analysis.medicalImage)

@@ -531,11 +531,12 @@ export class ScreeningController {
           description:
             'Chỉ truyền khi muốn upload thêm ảnh cho screening đã tồn tại. Lần đầu KHÔNG cần.',
         },
-        modelVersion: {
+        medicalRecordId: {
           type: 'string',
+          format: 'uuid',
           nullable: true,
-          example: 'yolo11-vinbigdata-v1',
-          description: 'Phiên bản model AI. Nếu không truyền sẽ dùng default.',
+          description:
+            'Chỉ truyền khi muốn upload thêm ảnh cho screening đã tồn tại. Lần đầu KHÔNG cần.',
         },
         patientId: {
           type: 'string',
@@ -559,6 +560,7 @@ export class ScreeningController {
     @UploadedFile() file: Express.Multer.File,
     @Body('screeningId') screeningId: string | undefined,
     @Body('patientId') patientId: string | undefined,
+    @Body('medicalRecordId') medicalRecordId: string | undefined,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<UploadAnalyzeResponseDto>> {
     if (!user.doctorId && !user.roles?.includes('ADMIN')) {
@@ -581,6 +583,7 @@ export class ScreeningController {
       : await this.screeningService.create({
           patientId: patientId,
           uploadedByDoctorId: user.doctorId,
+          medicalRecordId: medicalRecordId,
         });
 
 

@@ -67,54 +67,8 @@ export class AiAnalysisResponseDto {
   @ApiPropertyOptional({ example: 0.9123 })
   confidenceScore?: number;
 
-  @ApiPropertyOptional({ type: [Object] })
-  alternativePredictions?: { condition: string; score: number }[];
-
-  @ApiPropertyOptional({
-    example: 'https://res.cloudinary.com/.../heatmap.jpg',
-  })
-  heatmapUrl?: string;
-
-  @ApiPropertyOptional({
-    example: 'https://res.cloudinary.com/.../gradcam.jpg',
-  })
-  gradcamUrl?: string;
-
-  @ApiPropertyOptional({ type: [Object] })
-  detectionBoxes?: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    label: string;
-    confidence: number;
-  }[];
-
-  @ApiPropertyOptional({
-    example: 'https://res.cloudinary.com/.../segmentation.png',
-  })
-  segmentationMaskUrl?: string;
-
-  @ApiPropertyOptional({ example: 12345 })
-  processingTimeMs?: number;
-
-  @ApiPropertyOptional({ example: 'NVIDIA T4' })
-  gpuUsed?: string;
-
-  @ApiPropertyOptional({ example: 512 })
-  memoryUsedMb?: number;
-
-  @ApiProperty({ example: true })
-  imageQualityPassed: boolean;
-
-  @ApiPropertyOptional({ type: [String] })
-  qualityIssues?: string[];
-
   @ApiPropertyOptional({ type: Object })
   rawPredictions?: Record<string, unknown>;
-
-  @ApiPropertyOptional({ type: Object })
-  featureImportance?: Record<string, number>;
 
   @ApiPropertyOptional({ example: 'AI timeout' })
   errorMessage?: string;
@@ -143,30 +97,11 @@ export class AiAnalysisResponseDto {
     evaluatedImageUrl?: string | null;
     predictedCondition?: string | null;
     confidenceScore?: number | null;
-    alternativePredictions?: { condition: string; score: number }[] | null;
-    heatmapUrl?: string | null;
-    gradcamUrl?: string | null;
-    detectionBoxes?:
-      | {
-          x: number;
-          y: number;
-          width: number;
-          height: number;
-          label: string;
-          confidence: number;
-        }[]
-      | null;
-    segmentationMaskUrl?: string | null;
-    processingTimeMs?: number | null;
-    gpuUsed?: string | null;
-    memoryUsedMb?: number | null;
-    imageQualityPassed: boolean;
-    qualityIssues?: string[] | null;
     rawPredictions?: Record<string, unknown> | null;
-    featureImportance?: Record<string, number> | null;
     errorMessage?: string | null;
     analyzedAt: Date;
     createdAt: Date;
+
   }): AiAnalysisResponseDto {
     const dto = new AiAnalysisResponseDto();
     dto.id = analysis.id;
@@ -186,18 +121,7 @@ export class AiAnalysisResponseDto {
     dto.evaluatedImageUrl = analysis.evaluatedImageUrl ?? undefined;
     dto.predictedCondition = analysis.predictedCondition ?? undefined;
     dto.confidenceScore = analysis.confidenceScore ?? undefined;
-    dto.alternativePredictions = analysis.alternativePredictions ?? undefined;
-    dto.heatmapUrl = analysis.heatmapUrl ?? undefined;
-    dto.gradcamUrl = analysis.gradcamUrl ?? undefined;
-    dto.detectionBoxes = analysis.detectionBoxes ?? undefined;
-    dto.segmentationMaskUrl = analysis.segmentationMaskUrl ?? undefined;
-    dto.processingTimeMs = analysis.processingTimeMs ?? undefined;
-    dto.gpuUsed = analysis.gpuUsed ?? undefined;
-    dto.memoryUsedMb = analysis.memoryUsedMb ?? undefined;
-    dto.imageQualityPassed = analysis.imageQualityPassed;
-    dto.qualityIssues = analysis.qualityIssues ?? undefined;
     dto.rawPredictions = analysis.rawPredictions ?? undefined;
-    dto.featureImportance = analysis.featureImportance ?? undefined;
     dto.errorMessage = analysis.errorMessage ?? undefined;
     dto.analyzedAt = analysis.analyzedAt;
     dto.createdAt = analysis.createdAt;

@@ -17,6 +17,7 @@ import { ScreeningPriorityEnum } from '@/modules/common/enums/screening-priority
 import { MedicalImage } from '@/modules/screening/entities/medical-image.entity';
 import { AiAnalysis } from '@/modules/screening/entities/ai-analysis.entity';
 import { ScreeningConclusion } from '@/modules/screening/entities/screening-conclusion.entity';
+import { MedicalRecord } from '@/modules/medical/entities/medical-record.entity';
 
 @Entity('screening_requests')
 export class ScreeningRequest {
@@ -30,6 +31,15 @@ export class ScreeningRequest {
   @Index()
   @Column({ name: 'patient_id', type: 'uuid' })
   patientId: string;
+
+  @ManyToOne(() => MedicalRecord, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'medical_record_id' })
+  medicalRecord: MedicalRecord;
+
+  @Index()
+  @Column({ name: 'medical_record_id', type: 'uuid' })
+  medicalRecordId: string;
+
 
   @ManyToOne(() => Doctor, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'uploaded_by_doctor_id' })
@@ -105,15 +115,6 @@ export class ScreeningRequest {
 
   @Column({ name: 'cancelled_by', length: 20, nullable: true })
   cancelledBy: string;
-
-  @Column({ length: 50, nullable: true })
-  source: string; // WEB, MOBILE, API
-
-  @Column({ name: 'device_info', type: 'jsonb', nullable: true })
-  deviceInfo: Record<string, any>;
-
-  @Column({ name: 'ai_model_version', length: 50, nullable: true })
-  aiModelVersion: string;
 
   @CreateDateColumn({
     name: 'created_at',
