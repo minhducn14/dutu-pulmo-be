@@ -31,21 +31,40 @@ import { Roles } from '@/common/decorators/roles.decorator';
 import { CurrentUser } from '@/common/decorators/user.decorator';
 import type { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
 import { CreateAppointmentDto } from '@/modules/appointment/dto/create-appointment.dto';
-import {
-  UpdateStatusDto,
-  CancelAppointmentDto,
-  RescheduleAppointmentDto,
-  CheckInByNumberDto,
-} from '@/modules/appointment/dto/update-appointment.dto';
+import { UpdateStatusDto } from '@/modules/appointment/dto/update-status.dto';
+import { CancelAppointmentDto } from '@/modules/appointment/dto/cancel-appointment.dto';
+import { RescheduleAppointmentDto } from '@/modules/appointment/dto/reschedule-appointment.dto';
+import { CompleteExaminationDto } from '@/modules/appointment/dto/complete-examination.dto';
+import { CheckInByNumberDto } from '@/modules/appointment/dto/check-in-by-number.dto';
 import { AppointmentResponseDto } from '@/modules/appointment/dto/appointment-response.dto';
+import { JoinVideoCallResponseDto } from '@/modules/appointment/dto/video-call-response.dto';
+import { UpdateMedicalRecordDto } from '@/modules/medical/dto/update-medical-record.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
+import { MedicalService } from '@/modules/medical/medical.service';
+import { AppointmentMedicalAccessService } from '@/modules/appointment/services/appointment-medical-access.service';
+import { CreateVitalSignDto } from '@/modules/medical/dto/create-vital-sign.dto';
+import { CreatePrescriptionDto } from '@/modules/medical/dto/create-prescription.dto';
+import {
+  MedicalRecordResponseDto,
+  VitalSignResponseDto,
+  PrescriptionResponseDto,
+} from '@/modules/medical/dto/medical-response.dto';
+import {
+  mapMedicalRecordToDto,
+  mapPrescriptionToDto,
+  mapVitalSignToDto,
+} from '@/modules/appointment/mappers/appointment-medical.mapper';
 
 @ApiTags('Appointment Actions')
 @Controller('appointments')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth('JWT-auth')
 export class AppointmentActionController {
-  constructor(private readonly appointmentService: AppointmentService) {}
+  constructor(
+    private readonly appointmentService: AppointmentService,
+    private readonly medicalService: MedicalService,
+    private readonly accessService: AppointmentMedicalAccessService,
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -206,6 +225,65 @@ export class AppointmentActionController {
     return this.wrapAppointment(response);
   }
 
+  @Post(':id/start-examination')
+  @Roles(RoleEnum.DOCTOR)
+  @ApiOperation({ summary: 'Bác sĩ bắt đầu khám bệnh' })
+  @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
+  @ApiResponse({ status: HttpStatus.OK, type: AppointmentResponseDto })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Không thể bắt đầu khám (sai trạng thái)',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Không phải bác sĩ của cuộc hẹn này',
+  })
+  async startExamination(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<AppointmentResponseDto>> {
+    const result = await this.appointmentService.findById(id);
+    const appointment = result.data!;
+
+    if (appointment.doctor.id !== user.doctorId) {
+      throw new ForbiddenException('Bạn chỉ có thể khám bệnh nhân của mình');
+    }
+
+    const response = await this.appointmentService.startExamination(id);
+    return this.wrapAppointment(response);
+  }
+
+  @Post(':id/complete-examination')
+  @Roles(RoleEnum.DOCTOR)
+  @ApiOperation({ summary: 'Hoàn thành khám bệnh và ghi kết quả' })
+  @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
+  @ApiResponse({ status: HttpStatus.OK, type: AppointmentResponseDto })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Không thể hoàn thành (sai trạng thái)',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Không phải bác sĩ của cuộc hẹn này',
+  })
+  async completeExamination(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CompleteExaminationDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<AppointmentResponseDto>> {
+    const result = await this.appointmentService.findById(id);
+    const appointment = result.data!;
+
+    if (appointment.doctor.id !== user.doctorId) {
+      throw new ForbiddenException(
+        'Bạn chỉ có thể hoàn thành khám bệnh nhân của mình',
+      );
+    }
+
+    const response = await this.appointmentService.completeExamination(id, dto);
+    return this.wrapAppointment(response);
+  }
+
   @Put(':id/status')
   @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
   @ApiOperation({ summary: 'Cập nhật trạng thái lịch hẹn' })
@@ -330,6 +408,46 @@ export class AppointmentActionController {
     return this.wrapAppointment(response);
   }
 
+  @Post(':id/video/join')
+  @ApiOperation({ summary: 'Lấy token để join video call' })
+  @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
+  @ApiResponse({ status: HttpStatus.OK, type: JoinVideoCallResponseDto })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Không phải video appointment hoặc chưa tạo phòng',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Không có quyền truy cập',
+  })
+  async joinVideoCall(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    const isDoctor = user.roles?.includes(RoleEnum.DOCTOR) ?? false;
+    const userName = user.fullName || user.email || 'User';
+
+    return this.appointmentService.generateMeetingToken(
+      id,
+      user.id,
+      userName,
+      isDoctor,
+    );
+  }
+
+  @Post(':id/video/leave')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Rời khỏi video call' })
+  @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
+  @ApiResponse({ status: HttpStatus.OK })
+  leaveVideoCall(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    this.appointmentService.leaveCall(user.id, id);
+    return { message: 'Left call successfully' };
+  }
+
   @Post(':id/payment/confirm')
   @Roles(RoleEnum.ADMIN)
   @ApiOperation({ summary: 'Xác nhận thanh toán (Admin/Webhook)' })
@@ -351,6 +469,246 @@ export class AppointmentActionController {
     return this.wrapAppointment(response);
   }
 
+  @Patch(':id/clinical')
+  @Roles(RoleEnum.DOCTOR, RoleEnum.ADMIN)
+  @ApiOperation({ summary: 'Cập nhật thông tin lâm sàng' })
+  @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
+  @ApiResponse({ status: HttpStatus.OK, type: AppointmentResponseDto })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Không thể cập nhật',
+  })
+  async updateClinicalInfo(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body()
+    dto: {
+      chiefComplaint?: string;
+      symptoms?: string[];
+      patientNotes?: string;
+      doctorNotes?: string;
+    },
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<AppointmentResponseDto>> {
+    if (
+      user.roles?.includes(RoleEnum.DOCTOR) &&
+      !user.roles?.includes(RoleEnum.ADMIN)
+    ) {
+      const result = await this.appointmentService.findById(id);
+      if (result.data!.doctor.id !== user.doctorId) {
+        throw new ForbiddenException(
+          'Bạn chỉ có thể cập nhật lịch hẹn của mình',
+        );
+      }
+    }
+
+    const response = await this.appointmentService.updateClinicalInfo(id, dto);
+    return this.wrapAppointment(response);
+  }
+
+  @Put(':id/medical-record')
+  @Roles(RoleEnum.DOCTOR, RoleEnum.ADMIN)
+  @ApiOperation({
+    summary: 'Cập nhật hồ sơ bệnh án của lịch hẹn (Doctor/Admin)',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Cập nhật hồ sơ bệnh án thành công',
+    type: MedicalRecordResponseDto,
+  })
+  async updateMedicalRecord(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateMedicalRecordDto,
+    @CurrentUser() user: JwtUser,
+  ) {
+    const appt = await this.appointmentService.findOne(id);
+    if (!appt) throw new NotFoundException('Không tìm thấy lịch hẹn');
+
+    this.accessService.validateMedicalStatus(appt.status, 'EDIT');
+    this.accessService.checkEditAccess(user, appt);
+
+    const response = await this.medicalService.updateEncounterByAppointment(
+      id,
+      dto,
+    );
+    const record = response.data;
+    if (!record) {
+      throw new NotFoundException('Không tìm thấy hồ sơ bệnh án');
+    }
+    return new ResponseCommon(
+      response.code,
+      response.message,
+      mapMedicalRecordToDto(record),
+    );
+  }
+
+  @Post(':id/vital-signs')
+  @Roles(RoleEnum.DOCTOR, RoleEnum.ADMIN)
+  @ApiOperation({
+    summary: 'Ghi nhận chỉ số sinh tồn cho lịch hẹn (Doctor/Admin)',
+  })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Thêm chỉ số sinh tồn thành công',
+    type: VitalSignResponseDto,
+  })
+  async addVitalSign(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateVitalSignDto,
+    @CurrentUser() user: JwtUser,
+  ) {
+    const appt = await this.appointmentService.findOne(id);
+    if (!appt) throw new NotFoundException('Không tìm thấy lịch hẹn');
+
+    this.accessService.validateMedicalStatus(appt.status, 'EDIT');
+    this.accessService.checkEditAccess(user, appt);
+
+    const encounterResponse =
+      await this.medicalService.getEncounterByAppointment(id);
+    const encounter = encounterResponse.data;
+    if (!encounter) throw new NotFoundException('Không tìm thấy hồ sơ bệnh án');
+
+    const response = await this.medicalService.addVitalSignToEncounter(
+      encounter.id,
+      appt.patientId,
+      dto,
+    );
+    const vitalSign = response.data;
+    if (!vitalSign) {
+      throw new NotFoundException('Không tìm thấy chỉ số sinh tồn');
+    }
+    return new ResponseCommon(
+      response.code,
+      response.message,
+      mapVitalSignToDto(vitalSign),
+    );
+  }
+
+  @Post(':id/prescriptions')
+  @Roles(RoleEnum.DOCTOR)
+  @ApiOperation({ summary: 'Kê đơn thuốc cho lịch hẹn (Doctor only)' })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Tạo đơn thuốc thành công',
+    type: PrescriptionResponseDto,
+  })
+  async createPrescription(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreatePrescriptionDto,
+    @CurrentUser() user: JwtUser,
+  ) {
+    const appt = await this.appointmentService.findOne(id);
+    if (!appt) throw new NotFoundException('Không tìm thấy lịch hẹn');
+
+    this.accessService.validateMedicalStatus(appt.status, 'EDIT');
+
+    const isDoctor = user.doctorId === appt.doctorId;
+    if (!isDoctor)
+      throw new ForbiddenException('Chỉ bác sĩ phụ trách mới có thể kê đơn');
+
+    if (!dto.items || dto.items.length === 0) {
+      throw new BadRequestException('Đơn thuốc phải có ít nhất 1 loại thuốc');
+    }
+
+    const encounterResponse =
+      await this.medicalService.getEncounterByAppointment(id);
+    const encounter = encounterResponse.data;
+    if (!encounter) throw new NotFoundException('Không tìm thấy hồ sơ bệnh án');
+
+    const response = await this.medicalService.createPrescriptionForEncounter(
+      encounter.id,
+      appt.patientId,
+      user.doctorId || appt.doctorId,
+      id,
+      dto,
+    );
+    const prescription = response.data;
+    if (!prescription) {
+      throw new NotFoundException('Không tìm thấy đơn thuốc');
+    }
+    return new ResponseCommon(
+      response.code,
+      response.message,
+      mapPrescriptionToDto(prescription),
+    );
+  }
+
+  @Post(':id/prescriptions/:prescriptionId/cancel')
+  @Roles(RoleEnum.DOCTOR, RoleEnum.ADMIN)
+  @ApiOperation({ summary: 'Hủy đơn thuốc (Doctor/Admin)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Hủy đơn thuốc thành công',
+  })
+  async cancelPrescription(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('prescriptionId', ParseUUIDPipe) prescriptionId: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    const appt = await this.appointmentService.findOne(id);
+    if (!appt) throw new NotFoundException('Không tìm thấy lịch hẹn');
+
+    this.accessService.validateMedicalStatus(appt.status, 'EDIT');
+
+    const response = await this.medicalService.cancelPrescription(
+      prescriptionId,
+      user,
+    );
+    const prescription = response.data;
+    if (!prescription) {
+      throw new NotFoundException('Không tìm thấy đơn thuốc');
+    }
+    return new ResponseCommon(
+      response.code,
+      response.message,
+      mapPrescriptionToDto(prescription),
+    );
+  }
+
+  @Put(':id/prescriptions/:prescriptionId/cancel')
+  @Roles(RoleEnum.DOCTOR, RoleEnum.ADMIN)
+  async cancelPrescriptionPut(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('prescriptionId', ParseUUIDPipe) prescriptionId: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.cancelPrescription(id, prescriptionId, user);
+  }
+
+  @Put(':id/prescriptions/:prescriptionId')
+  @Roles(RoleEnum.DOCTOR)
+  @ApiOperation({ summary: 'Cập nhật đơn thuốc (Doctor only)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Cập nhật đơn thuốc thành công',
+    type: PrescriptionResponseDto,
+  })
+  async updatePrescription(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('prescriptionId', ParseUUIDPipe) prescriptionId: string,
+    @Body() dto: CreatePrescriptionDto,
+    @CurrentUser() user: JwtUser,
+  ) {
+    const appt = await this.appointmentService.findOne(id);
+    if (!appt) throw new NotFoundException('Không tìm thấy lịch hẹn');
+
+    this.accessService.validateMedicalStatus(appt.status, 'EDIT');
+
+    const response = await this.medicalService.updatePrescription(
+      prescriptionId,
+      dto,
+      user,
+    );
+    const prescription = response.data;
+    if (!prescription) {
+      throw new NotFoundException('Không tìm thấy đơn thuốc');
+    }
+    return new ResponseCommon(
+      response.code,
+      response.message,
+      mapPrescriptionToDto(prescription),
+    );
+  }
+
   private wrapAppointment(
     response: ResponseCommon<AppointmentResponseDto>,
   ): ResponseCommon<AppointmentResponseDto> {
@@ -359,33 +717,5 @@ export class AppointmentActionController {
       response.message,
       AppointmentResponseDto.fromData(response.data as AppointmentResponseDto),
     );
-  }
-
-  @Post(':id/start-examination')
-  @Roles(RoleEnum.DOCTOR)
-  @ApiOperation({ summary: 'Bác sĩ bắt đầu khám bệnh' })
-  @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
-  @ApiResponse({ status: HttpStatus.OK, type: AppointmentResponseDto })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Không thể bắt đầu khám (sai trạng thái)',
-  })
-  @ApiResponse({
-    status: HttpStatus.FORBIDDEN,
-    description: 'Không phải bác sĩ của cuộc hẹn này',
-  })
-  async startExamination(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: JwtUser,
-  ): Promise<ResponseCommon<AppointmentResponseDto>> {
-    const result = await this.appointmentService.findById(id);
-    const appointment = result.data!;
-
-    if (appointment.doctor.id !== user.doctorId) {
-      throw new ForbiddenException('Bạn chỉ có thể khám bệnh nhân của mình');
-    }
-
-    const response = await this.appointmentService.startExamination(id);
-    return this.wrapAppointment(response);
   }
 }

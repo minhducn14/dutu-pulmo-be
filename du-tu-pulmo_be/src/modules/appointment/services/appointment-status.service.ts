@@ -110,7 +110,7 @@ export class AppointmentStatusService {
       ) {
         try {
           await this.dailyService.deleteRoom(appointment.dailyCoChannel);
-          this.callStateService.clearCallsForAppointment(appointment.id);
+          await this.callStateService.clearCallsForAppointment(appointment.id);
           this.logger.log(
             `Cleaned up video room for appointment ${appointment.id}`,
           );

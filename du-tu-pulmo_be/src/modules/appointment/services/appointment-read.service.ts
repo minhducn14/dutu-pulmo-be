@@ -21,11 +21,15 @@ import {
 import { APPOINTMENT_BASE_RELATIONS } from '@/modules/appointment/appointment.constants';
 import { AppointmentMapperService } from '@/modules/appointment/services/appointment-mapper.service';
 
+import { MedicalRecord } from '@/modules/medical/entities/medical-record.entity';
+
 @Injectable()
 export class AppointmentReadService {
   constructor(
     @InjectRepository(Appointment)
     private readonly appointmentRepository: Repository<Appointment>,
+    @InjectRepository(MedicalRecord)
+    private readonly medicalRecordRepository: Repository<MedicalRecord>,
     private readonly mapper: AppointmentMapperService,
   ) {}
 
@@ -89,7 +93,20 @@ export class AppointmentReadService {
     if (!appointment) {
       throw new NotFoundException(`Appointment with ID ${id} not found`);
     }
-    return new ResponseCommon(200, 'SUCCESS', this.mapper.toDto(appointment));
+
+    const dto = this.mapper.toDto(appointment);
+
+    // Try to find associated medical record ID
+    const medicalRecord = await this.medicalRecordRepository.findOne({
+      where: { appointmentId: id },
+      select: ['id'],
+    });
+
+    if (medicalRecord) {
+      dto.medicalRecordId = medicalRecord.id;
+    }
+
+    return new ResponseCommon(200, 'SUCCESS', dto);
   }
 
   async findByPatient(
@@ -104,6 +121,17 @@ export class AppointmentReadService {
 
     if (query?.status) {
       where.status = query.status;
+    }
+
+    if (query?.startDate && query?.endDate) {
+      where.scheduledAt = Between(
+        new Date(query.startDate),
+        new Date(query.endDate),
+      );
+    } else if (query?.startDate) {
+      where.scheduledAt = MoreThanOrEqual(new Date(query.startDate));
+    } else if (query?.endDate) {
+      where.scheduledAt = LessThanOrEqual(new Date(query.endDate));
     }
 
     const [appointments, totalItems] =
@@ -142,6 +170,17 @@ export class AppointmentReadService {
 
     if (query?.status) {
       where.status = query.status;
+    }
+
+    if (query?.startDate && query?.endDate) {
+      where.scheduledAt = Between(
+        new Date(query.startDate),
+        new Date(query.endDate),
+      );
+    } else if (query?.startDate) {
+      where.scheduledAt = MoreThanOrEqual(new Date(query.startDate));
+    } else if (query?.endDate) {
+      where.scheduledAt = LessThanOrEqual(new Date(query.endDate));
     }
 
     const [appointments, totalItems] =

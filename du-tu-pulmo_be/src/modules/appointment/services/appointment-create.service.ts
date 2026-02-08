@@ -111,12 +111,6 @@ export class AppointmentCreateService {
 
       const appointmentType = slot.allowedAppointmentTypes[0];
 
-      if (!slot.allowedAppointmentTypes.includes(appointmentType)) {
-        throw new BadRequestException(
-          `Slot không hỗ trợ ${appointmentType}. Chỉ hỗ trợ: ${slot.allowedAppointmentTypes.join(', ')}`,
-        );
-      }
-
       const doctor = await manager.findOne(Doctor, {
         where: { id: slot.doctorId },
       });

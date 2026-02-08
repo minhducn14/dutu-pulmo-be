@@ -19,6 +19,8 @@ import {
 } from '@nestjs/swagger';
 import { AppointmentService } from '@/modules/appointment/services/appointment.service';
 import { DashboardStatsService } from '@/modules/appointment/services/dashboard-stats.service';
+import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
+import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
 import { RoleEnum } from '@/modules/common/enums/role.enum';
 import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
@@ -30,6 +32,10 @@ import {
   AppointmentStatisticsDto,
   DoctorQueueDto,
 } from '@/modules/appointment/dto/appointment-response.dto';
+import {
+  UserCallStatusResponseDto,
+  VideoCallStatusResponseDto,
+} from '@/modules/appointment/dto/video-call-response.dto';
 import {
   DashboardQueryDto,
   DashboardStatsDto,
@@ -250,6 +256,81 @@ export class AppointmentStatsController {
       new Date(endDate),
     );
     return this.wrapAppointmentList(response);
+  }
+
+  @Get('me/call-status')
+  @ApiOperation({ summary: 'Kiểm tra trạng thái cuộc gọi hiện tại của user' })
+  @ApiResponse({ status: HttpStatus.OK, type: UserCallStatusResponseDto })
+  getMyCallStatus(@CurrentUser() user: JwtUser) {
+    return this.appointmentService.getUserCallStatus(user.id);
+  }
+
+  @Get(':id/video/status')
+  @ApiOperation({
+    summary: 'Kiểm tra trạng thái video call trước khi join',
+    description:
+      'Kiểm tra xem có thể join video call không và ai đang trong call',
+  })
+  @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    type: VideoCallStatusResponseDto,
+  })
+  async getVideoCallStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    const result = await this.appointmentService.findById(id);
+    const appointment = result.data!;
+
+    const isPatient = appointment.patient.id === user.patientId;
+    const isDoctor = appointment.doctor.id === user.doctorId;
+
+    if (!isPatient && !isDoctor && !user.roles?.includes(RoleEnum.ADMIN)) {
+      throw new ForbiddenException(
+        'Bạn không có quyền xem thông tin cuộc hẹn này',
+      );
+    }
+
+    if (appointment.appointmentType !== AppointmentTypeEnum.VIDEO) {
+      throw new ForbiddenException('This is not a VIDEO appointment');
+    }
+
+    const now = new Date();
+    const scheduledTime = new Date(appointment.scheduledAt);
+    const minutesUntilStart = Math.round(
+      (scheduledTime.getTime() - now.getTime()) / (1000 * 60),
+    );
+
+    const participantsInCall: string[] = [];
+
+    const validStates = [
+      AppointmentStatusEnum.CONFIRMED,
+      AppointmentStatusEnum.CHECKED_IN,
+      AppointmentStatusEnum.IN_PROGRESS,
+    ];
+    const canJoin =
+      validStates.includes(appointment.status) &&
+      minutesUntilStart <= 60 &&
+      minutesUntilStart >= -30;
+
+    return {
+      canJoin,
+      appointmentStatus: appointment.status,
+      meetingUrl: appointment.meetingUrl,
+      scheduledAt: appointment.scheduledAt,
+      minutesUntilStart,
+      isEarly: minutesUntilStart > 60,
+      isLate: minutesUntilStart < -30,
+      participantsInCall,
+      message: canJoin
+        ? 'Bạn có thể join video call'
+        : minutesUntilStart > 60
+          ? `Chưa đến giờ join. Vui lòng quay lại sau ${minutesUntilStart - 60} phút`
+          : minutesUntilStart < -30
+            ? 'Cuộc gọi đã kết thúc'
+            : 'Không thể join ở trạng thái hiện tại',
+    };
   }
 
   private wrapGeneric<T>(response: ResponseCommon<T>): ResponseCommon<T> {

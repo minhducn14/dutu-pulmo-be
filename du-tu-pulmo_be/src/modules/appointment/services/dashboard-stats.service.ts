@@ -137,6 +137,7 @@ export class DashboardStatsService {
     startDate: Date,
     endDate: Date,
   ): Promise<RevenueStatsDto> {
+    // Get all paid payments for this doctor's appointments in period
     const result = await this.paymentRepository
       .createQueryBuilder('p')
       .innerJoin('p.appointment', 'a')
@@ -149,18 +150,20 @@ export class DashboardStatsService {
       .andWhere('p.paidAt BETWEEN :startDate AND :endDate', { startDate, endDate })
       .getRawOne();
 
+    // Count prescriptions and lab tests separately
     const prescriptions = await this.paymentRepository.count({
       where: {
         status: PaymentStatus.PAID,
         paidAt: Between(startDate, endDate),
+        // Note: Need to add purpose field to Payment if not exists
       },
     });
 
     return {
       total: parseInt(result?.total || '0', 10),
       visitCount: parseInt(result?.visitCount || '0', 10),
-      prescriptions: 0, 
-      labTests: 0, 
+      prescriptions: 0, // TODO: Implement when purpose field is added
+      labTests: 0, // TODO: Implement when purpose field is added
     };
   }
 
@@ -196,6 +199,7 @@ export class DashboardStatsService {
     startDate: Date,
     endDate: Date,
   ): Promise<PatientStatsDto> {
+    // Get all completed appointments in period
     const appointments = await this.appointmentRepository.find({
       where: {
         doctorId,
@@ -211,6 +215,7 @@ export class DashboardStatsService {
 
     const patientIds = [...new Set(appointments.map((a) => a.patientId))];
 
+    // For each patient, check if they had any appointment before startDate
     const newPatientIds: string[] = [];
     const returningPatientIds: string[] = [];
 
@@ -244,6 +249,7 @@ export class DashboardStatsService {
     startDate: Date,
     endDate: Date,
   ): Promise<DailyBreakdownDto[]> {
+    // Get daily appointment counts
     const result = await this.appointmentRepository
       .createQueryBuilder('a')
       .select([
@@ -260,11 +266,13 @@ export class DashboardStatsService {
       .orderBy('date', 'ASC')
       .getRawMany();
 
+    // For simplicity, we'll return visits only for now
+    // New/returning breakdown requires more complex query
     return result.map((row) => ({
       date: row.date,
       visits: parseInt(row.visits, 10),
-      newPatients: 0, 
-      returningPatients: 0, 
+      newPatients: 0, // TODO: Implement detailed breakdown
+      returningPatients: 0, // TODO: Implement detailed breakdown
     }));
   }
 

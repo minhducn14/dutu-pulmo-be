@@ -5,6 +5,7 @@ import { AppointmentService } from '@/modules/appointment/services/appointment.s
 import { AppointmentReadController } from '@/modules/appointment/controllers/appointment-read.controller';
 import { AppointmentActionController } from '@/modules/appointment/controllers/appointment-action.controller';
 import { AppointmentStatsController } from '@/modules/appointment/controllers/appointment-stats.controller';
+import { AppointmentMedicalAccessService } from '@/modules/appointment/services/appointment-medical-access.service';
 
 import { AppointmentReadService } from '@/modules/appointment/services/appointment-read.service';
 import { AppointmentStatsService } from '@/modules/appointment/services/appointment-stats.service';
@@ -14,6 +15,7 @@ import { AppointmentCheckinService } from '@/modules/appointment/services/appoin
 import { AppointmentCreateService } from '@/modules/appointment/services/appointment-create.service';
 import { AppointmentSchedulingService } from '@/modules/appointment/services/appointment-scheduling.service';
 import { AppointmentStatusService } from '@/modules/appointment/services/appointment-status.service';
+import { AppointmentVideoService } from '@/modules/appointment/services/appointment-video.service';
 import { AppointmentMapperService } from '@/modules/appointment/services/appointment-mapper.service';
 import { DashboardStatsService } from '@/modules/appointment/services/dashboard-stats.service';
 import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
@@ -36,6 +38,7 @@ import { Payment } from '@/modules/payment/entities/payment.entity';
   ],
   providers: [
     AppointmentService,
+    AppointmentMedicalAccessService,
 
     AppointmentReadService,
     AppointmentStatsService,
@@ -45,6 +48,7 @@ import { Payment } from '@/modules/payment/entities/payment.entity';
     AppointmentCreateService,
     AppointmentSchedulingService,
     AppointmentStatusService,
+    AppointmentVideoService,
     AppointmentMapperService,
     DashboardStatsService,
   ],

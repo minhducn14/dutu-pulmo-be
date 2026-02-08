@@ -16,8 +16,10 @@ export const mapMedicalRecordToDto = (
 ): MedicalRecordResponseDto => ({
   id: record.id,
   recordNumber: record.recordNumber,
-  patientId: record.patientId,
-  patient: PatientResponseDto.fromEntity(record.patient),
+  patientId: record.patientId ?? undefined,
+  patient: record.patient
+    ? PatientResponseDto.fromEntity(record.patient)
+    : (null as unknown as PatientResponseDto),
   doctorId: record.doctorId ?? undefined,
   doctor: record.doctor
     ? DoctorResponseDto.fromEntity(record.doctor)
@@ -34,6 +36,16 @@ export const mapMedicalRecordToDto = (
   diagnosisNotes: record.diagnosisNotes ?? undefined,
   treatmentPlan: record.treatmentPlan ?? undefined,
   status: record.appointment?.status ?? 'UNKNOWN',
+  progressNotes: record.progressNotes ?? undefined,
+  followUpInstructions: record.followUpInstructions ?? undefined,
+  surgicalHistory: record.surgicalHistory ?? undefined,
+  familyHistory: record.familyHistory ?? undefined,
+  allergies: record.allergies ?? undefined,
+  chronicDiseases: record.chronicDiseases ?? undefined,
+  currentMedications: record.currentMedications ?? undefined,
+  smokingStatus: record.smokingStatus,
+  smokingYears: record.smokingYears ?? undefined,
+  alcoholConsumption: record.alcoholConsumption,
   createdAt: record.createdAt,
   updatedAt: record.updatedAt,
 });
