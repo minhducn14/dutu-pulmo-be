@@ -59,6 +59,36 @@ export class MedicalRecordResponseDto {
   @ApiProperty({ description: 'Record status' })
   status: string;
 
+  @ApiPropertyOptional({ description: 'Progress notes' })
+  progressNotes?: string;
+
+  @ApiPropertyOptional({ description: 'Follow-up instructions' })
+  followUpInstructions?: string;
+
+  @ApiPropertyOptional({ description: 'Surgical history' })
+  surgicalHistory?: string;
+
+  @ApiPropertyOptional({ description: 'Family history' })
+  familyHistory?: string;
+
+  @ApiPropertyOptional({ description: 'Allergies' })
+  allergies?: string[];
+
+  @ApiPropertyOptional({ description: 'Chronic diseases' })
+  chronicDiseases?: string[];
+
+  @ApiPropertyOptional({ description: 'Current medications' })
+  currentMedications?: string[];
+
+  @ApiPropertyOptional({ description: 'Smoking status' })
+  smokingStatus?: boolean;
+
+  @ApiPropertyOptional({ description: 'Smoking years' })
+  smokingYears?: number;
+
+  @ApiPropertyOptional({ description: 'Alcohol consumption' })
+  alcoholConsumption?: boolean;
+
   @ApiProperty({ description: 'Created at' })
   createdAt: Date;
 

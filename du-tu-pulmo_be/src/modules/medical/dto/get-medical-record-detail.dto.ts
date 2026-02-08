@@ -161,6 +161,30 @@ export class MedicalRecordDetailResponseDto {
   @ApiPropertyOptional({ description: 'Hướng điều trị tiếp theo' })
   followUpInstructions?: string;
 
+  @ApiPropertyOptional({ description: 'Assessment' })
+  assessment?: string;
+
+  @ApiPropertyOptional({ description: 'Surgical history' })
+  surgicalHistory?: string;
+
+  @ApiPropertyOptional({ description: 'Allergies' })
+  allergies?: string[];
+
+  @ApiPropertyOptional({ description: 'Chronic diseases' })
+  chronicDiseases?: string[];
+
+  @ApiPropertyOptional({ description: 'Current medications' })
+  currentMedications?: string[];
+
+  @ApiPropertyOptional({ description: 'Smoking status' })
+  smokingStatus?: boolean;
+
+  @ApiPropertyOptional({ description: 'Smoking years' })
+  smokingYears?: number;
+
+  @ApiPropertyOptional({ description: 'Alcohol consumption' })
+  alcoholConsumption?: boolean;
+
   @ApiPropertyOptional({ description: 'Hồ sơ phim ảnh' })
   imagingRecords?: {
     xray?: string;

@@ -20,6 +20,8 @@ import {
   MedicalRecordDetailResponseDto,
   SignedStatusEnum,
 } from '@/modules/medical/dto/get-medical-record-detail.dto';
+import { MedicalRecordExaminationDto } from '@/modules/medical/dto/medical-record-examination.dto';
+import { MedicalRecordSummaryDto } from '@/modules/medical/dto/medical-record-summary.dto';
 import { SignMedicalRecordDto } from '@/modules/medical/dto/sign-medical-record.dto';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import { PrescriptionStatusEnum } from '@/modules/common/enums/prescription-status.enum';
@@ -311,6 +313,7 @@ export class MedicalService {
           appointmentId: appointment.id,
           patientId: appointment.patientId,
           doctorId: appointment.doctorId,
+          progressNotes: data.progressNotes || null,
           recordNumber: this.generateRecordNumber(),
           chiefComplaint:
             data.chiefComplaint || appointment.chiefComplaint || null,
@@ -320,6 +323,17 @@ export class MedicalService {
           assessment: data.assessment || null,
           treatmentPlan: data.treatmentPlan || null,
           diagnosisNotes: data.diagnosisNotes || null,
+          followUpRequired: data.followUpRequired || false,
+          nextAppointmentDate: data.nextAppointmentDate || null,
+          followUpNotes: data.followUpNotes || null,
+          allergies: data.allergies || null,
+          chronicDiseases: data.chronicDiseases || null,
+          currentMedications: data.currentMedications || null,
+          smokingStatus: data.smokingStatus || false,
+          smokingYears: data.smokingYears || null,
+          alcoholConsumption: data.alcoholConsumption || false,
+          surgicalHistory: data.surgicalHistory || null,
+          familyHistory: data.familyHistory || null,
         });
         record = await manager.save(record);
       }
@@ -331,7 +345,7 @@ export class MedicalService {
       // Note: Object.assign handles this well for defined keys in data.
 
       const result = await manager.save(record);
-
+      console.log(result);
       // Update appointment fields
       let apptChanged = false;
       if (
@@ -784,8 +798,266 @@ export class MedicalService {
       imagingRecords: record.imagingRecords || undefined,
       status: record.appointment?.status || 'UNKNOWN',
       updatedAt: record.updatedAt,
+      surgicalHistory: record.surgicalHistory || undefined,
+      allergies: record.allergies || undefined,
+      chronicDiseases: record.chronicDiseases || undefined,
+      currentMedications: record.currentMedications || undefined,
+      smokingStatus: record.smokingStatus || undefined,
+      smokingYears: record.smokingYears || undefined,
+      alcoholConsumption: record.alcoholConsumption || undefined,
+      assessment: record.assessment || undefined,
     };
 
     return new ResponseCommon(HttpStatus.OK, 'Thành công', response);
   }
+
+  // ============================================================================
+  // DIGITAL SIGNATURE & PDF
+  // ============================================================================
+
+  async signMedicalRecord(
+    recordId: string,
+    dto: SignMedicalRecordDto,
+    user: JwtUser,
+  ): Promise<ResponseCommon<MedicalRecordDetailResponseDto>> {
+    const record = await this.recordRepository.findOne({
+      where: { id: recordId },
+      relations: ['appointment'],
+    });
+
+    if (!record) {
+      throw new NotFoundException(MEDICAL_ERRORS.MEDICAL_RECORD_NOT_FOUND);
+    }
+
+    // Check permission
+    if (
+      !user.roles?.includes(RoleEnum.ADMIN) &&
+      user.doctorId !== record.doctorId
+    ) {
+      throw new ForbiddenException(MEDICAL_ERRORS.SIGN_FORBIDDEN);
+    }
+
+    // Check status
+    if (record.appointment?.status !== AppointmentStatusEnum.COMPLETED) {
+      throw new BadRequestException(MEDICAL_ERRORS.SIGN_COMPLETED_ONLY);
+    }
+
+    const signedStatus = record.signedStatus as SignedStatusEnum;
+    if (signedStatus === SignedStatusEnum.SIGNED) {
+      throw new BadRequestException(MEDICAL_ERRORS.ALREADY_SIGNED);
+    }
+
+    record.signedStatus = SignedStatusEnum.SIGNED;
+    record.signedAt = new Date();
+    record.digitalSignature = dto.signature;
+
+    await this.recordRepository.save(record);
+
+    await this.generatePdfInternal(recordId);
+
+    return this.getMedicalRecordDetail(recordId, user);
+  }
+
+  async generatePdf(
+    recordId: string,
+    user: JwtUser,
+  ): Promise<ResponseCommon<{ url: string }>> {
+    const record = await this.recordRepository.findOne({
+      where: { id: recordId },
+    });
+
+    if (!record) {
+      throw new NotFoundException(MEDICAL_ERRORS.MEDICAL_RECORD_NOT_FOUND);
+    }
+
+    if (user.roles?.includes(RoleEnum.PATIENT)) {
+      if (user.patientId !== record.patientId) {
+        throw new ForbiddenException(MEDICAL_ERRORS.ACCESS_DENIED_MEDICAL);
+      }
+    } else if (user.roles?.includes(RoleEnum.DOCTOR)) {
+      if (user.doctorId !== record.doctorId) {
+        throw new ForbiddenException(MEDICAL_ERRORS.ACCESS_DENIED_MEDICAL);
+      }
+    } else if (!user.roles?.includes(RoleEnum.ADMIN)) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    if (record.signedStatus !== 'SIGNED') {
+      throw new BadRequestException(MEDICAL_ERRORS.NOT_SIGNED);
+    }
+
+    if (record.pdfUrl) {
+      return new ResponseCommon(HttpStatus.OK, 'Thành công', {
+        url: record.pdfUrl,
+      });
+    }
+
+    const pdfUrl = await this.generatePdfInternal(recordId);
+    return new ResponseCommon(HttpStatus.OK, 'Thành công', { url: pdfUrl });
+  }
+
+  private async generatePdfInternal(recordId: string): Promise<string> {
+    // TODO: Implement PDF generation logic
+    // This would use a library like puppeteer, PDFKit, or call external service
+    // For now, return placeholder URL
+    const pdfUrl = `https://storage.example.com/medical-records/${recordId}.pdf`;
+
+    await this.recordRepository.update(recordId, { pdfUrl });
+    return pdfUrl;
+  }
+
+  // ============================================================================
+  // SPECIALIZED VIEWS
+  // ============================================================================
+
+  async getMedicalRecordForExamination(
+    recordId: string,
+    user: JwtUser,
+  ): Promise<ResponseCommon<MedicalRecordExaminationDto>> {
+    const record = await this.recordRepository.findOne({
+      where: { id: recordId },
+      relations: [
+        'patient',
+        'patient.user',
+        'vitalSigns',
+        'appointment',
+      ],
+    });
+
+    if (!record) {
+      throw new NotFoundException(MEDICAL_ERRORS.MEDICAL_RECORD_NOT_FOUND);
+    }
+
+    // Permission: DOCTOR only (checked in controller)
+    
+    // Get latest vital sign
+    const latestVitalSign = record.vitalSigns?.[0]; // Assuming order DESC
+
+    // Get 3 recent records
+    const recentRecords = await this.recordRepository.find({
+      where: { patientId: record.patientId },
+      order: { createdAt: 'DESC' },
+      take: 4, // Take 4 to skip current if matches, or just take 3 recent
+      relations: ['doctor', 'doctor.user'],
+      select: {
+        id: true,
+        recordNumber: true,
+        createdAt: true,
+        diagnosisNotes: true,
+        doctor: {
+           id: true,
+           user: {
+             fullName: true
+           }
+        }
+      }
+    });
+    
+    // map recent records excluding current
+    const recent = recentRecords
+      .filter(r => r.id !== recordId)
+      .slice(0, 3)
+      .map(r => ({
+        id: r.id,
+        recordNumber: r.recordNumber,
+        visitDate: r.createdAt,
+        diagnosis: r.diagnosisNotes || 'N/A',
+        doctor: r.doctor?.user?.fullName || 'N/A'
+      }));
+
+    const response: MedicalRecordExaminationDto = {
+      id: record.id,
+      recordNumber: record.recordNumber,
+      patient: {
+        id: record.patientId,
+        fullName: record.patient?.user?.fullName || 'N/A',
+        dateOfBirth: record.patient?.user?.dateOfBirth || new Date(),
+        gender: record.patient?.user?.gender || 'N/A',
+        phone: record.patient?.user?.phone || 'N/A',
+        address: record.patient?.user?.address || 'N/A',
+      },
+      allergies: record.allergies || [],
+      chronicDiseases: record.chronicDiseases || [],
+      currentMedications: record.currentMedications || [],
+      latestVitalSign: latestVitalSign ? {
+        temperature: latestVitalSign.temperature ? Number(latestVitalSign.temperature) : undefined,
+        bloodPressure: latestVitalSign.bloodPressure,
+        heartRate: latestVitalSign.heartRate,
+        spo2: latestVitalSign.spo2 ? Number(latestVitalSign.spo2) : undefined,
+        weight: latestVitalSign.weight,
+        height: latestVitalSign.height,
+        bmi: latestVitalSign.bmi ? Number(latestVitalSign.bmi) : undefined,
+        recordedAt: latestVitalSign.createdAt,
+      } : undefined,
+      chiefComplaint: record.chiefComplaint || undefined,
+      presentIllness: record.presentIllness || undefined,
+      physicalExamNotes: record.physicalExamNotes || undefined,
+      assessment: record.assessment || undefined,
+      diagnosisNotes: record.diagnosisNotes || undefined,
+      treatmentPlan: record.treatmentPlan || undefined,
+      recentRecords: recent,
+      status: record.appointment?.status || 'UNKNOWN', // Or record status
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    };
+
+    return new ResponseCommon(HttpStatus.OK, 'Thành công', response);
+  }
+
+  async getMedicalRecordForSummary(
+    recordId: string,
+    user: JwtUser,
+  ): Promise<ResponseCommon<MedicalRecordSummaryDto>> {
+    const record = await this.recordRepository.findOne({
+      where: { id: recordId },
+      relations: [
+        'patient',
+        'patient.user',
+        'doctor',
+        'doctor.user',
+        'prescriptions',
+      ],
+    });
+
+    if (!record) {
+      throw new NotFoundException(MEDICAL_ERRORS.MEDICAL_RECORD_NOT_FOUND);
+    }
+    
+    // Permission check done in controller or here if needed
+
+    const response: MedicalRecordSummaryDto = {
+      id: record.id,
+      recordNumber: record.recordNumber,
+      patient: {
+        id: record.patientId,
+        fullName: record.patient?.user?.fullName || 'N/A',
+        dateOfBirth: record.patient?.user?.dateOfBirth || new Date(),
+      },
+      doctor: {
+        id: record.doctorId || '',
+        fullName: record.doctor?.user?.fullName || 'N/A',
+      },
+      treatmentStartDate: record.treatmentStartDate || undefined,
+      treatmentEndDate: record.treatmentEndDate || undefined,
+      initialDiagnosis: record.initialDiagnosis || undefined,
+      primaryDiagnosis: record.primaryDiagnosis || undefined,
+      secondaryDiagnosis: record.secondaryDiagnosis || undefined,
+      dischargeDiagnosis: record.dischargeDiagnosis || undefined,
+      progressNotes: record.progressNotes || undefined,
+      treatmentGiven: record.treatmentGiven || undefined,
+      significantLabFindings: record.significantLabFindings || undefined,
+      dischargeCondition: record.dischargeCondition || undefined,
+      followUpInstructions: record.followUpInstructions || undefined,
+      prescriptions: record.prescriptions?.map(p => ({
+        id: p.id,
+        prescriptionNumber: p.prescriptionNumber,
+        diagnosis: (p as any).diagnosis?.name || undefined,
+        createdAt: p.createdAt,
+      })) || [],
+      status: record.status || '',
+    };
+
+    return new ResponseCommon(HttpStatus.OK, 'Thành công', response);
+  }
+
 }

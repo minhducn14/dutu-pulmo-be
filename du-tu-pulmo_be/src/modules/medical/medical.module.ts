@@ -10,6 +10,7 @@ import { MedicalService } from '@/modules/medical/medical.service';
 import { MedicineService } from '@/modules/medical/medicine.service';
 import { MedicalController } from '@/modules/medical/medical.controller';
 import { MedicineController } from '@/modules/medical/medicine.controller';
+import { ScreeningRequest } from '../screening/entities/screening-request.entity';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { MedicineController } from '@/modules/medical/medicine.controller';
       Prescription,
       PrescriptionItem,
       Medicine,
+      ScreeningRequest,
     ]),
     forwardRef(() => AppointmentModule),
   ],

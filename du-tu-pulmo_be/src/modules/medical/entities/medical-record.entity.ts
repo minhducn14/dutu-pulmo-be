@@ -16,6 +16,7 @@ import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { VitalSign } from '@/modules/medical/entities/vital-sign.entity';
 import { Prescription } from '@/modules/medical/entities/prescription.entity';
 import { MedicalRecordStatusEnum } from '@/modules/common/enums/medical-record-status.enum';
+import { ScreeningRequest } from '@/modules/screening/entities/screening-request.entity';
 
 @Entity('medical_records')
 @Index('ux_medical_record_appointment', ['appointmentId'], { unique: true })
@@ -139,9 +140,6 @@ export class MedicalRecord {
   @Column({ name: 'alcohol_consumption', default: false })
   alcoholConsumption: boolean;
 
-  @Column({ type: 'text', nullable: true })
-  occupation: string | null;
-
   // Kết quả khám
   @Column({ name: 'physical_exam_notes', type: 'text', nullable: true })
   physicalExamNotes: string | null;
@@ -240,4 +238,7 @@ export class MedicalRecord {
 
   @OneToMany(() => Prescription, (p) => p.medicalRecord)
   prescriptions: Prescription[];
+
+  @OneToMany(() => ScreeningRequest, (s) => s.medicalRecord)
+  screeningRequests: ScreeningRequest[];
 }

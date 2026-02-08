@@ -1,7 +1,9 @@
 import {
   Controller,
   Get,
+  Post,
   Param,
+  Body,
   HttpStatus,
   UseGuards,
   ForbiddenException,
@@ -24,10 +26,13 @@ import {
   PrescriptionItemResponseDto,
 } from '@/modules/medical/dto/medical-response.dto';
 import { MedicalRecordDetailResponseDto } from '@/modules/medical/dto/get-medical-record-detail.dto';
+import { MedicalRecordExaminationDto } from '@/modules/medical/dto/medical-record-examination.dto';
+import { MedicalRecordSummaryDto } from '@/modules/medical/dto/medical-record-summary.dto';
 import { SignMedicalRecordDto } from '@/modules/medical/dto/sign-medical-record.dto';
 import { MEDICAL_ERRORS } from '@/common/constants/error-messages.constant';
 import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
+import { Roles } from '@/common/decorators/roles.decorator';
 import { CurrentUser } from '@/common/decorators/user.decorator';
 import type { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
 import { AppointmentService } from '@/modules/appointment/services/appointment.service';
@@ -107,7 +112,7 @@ export class MedicalController {
       assessment: record.assessment || undefined,
       diagnosisNotes: record.diagnosisNotes || undefined,
       treatmentPlan: record.treatmentPlan || undefined,
-      status: record.appointment?.status || 'UNKNOWN',
+      status: record.status || 'UNKNOWN',
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
     };
@@ -228,6 +233,70 @@ export class MedicalController {
     return this.medicalService.getMedicalRecordDetail(id, user);
   }
 
+  @Get('records/:id/pdf')
+  @ApiOperation({ summary: 'Tải PDF bệnh án' })
+  @ApiParam({ name: 'id', description: 'Medical Record ID (UUID)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'URL hoặc binary PDF',
+  })
+  async downloadPdf(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<{ url: string }>> {
+    return this.medicalService.generatePdf(id, user);
+  }
+
+  @Post('records/:id/sign')
+  @Roles(RoleEnum.DOCTOR)
+  @ApiOperation({ summary: 'Ký số bệnh án' })
+  @ApiParam({ name: 'id', description: 'Medical Record ID (UUID)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Ký số thành công',
+  })
+  async signMedicalRecord(
+    @Param('id') id: string,
+    @Body() dto: SignMedicalRecordDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<MedicalRecordDetailResponseDto>> {
+    return this.medicalService.signMedicalRecord(id, dto, user);
+  }
+
+  // ==================== Specialized Views ====================
+
+  @Get('records/:id/examination')
+  @Roles(RoleEnum.DOCTOR)
+  @ApiOperation({ summary: 'Lấy thông tin bệnh án để khám bệnh (Doctor Only)' })
+  @ApiParam({ name: 'id', description: 'Medical Record ID (UUID)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Thông tin khám bệnh',
+    type: MedicalRecordExaminationDto,
+  })
+  async getMedicalRecordForExamination(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<MedicalRecordExaminationDto>> {
+    return this.medicalService.getMedicalRecordForExamination(id, user);
+  }
+
+  @Get('records/:id/summary')
+  @Roles(RoleEnum.DOCTOR, RoleEnum.PATIENT, RoleEnum.ADMIN)
+  @ApiOperation({ summary: 'Lấy thông tin tổng kết bệnh án' })
+  @ApiParam({ name: 'id', description: 'Medical Record ID (UUID)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Thông tin tổng kết',
+    type: MedicalRecordSummaryDto,
+  })
+  async getMedicalRecordForSummary(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<MedicalRecordSummaryDto>> {
+    return this.medicalService.getMedicalRecordForSummary(id, user);
+  }
+
   // ==================== Vital Signs ====================
 
   @Get('vital-signs/patient/:patientId')
@@ -244,6 +313,7 @@ export class MedicalController {
   ): Promise<ResponseCommon<VitalSignResponseDto[]>> {
     await this.validatePatientAccess(user, patientId);
 
+    // Strict Mode for Doctors: Only return their own records
     const doctorId = user.roles?.includes(RoleEnum.DOCTOR)
       ? user.doctorId
       : undefined;
@@ -272,6 +342,7 @@ export class MedicalController {
   ): Promise<ResponseCommon<PrescriptionResponseDto[]>> {
     await this.validatePatientAccess(user, patientId);
 
+    // Strict Mode for Doctors: Only return their own prescriptions
     const doctorId = user.roles?.includes(RoleEnum.DOCTOR)
       ? user.doctorId
       : undefined;
