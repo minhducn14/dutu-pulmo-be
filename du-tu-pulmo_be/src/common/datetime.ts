@@ -71,3 +71,25 @@ export function getDayVN(date: Date): number {
   return vn.getDay();
 }
 
+/**
+ * Check if two dates represent the same calendar day in VN timezone.
+ * This properly handles timezone differences without using tolerance hacks.
+ */
+export function isSameDayVN(date1: Date, date2: Date): boolean {
+  const vn1 = toZonedTime(date1, VN_TZ);
+  const vn2 = toZonedTime(date2, VN_TZ);
+  return (
+    vn1.getFullYear() === vn2.getFullYear() &&
+    vn1.getMonth() === vn2.getMonth() &&
+    vn1.getDate() === vn2.getDate()
+  );
+}
+
+/**
+ * Format a date as YYYY-MM-DD string in VN timezone.
+ * Useful for display and logging.
+ */
+export function formatDateVN(date: Date): string {
+  return formatInTimeZone(date, VN_TZ, 'yyyy-MM-dd');
+}
+
