@@ -52,4 +52,20 @@ export class PatientAppointmentQueryDto extends PaginationDto {
   @IsOptional()
   @IsEnum(AppointmentStatusEnum)
   status?: AppointmentStatusEnum;
+
+  @ApiPropertyOptional({
+    description: 'Ngày bắt đầu (YYYY-MM-DD)',
+    example: '2024-01-01',
+  })
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
+  @ApiPropertyOptional({
+    description: 'Ngày kết thúc (YYYY-MM-DD)',
+    example: '2024-12-31',
+  })
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
 }

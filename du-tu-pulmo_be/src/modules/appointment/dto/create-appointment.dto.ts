@@ -20,10 +20,18 @@ export class CreateAppointmentDto {
   @IsUUID()
   timeSlotId: string;
 
-  @ApiProperty({ description: 'ID bệnh nhân', format: 'uuid' })
+  @ApiPropertyOptional({ description: 'ID bệnh nhân', format: 'uuid' })
   @IsOptional()
   @IsUUID()
   patientId: string;
+
+  @ApiPropertyOptional({
+    description: 'ID bệnh viện (dùng cho IN_CLINIC)',
+    format: 'uuid',
+  })
+  @IsOptional()
+  @IsUUID()
+  hospitalId?: string;
 
   @ApiPropertyOptional({
     description:

@@ -27,6 +27,9 @@ export class AppointmentResponseDto {
   @ApiPropertyOptional()
   timeSlotId?: string;
 
+  @ApiPropertyOptional()
+  medicalRecordId?: string;
+
   @ApiProperty()
   scheduledAt: Date;
 
@@ -69,14 +72,8 @@ export class AppointmentResponseDto {
   @ApiPropertyOptional()
   dailyCoChannel?: string;
 
-  // @ApiPropertyOptional()
-  // roomNumber?: string;
-
   @ApiPropertyOptional()
   queueNumber?: number;
-
-  // @ApiPropertyOptional()
-  // floor?: string;
 
   @ApiPropertyOptional()
   chiefComplaint?: string;
@@ -135,6 +132,8 @@ export class AppointmentResponseDto {
       : (null as unknown as DoctorResponseDto);
     dto.hospitalId = entity.hospitalId || undefined;
     dto.timeSlotId = entity.timeSlotId || undefined;
+    // @ts-ignore
+    dto.medicalRecordId = entity.medicalRecordId || undefined;
     dto.scheduledAt = entity.scheduledAt;
     dto.durationMinutes = entity.durationMinutes;
     dto.timezone = entity.timezone;
