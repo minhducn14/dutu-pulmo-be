@@ -70,12 +70,12 @@ import { LoggerMiddleware } from '@/common/middleware/logger.middleware';
         CLOUDINARY_API_SECRET: Joi.string().required(),
 
         // Daily.co configuration for Video Call
-        DAILY_API_KEY: Joi.string().optional(),
+        DAILY_API_KEY: Joi.string().required(),
 
         // PayOS configuration for Payment
-        PAYOS_CLIENT_ID: Joi.string().optional(),
-        PAYOS_API_KEY: Joi.string().optional(),
-        PAYOS_CHECKSUM_KEY: Joi.string().optional(),
+        PAYOS_CLIENT_ID: Joi.string().required(),
+        PAYOS_API_KEY: Joi.string().required(),
+        PAYOS_CHECKSUM_KEY: Joi.string().required(),
       }),
     }),
     ThrottlerModule.forRoot([

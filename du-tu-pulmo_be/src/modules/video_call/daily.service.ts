@@ -58,12 +58,32 @@ export class DailyService {
         return existingRoom;
       }
     } catch (error) {
-      // Room doesn't exist, we'll create it
-      this.logger.debug(`Room ${roomName} not found, creating new one`);
+      // Ignore, we'll try to create
+      this.logger.debug(`Room ${roomName} not found, will create new one`);
     }
 
-    // Create new room
-    return this.createRoom(roomName);
+    // Try to create new room
+    try {
+      const newRoom = await this.createRoom(roomName);
+      return newRoom;
+    } catch (error: any) {
+      if (error.response?.status === 400) {
+        this.logger.debug(
+          `Room creation failed with 400, retrying getRoom for ${roomName}`,
+        );
+        
+        const existingRoom = await this.getRoom(roomName);
+        if (existingRoom) {
+          this.logger.log(
+            `Found existing room after creation conflict: ${roomName}`,
+          );
+          return existingRoom;
+        }
+      }
+      
+      // Re-throw if it's a different error or room still not found
+      throw error;
+    }
   }
 
   /**
@@ -99,10 +119,10 @@ export class DailyService {
           properties: {
             enable_chat: true,
             enable_screenshare: true,
-            enable_recording: 'cloud',
             start_video_off: false,
             start_audio_off: false,
-            exp: Math.floor(Date.now() / 1000) + 86400, // Expires in 24 hours
+            enable_knocking: true,
+            exp: Math.floor(Date.now() / 1000) + 86400,
           },
         },
         { headers: this.getHeaders() },
@@ -133,13 +153,6 @@ export class DailyService {
     }
   }
 
-  /**
-   * Create a meeting token for a participant
-   * @param roomName - The room name
-   * @param userId - The user ID
-   * @param userName - The user's display name
-   * @param isOwner - Whether the user is the room owner (doctor)
-   */
   async createMeetingToken(
     roomName: string,
     userId: string,
@@ -155,8 +168,7 @@ export class DailyService {
             user_id: userId,
             user_name: userName,
             is_owner: isOwner,
-            enable_recording: isOwner ? 'cloud' : undefined,
-            exp: Math.floor(Date.now() / 1000) + 3600, // Token expires in 1 hour
+            exp: Math.floor(Date.now() / 1000) + 3600,
           },
         },
         { headers: this.getHeaders() },
