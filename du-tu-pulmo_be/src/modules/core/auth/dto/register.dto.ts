@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEmail,
   IsString,
@@ -33,7 +33,7 @@ export class RegisterDto {
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: 'Nguyễn Văn A',
     required: false,
     description: 'Tên đầy đủ',
@@ -45,12 +45,12 @@ export class RegisterDto {
   @Matches(/^0[1-9]\d{8}$/, {
     message: 'Số điện thoại không hợp lệ (VD: 0912345678)',
   })
-  @ApiProperty({ example: '0912345678', required: false })
+  @ApiPropertyOptional({ example: '0912345678', required: false })
   phone?: string;
 
   @IsOptional()
   @IsEnum(CountryEnum, { message: 'Quốc tịch không hợp lệ' })
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: CountryEnum.VIET_NAM,
     description: 'Quốc tịch',
     required: false,
@@ -60,7 +60,7 @@ export class RegisterDto {
 
   @IsOptional()
   @IsEnum(EthnicityEnum, { message: 'Dân tộc không hợp lệ' })
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: EthnicityEnum.KINH,
     description: 'Dân tộc',
     required: false,
@@ -70,7 +70,7 @@ export class RegisterDto {
 
   @IsOptional()
   @IsEnum(OccupationEnum, { message: 'Nghề nghiệp không hợp lệ' })
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: OccupationEnum.JOB_22110,
     description: 'Nghề nghiệp',
     required: false,

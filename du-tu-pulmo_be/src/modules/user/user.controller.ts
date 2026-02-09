@@ -36,6 +36,7 @@ import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
 import { Roles } from '@/common/decorators/roles.decorator';
 import { CurrentUser } from '@/common/decorators/user.decorator';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import type { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
 import { RoleEnum } from '@/modules/common/enums/role.enum';
 import { ResponseCommon } from '@/common/dto/response.dto';
@@ -114,7 +115,7 @@ export class UserController {
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<UserResponseDto>> {
     if (!user.roles?.includes(RoleEnum.ADMIN) && user.userId !== id) {
-      throw new ForbiddenException('Bạn không có quyền xem thông tin cá nhân');
+      throw new ForbiddenException(ERROR_MESSAGES.USER_INFO_ACCESS_DENIED);
     }
     const response = await this.userService.findOne(id);
     return new ResponseCommon(

@@ -155,7 +155,7 @@ export class UserService {
       where: { id: userId },
     });
 
-    if (!user) throw new NotFoundException('User not found');
+    if (!user) throw new NotFoundException(USER_ERRORS.USER_NOT_FOUND);
 
     const uploaded = await this.cloudinaryService.uploadAvatar(file, userId);
     if (user.avatarPublicId) {
