@@ -426,10 +426,9 @@ export class AppointmentActionController {
   ) {
     const isDoctor = user.roles?.includes(RoleEnum.DOCTOR) ?? false;
     const userName = user.fullName || user.email || 'User';
-
     return this.appointmentService.generateMeetingToken(
       id,
-      user.id,
+      user.userId,
       userName,
       isDoctor,
     );
@@ -444,7 +443,7 @@ export class AppointmentActionController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtUser,
   ) {
-    this.appointmentService.leaveCall(user.id, id);
+    this.appointmentService.leaveCall(user.userId, id);
     return { message: 'Left call successfully' };
   }
 

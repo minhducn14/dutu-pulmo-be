@@ -162,12 +162,6 @@ export class Appointment {
   @Column({ name: 'meeting_password', length: 50, nullable: true })
   meetingPassword: string;
 
-  @Column({ name: 'recording_url', type: 'text', nullable: true })
-  recordingUrl: string;
-
-  @Column({ name: 'recording_consent', default: false })
-  recordingConsent: boolean;
-
   @Column({ name: 'daily_co_token', type: 'text', nullable: true })
   dailyCoToken: string;
 
@@ -180,14 +174,9 @@ export class Appointment {
   // ========================================
   // IN_CLINIC FIELDS
   // ========================================
-  // @Column({ name: 'room_number', length: 20, nullable: true })
-  // roomNumber: string;
 
   @Column({ name: 'queue_number', type: 'integer', nullable: true })
   queueNumber: number;
-
-  // @Column({ name: 'floor', length: 10, nullable: true })
-  // floor: string;
 
   // ========================================
   // CLINICAL INFO ( Thông tin y tế)

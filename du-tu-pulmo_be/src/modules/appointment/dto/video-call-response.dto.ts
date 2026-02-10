@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { AppointmentResponseDto } from './appointment-response.dto';
 
 export class JoinVideoCallResponseDto {
   @ApiProperty({ example: 'token-value' })
@@ -6,6 +7,9 @@ export class JoinVideoCallResponseDto {
 
   @ApiProperty({ example: 'https://example.daily.co/room' })
   url: string;
+
+  @ApiPropertyOptional({ type: () => AppointmentResponseDto })
+  appointment?: AppointmentResponseDto;
 }
 
 export class CurrentCallDto {

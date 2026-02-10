@@ -13,6 +13,9 @@ import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enu
 import { DailyService } from '@/modules/video_call/daily.service';
 import { CallStateService } from '@/modules/video_call/call-state.service';
 import { MedicalService } from '@/modules/medical/medical.service';
+import { AppointmentReadService } from '@/modules/appointment/services/appointment-read.service';
+import { AppointmentResponseDto } from '../dto/appointment-response.dto';
+import { ResponseCommon } from '@/common/dto/response.dto';
 
 @Injectable()
 export class AppointmentVideoService {
@@ -25,6 +28,7 @@ export class AppointmentVideoService {
     private readonly dailyService: DailyService,
     private readonly callStateService: CallStateService,
     private readonly medicalService: MedicalService,
+    private readonly appointmentReadService: AppointmentReadService,
   ) {}
 
   async generateMeetingToken(
@@ -32,50 +36,58 @@ export class AppointmentVideoService {
     userId: string,
     userName: string,
     isDoctor: boolean,
-  ): Promise<{ token: string; url: string }> {
+  ): Promise<{ token: string; url: string; appointment: ResponseCommon<AppointmentResponseDto> }> {
     let appointment = await this.dataSource.transaction(async (manager) => {
-      const apt = await manager.findOne(Appointment, {
-        where: { id: appointmentId },
-        relations: ['patient', 'patient.user', 'doctor', 'doctor.user'],
-        lock: { mode: 'pessimistic_write' },
-      });
+    const apt = await manager.findOne(Appointment, {
+      where: { id: appointmentId },
+      lock: { mode: 'pessimistic_write' },
+    });
 
-      if (!apt) {
-        throw new NotFoundException('Appointment not found');
-      }
+    if (!apt) {
+      throw new NotFoundException('Appointment not found');
+    }
 
-      if (isDoctor) {
-        if (!apt.doctor?.userId || apt.doctor.userId !== userId) {
-          throw new ForbiddenException(
-            'Bạn không phải là bác sĩ của cuộc hẹn này',
-          );
-        }
-      } else {
-        if (!apt.patient?.userId || apt.patient.userId !== userId) {
-          throw new ForbiddenException(
-            'Bạn không phải là bệnh nhân của cuộc hẹn này',
-          );
-        }
-      }
+    const aptWithRelations = await manager.findOne(Appointment, {
+      where: { id: appointmentId },
+      relations: ['patient', 'patient.user', 'doctor', 'doctor.user'],
+    });
 
-      if (apt.appointmentType !== AppointmentTypeEnum.VIDEO) {
-        throw new BadRequestException('This is not a video appointment');
-      }
+    if (!aptWithRelations) {
+      throw new NotFoundException('Appointment not found');
+    }
 
-      const validStates = [
-        AppointmentStatusEnum.CONFIRMED,
-        AppointmentStatusEnum.CHECKED_IN,
-        AppointmentStatusEnum.IN_PROGRESS,
-      ];
-
-      if (!validStates.includes(apt.status)) {
-        throw new BadRequestException(
-          `Cannot join meeting in status: ${apt.status}`,
+    if (isDoctor) {
+      if (!aptWithRelations.doctor?.userId || aptWithRelations.doctor.userId !== userId) {
+        throw new ForbiddenException(
+          'Bạn không phải là bác sĩ của cuộc hẹn này',
         );
       }
+    } else {
+      if (!aptWithRelations.patient?.userId || aptWithRelations.patient.userId !== userId) {
+        throw new ForbiddenException(
+          'Bạn không phải là bệnh nhân của cuộc hẹn này',
+        );
+      }
+    }
 
-      return apt;
-    });
+    if (aptWithRelations.appointmentType !== AppointmentTypeEnum.VIDEO) {
+      throw new BadRequestException('This is not a video appointment');
+    }
+
+    const validStates = [
+      AppointmentStatusEnum.CONFIRMED,
+      AppointmentStatusEnum.CHECKED_IN,
+      AppointmentStatusEnum.IN_PROGRESS,
+    ];
+
+    if (!validStates.includes(aptWithRelations.status)) {
+      throw new BadRequestException(
+        `Cannot join meeting in status: ${aptWithRelations.status}`,
+      );
+    }
+
+    return aptWithRelations;
+  });
 
     let roomUrl = appointment.meetingUrl;
     let roomName = appointment.dailyCoChannel;
@@ -124,7 +136,6 @@ export class AppointmentVideoService {
 
       if (apt.status === AppointmentStatusEnum.CONFIRMED) {
         if (isDoctor) {
-          apt.checkInTime = apt.checkInTime || new Date();
           apt.status = AppointmentStatusEnum.IN_PROGRESS;
           apt.startedAt = new Date();
           statusChanged = true;
@@ -157,7 +168,9 @@ export class AppointmentVideoService {
       if (enteredInProgress) {
         await this.medicalService.upsertEncounterInTx(manager, apt);
       }
-
+      this.logger.log(
+        `Auto check-in + start examination for VIDEO appointment ${appointmentId} (doctor joined)`,
+      );
       return apt;
     });
 
@@ -171,9 +184,12 @@ export class AppointmentVideoService {
 
       await this.callStateService.setCurrentCall(userId, appointmentId, roomName);
 
+      const appointmentData = await this.appointmentReadService.findById(appointmentId);
+
       return {
         token: tokenData.token,
         url: roomUrl,
+        appointment: appointmentData,
       };
     } catch (error) {
       this.logger.error(
@@ -208,7 +224,7 @@ export class AppointmentVideoService {
 
   async leaveCall(userId: string, appointmentId: string): Promise<void> {
     const currentCall = await this.callStateService.getCurrentCall(userId);
-
+    this.logger.log(`leaveCall: ${JSON.stringify(currentCall)}`);
     if (!currentCall || currentCall.appointmentId !== appointmentId) {
       throw new BadRequestException('User is not in this call');
     }
