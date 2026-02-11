@@ -3,11 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Patient } from '@/modules/patient/entities/patient.entity';
 import { ResponseCommon } from '@/common/dto/response.dto';
+import { MedicalService } from '@/modules/medical/medical.service';
 import { AppointmentService } from '@/modules/appointment/services/appointment.service';
-import {
-  PatientQueryDto,
-  UpdatePatientDto,
-} from '@/modules/patient/dto/patient.dto';
+import { PatientQueryDto, UpdatePatientDto } from '@/modules/patient/dto/patient.dto';
+import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
+import { PATIENT_ERRORS } from '@/common/constants/error-messages.constant';
 
 export interface PaginatedPatientResponseDto {
   items: Patient[];
@@ -26,6 +26,7 @@ export class PatientService {
   constructor(
     @InjectRepository(Patient)
     private readonly patientRepository: Repository<Patient>,
+    private readonly medicalService: MedicalService,
     private readonly appointmentService: AppointmentService,
   ) {}
 
@@ -95,7 +96,7 @@ export class PatientService {
     });
 
     if (!patient) {
-      throw new NotFoundException('Bệnh nhân không tồn tại');
+      throw new NotFoundException(PATIENT_ERRORS.PATIENT_NOT_FOUND);
     }
 
     return new ResponseCommon(200, 'SUCCESS', patient);
@@ -111,7 +112,7 @@ export class PatientService {
     });
 
     if (!patient) {
-      throw new NotFoundException('Bệnh nhân không tồn tại');
+      throw new NotFoundException(PATIENT_ERRORS.PATIENT_NOT_FOUND);
     }
 
     return new ResponseCommon(200, 'SUCCESS', patient);
@@ -127,7 +128,7 @@ export class PatientService {
     const patient = await this.patientRepository.findOne({ where: { id } });
 
     if (!patient) {
-      throw new NotFoundException('Bệnh nhân không tồn tại');
+      throw new NotFoundException(PATIENT_ERRORS.PATIENT_NOT_FOUND);
     }
 
     // Build update data, handling Date conversion for insuranceExpiry
@@ -143,9 +144,80 @@ export class PatientService {
   }
 
   // ============================================================================
+  // MEDICAL DATA - Fetching related medical information
+  // ============================================================================
+
+  /**
+   * Get patient's medical records
+   */
+  async getMedicalRecords(patientId: string): Promise<ResponseCommon> {
+    // Verify patient exists
+    const patient = await this.patientRepository.findOne({
+      where: { id: patientId },
+    });
+    if (!patient) {
+      throw new NotFoundException(PATIENT_ERRORS.PATIENT_NOT_FOUND);
+    }
+
+    return this.medicalService.findRecordsByPatient(patientId);
+  }
+
+  /**
+   * Get patient's vital signs history
+   */
+  async getVitalSigns(patientId: string): Promise<ResponseCommon> {
+    const patient = await this.patientRepository.findOne({
+      where: { id: patientId },
+    });
+    if (!patient) {
+      throw new NotFoundException(PATIENT_ERRORS.PATIENT_NOT_FOUND);
+    }
+
+    return this.medicalService.findVitalSignsByPatient(patientId);
+  }
+
+  /**
+   * Get patient's prescriptions
+   */
+  async getPrescriptions(patientId: string): Promise<ResponseCommon> {
+    const patient = await this.patientRepository.findOne({
+      where: { id: patientId },
+    });
+    if (!patient) {
+      throw new NotFoundException(PATIENT_ERRORS.PATIENT_NOT_FOUND);
+    }
+
+    return this.medicalService.findPrescriptionsByPatient(patientId);
+  }
+
+  /**
+   * Get patient's appointments with pagination
+   */
+  async getAppointments(
+    patientId: string,
+    query?: { page?: number; limit?: number; status?: AppointmentStatusEnum },
+  ): Promise<ResponseCommon> {
+    const patient = await this.patientRepository.findOne({
+      where: { id: patientId },
+    });
+    if (!patient) {
+      throw new NotFoundException(PATIENT_ERRORS.PATIENT_NOT_FOUND);
+    }
+
+    return this.appointmentService.findByPatient(patientId, {
+      page: query?.page || 1,
+      limit: query?.limit || 10,
+      status: query?.status,
+    });
+  }
+
+  // ============================================================================
   // PROFILE SUMMARY
   // ============================================================================
 
+  /**
+   * Get comprehensive patient profile with summary stats
+   */
   async getProfile(patientId: string): Promise<ResponseCommon> {
     const patient = await this.patientRepository.findOne({
       where: { id: patientId },
@@ -153,16 +225,27 @@ export class PatientService {
     });
 
     if (!patient) {
-      throw new NotFoundException('Bệnh nhân không tồn tại');
+      throw new NotFoundException(PATIENT_ERRORS.PATIENT_NOT_FOUND);
     }
+
+    // Get counts for summary using Raw methods
+    const [records, vitalSigns, prescriptions] = await Promise.all([
+      this.medicalService.findRecordsByPatientRaw(patientId),
+      this.medicalService.findVitalSignsByPatientRaw(patientId),
+      this.medicalService.findPrescriptionsByPatientRaw(patientId),
+    ]);
+
+    // Get latest vital signs
+    const latestVitalSign =
+      await this.medicalService.getLatestVitalSign(patientId);
 
     return new ResponseCommon(200, 'SUCCESS', {
       patient,
       summary: {
-        totalMedicalRecords: 0,
-        totalVitalSigns: 0,
-        totalPrescriptions: 0,
-        latestVitalSign: null,
+        totalMedicalRecords: records.length,
+        totalVitalSigns: vitalSigns.length,
+        totalPrescriptions: prescriptions.length,
+        latestVitalSign,
       },
     });
   }

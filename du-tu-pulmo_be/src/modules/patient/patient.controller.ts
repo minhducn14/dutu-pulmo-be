@@ -19,15 +19,13 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { PatientService } from '@/modules/patient/patient.service';
-import {
-  PatientQueryDto,
-  UpdatePatientDto,
-} from '@/modules/patient/dto/patient.dto';
+import { PatientQueryDto, UpdatePatientDto } from '@/modules/patient/dto/patient.dto';
 import {
   PatientResponseDto,
   PaginatedPatientResponseDto,
   PatientProfileResponseDto,
 } from '@/modules/patient/dto/patient-response.dto';
+import { PATIENT_ERRORS } from '@/common/constants/error-messages.constant';
 import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
 import { Roles } from '@/common/decorators/roles.decorator';
@@ -36,11 +34,21 @@ import type { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
 import { RoleEnum } from '@/modules/common/enums/role.enum';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import {
+  MedicalRecordResponseDto,
+  VitalSignResponseDto,
+  PrescriptionResponseDto,
+  PrescriptionItemResponseDto,
+} from '@/modules/medical/dto/medical-response.dto';
+import {
   PaginatedAppointmentResponseDto,
   AppointmentResponseDto,
 } from '@/modules/appointment/dto/appointment-response.dto';
+import { DoctorResponseDto } from '@/modules/doctor/dto/doctor-response.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { Patient } from '@/modules/patient/entities/patient.entity';
+import { MedicalRecord } from '@/modules/medical/entities/medical-record.entity';
+import { Prescription } from '@/modules/medical/entities/prescription.entity';
+import { VitalSign } from '@/modules/medical/entities/vital-sign.entity';
 
 @ApiTags('Patients')
 @Controller('patients')
@@ -53,6 +61,97 @@ export class PatientController {
 
   private toPatientDto(patient: Patient): PatientResponseDto {
     return PatientResponseDto.fromEntity(patient);
+  }
+
+  private toRecordDto(record: MedicalRecord): MedicalRecordResponseDto {
+    return {
+      id: record.id,
+      recordNumber: record.recordNumber,
+      patient: record.patient
+        ? PatientResponseDto.fromEntity(record.patient)
+        : (null as unknown as PatientResponseDto),
+      doctor: record.doctor
+        ? DoctorResponseDto.fromEntity(record.doctor)
+        : (null as unknown as DoctorResponseDto),
+      patientId: record.patientId,
+      doctorId: record.doctorId || undefined,
+      appointmentId: record.appointmentId,
+      appointment: record.appointment
+        ? AppointmentResponseDto.fromEntity(record.appointment)
+        : undefined,
+      chiefComplaint: record.chiefComplaint || undefined,
+      presentIllnessHistory: record.presentIllness || undefined,
+      pastMedicalHistory: record.medicalHistory || undefined,
+      physicalExamNotes: record.physicalExamNotes || undefined,
+      assessment: record.assessment || undefined,
+      diagnosisNotes: record.diagnosisNotes || undefined,
+      treatmentPlan: record.treatmentPlan || undefined,
+      status: record.appointment?.status || 'UNKNOWN',
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    };
+  }
+
+  private toPrescriptionDto(
+    prescription: Prescription,
+  ): PrescriptionResponseDto {
+    const diagnosisName = this.getDiagnosisName(prescription);
+    const items: PrescriptionItemResponseDto[] =
+      prescription.items?.map((item) => ({
+        id: item.id,
+        medicineId: item.medicineId || undefined,
+        medicineName: item.medicineName,
+        dosage: item.dosage,
+        frequency: item.frequency,
+        duration: item.durationDays ? `${item.durationDays} ngày` : '0 ngày',
+        quantity: item.quantity,
+        instructions: item.instructions || undefined,
+        unit: item.unit,
+      })) || [];
+
+    return {
+      id: prescription.id,
+      prescriptionNumber: prescription.prescriptionNumber,
+      patientId: prescription.patientId,
+      doctorId: prescription.doctorId || undefined,
+      medicalRecordId: prescription.medicalRecordId || undefined,
+      appointmentId: prescription.appointmentId || undefined,
+      diagnosis: diagnosisName,
+      notes: prescription.notes || undefined,
+      status: prescription.status || undefined,
+      items: items,
+      createdAt: prescription.createdAt,
+    };
+  }
+
+  private toVitalSignDto(vs: VitalSign): VitalSignResponseDto {
+    return {
+      id: vs.id,
+      patientId: vs.patientId,
+      medicalRecordId: vs.medicalRecordId || undefined,
+      temperature: vs.temperature ? Number(vs.temperature) : undefined,
+      bloodPressure: vs.bloodPressure || undefined,
+      heartRate: vs.heartRate ? Number(vs.heartRate) : undefined,
+      respiratoryRate: vs.respiratoryRate
+        ? Number(vs.respiratoryRate)
+        : undefined,
+      spo2: vs.spo2 ? Number(vs.spo2) : undefined,
+      height: vs.height ? Number(vs.height) : undefined,
+      weight: vs.weight ? Number(vs.weight) : undefined,
+      bmi: vs.bmi ? Number(vs.bmi) : undefined,
+      notes: undefined,
+      createdAt: vs.createdAt,
+    };
+  }
+
+  private getDiagnosisName(prescription: Prescription): string | undefined {
+    const diagnosis = (prescription as { diagnosis?: { name?: unknown } })
+      .diagnosis;
+    if (diagnosis && typeof diagnosis.name === 'string') {
+      return diagnosis.name;
+    }
+
+    return undefined;
   }
 
   // ============================================================================
@@ -117,7 +216,7 @@ export class PatientController {
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<PatientResponseDto>> {
     if (!user.patientId) {
-      throw new ForbiddenException('Bạn không phải là bệnh nhân');
+      throw new ForbiddenException(PATIENT_ERRORS.NOT_PATIENT);
     }
     const result = await this.patientService.findOne(user.patientId);
     return new ResponseCommon(
@@ -138,7 +237,7 @@ export class PatientController {
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<PatientProfileResponseDto>> {
     if (!user.patientId) {
-      throw new ForbiddenException('Bạn không phải là bệnh nhân');
+      throw new ForbiddenException(PATIENT_ERRORS.NOT_PATIENT);
     }
     const result = await this.patientService.getProfile(user.patientId);
 
@@ -148,13 +247,15 @@ export class PatientController {
         totalMedicalRecords: number;
         totalVitalSigns: number;
         totalPrescriptions: number;
-        latestVitalSign?: null;
+        latestVitalSign?: VitalSign | null;
       };
     };
     const patientDto = this.toPatientDto(data.patient);
     const summary = {
       ...data.summary,
-      latestVitalSign: data.summary.latestVitalSign,
+      latestVitalSign: data.summary.latestVitalSign
+        ? this.toVitalSignDto(data.summary.latestVitalSign)
+        : null,
     };
 
     return new ResponseCommon(result.code, result.message, {
@@ -238,6 +339,99 @@ export class PatientController {
     );
   }
 
+  // ============================================================================
+  // MEDICAL DATA ENDPOINTS
+  // ============================================================================
+
+  @Get(':id/medical-records')
+  @ApiOperation({ summary: 'Lấy danh sách hồ sơ bệnh án của bệnh nhân' })
+  @ApiParam({ name: 'id', description: 'Patient ID (UUID)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Danh sách hồ sơ bệnh án',
+    type: [MedicalRecordResponseDto],
+  })
+  async getMedicalRecords(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<MedicalRecordResponseDto[]>> {
+    this.checkPatientAccess(id, user);
+    const result = await this.patientService.getMedicalRecords(id);
+    const records = (result.data ?? []) as MedicalRecord[];
+    const dtos = records.map((r) => this.toRecordDto(r));
+    return new ResponseCommon(result.code, result.message, dtos);
+  }
+
+  @Get(':id/vital-signs')
+  @ApiOperation({ summary: 'Lấy lịch sử chỉ số sinh tồn của bệnh nhân' })
+  @ApiParam({ name: 'id', description: 'Patient ID (UUID)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Lịch sử chỉ số sinh tồn',
+    type: [VitalSignResponseDto],
+  })
+  async getVitalSigns(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<VitalSignResponseDto[]>> {
+    this.checkPatientAccess(id, user);
+    const result = await this.patientService.getVitalSigns(id);
+    const vitalSigns = (result.data ?? []) as VitalSign[];
+    const dtos = vitalSigns.map((vs) => this.toVitalSignDto(vs));
+    return new ResponseCommon(result.code, result.message, dtos);
+  }
+
+  @Get(':id/prescriptions')
+  @ApiOperation({ summary: 'Lấy danh sách đơn thuốc của bệnh nhân' })
+  @ApiParam({ name: 'id', description: 'Patient ID (UUID)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Danh sách đơn thuốc',
+    type: [PrescriptionResponseDto],
+  })
+  async getPrescriptions(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<PrescriptionResponseDto[]>> {
+    this.checkPatientAccess(id, user);
+    const result = await this.patientService.getPrescriptions(id);
+    const prescriptions = (result.data ?? []) as Prescription[];
+    const dtos = prescriptions.map((p) => this.toPrescriptionDto(p));
+    return new ResponseCommon(result.code, result.message, dtos);
+  }
+
+  @Get(':id/appointments')
+  @ApiOperation({ summary: 'Lấy danh sách lịch hẹn của bệnh nhân' })
+  @ApiParam({ name: 'id', description: 'Patient ID (UUID)' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'status', required: false, type: String })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Danh sách lịch hẹn',
+    type: PaginatedAppointmentResponseDto,
+  })
+  async getAppointments(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: { page?: number; limit?: number; status?: string },
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<PaginatedAppointmentResponseDto>> {
+    this.checkPatientAccess(id, user);
+    const status =
+      query.status &&
+      Object.values(AppointmentStatusEnum).includes(
+        query.status as AppointmentStatusEnum,
+      )
+        ? (query.status as AppointmentStatusEnum)
+        : undefined;
+    const result = await this.patientService.getAppointments(id, {
+      page: query.page,
+      limit: query.limit,
+      status,
+    });
+    return result as unknown as ResponseCommon<PaginatedAppointmentResponseDto>;
+  }
+
   @Get(':id/profile')
   @ApiOperation({
     summary: 'Lấy hồ sơ tổng hợp bệnh nhân (thông tin + thống kê)',
@@ -261,13 +455,15 @@ export class PatientController {
         totalMedicalRecords: number;
         totalVitalSigns: number;
         totalPrescriptions: number;
-        latestVitalSign?: null;
+        latestVitalSign?: VitalSign | null;
       };
     };
     const patientDto = this.toPatientDto(data.patient);
     const summary = {
       ...data.summary,
-      latestVitalSign: data.summary.latestVitalSign,
+      latestVitalSign: data.summary.latestVitalSign
+        ? this.toVitalSignDto(data.summary.latestVitalSign)
+        : null,
     };
 
     return new ResponseCommon(result.code, result.message, {
