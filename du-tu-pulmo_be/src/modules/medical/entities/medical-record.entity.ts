@@ -15,6 +15,7 @@ import { Doctor } from '@/modules/doctor/entities/doctor.entity';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { VitalSign } from '@/modules/medical/entities/vital-sign.entity';
 import { Prescription } from '@/modules/medical/entities/prescription.entity';
+// Removed CareLog and LabResult imports
 import { MedicalRecordStatusEnum } from '@/modules/common/enums/medical-record-status.enum';
 import { ScreeningRequest } from '@/modules/screening/entities/screening-request.entity';
 
@@ -194,14 +195,7 @@ export class MedicalRecord {
   @Column({ name: 'follow_up_instructions', type: 'text', nullable: true })
   followUpInstructions: string | null;
 
-  @Column({ name: 'imaging_records', type: 'jsonb', nullable: true })
-  imagingRecords: {
-    xray?: string;
-    ctScan?: string;
-    ultrasound?: string;
-    labTests?: string;
-    fullRecord?: string;
-  } | null;
+
 
   // Related records
   @ManyToOne(() => MedicalRecord, { onDelete: 'SET NULL', nullable: true })

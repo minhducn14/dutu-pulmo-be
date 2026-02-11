@@ -8,6 +8,7 @@ import {
   BeforeInsert,
   BeforeUpdate,
 } from 'typeorm';
+import { Expose } from 'class-transformer';
 import { Patient } from '@/modules/patient/entities/patient.entity';
 import { MedicalRecord } from '@/modules/medical/entities/medical-record.entity';
 
@@ -60,15 +61,6 @@ export class VitalSign {
   @Column({ name: 'spo2', type: 'integer', nullable: true })
   spo2: number;
 
-  @Column({
-    name: 'bmi',
-    type: 'decimal',
-    precision: 5,
-    scale: 2,
-    nullable: true,
-  })
-  bmi: number;
-
   @CreateDateColumn({
     name: 'created_at',
     type: 'timestamptz',
@@ -76,14 +68,10 @@ export class VitalSign {
   })
   createdAt: Date;
 
-  // Auto-calculate BMI when height and weight are provided
-  @BeforeInsert()
-  @BeforeUpdate()
-  calculateBMI() {
-    if (this.height && this.weight) {
-      const heightInMeters = this.height / 100; // height in cm
-      const bmiValue = this.weight / (heightInMeters * heightInMeters);
-      this.bmi = Math.round(bmiValue * 10) / 10; // Round to 1 decimal
-    }
+  @Expose()
+  get bmi(): number {
+    if (!this.height || !this.weight) return 0;
+    const heightInMeters = this.height / 100;
+    return Number((this.weight / (heightInMeters * heightInMeters)).toFixed(2));
   }
 }

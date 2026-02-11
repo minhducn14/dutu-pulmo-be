@@ -22,6 +22,7 @@ import {
 } from '@/modules/medical/dto/get-medical-record-detail.dto';
 import { MedicalRecordExaminationDto } from '@/modules/medical/dto/medical-record-examination.dto';
 import { MedicalRecordSummaryDto } from '@/modules/medical/dto/medical-record-summary.dto';
+// Removed CareLog DTO imports
 import { SignMedicalRecordDto } from '@/modules/medical/dto/sign-medical-record.dto';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import { PrescriptionStatusEnum } from '@/modules/common/enums/prescription-status.enum';
@@ -345,7 +346,6 @@ export class MedicalService {
       // Note: Object.assign handles this well for defined keys in data.
 
       const result = await manager.save(record);
-      console.log(result);
       // Update appointment fields
       let apptChanged = false;
       if (
@@ -795,7 +795,7 @@ export class MedicalService {
       treatmentPlan: record.treatmentPlan || undefined,
       dischargeCondition: record.dischargeCondition || undefined,
       followUpInstructions: record.followUpInstructions || undefined,
-      imagingRecords: record.imagingRecords || undefined,
+
       status: record.appointment?.status || 'UNKNOWN',
       updatedAt: record.updatedAt,
       surgicalHistory: record.surgicalHistory || undefined,

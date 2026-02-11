@@ -185,14 +185,7 @@ export class MedicalRecordDetailResponseDto {
   @ApiPropertyOptional({ description: 'Alcohol consumption' })
   alcoholConsumption?: boolean;
 
-  @ApiPropertyOptional({ description: 'Hồ sơ phim ảnh' })
-  imagingRecords?: {
-    xray?: string;
-    ctScan?: string;
-    ultrasound?: string;
-    labTests?: string;
-    fullRecord?: string;
-  };
+
 
   @ApiProperty({ description: 'Status bệnh án' })
   status: string;
