@@ -4,6 +4,7 @@ import { fakerVI as faker } from '@faker-js/faker';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 
+// Core Imports (we can keep these for explicit usage in code)
 import { Doctor } from '@/modules/doctor/entities/doctor.entity';
 import { DoctorSchedule } from '@/modules/doctor/entities/doctor-schedule.entity';
 import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
@@ -17,6 +18,7 @@ import { Prescription } from '@/modules/medical/entities/prescription.entity';
 import { PrescriptionItem } from '@/modules/medical/entities/prescription-item.entity';
 import { Medicine } from '@/modules/medical/entities/medicine.entity';
 
+// Enums
 import { DoctorTitle } from '@/modules/common/enums/doctor-title.enum';
 import { SpecialtyEnum } from '@/modules/common/enums/specialty.enum';
 import { RoleEnum } from '@/modules/common/enums/role.enum';
@@ -33,9 +35,25 @@ import {
   UnitOfMeasure,
 } from '@/modules/medical/enums/medicine.enums';
 
+import {
+  vnNow,
+  startOfDayVN,
+  endOfDayVN,
+  addDaysVN,
+  getDayVN,
+} from '@/common/datetime';
+
+/**
+ * Seed data cho hệ thống phòng khám phổi Dutu Pulmo (Comprehensive - 1 Month+ Test)
+ * Run: npx ts-node -r tsconfig-paths/register src/modules/core/database/seeds/seed.ts
+ */
+
 async function seed() {
   dotenv.config();
 
+  // Path to all entities: src/modules/**/*.entity.ts
+  // seed.ts is in src/modules/core/database/seeds/
+  // So we go up 4 levels to src/modules
   const entitiesPath = path.join(__dirname, '../../../../**/*.entity{.ts,.js}');
 
   const dataSource = new DataSource({
@@ -462,6 +480,83 @@ async function seed() {
     }
     console.log(`   ✅ ${createdDoctors.length} Doctors ready.`);
 
+    // ========== SEED DOCTOR SCHEDULES (Recurring) ==========
+    console.log('\n📅 Seeding Schedules...');
+    for (const doctor of createdDoctors) {
+      const existing = await scheduleRepo.count({
+        where: { doctorId: doctor.id },
+      });
+      if (existing > 0) continue;
+
+      for (let day = 1; day <= 5; day++) {
+        await scheduleRepo.save(
+          scheduleRepo.create({
+            doctorId: doctor.id,
+            dayOfWeek: day,
+            startTime: '08:00',
+            endTime: '12:00',
+            slotDuration: 30,
+            slotCapacity: 1,
+            scheduleType: ScheduleType.REGULAR,
+            priority: 0,
+            isAvailable: true,
+            appointmentType: AppointmentTypeEnum.IN_CLINIC,
+            maxAdvanceBookingDays: 60,
+          }),
+        );
+        await scheduleRepo.save(
+          scheduleRepo.create({
+            doctorId: doctor.id,
+            dayOfWeek: day,
+            startTime: '13:00',
+            endTime: '17:00',
+            slotDuration: 30,
+            slotCapacity: 1,
+            scheduleType: ScheduleType.REGULAR,
+            priority: 0,
+            isAvailable: true,
+            appointmentType: AppointmentTypeEnum.IN_CLINIC,
+            maxAdvanceBookingDays: 60,
+          }),
+        );
+      }
+      await scheduleRepo.save(
+        scheduleRepo.create({
+          doctorId: doctor.id,
+          dayOfWeek: 6,
+          startTime: '09:00',
+          endTime: '13:00',
+          slotDuration: 30,
+          slotCapacity: 1,
+          scheduleType: ScheduleType.REGULAR,
+          priority: 0,
+          isAvailable: true,
+          appointmentType: AppointmentTypeEnum.IN_CLINIC,
+          maxAdvanceBookingDays: 60,
+        }),
+      );
+
+      const numOffs = faker.number.int({ min: 3, max: 5 });
+      for (let i = 0; i < numOffs; i++) {
+        const date = faker.date.soon({ days: 60 });
+        await scheduleRepo.save(
+          scheduleRepo.create({
+            doctorId: doctor.id,
+            scheduleType: ScheduleType.TIME_OFF,
+            priority: 100, // High priority
+            startTime: '00:00',
+            endTime: '23:59',
+            specificDate: date,
+            dayOfWeek: date.getDay(),
+            isAvailable: false,
+            effectiveFrom: date,
+            effectiveUntil: date,
+          }),
+        );
+      }
+    }
+    console.log('   ✅ Schedules & TimeOffs set.');
+
     // ========== SEED PATIENTS (30) ==========
     console.log('\n👤 Seeding Patients...');
     const createdPatients: Patient[] = [];
@@ -526,6 +621,297 @@ async function seed() {
     }
     const allPatients = await patientRepo.find();
     console.log(`   ✅ ${allPatients.length} Patients ready.`);
+
+    // ========== SEED APPOINTMENTS (~100) ==========
+    console.log('\n📅 Seeding Appointments...');
+    const totalApps = 100;
+    let appsCreated = 0;
+
+    for (let i = 0; i < totalApps; i++) {
+      const rand = Math.random();
+      let date: Date;
+      let status: AppointmentStatusEnum;
+
+      if (rand < 0.2) {
+        // Past
+        date = faker.date.recent({ days: 60 });
+        status = faker.helpers.arrayElement([
+          AppointmentStatusEnum.COMPLETED,
+          AppointmentStatusEnum.COMPLETED,
+          AppointmentStatusEnum.CANCELLED,
+        ]);
+      } else if (rand < 0.7) {
+        // Present (TODAY) - Focus on Flow 1 states
+        date = new Date();
+        date.setHours(
+          faker.number.int({ min: 8, max: 16 }),
+          faker.helpers.arrayElement([0, 30]),
+          0,
+          0,
+        );
+        // 50% CONFIRMED (Ready to Check-in), 50% CHECKED_IN (Ready to Start)
+        status = faker.helpers.weightedArrayElement([
+          { weight: 5, value: AppointmentStatusEnum.CONFIRMED },
+          { weight: 5, value: AppointmentStatusEnum.CHECKED_IN },
+        ]);
+      } else {
+        // Future
+        date = faker.date.soon({ days: 60 });
+        status = AppointmentStatusEnum.CONFIRMED;
+      }
+
+      if (rand >= 0.7 || rand < 0.2) {
+        let hour = date.getHours();
+        if (hour < 8) hour = 8;
+        if (hour === 12) hour = 13;
+        if (hour > 17) hour = 16;
+        date.setHours(hour, faker.helpers.arrayElement([0, 30]), 0, 0);
+      }
+
+      const doctor = faker.helpers.arrayElement(createdDoctors);
+      const patient = faker.helpers.arrayElement(allPatients);
+      // FORCE IN_CLINIC for Flow 1 testing
+      const type = AppointmentTypeEnum.IN_CLINIC;
+
+      const appointment = await appointmentRepo.save(
+        appointmentRepo.create({
+          doctorId: doctor.id,
+          patientId: patient.id,
+          scheduledAt: date,
+          durationMinutes: 30,
+          status: status,
+          appointmentType: type,
+          appointmentNumber: `APT-${faker.string.alphanumeric(8).toUpperCase()}`,
+          chiefComplaint: faker.lorem.sentence(),
+          feeAmount: doctor.defaultConsultationFee || '0',
+        }),
+      );
+      appsCreated++;
+
+      // ========== MEDICAL RECORDS (For COMPLETED) ==========
+      if (status === AppointmentStatusEnum.COMPLETED) {
+        const hasXray = faker.datatype.boolean({ probability: 0.5 });
+
+        const record = await medicalRecordRepo.save(
+          medicalRecordRepo.create({
+            appointmentId: appointment.id,
+            patientId: patient.id,
+            doctorId: doctor.id,
+            recordNumber: `REC-${appointment.appointmentNumber || faker.string.alphanumeric(6)}-${faker.string.alphanumeric(4)}`,
+            diagnosisNotes: hasXray
+              ? `Acute Bronchitis. X-Ray Findings: ${faker.helpers.arrayElement(['Infiltrates in lower lobe', 'Clear lungs', 'Minor opacity'])}`
+              : 'Common Cold',
+            chiefComplaint: faker.lorem.sentence(),
+            medicalHistory: JSON.stringify(
+              faker.helpers.arrayElements(['Diabetes', 'Hypertension'], 1),
+            ),
+            allergies: faker.helpers.arrayElements(['Peanuts', 'Dust'], 1),
+          }),
+        );
+
+        // Create Prescription
+        if (faker.datatype.boolean()) {
+          const prescription = await prescriptionRepo.save(
+            prescriptionRepo.create({
+              appointmentId: appointment.id,
+              medicalRecordId: record.id,
+              patientId: patient.id,
+              doctorId: doctor.id,
+              prescriptionNumber: `RX-${faker.string.alphanumeric(8).toUpperCase()}`,
+              status: PrescriptionStatusEnum.ACTIVE,
+              validUntil: faker.date.soon({ days: 30 }),
+            }),
+          );
+
+          // Create Items (1-3 items)
+          const numItems = faker.number.int({ min: 1, max: 3 });
+          for (let k = 0; k < numItems; k++) {
+            const med = faker.helpers.arrayElement(createdMedicines);
+            await prescriptionItemRepo.save(
+              prescriptionItemRepo.create({
+                prescriptionId: prescription.id,
+                medicineId: med.id, // Link to Medicine
+                medicineName: med.name,
+                unit: med.unit,
+                dosage: med.content || 'Theo chỉ định',
+                frequency: '2 lần/ngày, sáng 1 chiều 1', // Complex freq
+                durationDays: faker.number.int({ min: 3, max: 7 }),
+                quantity: faker.number.int({ min: 10, max: 20 }),
+                startDate: new Date(),
+                endDate: faker.date.soon({ days: 7 }),
+                instructions: 'Uống sau ăn',
+              }),
+            );
+          }
+        }
+      }
+    }
+    console.log(`   ✅ ${appsCreated} Appointments & Medical Records created.`);
+
+    // ========== GUARANTEED TEST DATA (For Queue Manager) ==========
+    console.log('\n🧪 Creating Guaranteed Test Appointment...');
+    if (createdDoctors.length > 0 && allPatients.length > 0) {
+      const testDoctor = createdDoctors[0]; // Dr. Respiratory
+      const testPatient = allPatients[0];
+      
+      const testDate = new Date();
+      testDate.setHours(9, 0, 0, 0); // 9:00 AM Today
+
+      await appointmentRepo.save(
+        appointmentRepo.create({
+          doctorId: testDoctor.id,
+          patientId: testPatient.id,
+          scheduledAt: testDate,
+          durationMinutes: 30,
+          status: AppointmentStatusEnum.CHECKED_IN, // Ready to Start Exam
+          appointmentType: AppointmentTypeEnum.IN_CLINIC,
+          appointmentNumber: `TEST-QUEUE-01`,
+          chiefComplaint: 'Testing Queue Manager - Start Exam Flow',
+          feeAmount: testDoctor.defaultConsultationFee || '0',
+        })
+      );
+      console.log(`   ✅ Created TEST-QUEUE-01: CHECKED_IN for ${testDoctor.userId} (Dr. Respiratory)`);
+
+      const videoDate = new Date();
+      videoDate.setHours(10, 0, 0, 0); // 10:00 AM Today
+
+      await appointmentRepo.save(
+        appointmentRepo.create({
+          doctorId: testDoctor.id,
+          patientId: testPatient.id,
+          scheduledAt: videoDate,
+          durationMinutes: 30,
+          status: AppointmentStatusEnum.CHECKED_IN, // Ready to Join
+          appointmentType: AppointmentTypeEnum.VIDEO,
+          appointmentNumber: `TEST-VIDEO-01`,
+          chiefComplaint: 'Testing Video Call Flow',
+          feeAmount: testDoctor.defaultConsultationFee || '0',
+        })
+      );
+      console.log(`   ✅ Created TEST-VIDEO-01: CHECKED_IN (Video) for ${testDoctor.userId}`);
+
+      // TEST VIDEO 2: CONFIRMED (Not yet checked in)
+      const videoDate2 = new Date();
+      videoDate2.setHours(14, 0, 0, 0); // 2:00 PM Today
+
+      await appointmentRepo.save(
+        appointmentRepo.create({
+          doctorId: testDoctor.id,
+          patientId: testPatient.id,
+          scheduledAt: videoDate2,
+          durationMinutes: 30,
+          status: AppointmentStatusEnum.CONFIRMED,
+          appointmentType: AppointmentTypeEnum.VIDEO,
+          appointmentNumber: `TEST-VIDEO-02`,
+          chiefComplaint: 'Video Call Test 2 - Confirmed Status',
+          feeAmount: testDoctor.defaultConsultationFee || '0',
+        })
+      );
+      console.log(`   ✅ Created TEST-VIDEO-02: CONFIRMED (Video)`);
+
+      // TEST VIDEO 3: CHECKED_IN (Another ready one)
+      const videoDate3 = new Date();
+      videoDate3.setHours(15, 30, 0, 0); // 3:30 PM Today
+
+      await appointmentRepo.save(
+        appointmentRepo.create({
+          doctorId: testDoctor.id,
+          patientId: testPatient.id,
+          scheduledAt: videoDate3,
+          durationMinutes: 30,
+          status: AppointmentStatusEnum.CHECKED_IN,
+          appointmentType: AppointmentTypeEnum.VIDEO,
+          appointmentNumber: `TEST-VIDEO-03`,
+          chiefComplaint: 'Video Call Test 3 - Checked In',
+          feeAmount: testDoctor.defaultConsultationFee || '0',
+        })
+      );
+      console.log(`   ✅ Created TEST-VIDEO-03: CHECKED_IN (Video)`);
+    }
+
+    // ========== GENERATE TIME SLOTS (60 Days) ==========
+    console.log('\n⏳ Generating TimeSlots (60 Days)...');
+    const startDate = startOfDayVN(vnNow());
+    const futureDate = addDaysVN(startDate, 60);
+
+    let slotsGenerated = 0;
+
+    for (const doctor of createdDoctors) {
+      const iterDate = new Date(startDate);
+      while (iterDate <= futureDate) {
+        const dayOfWeek = getDayVN(iterDate);
+
+        const dayStart = startOfDayVN(iterDate);
+        const dayEnd = endOfDayVN(iterDate);
+
+        const specialSchedules = await scheduleRepo.find({
+          where: {
+            doctorId: doctor.id,
+            specificDate: Between(dayStart, dayEnd),
+            priority: MoreThan(0),
+          },
+          order: { priority: 'DESC' },
+        });
+
+        const regularSchedules = await scheduleRepo.find({
+          where: {
+            doctorId: doctor.id,
+            scheduleType: ScheduleType.REGULAR,
+            dayOfWeek: dayOfWeek,
+            isAvailable: true,
+          },
+        });
+
+        let activeSchedules: DoctorSchedule[] = [];
+
+        if (specialSchedules.length > 0) {
+          activeSchedules = specialSchedules;
+        } else {
+          activeSchedules = regularSchedules;
+        }
+
+        for (const sched of activeSchedules) {
+          if (!sched.isAvailable) continue;
+
+          const [sH, sM] = sched.startTime.split(':').map(Number);
+          const [eH, eM] = sched.endTime.split(':').map(Number);
+          const slotDurMs = sched.slotDuration * 60000;
+
+          const baseDate = startOfDayVN(iterDate);
+          const rangeStart = new Date(baseDate.getTime() + (sH * 60 + sM) * 60000);
+          const rangeEnd = new Date(baseDate.getTime() + (eH * 60 + eM) * 60000);
+
+          let curr = rangeStart.getTime();
+          while (curr + slotDurMs <= rangeEnd.getTime()) {
+            const slotStart = new Date(curr);
+            const slotEnd = new Date(curr + slotDurMs);
+
+            const existingApp = await appointmentRepo.findOne({
+              where: {
+                doctorId: doctor.id,
+                scheduledAt: slotStart,
+              },
+            });
+
+            await timeSlotRepo.save(
+              timeSlotRepo.create({
+                doctorId: doctor.id,
+                scheduleId: sched.id,
+                startTime: slotStart,
+                endTime: slotEnd,
+                isAvailable: !existingApp,
+                capacity: sched.slotCapacity,
+                bookedCount: existingApp ? 1 : 0,
+              }),
+            );
+            slotsGenerated++;
+            curr += slotDurMs;
+          }
+        }
+        iterDate.setDate(iterDate.getDate() + 1);
+      }
+    }
+    console.log(`   ✅ ${slotsGenerated} TimeSlots generated.`);
 
     console.log('\n🎉 Seed Completed Successfully!');
     console.log('Admin: ' + adminEmail);

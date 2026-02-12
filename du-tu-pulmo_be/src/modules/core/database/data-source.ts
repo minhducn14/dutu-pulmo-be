@@ -3,7 +3,9 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 import { DataSource } from 'typeorm';
-import databaseConfig, { toTypeOrmOptions } from '@/config/database.config';
+import databaseConfig, {
+  toTypeOrmOptions,
+} from '@/config/database.config';
 
 const getOptions = async () => {
   const cfg = await databaseConfig();
