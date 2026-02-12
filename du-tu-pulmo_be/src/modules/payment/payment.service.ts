@@ -7,13 +7,11 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, LessThan, In } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import {
-  Payment,
-  PaymentStatus,
-} from '@/modules/payment/entities/payment.entity';
+import { Payment, PaymentStatus } from '@/modules/payment/entities/payment.entity';
 import { PayosService, WebhookData } from '@/modules/payment/payos.service';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
+import { PAYMENT_ERRORS, APPOINTMENT_ERRORS } from '@/common/constants/error-messages.constant';
 
 export interface CreatePaymentDto {
   appointmentId: string;
@@ -79,7 +77,7 @@ export class PaymentService {
     });
 
     if (!appointment) {
-      throw new NotFoundException('Appointment not found');
+      throw new NotFoundException(APPOINTMENT_ERRORS.APPOINTMENT_NOT_FOUND);
     }
 
     if (appointment.status !== AppointmentStatusEnum.PENDING_PAYMENT) {
@@ -187,7 +185,7 @@ export class PaymentService {
     });
 
     if (!payment) {
-      throw new NotFoundException('Payment not found for this appointment');
+      throw new NotFoundException(PAYMENT_ERRORS.PAYMENT_NOT_FOUND);
     }
 
     return this.toDto(payment);
@@ -201,11 +199,11 @@ export class PaymentService {
       where: { orderCode },
     });
     if (!payment) {
-      throw new NotFoundException('Payment not found');
+      throw new NotFoundException(PAYMENT_ERRORS.PAYMENT_NOT_FOUND);
     }
     void this.cancelPaymentByAppointmentId(payment.appointmentId, '');
     if (!payment) {
-      throw new NotFoundException('Payment not found');
+      throw new NotFoundException(PAYMENT_ERRORS.PAYMENT_NOT_FOUND);
     }
 
     return this.toDto(payment);
@@ -220,7 +218,7 @@ export class PaymentService {
     });
 
     if (!payment) {
-      throw new NotFoundException('Payment not found');
+      throw new NotFoundException(PAYMENT_ERRORS.PAYMENT_NOT_FOUND);
     }
 
     return this.toDto(payment);
@@ -240,7 +238,7 @@ export class PaymentService {
 
     if (!payment) {
       throw new NotFoundException(
-        'Pending payment not found for this appointment',
+        PAYMENT_ERRORS.PAYMENT_NOT_FOUND,
       );
     }
 
@@ -294,7 +292,7 @@ export class PaymentService {
     const verifiedData = this.payosService.verifyWebhookData(webhookData);
     if (!verifiedData) {
       this.logger.warn('Invalid webhook signature');
-      throw new BadRequestException('Invalid webhook signature');
+      throw new BadRequestException(PAYMENT_ERRORS.INVALID_SIGNATURE);
     }
 
     const { orderCode } = verifiedData;
@@ -437,7 +435,7 @@ export class PaymentService {
     });
 
     if (!payment) {
-      throw new NotFoundException('Payment not found for this appointment');
+      throw new NotFoundException(PAYMENT_ERRORS.PAYMENT_NOT_FOUND);
     }
 
     return this.syncPaymentStatusInternal(payment);
@@ -454,7 +452,9 @@ export class PaymentService {
     });
 
     if (!payment) {
-      throw new NotFoundException('Payment not found');
+      throw new NotFoundException(
+        PAYMENT_ERRORS.PAYMENT_NOT_FOUND,
+      );
     }
 
     return this.syncPaymentStatusInternal(payment);
@@ -581,7 +581,7 @@ export class PaymentService {
           payosInfo.status === 'CANCELLED' &&
           payment.status !== PaymentStatus.CANCELLED
         ) {
-          console.log('Payment cancelled: ' + payment.id);
+          this.logger.log(`Payment cancelled: ${payment.id}`);
           payment.status = PaymentStatus.CANCELLED;
           payment.cancelledAt = new Date();
           statusChanged = true;
@@ -589,7 +589,7 @@ export class PaymentService {
           payosInfo.status === 'EXPIRED' &&
           payment.status !== PaymentStatus.EXPIRED
         ) {
-          console.log('Payment expired: ' + payment.id);
+          this.logger.log(`Payment expired: ${payment.id}`);
           payment.status = PaymentStatus.EXPIRED;
           statusChanged = true;
         }

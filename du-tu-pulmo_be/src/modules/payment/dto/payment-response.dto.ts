@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PaymentStatus } from '@/modules/payment/entities/payment.entity';
 import { IsOptional, IsString } from 'class-validator';
 
@@ -90,7 +90,7 @@ export class PaymentResponseDto {
 }
 
 export class CancelPaymentDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Lý do hủy thanh toán',
     example: 'Khách hàng đổi ý',
     required: false,
