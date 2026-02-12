@@ -89,26 +89,7 @@ export class ScreeningController {
     return new ResponseCommon(HttpStatus.OK, 'SUCCESS', data);
   }
 
-  @Get('assigned')
-  @Roles('DOCTOR')
-  @ApiOperation({ summary: 'Lấy danh sách sàng lọc được giao cho bác sĩ' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Danh sách sàng lọc được giao',
-    type: [ScreeningRequestResponseDto],
-  })
-  async findAssignedScreenings(
-    @CurrentUser() user: JwtUser,
-  ): Promise<ResponseCommon<ScreeningRequestResponseDto[]>> {
-    if (!user.doctorId) {
-      throw new ForbiddenException(DOCTOR_ERRORS.MISSING_DOCTOR_INFO);
-    }
-    const screenings = await this.screeningService.findByDoctor(user.doctorId);
-    const data = (screenings ?? []).map((screening) =>
-      ScreeningRequestResponseDto.fromEntity(screening),
-    );
-    return new ResponseCommon(HttpStatus.OK, 'SUCCESS', data);
-  }
+
 
   @Get(':id')
   @ApiOperation({ summary: 'Lấy chi tiết yêu cầu sàng lọc' })
@@ -135,8 +116,7 @@ export class ScreeningController {
     if (!user.roles?.includes('ADMIN')) {
       if (user.roles?.includes('DOCTOR')) {
         const canAccess =
-          screening.uploadedByDoctorId === user.doctorId ||
-          screening.assignedDoctorId === user.doctorId;
+          screening.uploadedByDoctorId === user.doctorId;
 
         if (!canAccess) {
           throw new ForbiddenException(
@@ -196,8 +176,7 @@ export class ScreeningController {
     if (user.roles?.includes('DOCTOR') && !user.roles?.includes('ADMIN')) {
       const screening = await this.screeningService.findById(id);
       const canUpdate =
-        screening.uploadedByDoctorId === user.doctorId ||
-        screening.assignedDoctorId === user.doctorId;
+        screening.uploadedByDoctorId === user.doctorId;
 
       if (!canUpdate) {
         throw new ForbiddenException(
@@ -290,8 +269,7 @@ export class ScreeningController {
 
     if (!user.roles?.includes('ADMIN')) {
       const canUpload =
-        screening.uploadedByDoctorId === user.doctorId ||
-        screening.assignedDoctorId === user.doctorId;
+        screening.uploadedByDoctorId === user.doctorId;
 
       if (!canUpload) {
         throw new ForbiddenException(
@@ -365,8 +343,7 @@ export class ScreeningController {
 
     if (!user.roles?.includes('ADMIN')) {
       const canAnalyze =
-        screening.uploadedByDoctorId === user.doctorId ||
-        screening.assignedDoctorId === user.doctorId;
+        screening.uploadedByDoctorId === user.doctorId;
       if (!canAnalyze) {
         throw new ForbiddenException(
           SCREENING_ERRORS.ACCESS_DENIED_SCREENING,
@@ -377,7 +354,6 @@ export class ScreeningController {
     const analysis = await this.screeningService.triggerAiAnalysis(
       screeningId,
       imageId,
-      dto.modelVersion,
     );
     return new ResponseCommon(
       HttpStatus.CREATED,
@@ -409,14 +385,7 @@ export class ScreeningController {
           SCREENING_ERRORS.ACCESS_DENIED_SCREENING,
         );
       }
-      if (
-        user.roles?.includes('DOCTOR') &&
-        screening.assignedDoctorId !== user.doctorId
-      ) {
-        throw new ForbiddenException(
-          SCREENING_ERRORS.ACCESS_DENIED_SCREENING,
-        );
-      }
+
     }
 
     const images = screening.images || [];
@@ -451,14 +420,7 @@ export class ScreeningController {
           SCREENING_ERRORS.ACCESS_DENIED_SCREENING,
         );
       }
-      if (
-        user.roles?.includes('DOCTOR') &&
-        screening.assignedDoctorId !== user.doctorId
-      ) {
-        throw new ForbiddenException(
-          SCREENING_ERRORS.ACCESS_DENIED_SCREENING,
-        );
-      }
+
     }
 
     const analyses =
@@ -495,14 +457,7 @@ export class ScreeningController {
           SCREENING_ERRORS.ACCESS_DENIED_SCREENING,
         );
       }
-      if (
-        user.roles?.includes('DOCTOR') &&
-        screening.assignedDoctorId !== user.doctorId
-      ) {
-        throw new ForbiddenException(
-          SCREENING_ERRORS.ACCESS_DENIED_SCREENING,
-        );
-      }
+
     }
 
     return new ResponseCommon(
@@ -595,8 +550,7 @@ export class ScreeningController {
 
     if (!user.roles?.includes('ADMIN')) {
       const canOperate =
-        screening.uploadedByDoctorId === user.doctorId ||
-        screening.assignedDoctorId === user.doctorId;
+        screening.uploadedByDoctorId === user.doctorId;
       if (!canOperate) {
         throw new ForbiddenException(
           SCREENING_ERRORS.ACCESS_DENIED_SCREENING,

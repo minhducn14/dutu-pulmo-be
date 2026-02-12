@@ -75,20 +75,6 @@ export class ScreeningRequest {
   })
   priority: ScreeningPriorityEnum;
 
-  @ManyToOne(() => Doctor, { onDelete: 'SET NULL', nullable: true })
-  @JoinColumn({ name: 'assigned_doctor_id' })
-  assignedDoctor: Doctor;
-
-  @Index()
-  @Column({ name: 'assigned_doctor_id', type: 'uuid', nullable: true })
-  assignedDoctorId: string;
-
-  @Column({ name: 'reassign_count', type: 'integer', default: 0 })
-  reassignCount: number;
-
-  @Column({ name: 'reassign_history', type: 'jsonb', nullable: true })
-  reassignHistory: { doctorId: string; reason: string; at: string }[];
-
   @Column({ name: 'requested_at', type: 'timestamptz', nullable: true })
   requestedAt: Date;
 
@@ -101,20 +87,7 @@ export class ScreeningRequest {
   @Column({ name: 'ai_completed_at', type: 'timestamptz', nullable: true })
   aiCompletedAt: Date;
 
-  @Column({ name: 'doctor_assigned_at', type: 'timestamptz', nullable: true })
-  doctorAssignedAt: Date;
 
-  @Column({ name: 'doctor_completed_at', type: 'timestamptz', nullable: true })
-  doctorCompletedAt: Date;
-
-  @Column({ name: 'cancelled_at', type: 'timestamptz', nullable: true })
-  cancelledAt: Date;
-
-  @Column({ name: 'cancellation_reason', type: 'text', nullable: true })
-  cancellationReason: string;
-
-  @Column({ name: 'cancelled_by', length: 20, nullable: true })
-  cancelledBy: string;
 
   @CreateDateColumn({
     name: 'created_at',

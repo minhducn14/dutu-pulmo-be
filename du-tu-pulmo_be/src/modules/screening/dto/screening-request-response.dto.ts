@@ -36,18 +36,7 @@ export class ScreeningRequestResponseDto {
   })
   priority: ScreeningPriorityEnum;
 
-  @ApiPropertyOptional({ example: '0a1b2c3d-4e5f-6789-0123-456789abcdef' })
-  assignedDoctorId?: string;
 
-  @ApiProperty({ example: 0 })
-  reassignCount: number;
-
-  @ApiPropertyOptional({
-    example: [
-      { doctorId: 'uuid', reason: 'Busy', at: '2024-10-11T09:30:00.000Z' },
-    ],
-  })
-  reassignHistory?: { doctorId: string; reason: string; at: string }[];
 
   @ApiPropertyOptional({ example: '2024-10-11T09:30:00.000Z' })
   requestedAt?: Date;
@@ -61,20 +50,7 @@ export class ScreeningRequestResponseDto {
   @ApiPropertyOptional({ example: '2024-10-11T09:30:00.000Z' })
   aiCompletedAt?: Date;
 
-  @ApiPropertyOptional({ example: '2024-10-11T09:30:00.000Z' })
-  doctorAssignedAt?: Date;
 
-  @ApiPropertyOptional({ example: '2024-10-11T09:30:00.000Z' })
-  doctorCompletedAt?: Date;
-
-  @ApiPropertyOptional({ example: '2024-10-11T09:30:00.000Z' })
-  cancelledAt?: Date;
-
-  @ApiPropertyOptional({ example: 'Duplicate request' })
-  cancellationReason?: string;
-
-  @ApiPropertyOptional({ example: 'SYSTEM' })
-  cancelledBy?: string;
 
   @ApiProperty({ example: '2024-10-11T09:30:00.000Z' })
   createdAt: Date;
@@ -88,8 +64,7 @@ export class ScreeningRequestResponseDto {
   @ApiPropertyOptional({ type: DoctorResponseDto })
   uploadedByDoctor?: DoctorResponseDto;
 
-  @ApiPropertyOptional({ type: DoctorResponseDto })
-  assignedDoctor?: DoctorResponseDto;
+
 
   @ApiPropertyOptional({ type: [MedicalImageResponseDto] })
   images?: MedicalImageResponseDto[];
@@ -108,25 +83,19 @@ export class ScreeningRequestResponseDto {
     screeningType: ScreeningTypeEnum;
     status: ScreeningStatusEnum;
     priority: ScreeningPriorityEnum;
-    assignedDoctorId?: string | null;
-    reassignCount: number;
-    reassignHistory?: { doctorId: string; reason: string; at: string }[] | null;
+
     requestedAt?: Date | null;
     uploadedAt?: Date | null;
     aiStartedAt?: Date | null;
     aiCompletedAt?: Date | null;
-    doctorAssignedAt?: Date | null;
-    doctorCompletedAt?: Date | null;
-    cancelledAt?: Date | null;
-    cancellationReason?: string | null;
-    cancelledBy?: string | null;
+
     createdAt: Date;
     updatedAt: Date;
     patient?: Parameters<typeof PatientResponseDto.fromEntity>[0] | null;
     uploadedByDoctor?:
       | Parameters<typeof DoctorResponseDto.fromEntity>[0]
       | null;
-    assignedDoctor?: Parameters<typeof DoctorResponseDto.fromEntity>[0] | null;
+
     images?: Parameters<typeof MedicalImageResponseDto.fromEntity>[0][] | null;
     aiAnalyses?:
       | Parameters<typeof AiAnalysisResponseDto.fromEntity>[0][]
@@ -143,18 +112,12 @@ export class ScreeningRequestResponseDto {
     dto.screeningType = screening.screeningType;
     dto.status = screening.status;
     dto.priority = screening.priority;
-    dto.assignedDoctorId = screening.assignedDoctorId ?? undefined;
-    dto.reassignCount = screening.reassignCount;
-    dto.reassignHistory = screening.reassignHistory ?? undefined;
+
     dto.requestedAt = screening.requestedAt ?? undefined;
     dto.uploadedAt = screening.uploadedAt ?? undefined;
     dto.aiStartedAt = screening.aiStartedAt ?? undefined;
     dto.aiCompletedAt = screening.aiCompletedAt ?? undefined;
-    dto.doctorAssignedAt = screening.doctorAssignedAt ?? undefined;
-    dto.doctorCompletedAt = screening.doctorCompletedAt ?? undefined;
-    dto.cancelledAt = screening.cancelledAt ?? undefined;
-    dto.cancellationReason = screening.cancellationReason ?? undefined;
-    dto.cancelledBy = screening.cancelledBy ?? undefined;
+
     dto.createdAt = screening.createdAt;
     dto.updatedAt = screening.updatedAt;
     dto.patient = screening.patient
@@ -163,9 +126,7 @@ export class ScreeningRequestResponseDto {
     dto.uploadedByDoctor = screening.uploadedByDoctor
       ? DoctorResponseDto.fromEntity(screening.uploadedByDoctor)
       : undefined;
-    dto.assignedDoctor = screening.assignedDoctor
-      ? DoctorResponseDto.fromEntity(screening.assignedDoctor)
-      : undefined;
+
     dto.images = screening.images
       ? screening.images.map((image) =>
           MedicalImageResponseDto.fromEntity(image),

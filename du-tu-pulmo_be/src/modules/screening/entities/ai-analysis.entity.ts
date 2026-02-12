@@ -51,11 +51,6 @@ export interface AiGrayZoneNote {
 }
 
 @Entity('ai_analyses')
-@Unique('uk_ai_analysis_unique', [
-  'screeningId',
-  'medicalImageId',
-  'modelVersion',
-])
 @Index('idx_ai_analysis_screening', ['screeningId', 'analyzedAt'])
 @Index('idx_ai_analysis_status', ['diagnosisStatus'])
 export class AiAnalysis {
@@ -79,20 +74,6 @@ export class AiAnalysis {
 
   @Column({ name: 'medical_image_id', type: 'uuid' })
   medicalImageId: string;
-
-  // ============================================
-  // THÔNG TIN MÔ HÌNH AI (AI Model Info)
-  // ============================================
-
-  /** Tên model AI: VD: "YOLO11-VinBigData" */
-  @Column({ name: 'model_name', length: 100 })
-  modelName: string;
-
-  @Column({ name: 'model_version', length: 50 })
-  modelVersion: string;
-
-  @Column({ name: 'model_type', length: 50, nullable: true })
-  modelType: string;
 
   // ============================================
   // PULMO_AI INTEGRATION FIELDS
@@ -129,22 +110,6 @@ export class AiAnalysis {
 
   @Column({ name: 'evaluated_image_url', length: 500, nullable: true })
   evaluatedImageUrl: string;
-
-  // ============================================
-  // LEGACY FIELDS (kept for backward compatibility)
-  // ============================================
-
-  @Column({ name: 'predicted_condition', length: 100, nullable: true })
-  predictedCondition: string;
-
-  @Column({
-    name: 'confidence_score',
-    type: 'decimal',
-    precision: 5,
-    scale: 4,
-    nullable: true,
-  })
-  confidenceScore: number;
 
   @Column({ name: 'raw_predictions', type: 'jsonb', nullable: true })
   rawPredictions: Record<string, any>;

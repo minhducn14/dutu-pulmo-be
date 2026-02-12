@@ -58,12 +58,6 @@ export class ScreeningConclusion {
   @Column({ name: 'agrees_with_ai', nullable: true })
   agreesWithAi: boolean;
 
-  @Column({ name: 'ai_agreement_notes', type: 'text', nullable: true })
-  aiAgreementNotes: string;
-
-  @Column({ name: 'ai_confidence_vs_doctor', type: 'text', nullable: true })
-  aiConfidenceVsDoctor: string;
-
   @Column({
     name: 'decision_source',
     type: 'varchar',
@@ -76,14 +70,7 @@ export class ScreeningConclusion {
   @Column({ name: 'doctor_override_reason', type: 'text', nullable: true })
   doctorOverrideReason: string;
 
-  @Column({
-    name: 'ai_confidence_at_decision',
-    type: 'decimal',
-    precision: 5,
-    scale: 4,
-    nullable: true,
-  })
-  aiConfidenceAtDecision: number;
+
 
   @Column({
     name: 'reviewed_at',

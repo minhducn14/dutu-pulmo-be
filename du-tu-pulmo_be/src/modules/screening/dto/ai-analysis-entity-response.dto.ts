@@ -16,14 +16,7 @@ export class AiAnalysisResponseDto {
   @ApiProperty({ example: '7d8c6d9b-92b1-4b62-8f1b-0d5a7b1c2e3f' })
   medicalImageId: string;
 
-  @ApiProperty({ example: 'YOLO11-VinBigData' })
-  modelName: string;
 
-  @ApiProperty({ example: 'yolo11-vinbigdata-v1' })
-  modelVersion: string;
-
-  @ApiPropertyOptional({ example: 'YOLO' })
-  modelType?: string;
 
   @ApiPropertyOptional({ example: '550e8400-e29b-41d4-a716-446655440000' })
   pulmoFileId?: string;
@@ -61,11 +54,7 @@ export class AiAnalysisResponseDto {
   })
   evaluatedImageUrl?: string;
 
-  @ApiPropertyOptional({ example: 'Cardiomegaly' })
-  predictedCondition?: string;
 
-  @ApiPropertyOptional({ example: 0.9123 })
-  confidenceScore?: number;
 
   @ApiPropertyOptional({ type: Object })
   rawPredictions?: Record<string, unknown>;
@@ -83,9 +72,7 @@ export class AiAnalysisResponseDto {
     id: string;
     screeningId: string;
     medicalImageId: string;
-    modelName: string;
-    modelVersion: string;
-    modelType?: string | null;
+
     pulmoFileId?: string | null;
     diagnosisStatus: AiDiagnosisStatusEnum;
     primaryDiagnosis?: AiPrimaryDiagnosis | null;
@@ -95,8 +82,7 @@ export class AiAnalysisResponseDto {
     originalImageUrl?: string | null;
     annotatedImageUrl?: string | null;
     evaluatedImageUrl?: string | null;
-    predictedCondition?: string | null;
-    confidenceScore?: number | null;
+
     rawPredictions?: Record<string, unknown> | null;
     errorMessage?: string | null;
     analyzedAt: Date;
@@ -107,9 +93,7 @@ export class AiAnalysisResponseDto {
     dto.id = analysis.id;
     dto.screeningId = analysis.screeningId;
     dto.medicalImageId = analysis.medicalImageId;
-    dto.modelName = analysis.modelName;
-    dto.modelVersion = analysis.modelVersion;
-    dto.modelType = analysis.modelType ?? undefined;
+
     dto.pulmoFileId = analysis.pulmoFileId ?? undefined;
     dto.diagnosisStatus = analysis.diagnosisStatus;
     dto.primaryDiagnosis = analysis.primaryDiagnosis ?? undefined;
@@ -119,8 +103,7 @@ export class AiAnalysisResponseDto {
     dto.originalImageUrl = analysis.originalImageUrl ?? undefined;
     dto.annotatedImageUrl = analysis.annotatedImageUrl ?? undefined;
     dto.evaluatedImageUrl = analysis.evaluatedImageUrl ?? undefined;
-    dto.predictedCondition = analysis.predictedCondition ?? undefined;
-    dto.confidenceScore = analysis.confidenceScore ?? undefined;
+
     dto.rawPredictions = analysis.rawPredictions ?? undefined;
     dto.errorMessage = analysis.errorMessage ?? undefined;
     dto.analyzedAt = analysis.analyzedAt;

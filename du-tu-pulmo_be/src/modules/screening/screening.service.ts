@@ -51,7 +51,7 @@ export class ScreeningService {
 
   async findAll(): Promise<ScreeningRequest[]> {
     return this.screeningRepository.find({
-      relations: ['patient', 'uploadedByDoctor', 'assignedDoctor'],
+      relations: ['patient', 'uploadedByDoctor'],
     });
   }
 
@@ -61,7 +61,6 @@ export class ScreeningService {
       relations: [
         'patient',
         'uploadedByDoctor',
-        'assignedDoctor',
         'images',
         'aiAnalyses',
         'conclusions',
@@ -148,10 +147,6 @@ export class ScreeningService {
       updateData.aiStartedAt = new Date();
     } else if (status === ScreeningStatusEnum.AI_COMPLETED) {
       updateData.aiCompletedAt = new Date();
-    } else if (status === ScreeningStatusEnum.DOCTOR_COMPLETED) {
-      updateData.doctorCompletedAt = new Date();
-    } else if (status === ScreeningStatusEnum.CANCELLED) {
-      updateData.cancelledAt = new Date();
     }
 
     await this.screeningRepository.update(id, updateData);
@@ -198,23 +193,17 @@ export class ScreeningService {
   async findByPatient(patientId: string): Promise<ScreeningRequest[]> {
     return this.screeningRepository.find({
       where: { patientId },
-      relations: ['assignedDoctor', 'images'],
+      relations: ['images'],
       order: { createdAt: 'DESC' },
     });
   }
 
-  async findByDoctor(doctorId: string): Promise<ScreeningRequest[]> {
-    return this.screeningRepository.find({
-      where: { assignedDoctorId: doctorId },
-      relations: ['patient', 'images', 'uploadedByDoctor'],
-      order: { createdAt: 'DESC' },
-    });
-  }
+
 
   async findByUploaderDoctor(doctorId: string): Promise<ScreeningRequest[]> {
     return this.screeningRepository.find({
       where: { uploadedByDoctorId: doctorId },
-      relations: ['patient', 'images', 'assignedDoctor', 'uploadedByDoctor'],
+      relations: ['patient', 'images', 'uploadedByDoctor'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -239,7 +228,6 @@ export class ScreeningService {
   async triggerAiAnalysis(
     screeningId: string,
     imageId: string,
-    modelVersion: string = 'yolo11-vinbigdata-v1',
   ): Promise<AiAnalysis> {
     return this.screeningRepository.manager.transaction(
       async (manager: EntityManager) => {
@@ -270,9 +258,6 @@ export class ScreeningService {
         let aiAnalysis = manager.create(AiAnalysis, {
           screeningId,
           medicalImageId: imageId,
-          modelName: 'YOLO11-VinBigData',
-          modelVersion,
-          modelType: 'YOLO',
           diagnosisStatus: AiDiagnosisStatusEnum.PENDING,
         });
         aiAnalysis = await manager.save(aiAnalysis);
@@ -492,8 +477,7 @@ export class ScreeningService {
       originalImageUrl: response.original_image_url,
       annotatedImageUrl: response.annotated_image_url,
       evaluatedImageUrl: response.evaluated_image_url,
-      predictedCondition: primaryDiagnosis?.label || 'Unknown',
-      confidenceScore: primaryDiagnosis?.probability || 0,
+
       rawPredictions: data as unknown as Record<string, unknown>,
     };
   }

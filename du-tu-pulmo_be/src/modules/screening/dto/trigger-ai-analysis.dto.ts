@@ -5,14 +5,7 @@ import { IsOptional, IsString } from 'class-validator';
  * Request DTO for triggering AI analysis on a medical image
  */
 export class TriggerAiAnalysisDto {
-  @ApiPropertyOptional({
-    description:
-      'Optional model version to use. If not specified, uses default model.',
-    example: 'yolo11-vinbigdata-v1',
-  })
-  @IsOptional()
-  @IsString()
-  modelVersion?: string;
+
 }
 
 /**

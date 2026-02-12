@@ -22,11 +22,7 @@ export class ScreeningConclusionResponseDto {
   @ApiPropertyOptional({ example: true })
   agreesWithAi?: boolean;
 
-  @ApiPropertyOptional({ example: 'Notes about AI agreement' })
-  aiAgreementNotes?: string;
 
-  @ApiPropertyOptional({ example: 'AI confidence vs doctor notes' })
-  aiConfidenceVsDoctor?: string;
 
   @ApiPropertyOptional({
     example: 'DOCTOR_REVIEWED_AI',
@@ -37,8 +33,7 @@ export class ScreeningConclusionResponseDto {
   @ApiPropertyOptional({ example: 'Override reason' })
   doctorOverrideReason?: string;
 
-  @ApiPropertyOptional({ example: 0.8123 })
-  aiConfidenceAtDecision?: number;
+
 
   @ApiProperty({ example: '2024-10-11T09:30:00.000Z' })
   reviewedAt: Date;
@@ -57,11 +52,10 @@ export class ScreeningConclusionResponseDto {
     patientId: string;
     doctorId?: string | null;
     agreesWithAi?: boolean | null;
-    aiAgreementNotes?: string | null;
-    aiConfidenceVsDoctor?: string | null;
+
     decisionSource?: 'AI_ONLY' | 'DOCTOR_ONLY' | 'DOCTOR_REVIEWED_AI' | null;
     doctorOverrideReason?: string | null;
-    aiConfidenceAtDecision?: number | null;
+
     reviewedAt: Date;
     createdAt: Date;
     updatedAt: Date;
@@ -74,11 +68,10 @@ export class ScreeningConclusionResponseDto {
     dto.patientId = conclusion.patientId;
     dto.doctorId = conclusion.doctorId ?? undefined;
     dto.agreesWithAi = conclusion.agreesWithAi ?? undefined;
-    dto.aiAgreementNotes = conclusion.aiAgreementNotes ?? undefined;
-    dto.aiConfidenceVsDoctor = conclusion.aiConfidenceVsDoctor ?? undefined;
+
     dto.decisionSource = conclusion.decisionSource ?? undefined;
     dto.doctorOverrideReason = conclusion.doctorOverrideReason ?? undefined;
-    dto.aiConfidenceAtDecision = conclusion.aiConfidenceAtDecision ?? undefined;
+
     dto.reviewedAt = conclusion.reviewedAt;
     dto.createdAt = conclusion.createdAt;
     dto.updatedAt = conclusion.updatedAt;
