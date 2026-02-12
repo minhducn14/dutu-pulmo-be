@@ -13,6 +13,7 @@ import {
   UpdateHospitalDto,
   HospitalQueryDto,
 } from '@/modules/hospital/dto/hospital.dto';
+import { HOSPITAL_ERRORS } from '@/common/constants/error-messages.constant';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { PaginatedResponseDto } from '@/common/dto/pagination.dto';
 
@@ -80,7 +81,7 @@ export class HospitalService {
     });
 
     if (!hospital) {
-      throw new NotFoundException(`Không tìm thấy bệnh viện với ID ${id}`);
+      throw new NotFoundException(HOSPITAL_ERRORS.HOSPITAL_NOT_FOUND);
     }
 
     return new ResponseCommon(200, 'SUCCESS', hospital);
@@ -121,7 +122,7 @@ export class HospitalService {
     const existing = await queryBuilder.getOne();
 
     if (existing) {
-      throw new ConflictException(`Mã bệnh viện ${hospitalCode} đã tồn tại`);
+      throw new ConflictException(HOSPITAL_ERRORS.HOSPITAL_CODE_EXISTS);
     }
   }
 
@@ -139,11 +140,11 @@ export class HospitalService {
     }
 
     if (latitude !== undefined && (latitude < -90 || latitude > 90)) {
-      throw new BadRequestException('Vĩ độ phải trong khoảng -90 đến 90');
+      throw new BadRequestException(HOSPITAL_ERRORS.INVALID_COORDINATES);
     }
 
     if (longitude !== undefined && (longitude < -180 || longitude > 180)) {
-      throw new BadRequestException('Kinh độ phải trong khoảng -180 đến 180');
+      throw new BadRequestException(HOSPITAL_ERRORS.INVALID_COORDINATES);
     }
   }
 
@@ -221,11 +222,11 @@ export class HospitalService {
     });
 
     if (!hospital) {
-      throw new NotFoundException(`Không tìm thấy bệnh viện với ID ${id}`);
+      throw new NotFoundException(HOSPITAL_ERRORS.HOSPITAL_NOT_FOUND);
     }
 
     if (!hospital.deletedAt) {
-      throw new BadRequestException('Bệnh viện chưa bị xóa');
+      throw new BadRequestException(HOSPITAL_ERRORS.HOSPITAL_ALREADY_DELETED);
     }
 
     await this.hospitalRepository.restore(id);

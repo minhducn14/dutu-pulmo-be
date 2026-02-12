@@ -1,4 +1,4 @@
-import { ApiProperty, PartialType } from '@nestjs/swagger';
+import { ApiProperty, PartialType, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsString,
   IsEmail,
@@ -34,7 +34,7 @@ export class CreateHospitalDto {
   @Matches(/^[0-9+\-\s()]+$/, { message: 'Số điện thoại không hợp lệ' })
   phone: string;
 
-  @ApiProperty({ example: 'contact@tamanh.com', required: false })
+  @ApiPropertyOptional({ example: 'contact@tamanh.com', required: false })
   @IsOptional()
   @IsEmail({}, { message: 'Email không hợp lệ' })
   @MaxLength(100)
@@ -63,14 +63,14 @@ export class CreateHospitalDto {
   @MaxLength(100)
   province: string;
 
-  @ApiProperty({ example: 21.0542, required: false })
+  @ApiPropertyOptional({ example: 21.0542, required: false })
   @IsOptional()
   @IsNumber({}, { message: 'Vĩ độ phải là số' })
   @Min(-90, { message: 'Vĩ độ phải từ -90 đến 90' })
   @Max(90, { message: 'Vĩ độ phải từ -90 đến 90' })
   latitude?: number;
 
-  @ApiProperty({ example: 105.8516, required: false })
+  @ApiPropertyOptional({ example: 105.8516, required: false })
   @IsOptional()
   @IsNumber({}, { message: 'Kinh độ phải là số' })
   @Min(-180, { message: 'Kinh độ phải từ -180 đến 180' })
@@ -81,21 +81,21 @@ export class CreateHospitalDto {
 export class UpdateHospitalDto extends PartialType(CreateHospitalDto) {}
 
 export class HospitalQueryDto {
-  @ApiProperty({ required: false, example: 'Tâm Anh' })
+  @ApiPropertyOptional({ required: false, example: 'Tâm Anh' })
   @IsOptional()
   @IsString()
   search?: string;
 
-  @ApiProperty({ required: false, example: 'Hà Nội' })
+  @ApiPropertyOptional({ required: false, example: 'Hà Nội' })
   @IsOptional()
   @IsString()
   city?: string;
 
-  @ApiProperty({ required: false, example: 1, default: 1 })
+  @ApiPropertyOptional({ required: false, example: 1, default: 1 })
   @IsOptional()
   page?: number;
 
-  @ApiProperty({ required: false, example: 20, default: 20 })
+  @ApiPropertyOptional({ required: false, example: 20, default: 20 })
   @IsOptional()
   limit?: number;
 }
