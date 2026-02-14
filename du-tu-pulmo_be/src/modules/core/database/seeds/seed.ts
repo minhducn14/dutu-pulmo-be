@@ -698,7 +698,7 @@ async function seed() {
             patientId: patient.id,
             doctorId: doctor.id,
             recordNumber: `REC-${appointment.appointmentNumber || faker.string.alphanumeric(6)}-${faker.string.alphanumeric(4)}`,
-            diagnosisNotes: hasXray
+            diagnosis: hasXray
               ? `Acute Bronchitis. X-Ray Findings: ${faker.helpers.arrayElement(['Infiltrates in lower lobe', 'Clear lungs', 'Minor opacity'])}`
               : 'Common Cold',
             chiefComplaint: faker.lorem.sentence(),
