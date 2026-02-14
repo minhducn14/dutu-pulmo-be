@@ -43,12 +43,6 @@ interface JoinRoomData {
   chatroomId: string;
 }
 
-interface SendMessageData {
-  chatroomId: string;
-  content: string;
-  id?: string;
-}
-
 interface TypingData {
   chatroomId: string;
   isTyping: boolean;
@@ -63,7 +57,10 @@ interface UserTypingInfo {
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.FRONTEND_URL || ['http://localhost:5173'],
+    origin: process.env.FRONTEND_URL || [
+      'http://localhost:3000',
+      'http://localhost:3001',
+    ],
     credentials: true,
   },
   namespace: '/chat',
@@ -78,6 +75,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // Store online users and typing states
   private onlineUsers = new Map<string, { socketId: string; user: any }>();
   private typingUsers = new Map<string, Map<string, UserTypingInfo>>();
+  
+  private typingTimeouts = new Map<string, Map<string, NodeJS.Timeout>>();
 
   constructor(
     private chatMessageService: ChatMessageService,
@@ -155,6 +154,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       // Remove from online users
       this.onlineUsers.delete(user.id);
+
+      for (const [chatroomId, userTimeouts] of this.typingTimeouts) {
+        const timeout = userTimeouts.get(user.id);
+        if (timeout) {
+          clearTimeout(timeout);
+          userTimeouts.delete(user.id);
+        }
+      }
 
       // Clear typing state for this user
       for (const [chatroomId, typingInRoom] of this.typingUsers) {
@@ -259,43 +266,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  // Message events - For real-time broadcast only (messages saved via REST API)
-  @SubscribeMessage('send-message')
-  async handleMessage(
-    @MessageBody() data: SendMessageData,
-    @ConnectedSocket() client: Socket,
-  ) {
-    try {
-      const { chatroomId, content } = data;
-      const user = client.data.user;
-
-      // Clear typing state for this user
-      this.clearUserTyping(chatroomId, user.id);
-
-      const messageData = {
-        id: data.id || 'temp-' + Date.now(),
-        chatroomId,
-        content,
-        sender: {
-          id: user.id,
-          fullName: user.fullName,
-          email: user.email,
-        },
-        createdAt: new Date().toISOString(),
-      };
-
-      // Broadcast message to room participants
-      this.server.to(chatroomId).emit('new-message', messageData);
-
-      this.logger.log(
-        `Message broadcasted in room ${chatroomId} by ${user.fullName}`,
-      );
-    } catch (error) {
-      this.logger.error('Broadcast message error:', error);
-      throw new WsException('Failed to broadcast message');
-    }
-  }
-
   // Typing indicators
   @SubscribeMessage('typing')
   handleTyping(
@@ -314,6 +284,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const typingInRoom = this.typingUsers.get(chatroomId)!;
 
       if (isTyping) {
+        if (!this.typingTimeouts.has(chatroomId)) {
+          this.typingTimeouts.set(chatroomId, new Map());
+        }
+
+        const userTimeouts = this.typingTimeouts.get(chatroomId)!;
+        const existingTimeout = userTimeouts.get(user.id);
+        
+        if (existingTimeout) {
+          clearTimeout(existingTimeout);
+        }
+
         // Add user to typing list
         typingInRoom.set(user.id, {
           userId: user.id,
@@ -322,13 +303,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
           timestamp: Date.now(),
         });
 
-        // Auto-clear typing after 3 seconds of inactivity
-        setTimeout(() => {
+        // Set new timeout and store reference
+        const timeout = setTimeout(() => {
           this.clearUserTyping(chatroomId, user.id);
         }, 3000);
+        
+        userTimeouts.set(user.id, timeout);
       } else {
         // Remove user from typing list
-        typingInRoom.delete(user.id);
+        this.clearUserTyping(chatroomId, user.id);
       }
 
       // Broadcast typing state to room (except sender)
@@ -352,6 +335,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Utility methods
   private clearUserTyping(chatroomId: string, userId: string) {
+    // Clear timeout if exists
+    const userTimeouts = this.typingTimeouts.get(chatroomId);
+    if (userTimeouts) {
+      const timeout = userTimeouts.get(userId);
+      if (timeout) {
+        clearTimeout(timeout);
+        userTimeouts.delete(userId);
+      }
+    }
+
+    // Remove from typing users
     const typingInRoom = this.typingUsers.get(chatroomId);
     if (typingInRoom && typingInRoom.has(userId)) {
       typingInRoom.delete(userId);

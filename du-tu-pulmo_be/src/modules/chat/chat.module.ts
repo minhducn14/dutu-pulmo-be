@@ -4,10 +4,11 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ChatGateway } from '@/modules/chat/chat.gateway';
 import { ChatMessageModule } from '@/modules/chatmessage/chatmessage.module';
 import { ChatRoomModule } from '@/modules/chatroom/chatroom.module';
+import { forwardRef } from '@nestjs/common';
 
 @Module({
   imports: [
-    ChatMessageModule,
+    forwardRef(() => ChatMessageModule),
     ChatRoomModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

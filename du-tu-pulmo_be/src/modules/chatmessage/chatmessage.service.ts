@@ -43,17 +43,18 @@ export class ChatMessageService {
   async findAll(): Promise<ResponseCommon<ChatMessage[]>> {
     const messages = await this.chatMessageRepository.find({
       relations: ['chatroom', 'sender'],
+      order: { createdAt: 'ASC' },
     });
     return new ResponseCommon(200, 'SUCCESS', messages);
   }
 
-  // findAllByChatRoomId
   async findAllByChatRoomId(
     chatroomId: string,
   ): Promise<ResponseCommon<ChatMessage[]>> {
     const messages = await this.chatMessageRepository.find({
       where: { chatroom: { id: chatroomId } },
       relations: ['chatroom', 'sender'],
+      order: { createdAt: 'ASC' },
     });
     return new ResponseCommon(200, 'SUCCESS', messages);
   }

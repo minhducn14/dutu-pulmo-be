@@ -10,6 +10,7 @@ import {
   HttpStatus,
   UseGuards,
   ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import { ChatMessageService } from '@/modules/chatmessage/chatmessage.service';
 import { CreateChatMessageDto } from '@/modules/chatmessage/dto/create-chatmessage.dto';
@@ -27,7 +28,9 @@ import { Roles } from '@/common/decorators/roles.decorator';
 import { CurrentUser } from '@/common/decorators/user.decorator';
 import type { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
 import { ChatRoomService } from '@/modules/chatroom/chatroom.service';
+import { ChatGateway } from '@/modules/chat/chat.gateway';
 import { ResponseCommon } from '@/common/dto/response.dto';
+import { CHAT_ERRORS } from '@/common/constants/error-messages.constant';
 
 @ApiTags('Chat')
 @Controller('chatmessages')
@@ -37,6 +40,7 @@ export class ChatMessageController {
   constructor(
     private readonly chatMessageService: ChatMessageService,
     private readonly chatRoomService: ChatRoomService,
+    private readonly chatGateway: ChatGateway,
   ) {}
 
   @Post()
@@ -60,15 +64,30 @@ export class ChatMessageController {
       user.id,
     );
     if (!isMember) {
-      throw new ForbiddenException(
-        'Báº¡n khÃ´ng pháº£i thÃ nh viÃªn cá»§a phÃ²ng chat nÃ y',
-      );
+      throw new ForbiddenException(CHAT_ERRORS.NOT_MEMBER);
     }
 
     const response = await this.chatMessageService.create({
       ...createChatMessageDto,
       senderId: user.id,
     });
+
+    if (response.data) {
+      this.chatGateway.emitMessageToRoom(
+        createChatMessageDto.chatroomId,
+        {
+          id: response.data.id,
+          chatroomId: response.data.chatroom?.id || createChatMessageDto.chatroomId,
+          content: response.data.content,
+          sender: {
+            id: user.id,
+            fullName: user.fullName || user.email,
+            email: user.email,
+          },
+          createdAt: response.data.createdAt?.toISOString() || new Date().toISOString(),
+        },
+      );
+    }
 
     return new ResponseCommon(
       response.code,
@@ -109,9 +128,7 @@ export class ChatMessageController {
         user.id,
       );
       if (!isMember) {
-        throw new ForbiddenException(
-          'Báº¡n khÃ´ng pháº£i thÃ nh viÃªn cá»§a phÃ²ng chat nÃ y',
-        );
+        throw new ForbiddenException(CHAT_ERRORS.NOT_MEMBER);
       }
     }
 
@@ -140,17 +157,19 @@ export class ChatMessageController {
   ): Promise<ResponseCommon<ChatMessageResponseDto>> {
     const response = await this.chatMessageService.findOne(id);
 
+    if (!response.data) {
+      throw new NotFoundException(CHAT_ERRORS.MESSAGE_NOT_FOUND);
+    }
+
     if (!user.roles?.includes('ADMIN')) {
-      const chatroomId = response.data?.chatroom?.id;
+      const chatroomId = response.data.chatroom?.id;
       if (chatroomId) {
         const isMember = await this.chatRoomService.isUserMemberOfChatRoom(
           chatroomId,
           user.id,
         );
         if (!isMember) {
-          throw new ForbiddenException(
-            'Báº¡n khÃ´ng cÃ³ quyá»n xem message nÃ y',
-          );
+          throw new ForbiddenException(CHAT_ERRORS.NOT_MEMBER);
         }
       }
     }
@@ -158,7 +177,7 @@ export class ChatMessageController {
     return new ResponseCommon(
       response.code,
       response.message,
-      ChatMessageResponseDto.fromEntity(response.data!),
+      ChatMessageResponseDto.fromEntity(response.data),
     );
   }
 
@@ -176,11 +195,17 @@ export class ChatMessageController {
   ): Promise<ResponseCommon<ChatMessageResponseDto>> {
     const message = await this.chatMessageService.findOne(id);
 
-    const senderId = message.data?.sender?.id;
+    if (!message.data) {
+      throw new NotFoundException(CHAT_ERRORS.MESSAGE_NOT_FOUND);
+    }
+
+    const senderId = message.data.sender?.id;
+    if (!senderId) {
+      throw new NotFoundException('Message sender not found');
+    }
+
     if (!user.roles?.includes('ADMIN') && senderId !== user.id) {
-      throw new ForbiddenException(
-        'Báº¡n chá»‰ cÃ³ thá»ƒ sá»­a message cá»§a mÃ¬nh',
-      );
+      throw new ForbiddenException(CHAT_ERRORS.NOT_SENDER);
     }
 
     const response = await this.chatMessageService.update(
@@ -211,11 +236,17 @@ export class ChatMessageController {
   ): Promise<ResponseCommon<null>> {
     const message = await this.chatMessageService.findOne(id);
 
-    const senderId = message.data?.sender?.id;
+    if (!message.data) {
+      throw new NotFoundException(CHAT_ERRORS.MESSAGE_NOT_FOUND);
+    }
+
+    const senderId = message.data.sender?.id;
+    if (!senderId) {
+      throw new NotFoundException('Message sender not found');
+    }
+
     if (!user.roles?.includes('ADMIN') && senderId !== user.id) {
-      throw new ForbiddenException(
-        'Báº¡n chá»‰ cÃ³ thá»ƒ xÃ³a message cá»§a mÃ¬nh',
-      );
+      throw new ForbiddenException(CHAT_ERRORS.NOT_SENDER);
     }
 
     return this.chatMessageService.remove(id);
