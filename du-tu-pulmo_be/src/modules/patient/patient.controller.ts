@@ -84,7 +84,7 @@ export class PatientController {
       pastMedicalHistory: record.medicalHistory || undefined,
       physicalExamNotes: record.physicalExamNotes || undefined,
       assessment: record.assessment || undefined,
-      diagnosisNotes: record.diagnosisNotes || undefined,
+      diagnosis: record.diagnosis || undefined,
       treatmentPlan: record.treatmentPlan || undefined,
       status: record.appointment?.status || 'UNKNOWN',
       createdAt: record.createdAt,
@@ -113,9 +113,21 @@ export class PatientController {
       id: prescription.id,
       prescriptionNumber: prescription.prescriptionNumber,
       patientId: prescription.patientId,
+      patient: prescription.patient
+        ? PatientResponseDto.fromEntity(prescription.patient)
+        : (null as unknown as PatientResponseDto),
       doctorId: prescription.doctorId || undefined,
+      doctor: prescription.doctor
+        ? DoctorResponseDto.fromEntity(prescription.doctor)
+        : undefined,
       medicalRecordId: prescription.medicalRecordId || undefined,
+      medicalRecord: prescription.medicalRecord
+        ? this.toRecordDto(prescription.medicalRecord)
+        : undefined,
       appointmentId: prescription.appointmentId || undefined,
+      appointment: prescription.appointment
+        ? AppointmentResponseDto.fromEntity(prescription.appointment)
+        : undefined,
       diagnosis: diagnosisName,
       notes: prescription.notes || undefined,
       status: prescription.status || undefined,

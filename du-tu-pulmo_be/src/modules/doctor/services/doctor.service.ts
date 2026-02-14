@@ -18,6 +18,7 @@ import { UpdateDoctorDto } from '@/modules/doctor/dto/update-doctor.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { RoleEnum } from '@/modules/common/enums/role.enum';
 import { VerificationStatus } from '@/modules/common/enums/doctor-verification-status.enum';
+import { AUTH_ERRORS, DOCTOR_ERRORS } from '@/common/constants/error-messages.constant';
 
 @Injectable()
 export class DoctorService {
@@ -108,7 +109,7 @@ export class DoctorService {
       const vietnamesePhoneRegex = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/;
       if (!vietnamesePhoneRegex.test(dto.phone)) {
         throw new BadRequestException(
-          'Số điện thoại không hợp lệ. Vui lòng nhập số điện thoại Việt Nam (VD: 0912345678)',
+          AUTH_ERRORS.INVALID_PHONE_FORMAT,
         );
       }
     }
@@ -124,7 +125,7 @@ export class DoctorService {
         .getOne();
 
       if (existingAccount) {
-        throw new ConflictException('Email đã được đăng ký');
+        throw new ConflictException(AUTH_ERRORS.EMAIL_ALREADY_REGISTERED);
       }
 
       // Check phone existence
@@ -137,7 +138,7 @@ export class DoctorService {
           .getOne();
 
         if (existingPhone) {
-          throw new ConflictException('Số điện thoại đã được sử dụng');
+          throw new ConflictException(AUTH_ERRORS.PHONE_ALREADY_USED);
         }
       }
 
@@ -148,7 +149,7 @@ export class DoctorService {
         });
         if (existingByLicense) {
           throw new ConflictException(
-            `Số giấy phép hành nghề ${dto.licenseNumber} đã tồn tại`,
+            DOCTOR_ERRORS.LICENSE_ALREADY_EXISTS(dto.licenseNumber),
           );
         }
       }
@@ -210,7 +211,7 @@ export class DoctorService {
       relations: ['user'],
     });
     if (!doctor) {
-      throw new NotFoundException(`Không tìm thấy bác sĩ với ID ${id}`);
+      throw new NotFoundException(DOCTOR_ERRORS.DOCTOR_NOT_FOUND_ID(id));
     }
 
     const {
@@ -269,7 +270,7 @@ export class DoctorService {
     });
 
     if (!doctor) {
-      throw new NotFoundException(`Không tìm thấy bác sĩ với ID ${id}`);
+      throw new NotFoundException(DOCTOR_ERRORS.DOCTOR_NOT_FOUND_ID(id));
     }
 
     this.logger.log(

@@ -10,6 +10,7 @@ import {
   BeforeInsert,
 } from 'typeorm';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
+import { PaymentPurpose } from '@/modules/common/enums/payment-purpose.enum';
 import * as crypto from 'crypto';
 
 export enum PaymentStatus {
@@ -61,6 +62,13 @@ export class Payment {
     default: PaymentStatus.PENDING,
   })
   status: PaymentStatus;
+
+  @Column({
+    type: 'enum',
+    enum: PaymentPurpose,
+    default: PaymentPurpose.APPOINTMENT,
+  })
+  purpose: PaymentPurpose;
 
   // ========================================
   // PAYOS PAYMENT LINK INFO

@@ -78,22 +78,18 @@ export class AuthService {
     if (dto.phone) {
       const vietnamesePhoneRegex = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/;
       if (!vietnamesePhoneRegex.test(dto.phone)) {
-        throw new BadRequestException(
-          'Số điện thoại không hợp lệ. Vui lòng nhập số điện thoại Việt Nam (VD: 0912345678 hoặc +84912345678)',
-        );
+        throw new BadRequestException(AUTH_ERRORS.INVALID_PHONE_FORMAT);
       }
     }
 
     if (!dto.fullName || dto.fullName.trim().length < 2) {
-      throw new BadRequestException('Họ tên phải có ít nhất 2 ký tự');
+      throw new BadRequestException(AUTH_ERRORS.NAME_TOO_SHORT);
     }
 
     const passwordRegex =
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     if (!passwordRegex.test(dto.password)) {
-      throw new BadRequestException(
-        'Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt',
-      );
+      throw new BadRequestException(AUTH_ERRORS.PASSWORD_TOO_WEAK);
     }
 
     return await this.dataSource.transaction(async (manager) => {
@@ -124,7 +120,7 @@ export class AuthService {
             .getOne();
 
           if (phoneExists) {
-            throw new ConflictException('Số điện thoại đã được sử dụng bởi tài khoản khác');
+            throw new ConflictException(AUTH_ERRORS.PHONE_USED_BY_OTHER);
           }
         }
 
@@ -163,7 +159,7 @@ export class AuthService {
         });
 
         if (phoneExists) {
-          throw new ConflictException('Số điện thoại đã được sử dụng');
+          throw new ConflictException(AUTH_ERRORS.PHONE_ALREADY_USED);
         }
       }
 

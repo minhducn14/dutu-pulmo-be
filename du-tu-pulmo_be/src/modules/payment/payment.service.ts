@@ -12,6 +12,7 @@ import { PayosService, WebhookData } from '@/modules/payment/payos.service';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import { PAYMENT_ERRORS, APPOINTMENT_ERRORS } from '@/common/constants/error-messages.constant';
+import { PaymentPurpose } from '../common/enums/payment-purpose.enum';
 
 export interface CreatePaymentDto {
   appointmentId: string;
@@ -25,6 +26,7 @@ export interface PaymentResponseDto {
   amount: string;
   description: string;
   status: PaymentStatus;
+  purpose: PaymentPurpose;
   checkoutUrl: string;
   qrCode: string;
   appointmentId: string;
@@ -82,7 +84,7 @@ export class PaymentService {
 
     if (appointment.status !== AppointmentStatusEnum.PENDING_PAYMENT) {
       throw new BadRequestException(
-        `Cannot create payment for appointment with status: ${appointment.status}`,
+        PAYMENT_ERRORS.CANNOT_CREATE_PAYMENT_STATUS(appointment.status),
       );
     }
 
@@ -151,12 +153,11 @@ export class PaymentService {
       accountNumber: paymentLink.accountNumber,
       accountName: paymentLink.accountName,
       expiredAt: new Date(Date.now() + 15 * 60 * 1000),
-      // SECURITY: Only store buyer name, not email/phone
       buyerName,
-      // SECURITY: Anonymized audit trail
       ipAddressHash: ipAddress ? Payment.hashIpAddress(ipAddress) : undefined,
       browserType,
       deviceType,
+      purpose: PaymentPurpose.APPOINTMENT,
     });
 
     const saved = await this.paymentRepository.save(payment);
@@ -255,7 +256,7 @@ export class PaymentService {
   ): Promise<PaymentResponseDto> {
     if (payment.status !== PaymentStatus.PENDING) {
       throw new BadRequestException(
-        `Cannot cancel payment with status: ${payment.status}`,
+        PAYMENT_ERRORS.CANNOT_CANCEL_PAYMENT_STATUS(payment.status),
       );
     }
 
@@ -365,7 +366,6 @@ export class PaymentService {
       payment.counterAccountBankId = webhookData.data.counterAccountBankId;
       payment.counterAccountBankName = webhookData.data.counterAccountBankName;
       payment.counterAccountName = webhookData.data.counterAccountName;
-      // SECURITY: Mask account number instead of storing raw
       payment.counterAccountNumberMasked = Payment.maskAccountNumber(
         webhookData.data.counterAccountNumber,
       );
@@ -515,6 +515,7 @@ export class PaymentService {
       amount: payment.amount,
       description: payment.description,
       status: payment.status,
+      purpose: payment.purpose,
       checkoutUrl: payment.checkoutUrl,
       qrCode: payment.qrCode,
       appointmentId: payment.appointmentId,
@@ -667,6 +668,10 @@ export class PaymentService {
     let count = 0;
 
     for (const payment of oldPayments) {
+      // TODO: Move to archive table when implemented
+      // await this.archivedPaymentRepository.save(payment);
+      // await this.paymentRepository.remove(payment);
+
       this.logger.debug(`Would archive payment ${payment.id}`);
       count++;
     }
