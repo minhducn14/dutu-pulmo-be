@@ -7,91 +7,134 @@ import {
   IsBoolean,
   IsInt,
   IsDateString,
+  IsEnum,
 } from 'class-validator';
 
-/**
- * DTO for updating a MedicalRecord via appointment endpoint
- */
 export class UpdateMedicalRecordDto {
-  @ApiPropertyOptional({ description: 'Lý do khám' })
+  @ApiPropertyOptional({ description: 'Loại bệnh án' })
   @IsOptional()
   @IsString()
-  @MaxLength(5000)
+  recordType?: string;
+
+  @ApiPropertyOptional({ description: 'Lý do khám / Lý do vào viện' })
+  @IsOptional()
+  @IsString()
   chiefComplaint?: string;
 
-  @ApiPropertyOptional({ description: 'Ghi chú khám lâm sàng (khám thực thể)' })
+  @ApiPropertyOptional({ description: 'Quá trình bệnh lý' })
   @IsOptional()
   @IsString()
-  @MaxLength(5000)
-  physicalExamNotes?: string;
-
-  @ApiPropertyOptional({ description: 'Đánh giá chung của bác sĩ' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(5000)
-  assessment?: string;
-
-  @ApiPropertyOptional({ description: 'Chẩn đoán bệnh' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(5000)
-  diagnosisNotes?: string;
-
-  @ApiPropertyOptional({ description: 'Phác đồ điều trị' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(5000)
-  treatmentPlan?: string;
-
-  @ApiPropertyOptional({ description: 'Bệnh lý hiện tại' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(5000)
   presentIllness?: string;
 
-  @ApiPropertyOptional({ description: 'Tiền sử bệnh' })
+  @ApiPropertyOptional({ description: 'Tiền sử bản thân' })
   @IsOptional()
   @IsString()
-  @MaxLength(5000)
   medicalHistory?: string;
 
   @ApiPropertyOptional({ description: 'Tiền sử phẫu thuật' })
   @IsOptional()
   @IsString()
-  @MaxLength(5000)
   surgicalHistory?: string;
 
   @ApiPropertyOptional({ description: 'Tiền sử gia đình' })
   @IsOptional()
   @IsString()
-  @MaxLength(5000)
   familyHistory?: string;
 
-  @ApiPropertyOptional({ description: 'Danh sách dị ứng', type: [String] })
+  @ApiPropertyOptional({ description: 'Khám toàn thân' })
+  @IsOptional()
+  @IsString()
+  physicalExamNotes?: string;
+
+  @ApiPropertyOptional({ description: 'Các bộ phận' })
+  @IsOptional()
+  @IsString()
+  systemsReview?: string;
+
+  @ApiPropertyOptional({ description: 'Đánh giá / Assessment' })
+  @IsOptional()
+  @IsString()
+  assessment?: string;
+
+  @ApiPropertyOptional({ description: 'Chẩn đoán' })
+  @IsOptional()
+  @IsString()
+  diagnosis?: string;
+
+  @ApiPropertyOptional({ description: 'Phác đồ điều trị' })
+  @IsOptional()
+  @IsString()
+  treatmentPlan?: string;
+
+  @ApiPropertyOptional({ description: 'Đã xử lý' })
+  @IsOptional()
+  @IsString()
+  treatmentGiven?: string;
+
+  @ApiPropertyOptional({ description: 'Chẩn đoán ra viện' })
+  @IsOptional()
+  @IsString()
+  dischargeDiagnosis?: string;
+
+  @ApiPropertyOptional({ description: 'Ngày bắt đầu điều trị' })
+  @IsOptional()
+  @IsDateString()
+  treatmentStartDate?: string;
+
+  @ApiPropertyOptional({ description: 'Ngày kết thúc điều trị' })
+  @IsOptional()
+  @IsDateString()
+  treatmentEndDate?: string;
+
+  @ApiPropertyOptional({ description: 'Diễn biến bệnh (Progress Notes)' })
+  @IsOptional()
+  @IsString()
+  progressNotes?: string;
+
+  @ApiPropertyOptional({ description: 'Bệnh chính' })
+  @IsOptional()
+  @IsString()
+  primaryDiagnosis?: string;
+
+  @ApiPropertyOptional({ description: 'Bệnh kèm theo' })
+  @IsOptional()
+  @IsString()
+  secondaryDiagnosis?: string;
+
+  @ApiPropertyOptional({ description: 'Tình trạng ra viện' })
+  @IsOptional()
+  @IsString()
+  dischargeCondition?: string;
+
+  @ApiPropertyOptional({ description: 'Hướng dẫn tái khám' })
+  @IsOptional()
+  @IsString()
+  followUpInstructions?: string;
+
+  @ApiPropertyOptional({ description: 'Tóm tắt toàn bộ hồ sơ' })
+  @IsOptional()
+  @IsString()
+  fullRecordSummary?: string;
+
+  @ApiPropertyOptional({ description: 'Dị ứng', type: [String] })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   allergies?: string[];
 
-  @ApiPropertyOptional({
-    description: 'Danh sách bệnh mãn tính',
-    type: [String],
-  })
+  @ApiPropertyOptional({ description: 'Bệnh mãn tính', type: [String] })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   chronicDiseases?: string[];
 
-  @ApiPropertyOptional({
-    description: 'Danh sách thuốc đang dùng',
-    type: [String],
-  })
+  @ApiPropertyOptional({ description: 'Thuốc đang dùng', type: [String] })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   currentMedications?: string[];
 
-  @ApiPropertyOptional({ description: 'Trạng thái hút thuốc', type: Boolean })
+  @ApiPropertyOptional({ description: 'Hút thuốc', type: Boolean })
   @IsOptional()
   @IsBoolean()
   smokingStatus?: boolean;
@@ -106,34 +149,4 @@ export class UpdateMedicalRecordDto {
   @IsBoolean()
   alcoholConsumption?: boolean;
 
-  @ApiPropertyOptional({ description: 'Nghề nghiệp' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(5000)
-  occupation?: string;
-
-  @ApiPropertyOptional({ description: 'Hướng dẫn tái khám' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(5000)
-  followUpInstructions?: string;
-
-  @ApiPropertyOptional({ description: 'Ghi chú diễn biến bệnh' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(5000)
-  progressNotes?: string;
-
-  @ApiPropertyOptional({ description: 'Có cần tái khám không', type: Boolean })
-  @IsOptional()
-  @IsBoolean()
-  followUpRequired?: boolean;
-
-  @ApiPropertyOptional({
-    description: 'Ngày dự kiến tái khám',
-    example: '2026-02-15T09:00:00Z',
-  })
-  @IsOptional()
-  @IsDateString()
-  nextAppointmentDate?: string;
 }

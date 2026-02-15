@@ -22,7 +22,8 @@ import {
 } from '@/modules/medical/dto/get-medical-record-detail.dto';
 import { MedicalRecordExaminationDto } from '@/modules/medical/dto/medical-record-examination.dto';
 import { MedicalRecordSummaryDto } from '@/modules/medical/dto/medical-record-summary.dto';
-// Removed CareLog DTO imports
+import { ScreeningRequestResponseDto } from '@/modules/screening/dto/screening-request-response.dto';
+import { UpdateMedicalRecordDto } from '@/modules/medical/dto/update-medical-record.dto';
 import { SignMedicalRecordDto } from '@/modules/medical/dto/sign-medical-record.dto';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import { PrescriptionStatusEnum } from '@/modules/common/enums/prescription-status.enum';
@@ -77,7 +78,6 @@ export class MedicalService {
     return new ResponseCommon(HttpStatus.OK, 'Thành công', records);
   }
 
-  // Internal helper for PatientService (Raw return)
   async findRecordsByPatientRaw(
     patientId: string,
     doctorId?: string,
@@ -89,6 +89,28 @@ export class MedicalService {
       relations: ['doctor', 'appointment'],
       order: { createdAt: 'DESC' },
     });
+  }
+
+  /**
+   * Find records by doctor (History View for Doctor)
+   */
+  async findRecordsByDoctor(
+    doctorId: string,
+  ): Promise<ResponseCommon<MedicalRecord[]>> {
+    const records = await this.recordRepository.find({
+      where: { doctorId },
+      relations: [
+        'patient',
+        'patient.user',
+        'doctor',
+        'doctor.user',
+        'appointment',
+        'vitalSigns',
+      ],
+      order: { createdAt: 'DESC' },
+      take: 50,
+    });
+    return new ResponseCommon(HttpStatus.OK, 'Thành công', records);
   }
 
   async createRecord(
@@ -104,6 +126,22 @@ export class MedicalService {
       'Tạo hồ sơ thành công',
       result,
     );
+  }
+
+  async updateMedicalRecord(
+    id: string,
+    data: UpdateMedicalRecordDto,
+  ): Promise<ResponseCommon<MedicalRecord>> {
+    const record = await this.recordRepository.findOne({ where: { id } });
+    if (!record) {
+      throw new NotFoundException(MEDICAL_ERRORS.MEDICAL_RECORD_NOT_FOUND);
+    }
+
+    Object.assign(record, data);
+
+    const result = await this.recordRepository.save(record);
+    
+    return new ResponseCommon(HttpStatus.OK, 'Cập nhật thành công', result);
   }
 
   // Vital Signs
@@ -191,7 +229,15 @@ export class MedicalService {
 
     const data = await this.prescriptionRepository.find({
       where,
-      relations: ['items', 'doctor'],
+      relations: [
+        'items',
+        'doctor',
+        'doctor.user',
+        'patient',
+        'patient.user',
+        'medicalRecord',
+        'appointment',
+      ],
       order: { createdAt: 'DESC' },
     });
     return new ResponseCommon(HttpStatus.OK, 'Thành công', data);
@@ -206,6 +252,47 @@ export class MedicalService {
       relations: ['items', 'doctor'],
       order: { createdAt: 'DESC' },
     });
+  }
+
+  async findPrescriptionsByDoctor(
+    doctorId: string,
+  ): Promise<ResponseCommon<Prescription[]>> {
+    const data = await this.prescriptionRepository.find({
+      where: { doctorId },
+      relations: [
+        'items',
+        'patient',
+        'patient.user',
+        'doctor',
+        'doctor.user',
+        'medicalRecord',
+        'appointment',
+      ],
+      order: { createdAt: 'DESC' },
+      take: 50,
+    });
+    return new ResponseCommon(HttpStatus.OK, 'Thành công', data);
+  }
+
+  async getPrescriptionDetail(id: string): Promise<ResponseCommon<Prescription>> {
+    const prescription = await this.prescriptionRepository.findOne({
+      where: { id },
+      relations: [
+        'items',
+        'patient',
+        'patient.user',
+        'doctor',
+        'doctor.user',
+        'medicalRecord',
+        'appointment',
+      ],
+    });
+
+    if (!prescription) {
+      throw new NotFoundException(MEDICAL_ERRORS.PRESCRIPTION_NOT_FOUND);
+    }
+
+    return new ResponseCommon(HttpStatus.OK, 'Thành công', prescription);
   }
 
   // ============================================================================
@@ -304,12 +391,11 @@ export class MedicalService {
 
       if (!canEdit && !record) {
         throw new BadRequestException(
-          `Không thể tạo hồ sơ bệnh án khi lịch hẹn ở trạng thái ${appointment.status}`,
+          MEDICAL_ERRORS.CANNOT_CREATE_RECORD_WITH_STATUS(appointment.status),
         );
       }
 
       if (!record) {
-        // Create new if missing (Upsert)
         record = manager.create(MedicalRecord, {
           appointmentId: appointment.id,
           patientId: appointment.patientId,
@@ -323,7 +409,7 @@ export class MedicalService {
           physicalExamNotes: data.physicalExamNotes || null,
           assessment: data.assessment || null,
           treatmentPlan: data.treatmentPlan || null,
-          diagnosisNotes: data.diagnosisNotes || null,
+          diagnosis: data.diagnosis || null,
           followUpRequired: data.followUpRequired || false,
           nextAppointmentDate: data.nextAppointmentDate || null,
           followUpNotes: data.followUpNotes || null,
@@ -339,14 +425,9 @@ export class MedicalService {
         record = await manager.save(record);
       }
 
-      // Update fields
       Object.assign(record, data);
 
-      // Only update sensitive fields if provided (don't overwrite with undefined if Partial)
-      // Note: Object.assign handles this well for defined keys in data.
-
       const result = await manager.save(record);
-      // Update appointment fields
       let apptChanged = false;
       if (
         data.chiefComplaint &&
@@ -424,12 +505,6 @@ export class MedicalService {
       }>;
     },
   ): Promise<ResponseCommon<Prescription>> {
-    const combinedNotes = [
-      data.diagnosis ? `Chẩn đoán: ${data.diagnosis}` : null,
-      data.notes,
-    ]
-      .filter(Boolean)
-      .join('\n');
 
     const prescription = this.prescriptionRepository.create({
       prescriptionNumber: this.generatePrescriptionNumber(),
@@ -437,7 +512,7 @@ export class MedicalService {
       doctorId,
       medicalRecordId: encounterId,
       appointmentId,
-      notes: combinedNotes,
+      notes: data.notes,
     });
 
     const savedPrescription =
@@ -471,7 +546,7 @@ export class MedicalService {
       } else {
         if (!finalName) {
           throw new BadRequestException(
-            'Tên thuốc là bắt buộc nếu không chọn từ danh mục',
+            MEDICAL_ERRORS.MEDICINE_NAME_REQUIRED,
           );
         }
       }
@@ -688,6 +763,11 @@ export class MedicalService {
         'vitalSigns',
         'prescriptions',
         'prescriptions.items',
+        'screeningRequests',
+        'screeningRequests.uploadedByDoctor',
+        'screeningRequests.images',
+        'screeningRequests.aiAnalyses',
+        'screeningRequests.conclusions',
       ],
     });
 
@@ -711,7 +791,12 @@ export class MedicalService {
     }
 
     // Get latest vital sign
-    const latestVitalSign = record.vitalSigns?.[0] || ({} as VitalSign);
+    const latestVitalSign =
+      record.vitalSigns?.length
+        ? record.vitalSigns
+            .slice()
+            .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0]
+        : null;
 
     // Build response
     const response: MedicalRecordDetailResponseDto = {
@@ -734,40 +819,33 @@ export class MedicalService {
         scheduledAt: record.appointment?.scheduledAt || new Date(),
       },
       signedStatus:
-        (record.signedStatus as SignedStatusEnum) ||
-        SignedStatusEnum.NOT_SIGNED,
+        record.signedStatus === SignedStatusEnum.SIGNED
+          ? SignedStatusEnum.SIGNED
+          : SignedStatusEnum.NOT_SIGNED,
       signedAt: record.signedAt || undefined,
       digitalSignature: record.digitalSignature || undefined,
       recordType: record.recordType || 'Bệnh án Ngoại trú chung',
-      specialty: record.specialty || undefined,
-      createdAt: record.createdAt,
-      patientCategory: record.patientCategory || undefined,
-      insuranceNumber: record.insuranceNumber || undefined,
-      insuranceExpiry: record.insuranceExpiry || undefined,
-      emergencyContactName: record.emergencyContactName || undefined,
-      emergencyContactPhone: record.emergencyContactPhone || undefined,
-      emergencyContactAddress: record.emergencyContactAddress || undefined,
-      referralDiagnosis: record.referralDiagnosis || undefined,
+      diagnosis: record.diagnosis || undefined,
+
       chiefComplaint: record.chiefComplaint || undefined,
       vitalSigns: {
-        pulse: latestVitalSign.heartRate,
-        temperature: latestVitalSign.temperature
+        temperature: latestVitalSign?.temperature
           ? Number(latestVitalSign.temperature)
           : undefined,
-        respiratoryRate: latestVitalSign.respiratoryRate,
-        weight: latestVitalSign.weight,
-        bloodPressure: latestVitalSign.bloodPressure,
-        heartRate: latestVitalSign.heartRate,
-        height: latestVitalSign.height,
-        bmi: latestVitalSign.bmi ? Number(latestVitalSign.bmi) : undefined,
+        respiratoryRate: latestVitalSign?.respiratoryRate || undefined,
+        weight: latestVitalSign?.weight || undefined,
+        bloodPressure: latestVitalSign?.bloodPressure || undefined,
+        heartRate: latestVitalSign?.heartRate || undefined,
+        height: latestVitalSign?.height || undefined,
+        bmi: latestVitalSign?.bmi ? Number(latestVitalSign.bmi) : undefined,
+        spo2: latestVitalSign?.spo2 || undefined,
       },
       presentIllness: record.presentIllness || undefined,
       medicalHistory: record.medicalHistory || undefined,
       familyHistory: record.familyHistory || undefined,
       physicalExamNotes: record.physicalExamNotes || undefined,
       systemsReview: record.systemsReview || undefined,
-      labSummary: record.labSummary || undefined,
-      initialDiagnosis: record.initialDiagnosis || undefined,
+
       treatmentGiven: record.treatmentGiven || undefined,
       dischargeDiagnosis: record.dischargeDiagnosis || undefined,
       treatmentStartDate: record.treatmentStartDate || undefined,
@@ -783,20 +861,22 @@ export class MedicalService {
               unit: item.unit || 'viên',
               dosage: item.dosage,
               frequency: item.frequency,
-              duration: `${item.durationDays} ngày`,
+              durationDays: item.durationDays,
+              instructions: item.instructions || undefined,
+              startDate: item.startDate || undefined,
+              endDate: item.endDate || undefined,
             })) || [],
           notes: p.notes || undefined,
+          instructions: p.instructions || undefined,
           createdAt: p.createdAt,
         })) || [],
       progressNotes: record.progressNotes || undefined,
-      significantLabFindings: record.significantLabFindings || undefined,
       primaryDiagnosis: record.primaryDiagnosis || undefined,
       secondaryDiagnosis: record.secondaryDiagnosis || undefined,
       treatmentPlan: record.treatmentPlan || undefined,
       dischargeCondition: record.dischargeCondition || undefined,
       followUpInstructions: record.followUpInstructions || undefined,
-
-      status: record.appointment?.status || 'UNKNOWN',
+      status: record.status,
       updatedAt: record.updatedAt,
       surgicalHistory: record.surgicalHistory || undefined,
       allergies: record.allergies || undefined,
@@ -806,6 +886,9 @@ export class MedicalService {
       smokingYears: record.smokingYears || undefined,
       alcoholConsumption: record.alcoholConsumption || undefined,
       assessment: record.assessment || undefined,
+      pdfUrl: record.pdfUrl || undefined,
+      createdAt: record.createdAt,
+      screeningRequests: record.screeningRequests?.map(sr => ScreeningRequestResponseDto.fromEntity(sr)) || [],
     };
 
     return new ResponseCommon(HttpStatus.OK, 'Thành công', response);
@@ -879,7 +962,7 @@ export class MedicalService {
         throw new ForbiddenException(MEDICAL_ERRORS.ACCESS_DENIED_MEDICAL);
       }
     } else if (!user.roles?.includes(RoleEnum.ADMIN)) {
-      throw new ForbiddenException('Access denied');
+      throw new ForbiddenException(MEDICAL_ERRORS.ACCESS_DENIED_MEDICAL);
     }
 
     if (record.signedStatus !== 'SIGNED') {
@@ -931,19 +1014,19 @@ export class MedicalService {
     // Permission: DOCTOR only (checked in controller)
     
     // Get latest vital sign
-    const latestVitalSign = record.vitalSigns?.[0]; // Assuming order DESC
+    const latestVitalSign = record.vitalSigns?.[0];
 
     // Get 3 recent records
     const recentRecords = await this.recordRepository.find({
       where: { patientId: record.patientId },
       order: { createdAt: 'DESC' },
-      take: 4, // Take 4 to skip current if matches, or just take 3 recent
+      take: 4,
       relations: ['doctor', 'doctor.user'],
       select: {
         id: true,
         recordNumber: true,
         createdAt: true,
-        diagnosisNotes: true,
+        diagnosis: true,
         doctor: {
            id: true,
            user: {
@@ -961,7 +1044,7 @@ export class MedicalService {
         id: r.id,
         recordNumber: r.recordNumber,
         visitDate: r.createdAt,
-        diagnosis: r.diagnosisNotes || 'N/A',
+        diagnosis: r.diagnosis || 'N/A',
         doctor: r.doctor?.user?.fullName || 'N/A'
       }));
 
@@ -993,10 +1076,10 @@ export class MedicalService {
       presentIllness: record.presentIllness || undefined,
       physicalExamNotes: record.physicalExamNotes || undefined,
       assessment: record.assessment || undefined,
-      diagnosisNotes: record.diagnosisNotes || undefined,
+      diagnosis: record.diagnosis || undefined,
       treatmentPlan: record.treatmentPlan || undefined,
       recentRecords: recent,
-      status: record.appointment?.status || 'UNKNOWN', // Or record status
+      status: record.appointment?.status || 'UNKNOWN',
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
     };
@@ -1039,13 +1122,13 @@ export class MedicalService {
       },
       treatmentStartDate: record.treatmentStartDate || undefined,
       treatmentEndDate: record.treatmentEndDate || undefined,
-      initialDiagnosis: record.initialDiagnosis || undefined,
+
       primaryDiagnosis: record.primaryDiagnosis || undefined,
       secondaryDiagnosis: record.secondaryDiagnosis || undefined,
       dischargeDiagnosis: record.dischargeDiagnosis || undefined,
       progressNotes: record.progressNotes || undefined,
       treatmentGiven: record.treatmentGiven || undefined,
-      significantLabFindings: record.significantLabFindings || undefined,
+
       dischargeCondition: record.dischargeCondition || undefined,
       followUpInstructions: record.followUpInstructions || undefined,
       prescriptions: record.prescriptions?.map(p => ({

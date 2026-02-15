@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ScreeningRequestResponseDto } from '@/modules/screening/dto/screening-request-response.dto';
 
 export enum SignedStatusEnum {
   NOT_SIGNED = 'NOT_SIGNED',
@@ -43,43 +44,18 @@ export class MedicalRecordDetailResponseDto {
   @ApiPropertyOptional({ description: 'Digital signature data' })
   digitalSignature?: string;
 
+  @ApiPropertyOptional({ description: 'Diagnosis' })
+  diagnosis?: string;
+
   // TAB 1: BỆNH ÁN
   @ApiProperty({ description: 'Loại bệnh án' })
   recordType: string;
-
-  @ApiPropertyOptional({ description: 'Chuyên khoa' })
-  specialty?: string;
-
-  @ApiProperty({ description: 'Ngày tạo' })
-  createdAt: Date;
-
-  @ApiPropertyOptional({ description: 'Đối tượng' })
-  patientCategory?: string;
-
-  @ApiPropertyOptional({ description: 'Số thẻ BHYT' })
-  insuranceNumber?: string;
-
-  @ApiPropertyOptional({ description: 'Thời hạn BHYT' })
-  insuranceExpiry?: Date;
-
-  @ApiPropertyOptional({ description: 'Họ tên người nhà' })
-  emergencyContactName?: string;
-
-  @ApiPropertyOptional({ description: 'SĐT người nhà' })
-  emergencyContactPhone?: string;
-
-  @ApiPropertyOptional({ description: 'Địa chỉ người nhà' })
-  emergencyContactAddress?: string;
-
-  @ApiPropertyOptional({ description: 'Chẩn đoán của nơi giới thiệu' })
-  referralDiagnosis?: string;
 
   @ApiPropertyOptional({ description: 'Lý do vào viện' })
   chiefComplaint?: string;
 
   @ApiProperty({ description: 'Chỉ số sinh hiệu' })
   vitalSigns: {
-    pulse?: number;
     temperature?: number;
     respiratoryRate?: number;
     weight?: number;
@@ -87,6 +63,7 @@ export class MedicalRecordDetailResponseDto {
     heartRate?: number;
     height?: number;
     bmi?: number;
+    spo2?: number;
   };
 
   @ApiPropertyOptional({ description: 'Quá trình bệnh lý' })
@@ -103,12 +80,6 @@ export class MedicalRecordDetailResponseDto {
 
   @ApiPropertyOptional({ description: 'Các bộ phận' })
   systemsReview?: string;
-
-  @ApiPropertyOptional({ description: 'Tóm tắt kết quả CLS' })
-  labSummary?: string;
-
-  @ApiPropertyOptional({ description: 'Chẩn đoán ban đầu' })
-  initialDiagnosis?: string;
 
   @ApiPropertyOptional({ description: 'Đã xử lý' })
   treatmentGiven?: string;
@@ -133,7 +104,10 @@ export class MedicalRecordDetailResponseDto {
       unit: string;
       dosage: string;
       frequency: string;
-      duration: string;
+      durationDays: number;
+      instructions?: string;
+      startDate?: Date;
+      endDate?: Date;
     }>;
     notes?: string;
     createdAt: Date;
@@ -142,9 +116,6 @@ export class MedicalRecordDetailResponseDto {
   // TAB 3: TỔNG KẾT
   @ApiPropertyOptional({ description: 'Quá trình bệnh lý và diễn biến' })
   progressNotes?: string;
-
-  @ApiPropertyOptional({ description: 'Tóm tắt XN có giá trị' })
-  significantLabFindings?: string;
 
   @ApiPropertyOptional({ description: 'Bệnh chính' })
   primaryDiagnosis?: string;
@@ -160,6 +131,9 @@ export class MedicalRecordDetailResponseDto {
 
   @ApiPropertyOptional({ description: 'Hướng điều trị tiếp theo' })
   followUpInstructions?: string;
+
+  @ApiPropertyOptional({ description: 'Tóm tắt hồ sơ' })
+  fullRecordSummary?: string;
 
   @ApiPropertyOptional({ description: 'Assessment' })
   assessment?: string;
@@ -186,10 +160,18 @@ export class MedicalRecordDetailResponseDto {
   alcoholConsumption?: boolean;
 
 
-
   @ApiProperty({ description: 'Status bệnh án' })
   status: string;
 
+  @ApiProperty({ description: 'Created at' })
+  createdAt: Date;
+
   @ApiProperty({ description: 'Updated at' })
   updatedAt: Date;
+
+  @ApiPropertyOptional({ description: 'PDF URL' })
+  pdfUrl?: string;
+
+  @ApiPropertyOptional({ type: [ScreeningRequestResponseDto] })
+  screeningRequests?: ScreeningRequestResponseDto[];
 }

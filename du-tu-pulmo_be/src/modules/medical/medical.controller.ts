@@ -7,6 +7,7 @@ import {
   HttpStatus,
   UseGuards,
   ForbiddenException,
+  Put,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -27,7 +28,7 @@ import {
 } from '@/modules/medical/dto/medical-response.dto';
 import { MedicalRecordDetailResponseDto } from '@/modules/medical/dto/get-medical-record-detail.dto';
 import { MedicalRecordExaminationDto } from '@/modules/medical/dto/medical-record-examination.dto';
-import { MedicalRecordSummaryDto } from '@/modules/medical/dto/medical-record-summary.dto';
+import { UpdateMedicalRecordDto } from '@/modules/medical/dto/update-medical-record.dto';
 import { SignMedicalRecordDto } from '@/modules/medical/dto/sign-medical-record.dto';
 import { MEDICAL_ERRORS } from '@/common/constants/error-messages.constant';
 import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
@@ -41,6 +42,7 @@ import { RoleEnum } from '@/modules/common/enums/role.enum';
 import { AppointmentResponseDto } from '@/modules/appointment/dto/appointment-response.dto';
 import { DoctorResponseDto } from '@/modules/doctor/dto/doctor-response.dto';
 import { PatientResponseDto } from '@/modules/patient/dto/patient-response.dto';
+import { MedicalRecordSummaryDto } from './dto/medical-record-summary.dto';
 
 @ApiTags('Medical Records')
 @Controller('medical')
@@ -110,7 +112,7 @@ export class MedicalController {
       pastMedicalHistory: record.medicalHistory || undefined,
       physicalExamNotes: record.physicalExamNotes || undefined,
       assessment: record.assessment || undefined,
-      diagnosisNotes: record.diagnosisNotes || undefined,
+      diagnosis: record.diagnosis || undefined,
       treatmentPlan: record.treatmentPlan || undefined,
       status: record.status || 'UNKNOWN',
       createdAt: record.createdAt,
@@ -139,9 +141,21 @@ export class MedicalController {
       id: prescription.id,
       prescriptionNumber: prescription.prescriptionNumber,
       patientId: prescription.patientId,
+      patient: prescription.patient
+        ? PatientResponseDto.fromEntity(prescription.patient)
+        : (null as unknown as PatientResponseDto),
       doctorId: prescription.doctorId || undefined,
+      doctor: prescription.doctor
+        ? DoctorResponseDto.fromEntity(prescription.doctor)
+        : undefined,
       medicalRecordId: prescription.medicalRecordId || undefined,
+      medicalRecord: prescription.medicalRecord
+        ? this.toRecordDto(prescription.medicalRecord)
+        : undefined,
       appointmentId: prescription.appointmentId || undefined,
+      appointment: prescription.appointment
+        ? AppointmentResponseDto.fromEntity(prescription.appointment)
+        : undefined,
       diagnosis: diagnosisName,
       notes: prescription.notes || undefined,
       status: prescription.status || undefined,
@@ -181,6 +195,24 @@ export class MedicalController {
   }
 
   // ==================== Medical Records ====================
+
+  @Get('records/my')
+  @Roles(RoleEnum.DOCTOR)
+  @ApiOperation({ summary: 'Lấy hồ sơ bệnh án gần đây của bác sĩ (Recent History)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Danh sách hồ sơ bệnh án gần đây',
+    type: [MedicalRecordResponseDto],
+  })
+  async getMyRecords(
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<MedicalRecordResponseDto[]>> {
+    if (!user.doctorId) throw new ForbiddenException(MEDICAL_ERRORS.DOCTOR_ID_MISSING);
+    
+    const result = await this.medicalService.findRecordsByDoctor(user.doctorId);
+    const dtos = (result.data || []).map((r) => this.toRecordDto(r));
+    return new ResponseCommon(result.code, result.message, dtos);
+  }
 
   @Get('records/patient/:patientId')
   @ApiOperation({
@@ -245,6 +277,39 @@ export class MedicalController {
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<{ url: string }>> {
     return this.medicalService.generatePdf(id, user);
+  }
+
+  @Put('records/:id')
+  @Roles(RoleEnum.DOCTOR, RoleEnum.ADMIN)
+  @ApiOperation({ summary: 'Cập nhật hồ sơ bệnh án' })
+  @ApiParam({ name: 'id', description: 'Medical Record ID (UUID)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Cập nhật thành công',
+  })
+  async updateMedicalRecord(
+    @Param('id') id: string,
+    @Body() dto: UpdateMedicalRecordDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<MedicalRecordDetailResponseDto>> {
+    console.log(dto);
+    
+    const recordResponse = await this.medicalService.getMedicalRecordDetail(id, user);
+    const record = recordResponse.data;
+    
+    if (!record) {
+        throw new ForbiddenException(MEDICAL_ERRORS.MEDICAL_RECORD_NOT_FOUND);
+    }
+    
+    if (user.roles?.includes(RoleEnum.DOCTOR) && !user.roles.includes(RoleEnum.ADMIN)) {
+       if (record.doctor.id !== user.doctorId) {
+           throw new ForbiddenException(MEDICAL_ERRORS.ACCESS_DENIED_MEDICAL);
+       }
+    }
+        
+    await this.medicalService.updateMedicalRecord(id, dto);
+     
+    return this.medicalService.getMedicalRecordDetail(id, user);
   }
 
   @Post('records/:id/sign')
@@ -327,6 +392,41 @@ export class MedicalController {
   }
 
   // ==================== Prescriptions ====================
+
+  @Get('prescriptions/my')
+  @Roles(RoleEnum.DOCTOR)
+  @ApiOperation({ summary: 'Lấy danh sách đơn thuốc gần đây của bác sĩ' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Danh sách đơn thuốc gần đây',
+    type: [PrescriptionResponseDto],
+  })
+  async getMyPrescriptions(
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<PrescriptionResponseDto[]>> {
+    if (!user.doctorId) throw new ForbiddenException(MEDICAL_ERRORS.DOCTOR_ID_MISSING);
+
+    const result = await this.medicalService.findPrescriptionsByDoctor(user.doctorId);
+    const dtos = (result.data || []).map((p) => this.toPrescriptionDto(p));
+    return new ResponseCommon(result.code, result.message, dtos);
+  }
+
+  @Get('prescriptions/:id')
+  @ApiOperation({ summary: 'Lấy chi tiết đơn thuốc' })
+  @ApiParam({ name: 'id', description: 'Prescription ID (UUID)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Chi tiết đơn thuốc',
+    type: PrescriptionResponseDto,
+  })
+  async getPrescriptionDetail(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<PrescriptionResponseDto>> {
+    const result = await this.medicalService.getPrescriptionDetail(id);
+    const dto = this.toPrescriptionDto(result.data!);
+    return new ResponseCommon(result.code, result.message, dto);
+  }
 
   @Get('prescriptions/patient/:patientId')
   @ApiOperation({ summary: 'Lấy danh sách đơn thuốc của bệnh nhân' })

@@ -3,6 +3,8 @@ import { PaginationMeta } from '@/common/dto/pagination.dto';
 import { AppointmentResponseDto } from '@/modules/appointment/dto/appointment-response.dto';
 import { DoctorResponseDto } from '@/modules/doctor/dto/doctor-response.dto';
 import { PatientResponseDto } from '@/modules/patient/dto/patient-response.dto';
+import { MedicalRecord } from '@/modules/medical/entities/medical-record.entity';
+import { SignedStatusEnum } from '@/modules/medical/dto/get-medical-record-detail.dto';
 
 // ============================================================================
 // MEDICAL RECORD RESPONSE DTOs
@@ -51,7 +53,7 @@ export class MedicalRecordResponseDto {
   assessment?: string;
 
   @ApiPropertyOptional({ description: 'Diagnosis notes (chẩn đoán)' })
-  diagnosisNotes?: string;
+  diagnosis?: string;
 
   @ApiPropertyOptional({ description: 'Treatment plan (kế hoạch điều trị)' })
   treatmentPlan?: string;
@@ -184,14 +186,26 @@ export class PrescriptionResponseDto {
   @ApiProperty({ description: 'Patient ID' })
   patientId: string;
 
+  @ApiProperty({ description: 'Patient' })
+  patient: PatientResponseDto;
+
   @ApiPropertyOptional({ description: 'Doctor ID' })
   doctorId?: string;
+
+  @ApiPropertyOptional({ description: 'Doctor' })
+  doctor?: DoctorResponseDto;
 
   @ApiPropertyOptional({ description: 'Medical Record ID' })
   medicalRecordId?: string;
 
+  @ApiPropertyOptional({ description: 'Medical Record' })
+  medicalRecord?: MedicalRecordResponseDto;
+
   @ApiPropertyOptional({ description: 'Appointment ID' })
   appointmentId?: string;
+
+  @ApiPropertyOptional({ description: 'Appointment' })
+  appointment?: AppointmentResponseDto;
 
   @ApiPropertyOptional({ description: 'Diagnosis' })
   diagnosis?: string;

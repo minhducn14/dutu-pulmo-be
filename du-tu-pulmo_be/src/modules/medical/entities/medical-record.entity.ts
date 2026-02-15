@@ -70,29 +70,7 @@ export class MedicalRecord {
   })
   recordType: string;
 
-  @Column({ type: 'varchar', nullable: true })
-  specialty: string | null;
 
-  @Column({ name: 'patient_category', type: 'varchar', nullable: true })
-  patientCategory: string | null;
-
-  @Column({ name: 'insurance_number', type: 'varchar', nullable: true })
-  insuranceNumber: string | null;
-
-  @Column({ name: 'insurance_expiry', type: 'date', nullable: true })
-  insuranceExpiry: Date | null;
-
-  @Column({ name: 'emergency_contact_name', type: 'varchar', nullable: true })
-  emergencyContactName: string | null;
-
-  @Column({ name: 'emergency_contact_phone', type: 'varchar', nullable: true })
-  emergencyContactPhone: string | null;
-
-  @Column({ name: 'emergency_contact_address', type: 'text', nullable: true })
-  emergencyContactAddress: string | null;
-
-  @Column({ name: 'referral_diagnosis', type: 'text', nullable: true })
-  referralDiagnosis: string | null;
 
   // ===== MEDICAL FIELDS =====
   // Lý do khám
@@ -149,7 +127,7 @@ export class MedicalRecord {
   assessment: string | null; // Bác sĩ đánh giá
 
   @Column({ name: 'diagnosis_notes', type: 'text', nullable: true })
-  diagnosisNotes: string | null; // Chẩn đoán
+  diagnosis: string | null; // Chẩn đoán
 
   @Column({ name: 'treatment_plan', type: 'text', nullable: true })
   treatmentPlan: string | null; // Phác đồ điều trị
@@ -158,11 +136,7 @@ export class MedicalRecord {
   @Column({ name: 'systems_review', type: 'text', nullable: true })
   systemsReview: string | null;
 
-  @Column({ name: 'lab_summary', type: 'text', nullable: true })
-  labSummary: string | null;
 
-  @Column({ name: 'initial_diagnosis', type: 'text', nullable: true })
-  initialDiagnosis: string | null;
 
   @Column({ name: 'treatment_given', type: 'text', nullable: true })
   treatmentGiven: string | null;
@@ -180,8 +154,7 @@ export class MedicalRecord {
   @Column({ name: 'progress_notes', type: 'text', nullable: true })
   progressNotes: string | null;
 
-  @Column({ name: 'significant_lab_findings', type: 'text', nullable: true })
-  significantLabFindings: string | null;
+
 
   @Column({ name: 'primary_diagnosis', type: 'text', nullable: true })
   primaryDiagnosis: string | null;
@@ -195,7 +168,8 @@ export class MedicalRecord {
   @Column({ name: 'follow_up_instructions', type: 'text', nullable: true })
   followUpInstructions: string | null;
 
-
+  @Column({ name: 'full_record_summary', type: 'text', nullable: true })
+  fullRecordSummary: string | null;
 
   // Related records
   @ManyToOne(() => MedicalRecord, { onDelete: 'SET NULL', nullable: true })

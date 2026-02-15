@@ -55,7 +55,7 @@ export class MedicalRecordExaminationDto {
   assessment?: string;
 
   @ApiPropertyOptional({ description: 'Chẩn đoán sơ bộ' })
-  diagnosisNotes?: string;
+  diagnosis?: string;
 
   @ApiPropertyOptional({ description: 'Kế hoạch điều trị' })
   treatmentPlan?: string;
