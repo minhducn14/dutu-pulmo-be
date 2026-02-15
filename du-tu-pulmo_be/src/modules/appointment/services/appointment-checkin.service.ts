@@ -260,7 +260,7 @@ export class AppointmentCheckinService {
       if (dto.physicalExamNotes)
         record.physicalExamNotes = dto.physicalExamNotes;
       if (dto.assessment) record.assessment = dto.assessment;
-      if (dto.diagnosisNotes) record.diagnosisNotes = dto.diagnosisNotes;
+      if (dto.diagnosis) record.diagnosis = dto.diagnosis;
       if (dto.treatmentPlan) record.treatmentPlan = dto.treatmentPlan;
       await manager.save(record);
 

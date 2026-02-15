@@ -12,6 +12,7 @@ import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status
 import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { AppointmentResponseDto } from '@/modules/appointment/dto/appointment-response.dto';
+import { APPOINTMENT_ERRORS } from '@/common/constants/error-messages.constant';
 import { DailyService } from '@/modules/video_call/daily.service';
 import { CallStateService } from '@/modules/video_call/call-state.service';
 import { AppointmentMapperService } from '@/modules/appointment/services/appointment-mapper.service';
@@ -39,15 +40,15 @@ export class AppointmentSchedulingService {
       });
 
       if (!appointment) {
-        throw new NotFoundException('Appointment not found');
+        throw new NotFoundException(APPOINTMENT_ERRORS.APPOINTMENT_NOT_FOUND);
       }
 
       if (appointment.status === AppointmentStatusEnum.COMPLETED) {
-        throw new BadRequestException('Không thể hủy lịch hẹn đã hoàn thành');
+        throw new BadRequestException(APPOINTMENT_ERRORS.CANNOT_CANCEL_COMPLETED);
       }
 
       if (appointment.status === AppointmentStatusEnum.CANCELLED) {
-        throw new BadRequestException('Lịch hẹn đã được hủy trước đó');
+        throw new BadRequestException(APPOINTMENT_ERRORS.ALREADY_CANCELLED);
       }
 
       if (appointment.timeSlotId) {
@@ -114,7 +115,7 @@ export class AppointmentSchedulingService {
       });
 
       if (!appointment) {
-        throw new NotFoundException('Appointment không tồn tại');
+        throw new NotFoundException(APPOINTMENT_ERRORS.APPOINTMENT_NOT_FOUND);
       }
 
       if (
@@ -124,7 +125,7 @@ export class AppointmentSchedulingService {
           AppointmentStatusEnum.PENDING_PAYMENT,
         ].includes(appointment.status)
       ) {
-        throw new BadRequestException('Không thể đổi lịch ở trạng thái này');
+        throw new BadRequestException(APPOINTMENT_ERRORS.CANNOT_RESCHEDULE_STATUS);
       }
 
       const oldSlot = appointment.timeSlotId
@@ -140,20 +141,20 @@ export class AppointmentSchedulingService {
       });
 
       if (!newSlot) {
-        throw new NotFoundException('Time slot mới không tồn tại');
+        throw new NotFoundException(APPOINTMENT_ERRORS.NEW_SLOT_NOT_FOUND);
       }
 
       if (newSlot.doctorId !== appointment.doctorId) {
-        throw new BadRequestException('Slot mới phải cùng bác sĩ');
+        throw new BadRequestException(APPOINTMENT_ERRORS.SLOT_DOCTOR_MISMATCH);
       }
 
       if (newSlot.startTime < new Date()) {
-        throw new BadRequestException('Không thể đặt slot quá khứ');
+        throw new BadRequestException(APPOINTMENT_ERRORS.SLOT_IN_PAST);
       }
 
       if (!newSlot.allowedAppointmentTypes?.length) {
         throw new BadRequestException(
-          'Slot mới chưa được cấu hình appointment type',
+          APPOINTMENT_ERRORS.SLOT_NO_TYPE_CONFIG,
         );
       }
 
@@ -161,8 +162,10 @@ export class AppointmentSchedulingService {
         !newSlot.allowedAppointmentTypes.includes(appointment.appointmentType)
       ) {
         throw new BadRequestException(
-          `Slot mới không hỗ trợ ${appointment.appointmentType}. ` +
-            `Chỉ hỗ trợ: ${newSlot.allowedAppointmentTypes.join(', ')}`,
+          APPOINTMENT_ERRORS.SLOT_TYPE_MISMATCH(
+            appointment.appointmentType,
+            newSlot.allowedAppointmentTypes.join(', '),
+          ),
         );
       }
 
@@ -176,15 +179,15 @@ export class AppointmentSchedulingService {
       });
 
       if (duplicateInNewSlot) {
-        throw new ConflictException('Bạn đã có lịch hẹn trong slot mới này');
+        throw new ConflictException(APPOINTMENT_ERRORS.DUPLICATE_IN_SLOT);
       }
 
       if (!newSlot.isAvailable) {
-        throw new ConflictException('Slot mới không khả dụng');
+        throw new ConflictException(APPOINTMENT_ERRORS.SLOT_UNAVAILABLE);
       }
 
       if (newSlot.bookedCount >= newSlot.capacity) {
-        throw new ConflictException('Slot mới đã đầy');
+        throw new ConflictException(APPOINTMENT_ERRORS.SLOT_FULL);
       }
 
       if (oldSlot) {

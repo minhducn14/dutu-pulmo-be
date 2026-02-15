@@ -33,7 +33,7 @@ export class CompleteExaminationDto {
   @IsOptional()
   @IsString()
   @MaxLength(5000)
-  diagnosisNotes?: string;
+  diagnosis?: string;
 
   @ApiPropertyOptional({
     description: 'Phác đồ điều trị',

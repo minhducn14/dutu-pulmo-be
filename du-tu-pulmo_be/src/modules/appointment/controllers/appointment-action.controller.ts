@@ -38,7 +38,7 @@ import { CompleteExaminationDto } from '@/modules/appointment/dto/complete-exami
 import { CheckInByNumberDto } from '@/modules/appointment/dto/check-in-by-number.dto';
 import { AppointmentResponseDto } from '@/modules/appointment/dto/appointment-response.dto';
 import { JoinVideoCallResponseDto } from '@/modules/appointment/dto/video-call-response.dto';
-import { UpdateMedicalRecordDto } from '@/modules/medical/dto/update-medical-record.dto';
+import { UpdateMedicalRecordDtoForEncounter } from '@/modules/medical/dto/update-medical-record-for-encounter.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { MedicalService } from '@/modules/medical/medical.service';
 import { AppointmentMedicalAccessService } from '@/modules/appointment/services/appointment-medical-access.service';
@@ -516,7 +516,7 @@ export class AppointmentActionController {
   })
   async updateMedicalRecord(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateMedicalRecordDto,
+    @Body() dto: UpdateMedicalRecordDtoForEncounter,
     @CurrentUser() user: JwtUser,
   ) {
     const appt = await this.appointmentService.findOne(id);

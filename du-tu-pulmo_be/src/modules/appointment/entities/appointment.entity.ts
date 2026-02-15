@@ -197,7 +197,7 @@ export class Appointment {
   doctorNotes: string; // Bác sĩ ghi chú
 
   /**
-   * @deprecated Use MedicalRecord.diagnosisNotes instead. Kept for backward compatibility.
+   * @deprecated Use MedicalRecord.diagnosis instead. Kept for backward compatibility.
    */
   @Column({ name: 'clinical_notes', type: 'text', nullable: true })
   clinicalNotes: string; // triệu chứng lâm sàng
