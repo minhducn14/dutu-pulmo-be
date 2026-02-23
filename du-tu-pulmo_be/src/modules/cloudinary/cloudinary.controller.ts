@@ -30,6 +30,7 @@ import {
 } from '@/common/config/file-type.config';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { CloudinaryUploadResponseDto } from '@/modules/cloudinary/dto/cloudinary-upload-response.dto';
+import { diskStorage } from 'multer';
 
 @ApiTags('Upload')
 @Controller('upload')
@@ -151,5 +152,66 @@ export class CloudinaryController {
   ): Promise<ResponseCommon<{ result: string }>> {
     const result = await this.cloudinaryService.deleteImage(publicId);
     return new ResponseCommon(HttpStatus.OK, 'SUCCESS', result);
+  }
+
+  @Post('pdf')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @UseInterceptors(
+  FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads/temp', 
+      filename: (req, file, callback) => {
+        const uniqueName = `${Date.now()}-${file.originalname}`;
+        callback(null, uniqueName);
+      },
+    }),
+    limits: { fileSize: fileTypeConfigs.pdf.maxSize },
+    fileFilter: (req, file, callback) => {
+      if (file.mimetype !== 'application/pdf') {
+        return callback(
+          new BadRequestException('Only PDF files are allowed'),
+          false,
+        );
+      }
+      callback(null, true);
+    },
+  }),
+)
+  @ApiOperation({ summary: 'Upload a PDF file' })
+  @ApiConsumes('multipart/form-data')
+  @ApiQuery({
+    name: 'folder',
+    required: false,
+    description: 'Folder to store the PDF (default: prescriptions)',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  async uploadPdf(
+    @UploadedFile() file: Express.Multer.File,
+    @Query('folder') folder?: string,
+  ): Promise<ResponseCommon<CloudinaryUploadResponseDto>> {
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+    const result = await this.cloudinaryService.uploadPdfFile(
+      file.path,
+      folder,
+      file.originalname,
+    );
+    return new ResponseCommon(
+      HttpStatus.CREATED,
+      'SUCCESS',
+      CloudinaryUploadResponseDto.fromEntity(result),
+    );
   }
 }

@@ -10,7 +10,8 @@ import { MedicalService } from '@/modules/medical/medical.service';
 import { MedicineService } from '@/modules/medical/medicine.service';
 import { MedicalController } from '@/modules/medical/medical.controller';
 import { MedicineController } from '@/modules/medical/medicine.controller';
-import { ScreeningRequest } from '../screening/entities/screening-request.entity';
+import { ScreeningRequest } from '@/modules/screening/entities/screening-request.entity';
+import { PdfModule } from '@/modules/pdf/pdf.module';
 
 @Module({
   imports: [
@@ -23,9 +24,14 @@ import { ScreeningRequest } from '../screening/entities/screening-request.entity
       ScreeningRequest,
     ]),
     forwardRef(() => AppointmentModule),
+    PdfModule,
   ],
   controllers: [MedicalController, MedicineController],
-  providers: [MedicalService, MedicineService],
+  providers: [
+    MedicalService,
+    MedicineService,
+  ],
   exports: [MedicalService, MedicineService, TypeOrmModule],
 })
 export class MedicalModule {}
+

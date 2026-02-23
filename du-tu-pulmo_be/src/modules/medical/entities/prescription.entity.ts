@@ -84,6 +84,9 @@ export class Prescription {
   @Column({ name: 'filled_at', type: 'timestamptz', nullable: true })
   filledAt: Date;
 
+  @Column({ name: 'pdf_url', type: 'varchar', nullable: true })
+  pdfUrl: string;
+
   @CreateDateColumn({
     name: 'created_at',
     type: 'timestamptz',

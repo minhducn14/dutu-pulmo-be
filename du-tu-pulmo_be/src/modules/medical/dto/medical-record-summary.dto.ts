@@ -70,7 +70,10 @@ export class MedicalRecordSummaryDto {
   followUpInstructions?: string;
 
   // ===== ĐƠN THUỐC & XÉT NGHIỆM =====
-  @ApiPropertyOptional({ type: [PrescriptionSummaryDto], description: 'Danh sách đơn thuốc' })
+  @ApiPropertyOptional({
+    type: [PrescriptionSummaryDto],
+    description: 'Danh sách đơn thuốc',
+  })
   prescriptions?: PrescriptionSummaryDto[];
 
   @ApiProperty({ description: 'Trạng thái hồ sơ' })

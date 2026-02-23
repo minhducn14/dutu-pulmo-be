@@ -102,7 +102,8 @@ export class MedicineService {
   ): Promise<ResponseCommon<Medicine>> {
     const response = await this.findOne(id);
     const medicine = response.data;
-    if (!medicine) throw new NotFoundException(MEDICAL_ERRORS.MEDICINE_NOT_FOUND);
+    if (!medicine)
+      throw new NotFoundException(MEDICAL_ERRORS.MEDICINE_NOT_FOUND);
 
     Object.assign(medicine, updateMedicineDto);
     const result = await this.medicineRepository.save(medicine);
@@ -112,7 +113,8 @@ export class MedicineService {
   async remove(id: string): Promise<ResponseCommon<boolean>> {
     const response = await this.findOne(id);
     const medicine = response.data;
-    if (!medicine) throw new NotFoundException(MEDICAL_ERRORS.MEDICINE_NOT_FOUND);
+    if (!medicine)
+      throw new NotFoundException(MEDICAL_ERRORS.MEDICINE_NOT_FOUND);
 
     medicine.status = false;
     await this.medicineRepository.save(medicine);

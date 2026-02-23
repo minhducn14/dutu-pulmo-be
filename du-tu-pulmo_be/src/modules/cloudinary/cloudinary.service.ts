@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
+import { existsSync, unlinkSync } from 'fs';
 
 export interface CloudinaryUploadResult {
   url: string;
@@ -38,11 +39,9 @@ export class CloudinaryService {
         {
           folder: `medical_images/${imageType}`,
           allowed_formats: ['jpg', 'png', 'jpeg', 'dcm', 'dicom'],
-          // IMPORTANT: No transformation - preserve original quality
           resource_type: 'image',
           unique_filename: true,
           public_id: filename,
-          // Keep original dimensions and quality
           quality: 100,
           flags: 'preserve_transparency',
         },
@@ -140,7 +139,7 @@ export class CloudinaryService {
           folder: 'avatars',
           allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
           transformation: [
-            // { width: 400, height: 400, crop: 'fill' },
+            { width: 400, height: 400, crop: 'fill' },
             { quality: 'auto' },
           ],
           overwrite: true,
@@ -249,17 +248,53 @@ export class CloudinaryService {
     });
   }
 
+  /**
+   * Upload a PDF file from local storage to Cloudinary
+   */
+  async uploadPdfFile(
+    filePath: string,
+    folder: string = 'prescriptions',
+    fileName: string,
+  ): Promise<CloudinaryUploadResult> {
+    return new Promise((resolve, reject) => {
+      cloudinary.uploader.upload(
+        filePath,
+        {
+          folder: folder,
+          resource_type: 'image',
+          public_id: fileName.replace(/\.pdf$/i, ''),
+          overwrite: true,
+          unique_filename: false,
+        },
+        (error, result: UploadApiResponse | undefined) => {
+          if (existsSync(filePath)) {
+            unlinkSync(filePath);
+          }
+
+          if (error) {
+            reject(
+              new BadRequestException(`PDF upload failed: ${error.message}`),
+            );
+          } else if (result) {
+            resolve({
+              url: result.secure_url,
+              publicId: result.public_id,
+              format: result.format,
+              bytes: result.bytes,
+            });
+          } else {
+            reject(new BadRequestException('PDF  upload failed: Unknown error'));
+          }
+        },
+      );
+    });
+  }
+
   private formatDate(timestamp: number): string {
     const date = new Date(timestamp);
-
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
-
-    const hour = String(date.getHours()).padStart(2, '0');
-    const minute = String(date.getMinutes()).padStart(2, '0');
-    const second = String(date.getSeconds()).padStart(2, '0');
-
-    return `${year}${month}${day}-${hour}${minute}${second}`;
+    return `${year}${month}${day}`;
   }
 }

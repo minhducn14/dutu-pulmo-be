@@ -224,6 +224,9 @@ export class PrescriptionResponseDto {
 
   @ApiProperty({ description: 'Created at' })
   createdAt: Date;
+
+  @ApiPropertyOptional({ description: 'PDF URL' })
+  pdfUrl?: string;
 }
 
 // ============================================================================

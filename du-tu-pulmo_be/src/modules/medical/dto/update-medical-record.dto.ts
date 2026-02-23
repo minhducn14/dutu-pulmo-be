@@ -148,5 +148,4 @@ export class UpdateMedicalRecordDto {
   @IsOptional()
   @IsBoolean()
   alcoholConsumption?: boolean;
-
 }

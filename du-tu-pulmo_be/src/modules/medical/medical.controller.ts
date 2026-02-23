@@ -8,7 +8,11 @@ import {
   UseGuards,
   ForbiddenException,
   Put,
+  UseInterceptors,
+  ClassSerializerInterceptor,
+  NotFoundException,
 } from '@nestjs/common';
+import { PdfService } from '@/modules/pdf/pdf.service';
 import {
   ApiTags,
   ApiOperation,
@@ -47,11 +51,13 @@ import { MedicalRecordSummaryDto } from './dto/medical-record-summary.dto';
 @ApiTags('Medical Records')
 @Controller('medical')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@UseInterceptors(ClassSerializerInterceptor)
 @ApiBearerAuth('JWT-auth')
 export class MedicalController {
   constructor(
     private readonly medicalService: MedicalService,
     private readonly appointmentService: AppointmentService,
+    private readonly pdfService: PdfService,
   ) {}
 
   private async validatePatientAccess(
@@ -161,6 +167,7 @@ export class MedicalController {
       status: prescription.status || undefined,
       items: items,
       createdAt: prescription.createdAt,
+      pdfUrl: prescription.pdfUrl || undefined,
     };
   }
 
@@ -198,7 +205,9 @@ export class MedicalController {
 
   @Get('records/my')
   @Roles(RoleEnum.DOCTOR)
-  @ApiOperation({ summary: 'Lấy hồ sơ bệnh án gần đây của bác sĩ (Recent History)' })
+  @ApiOperation({
+    summary: 'Lấy hồ sơ bệnh án gần đây của bác sĩ (Recent History)',
+  })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Danh sách hồ sơ bệnh án gần đây',
@@ -207,8 +216,9 @@ export class MedicalController {
   async getMyRecords(
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<MedicalRecordResponseDto[]>> {
-    if (!user.doctorId) throw new ForbiddenException(MEDICAL_ERRORS.DOCTOR_ID_MISSING);
-    
+    if (!user.doctorId)
+      throw new ForbiddenException(MEDICAL_ERRORS.DOCTOR_ID_MISSING);
+
     const result = await this.medicalService.findRecordsByDoctor(user.doctorId);
     const dtos = (result.data || []).map((r) => this.toRecordDto(r));
     return new ResponseCommon(result.code, result.message, dtos);
@@ -237,7 +247,8 @@ export class MedicalController {
     } else if (user.roles?.includes(RoleEnum.ADMIN)) {
       result = await this.medicalService.findRecordsByPatient(patientId);
     } else if (user.roles?.includes(RoleEnum.DOCTOR)) {
-      if (!user.doctorId) throw new ForbiddenException(MEDICAL_ERRORS.DOCTOR_ID_MISSING);
+      if (!user.doctorId)
+        throw new ForbiddenException(MEDICAL_ERRORS.DOCTOR_ID_MISSING);
       result = await this.medicalService.findRecordsByPatient(patientId);
     } else {
       throw new ForbiddenException(MEDICAL_ERRORS.ACCESS_DENIED_MEDICAL);
@@ -265,20 +276,6 @@ export class MedicalController {
     return this.medicalService.getMedicalRecordDetail(id, user);
   }
 
-  @Get('records/:id/pdf')
-  @ApiOperation({ summary: 'Tải PDF bệnh án' })
-  @ApiParam({ name: 'id', description: 'Medical Record ID (UUID)' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'URL hoặc binary PDF',
-  })
-  async downloadPdf(
-    @Param('id') id: string,
-    @CurrentUser() user: JwtUser,
-  ): Promise<ResponseCommon<{ url: string }>> {
-    return this.medicalService.generatePdf(id, user);
-  }
-
   @Put('records/:id')
   @Roles(RoleEnum.DOCTOR, RoleEnum.ADMIN)
   @ApiOperation({ summary: 'Cập nhật hồ sơ bệnh án' })
@@ -292,23 +289,27 @@ export class MedicalController {
     @Body() dto: UpdateMedicalRecordDto,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<MedicalRecordDetailResponseDto>> {
-    console.log(dto);
-    
-    const recordResponse = await this.medicalService.getMedicalRecordDetail(id, user);
+    const recordResponse = await this.medicalService.getMedicalRecordDetail(
+      id,
+      user,
+    );
     const record = recordResponse.data;
-    
+
     if (!record) {
-        throw new ForbiddenException(MEDICAL_ERRORS.MEDICAL_RECORD_NOT_FOUND);
+      throw new ForbiddenException(MEDICAL_ERRORS.MEDICAL_RECORD_NOT_FOUND);
     }
-    
-    if (user.roles?.includes(RoleEnum.DOCTOR) && !user.roles.includes(RoleEnum.ADMIN)) {
-       if (record.doctor.id !== user.doctorId) {
-           throw new ForbiddenException(MEDICAL_ERRORS.ACCESS_DENIED_MEDICAL);
-       }
+
+    if (
+      user.roles?.includes(RoleEnum.DOCTOR) &&
+      !user.roles.includes(RoleEnum.ADMIN)
+    ) {
+      if (record.doctor.id !== user.doctorId) {
+        throw new ForbiddenException(MEDICAL_ERRORS.ACCESS_DENIED_MEDICAL);
+      }
     }
-        
+
     await this.medicalService.updateMedicalRecord(id, dto);
-     
+
     return this.medicalService.getMedicalRecordDetail(id, user);
   }
 
@@ -404,9 +405,12 @@ export class MedicalController {
   async getMyPrescriptions(
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<PrescriptionResponseDto[]>> {
-    if (!user.doctorId) throw new ForbiddenException(MEDICAL_ERRORS.DOCTOR_ID_MISSING);
+    if (!user.doctorId)
+      throw new ForbiddenException(MEDICAL_ERRORS.DOCTOR_ID_MISSING);
 
-    const result = await this.medicalService.findPrescriptionsByDoctor(user.doctorId);
+    const result = await this.medicalService.findPrescriptionsByDoctor(
+      user.doctorId,
+    );
     const dtos = (result.data || []).map((p) => this.toPrescriptionDto(p));
     return new ResponseCommon(result.code, result.message, dtos);
   }
@@ -453,5 +457,77 @@ export class MedicalController {
     );
     const dtos = (result.data || []).map((p) => this.toPrescriptionDto(p));
     return new ResponseCommon(result.code, result.message, dtos);
+  }
+
+  // ==================== PDF Generation ====================
+
+  @Post('records/:id/pdf')
+  @Roles(RoleEnum.DOCTOR, RoleEnum.ADMIN)
+  @ApiOperation({ summary: 'Tạo PDF bệnh án và lưu lên Cloudinary' })
+  @ApiParam({ name: 'id', description: 'Medical Record ID (UUID)' })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Tạo PDF thành công, trả về URL',
+    schema: { example: { pdfUrl: 'https://res.cloudinary.com/...' } },
+  })
+  async generateMedicalRecordPdf(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<{ pdfUrl: string }>> {
+    const pdfUrl = await this.pdfService.generateAndSaveMedicalRecordPdf(id);
+    return new ResponseCommon(HttpStatus.CREATED, 'Tạo PDF bệnh án thành công', { pdfUrl });
+  }
+
+  @Get('records/:id/pdf')
+  @Roles(RoleEnum.DOCTOR, RoleEnum.PATIENT, RoleEnum.ADMIN)
+  @ApiOperation({ summary: 'Lấy URL PDF bệnh án đã lưu' })
+  @ApiParam({ name: 'id', description: 'Medical Record ID (UUID)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'URL PDF bệnh án',
+    schema: { example: { pdfUrl: 'https://res.cloudinary.com/...' } },
+  })
+  async getMedicalRecordPdfUrl(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<{ pdfUrl: string | null }>> {
+    const result = await this.medicalService.getMedicalRecordDetail(id, user);
+    if (!result.data) throw new NotFoundException('Không tìm thấy bệnh án');
+    return new ResponseCommon(HttpStatus.OK, 'Thành công', { pdfUrl: result.data.pdfUrl ?? null });
+  }
+
+  @Post('prescriptions/:id/pdf')
+  @Roles(RoleEnum.DOCTOR, RoleEnum.ADMIN)
+  @ApiOperation({ summary: 'Tạo PDF đơn thuốc và lưu lên Cloudinary' })
+  @ApiParam({ name: 'id', description: 'Prescription ID (UUID)' })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Tạo PDF thành công, trả về URL',
+    schema: { example: { pdfUrl: 'https://res.cloudinary.com/...' } },
+  })
+  async generatePrescriptionPdf(
+    @Param('id') id: string,
+    @CurrentUser() _user: JwtUser,
+  ): Promise<ResponseCommon<{ pdfUrl: string }>> {
+    const pdfUrl = await this.pdfService.generateAndSavePrescriptionPdf(id);
+    return new ResponseCommon(HttpStatus.CREATED, 'Tạo PDF đơn thuốc thành công', { pdfUrl });
+  }
+
+  @Get('prescriptions/:id/pdf')
+  @Roles(RoleEnum.DOCTOR, RoleEnum.PATIENT, RoleEnum.ADMIN)
+  @ApiOperation({ summary: 'Lấy URL PDF đơn thuốc đã lưu' })
+  @ApiParam({ name: 'id', description: 'Prescription ID (UUID)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'URL PDF đơn thuốc',
+    schema: { example: { pdfUrl: 'https://res.cloudinary.com/...' } },
+  })
+  async getPrescriptionPdfUrl(
+    @Param('id') id: string,
+    @CurrentUser() _user: JwtUser,
+  ): Promise<ResponseCommon<{ pdfUrl: string | null }>> {
+    const result = await this.medicalService.getPrescriptionDetail(id);
+    if (!result.data) throw new NotFoundException('Không tìm thấy đơn thuốc');
+    return new ResponseCommon(HttpStatus.OK, 'Thành công', { pdfUrl: result.data.pdfUrl ?? null });
   }
 }

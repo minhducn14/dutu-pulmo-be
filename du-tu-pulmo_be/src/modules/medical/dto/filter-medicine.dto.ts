@@ -28,7 +28,11 @@ export class FilterMedicineDto extends PaginationDto {
   @IsEnum(GoodsType, { each: true })
   goodsType?: GoodsType[];
 
-  @ApiPropertyOptional({ enum: ProductCategory, isArray: true, required: false })
+  @ApiPropertyOptional({
+    enum: ProductCategory,
+    isArray: true,
+    required: false,
+  })
   @IsOptional()
   @Transform(({ value }) => {
     return toStringArray(value);

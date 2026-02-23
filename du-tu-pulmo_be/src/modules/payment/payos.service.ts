@@ -198,14 +198,16 @@ export class PayosService implements OnModuleInit {
    * Verify webhook signature
    * Uses new SDK: payOS.webhooks.verify()
    */
-  verifyWebhookData(webhookBody: WebhookData): WebhookData['data'] | null {
+  async verifyWebhookData(
+    webhookBody: WebhookData,
+  ): Promise<WebhookData['data'] | null> {
     if (!this.payOS) {
       throw new Error('PayOS is not initialized. Check your configuration.');
     }
 
     try {
-      const verifiedData = this.payOS.webhooks.verify(webhookBody);
-      this.logger.log(`Verified webhook ${verifiedData as unknown as WebhookData['data']}`);
+      const verifiedData = await this.payOS.webhooks.verify(webhookBody);
+      this.logger.log(`Verified webhook order ${verifiedData.orderCode}`);
       return verifiedData as unknown as WebhookData['data'];
     } catch (error) {
       this.logger.error(`Failed to verify webhook: ${error}`);

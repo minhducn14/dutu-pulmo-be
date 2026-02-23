@@ -70,8 +70,6 @@ export class MedicalRecord {
   })
   recordType: string;
 
-
-
   // ===== MEDICAL FIELDS =====
   // Lý do khám
   @Column({ name: 'chief_complaint', type: 'text', nullable: true })
@@ -126,7 +124,7 @@ export class MedicalRecord {
   @Column({ type: 'text', nullable: true })
   assessment: string | null; // Bác sĩ đánh giá
 
-  @Column({ name: 'diagnosis_notes', type: 'text', nullable: true })
+  @Column({ name: 'diagnosis', type: 'text', nullable: true })
   diagnosis: string | null; // Chẩn đoán
 
   @Column({ name: 'treatment_plan', type: 'text', nullable: true })
@@ -135,8 +133,6 @@ export class MedicalRecord {
   // ===== EXTENDED MEDICAL FIELDS =====
   @Column({ name: 'systems_review', type: 'text', nullable: true })
   systemsReview: string | null;
-
-
 
   @Column({ name: 'treatment_given', type: 'text', nullable: true })
   treatmentGiven: string | null;
@@ -153,8 +149,6 @@ export class MedicalRecord {
   // ===== SUMMARY FIELDS =====
   @Column({ name: 'progress_notes', type: 'text', nullable: true })
   progressNotes: string | null;
-
-
 
   @Column({ name: 'primary_diagnosis', type: 'text', nullable: true })
   primaryDiagnosis: string | null;
