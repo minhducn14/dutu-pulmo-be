@@ -121,9 +121,6 @@ export class AppointmentStatusService {
     }
 
     await this.appointmentRepository.update(id, updateData);
-    await this.appointmentRepository.update(id, {
-      status: AppointmentStatusEnum.IN_PROGRESS,
-    });
     return this.appointmentReadService.findById(id);
   }
 

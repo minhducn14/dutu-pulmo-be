@@ -167,10 +167,10 @@ export class AppointmentVideoService {
 
       if (enteredInProgress) {
         await this.medicalService.upsertEncounterInTx(manager, apt);
+        this.logger.log(
+          `Auto start examination for VIDEO appointment ${appointmentId}`,
+        );
       }
-      this.logger.log(
-        `Auto check-in + start examination for VIDEO appointment ${appointmentId} (doctor joined)`,
-      );
       return apt;
     });
 
