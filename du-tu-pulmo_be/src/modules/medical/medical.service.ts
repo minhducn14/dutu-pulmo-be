@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ForbiddenException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager, In, DataSource } from 'typeorm';
@@ -110,7 +111,7 @@ export class MedicalService {
         'vitalSigns',
       ],
       order: { createdAt: 'DESC' },
-      take: 50,
+      take: 50, // Limit to recent 50 records
     });
     return new ResponseCommon(HttpStatus.OK, 'Thành công', records);
   }
@@ -142,7 +143,7 @@ export class MedicalService {
     Object.assign(record, data);
 
     const result = await this.recordRepository.save(record);
-    
+
     return new ResponseCommon(HttpStatus.OK, 'Cập nhật thành công', result);
   }
 
@@ -235,7 +236,7 @@ export class MedicalService {
         'items',
         'doctor',
         'doctor.user',
-        'patient',
+        'patient', // Needed for response dto
         'patient.user',
         'medicalRecord',
         'appointment',
@@ -271,7 +272,7 @@ export class MedicalService {
         'appointment',
       ],
       order: { createdAt: 'DESC' },
-      take: 50,
+      take: 50, // Limit to recent 50
     });
     return new ResponseCommon(HttpStatus.OK, 'Thành công', data);
   }
@@ -399,6 +400,7 @@ export class MedicalService {
       }
 
       if (!record) {
+        // Create new if missing (Upsert)
         record = manager.create(MedicalRecord, {
           appointmentId: appointment.id,
           patientId: appointment.patientId,
@@ -429,9 +431,14 @@ export class MedicalService {
         record = await manager.save(record);
       }
 
+      // Update fields
       Object.assign(record, data);
 
+      // Only update sensitive fields if provided (don't overwrite with undefined if Partial)
+      // Note: Object.assign handles this well for defined keys in data.
+
       const result = await manager.save(record);
+      // Update appointment fields
       let apptChanged = false;
       if (
         data.chiefComplaint &&
@@ -884,7 +891,7 @@ export class MedicalService {
       smokingYears: record.smokingYears || undefined,
       alcoholConsumption: record.alcoholConsumption || undefined,
       assessment: record.assessment || undefined,
-      pdfUrl: activePrescription?.pdfUrl || undefined,
+      pdfUrl: record.pdfUrl || undefined,
       createdAt: record.createdAt,
       screeningRequests:
         record.screeningRequests?.map((sr) =>

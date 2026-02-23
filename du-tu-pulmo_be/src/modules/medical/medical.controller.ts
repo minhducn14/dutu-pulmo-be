@@ -167,6 +167,7 @@ export class MedicalController {
       status: prescription.status || undefined,
       items: items,
       createdAt: prescription.createdAt,
+      pdfUrl: prescription.pdfUrl || undefined,
     };
   }
 
