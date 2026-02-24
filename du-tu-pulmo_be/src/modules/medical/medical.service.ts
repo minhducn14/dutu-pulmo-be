@@ -33,7 +33,6 @@ import {
   MEDICAL_ERRORS,
   APPOINTMENT_ERRORS,
 } from '@/common/constants/error-messages.constant';
-
 @Injectable()
 export class MedicalService {
   constructor(
@@ -873,6 +872,7 @@ export class MedicalService {
             })) || [],
           notes: p.notes || undefined,
           instructions: p.instructions || undefined,
+          pdfUrl: p.pdfUrl || undefined,
           createdAt: p.createdAt,
         })) || [],
       progressNotes: record.progressNotes || undefined,

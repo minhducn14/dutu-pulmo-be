@@ -122,6 +122,8 @@ export class MedicalRecordDetailResponseDto {
     }>;
     notes?: string;
     createdAt: Date;
+    pdfUrl?: string;
+    instructions?: string;
   }>;
 
   // TAB 3: TỔNG KẾT
