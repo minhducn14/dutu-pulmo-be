@@ -7,11 +7,17 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, LessThan, In } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import { Payment, PaymentStatus } from '@/modules/payment/entities/payment.entity';
+import {
+  Payment,
+  PaymentStatus,
+} from '@/modules/payment/entities/payment.entity';
 import { PayosService, WebhookData } from '@/modules/payment/payos.service';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
-import { PAYMENT_ERRORS, APPOINTMENT_ERRORS } from '@/common/constants/error-messages.constant';
+import {
+  PAYMENT_ERRORS,
+  APPOINTMENT_ERRORS,
+} from '@/common/constants/error-messages.constant';
 import { PaymentPurpose } from '@/modules/common/enums/payment-purpose.enum';
 
 export interface CreatePaymentDto {
@@ -238,9 +244,7 @@ export class PaymentService {
     });
 
     if (!payment) {
-      throw new NotFoundException(
-        PAYMENT_ERRORS.PAYMENT_NOT_FOUND,
-      );
+      throw new NotFoundException(PAYMENT_ERRORS.PAYMENT_NOT_FOUND);
     }
 
     return this.cancelPaymentInternal(payment, reason, cancelledBy);
@@ -448,9 +452,7 @@ export class PaymentService {
     });
 
     if (!payment) {
-      throw new NotFoundException(
-        PAYMENT_ERRORS.PAYMENT_NOT_FOUND,
-      );
+      throw new NotFoundException(PAYMENT_ERRORS.PAYMENT_NOT_FOUND);
     }
 
     return this.syncPaymentStatusInternal(payment);

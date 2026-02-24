@@ -26,11 +26,7 @@ import { DoctorScheduleHelperService } from '@/modules/doctor/services/doctor-sc
 import { DoctorScheduleQueryService } from '@/modules/doctor/services/doctor-schedule-query.service';
 import { DoctorScheduleUpdateService } from '@/modules/doctor/services/doctor-schedule-update.service';
 import { DoctorScheduleRestoreService } from '@/modules/doctor/services/doctor-schedule-restore.service';
-import {
-  endOfDayVN,
-  startOfDayVN,
-  vnNow,
-} from '@/common/datetime';
+import { endOfDayVN, startOfDayVN, vnNow } from '@/common/datetime';
 
 @Injectable()
 export class DoctorScheduleTimeOffService {
@@ -68,10 +64,7 @@ export class DoctorScheduleTimeOffService {
 
     const today = startOfDayVN(vnNow());
     const specificDateNormalized = startOfDayVN(specificDate);
-    
-    // specificDate is often passed as string YYYY-MM-DD or Date
-    // If we use startOfDayVN(specificDate), we get the normalized VN start.
-    
+
     if (specificDateNormalized < today) {
       throw new BadRequestException(
         'Không thể tạo lịch nghỉ cho ngày trong quá khứ',
@@ -98,12 +91,16 @@ export class DoctorScheduleTimeOffService {
 
     const [startH, startM] = dto.startTime.split(':').map(Number);
     const [endH, endM] = dto.endTime.split(':').map(Number);
-    
+
     // Base date should be the normalized specific date
     const baseDate = startOfDayVN(specificDate);
 
-    const scheduleStart = new Date(baseDate.getTime() + (startH * 60 + startM) * 60000);
-    const scheduleEnd = new Date(baseDate.getTime() + (endH * 60 + endM) * 60000);
+    const scheduleStart = new Date(
+      baseDate.getTime() + (startH * 60 + startM) * 60000,
+    );
+    const scheduleEnd = new Date(
+      baseDate.getTime() + (endH * 60 + endM) * 60000,
+    );
 
     const result = await this.dataSource.transaction(async (manager) => {
       const startOfDay = startOfDayVN(specificDate);
@@ -252,11 +249,15 @@ export class DoctorScheduleTimeOffService {
 
     const [oldStartH, oldStartM] = existing.startTime.split(':').map(Number);
     const [oldEndH, oldEndM] = existing.endTime.split(':').map(Number);
-    
+
     const baseDate = startOfDayVN(specificDate);
 
-    const oldScheduleStart = new Date(baseDate.getTime() + (oldStartH * 60 + oldStartM) * 60000);
-    const oldScheduleEnd = new Date(baseDate.getTime() + (oldEndH * 60 + oldEndM) * 60000);
+    const oldScheduleStart = new Date(
+      baseDate.getTime() + (oldStartH * 60 + oldStartM) * 60000,
+    );
+    const oldScheduleEnd = new Date(
+      baseDate.getTime() + (oldEndH * 60 + oldEndM) * 60000,
+    );
 
     const newStartTime = dto.startTime ?? existing.startTime;
     const newEndTime = dto.endTime ?? existing.endTime;
@@ -267,8 +268,12 @@ export class DoctorScheduleTimeOffService {
     const [startH, startM] = newStartTime.split(':').map(Number);
     const [endH, endM] = newEndTime.split(':').map(Number);
 
-    const scheduleStart = new Date(baseDate.getTime() + (startH * 60 + startM) * 60000);
-    const scheduleEnd = new Date(baseDate.getTime() + (endH * 60 + endM) * 60000);
+    const scheduleStart = new Date(
+      baseDate.getTime() + (startH * 60 + startM) * 60000,
+    );
+    const scheduleEnd = new Date(
+      baseDate.getTime() + (endH * 60 + endM) * 60000,
+    );
 
     const result = await this.dataSource.transaction(async (manager) => {
       const startOfDay = startOfDayVN(specificDate);
@@ -405,14 +410,13 @@ export class DoctorScheduleTimeOffService {
       }
 
       for (const range of rangesToRestore) {
-        const restored =
-          await this.restoreService.restoreSlots(
-            manager,
-            existing.doctorId,
-            specificDate,
-            range.start,
-            range.end,
-          );
+        const restored = await this.restoreService.restoreSlots(
+          manager,
+          existing.doctorId,
+          specificDate,
+          range.start,
+          range.end,
+        );
         restoredSlots += restored;
 
         const previouslyCancelled = await manager.find(Appointment, {
@@ -499,23 +503,26 @@ export class DoctorScheduleTimeOffService {
 
     const [startH, startM] = schedule.startTime.split(':').map(Number);
     const [endH, endM] = schedule.endTime.split(':').map(Number);
-    
+
     const baseDate = startOfDayVN(specificDate);
 
-    const scheduleStart = new Date(baseDate.getTime() + (startH * 60 + startM) * 60000);
-    const scheduleEnd = new Date(baseDate.getTime() + (endH * 60 + endM) * 60000);
+    const scheduleStart = new Date(
+      baseDate.getTime() + (startH * 60 + startM) * 60000,
+    );
+    const scheduleEnd = new Date(
+      baseDate.getTime() + (endH * 60 + endM) * 60000,
+    );
 
     const result = await this.dataSource.transaction(async (manager) => {
       await manager.remove(schedule);
 
-      const restoredSlots =
-        await this.restoreService.restoreSlots(
-          manager,
-          schedule.doctorId,
-          specificDate,
-          scheduleStart,
-          scheduleEnd,
-        );
+      const restoredSlots = await this.restoreService.restoreSlots(
+        manager,
+        schedule.doctorId,
+        specificDate,
+        scheduleStart,
+        scheduleEnd,
+      );
 
       return { restoredSlots };
     });

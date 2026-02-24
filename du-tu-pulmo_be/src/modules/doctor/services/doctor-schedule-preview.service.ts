@@ -13,11 +13,7 @@ import {
 } from '@/modules/doctor/dto/preview-conflicts.dto';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import { ResponseCommon } from '@/common/dto/response.dto';
-import {
-  endOfDayVN,
-  startOfDayVN,
-  vnNow,
-} from '@/common/datetime';
+import { endOfDayVN, startOfDayVN, vnNow } from '@/common/datetime';
 
 @Injectable()
 export class DoctorSchedulePreviewService {
@@ -49,12 +45,16 @@ export class DoctorSchedulePreviewService {
 
     const [startH, startM] = dto.startTime.split(':').map(Number);
     const [endH, endM] = dto.endTime.split(':').map(Number);
-    
+
     // safe base date
     const baseDate = startOfDayVN(specificDate);
 
-    const scheduleStart = new Date(baseDate.getTime() + (startH * 60 + startM) * 60000);
-    const scheduleEnd = new Date(baseDate.getTime() + (endH * 60 + endM) * 60000);
+    const scheduleStart = new Date(
+      baseDate.getTime() + (startH * 60 + startM) * 60000,
+    );
+    const scheduleEnd = new Date(
+      baseDate.getTime() + (endH * 60 + endM) * 60000,
+    );
 
     const startOfDay = startOfDayVN(specificDate);
     const endOfDay = endOfDayVN(specificDate);
@@ -137,11 +137,15 @@ export class DoctorSchedulePreviewService {
 
     const [startH, startM] = dto.startTime.split(':').map(Number);
     const [endH, endM] = dto.endTime.split(':').map(Number);
-    
+
     const baseDate = startOfDayVN(specificDate);
 
-    const scheduleStart = new Date(baseDate.getTime() + (startH * 60 + startM) * 60000);
-    const scheduleEnd = new Date(baseDate.getTime() + (endH * 60 + endM) * 60000);
+    const scheduleStart = new Date(
+      baseDate.getTime() + (startH * 60 + startM) * 60000,
+    );
+    const scheduleEnd = new Date(
+      baseDate.getTime() + (endH * 60 + endM) * 60000,
+    );
 
     const startOfDay = startOfDayVN(specificDate);
     const endOfDay = endOfDayVN(specificDate);
@@ -225,8 +229,8 @@ export class DoctorSchedulePreviewService {
           AppointmentStatusEnum.PENDING_PAYMENT,
         ]),
         timeSlot: {
-            scheduleId: schedule.id
-        }
+          scheduleId: schedule.id,
+        },
       },
       relations: ['timeSlot', 'timeSlot.schedule', 'patient', 'patient.user'],
     });
@@ -235,24 +239,29 @@ export class DoctorSchedulePreviewService {
 
     for (const apt of futureAppointments) {
       const aptDate = apt.scheduledAt;
-      
+
       // Calculate start/end based on aptDate's VN Day
       const baseDate = startOfDayVN(aptDate);
-      
-      const newScheduleStart = new Date(baseDate.getTime() + (newStartH * 60 + newStartM) * 60000);
-      const newScheduleEnd = new Date(baseDate.getTime() + (newEndH * 60 + newEndM) * 60000);
+
+      const newScheduleStart = new Date(
+        baseDate.getTime() + (newStartH * 60 + newStartM) * 60000,
+      );
+      const newScheduleEnd = new Date(
+        baseDate.getTime() + (newEndH * 60 + newEndM) * 60000,
+      );
 
       if (!apt.timeSlot?.schedule?.slotDuration) continue;
-      
+
       const aptEnd = new Date(
         apt.scheduledAt.getTime() +
           apt.timeSlot.schedule.slotDuration * 60 * 1000,
       );
 
-      const fitsInNew = apt.scheduledAt >= newScheduleStart && aptEnd <= newScheduleEnd;
-      
+      const fitsInNew =
+        apt.scheduledAt >= newScheduleStart && aptEnd <= newScheduleEnd;
+
       if (!fitsInNew) {
-         conflicting.push(apt);
+        conflicting.push(apt);
       }
     }
 
@@ -270,9 +279,9 @@ export class DoctorSchedulePreviewService {
     const message = `Cập nhật lịch này sẽ ảnh hưởng đến ${conflicting.length} lịch hẹn hiện tại.`;
 
     return new ResponseCommon(200, message, {
-        conflictingAppointments,
-        affectedSlotsCount: 0,
-        message
+      conflictingAppointments,
+      affectedSlotsCount: 0,
+      message,
     });
   }
 
@@ -295,14 +304,14 @@ export class DoctorSchedulePreviewService {
           AppointmentStatusEnum.PENDING_PAYMENT,
         ]),
         timeSlot: {
-            scheduleId: schedule.id
-        }
+          scheduleId: schedule.id,
+        },
       },
       relations: ['timeSlot', 'timeSlot.schedule', 'patient', 'patient.user'],
     });
 
     const conflictingAppointments: ConflictingAppointmentDto[] =
-    futureAppointments.map((apt) => ({
+      futureAppointments.map((apt) => ({
         id: apt.id,
         appointmentNumber: apt.appointmentNumber,
         patientName: apt.patient?.user?.fullName || 'Unknown',
@@ -315,9 +324,9 @@ export class DoctorSchedulePreviewService {
     const message = `Xóa lịch này sẽ hủy ${futureAppointments.length} lịch hẹn trong tương lai.`;
 
     return new ResponseCommon(200, message, {
-        conflictingAppointments,
-        affectedSlotsCount: 0,
-        message
+      conflictingAppointments,
+      affectedSlotsCount: 0,
+      message,
     });
   }
 }

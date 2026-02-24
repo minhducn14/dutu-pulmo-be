@@ -44,7 +44,9 @@ export class AppointmentSchedulingService {
       }
 
       if (appointment.status === AppointmentStatusEnum.COMPLETED) {
-        throw new BadRequestException(APPOINTMENT_ERRORS.CANNOT_CANCEL_COMPLETED);
+        throw new BadRequestException(
+          APPOINTMENT_ERRORS.CANNOT_CANCEL_COMPLETED,
+        );
       }
 
       if (appointment.status === AppointmentStatusEnum.CANCELLED) {
@@ -125,7 +127,9 @@ export class AppointmentSchedulingService {
           AppointmentStatusEnum.PENDING_PAYMENT,
         ].includes(appointment.status)
       ) {
-        throw new BadRequestException(APPOINTMENT_ERRORS.CANNOT_RESCHEDULE_STATUS);
+        throw new BadRequestException(
+          APPOINTMENT_ERRORS.CANNOT_RESCHEDULE_STATUS,
+        );
       }
 
       const oldSlot = appointment.timeSlotId
@@ -153,9 +157,7 @@ export class AppointmentSchedulingService {
       }
 
       if (!newSlot.allowedAppointmentTypes?.length) {
-        throw new BadRequestException(
-          APPOINTMENT_ERRORS.SLOT_NO_TYPE_CONFIG,
-        );
+        throw new BadRequestException(APPOINTMENT_ERRORS.SLOT_NO_TYPE_CONFIG);
       }
 
       if (

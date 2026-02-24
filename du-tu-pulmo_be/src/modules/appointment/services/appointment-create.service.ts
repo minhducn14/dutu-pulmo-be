@@ -54,7 +54,7 @@ export class AppointmentCreateService {
     const patient = await this.dataSource
       .getRepository('Patient')
       .findOne({ where: { id: data.patientId } });
-    
+
     if (!patient) {
       throw new NotFoundException('Bệnh nhân không tồn tại');
     }

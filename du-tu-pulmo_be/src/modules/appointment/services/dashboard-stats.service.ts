@@ -2,7 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
-import { Payment, PaymentStatus } from '@/modules/payment/entities/payment.entity';
+import {
+  Payment,
+  PaymentStatus,
+} from '@/modules/payment/entities/payment.entity';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
 import { PaymentPurpose } from '@/modules/common/enums/payment-purpose.enum';
@@ -16,7 +19,12 @@ import {
   DailyBreakdownDto,
   ComparisonStatsDto,
 } from '@/modules/appointment/dto/dashboard-stats.dto';
-import { startOfDayVN, endOfDayVN, vnNow, formatDateVN } from '@/common/datetime';
+import {
+  startOfDayVN,
+  endOfDayVN,
+  vnNow,
+  formatDateVN,
+} from '@/common/datetime';
 
 const PERIOD_DAYS = {
   LAST_7_DAYS: 7,
@@ -56,9 +64,17 @@ export class DashboardStatsService {
       const [revenue, appointments, patients, dailyBreakdown, prevStats] =
         await Promise.all([
           this.getRevenueStats(doctorId, dates.currentStart, dates.currentEnd),
-          this.getAppointmentStats(doctorId, dates.currentStart, dates.currentEnd),
+          this.getAppointmentStats(
+            doctorId,
+            dates.currentStart,
+            dates.currentEnd,
+          ),
           this.getPatientStats(doctorId, dates.currentStart, dates.currentEnd),
-          this.getDailyBreakdown(doctorId, dates.currentStart, dates.currentEnd),
+          this.getDailyBreakdown(
+            doctorId,
+            dates.currentStart,
+            dates.currentEnd,
+          ),
           this.getPreviousPeriodStats(doctorId, dates.prevStart, dates.prevEnd),
         ]);
 
@@ -82,7 +98,10 @@ export class DashboardStatsService {
 
       return new ResponseCommon(200, 'SUCCESS', stats);
     } catch (error) {
-      this.logger.error(`Error getting dashboard stats for doctor ${doctorId}:`, error);
+      this.logger.error(
+        `Error getting dashboard stats for doctor ${doctorId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -177,7 +196,9 @@ export class DashboardStatsService {
         startDate,
         endDate,
       })
-      .andWhere('a.status = :status', { status: AppointmentStatusEnum.COMPLETED })
+      .andWhere('a.status = :status', {
+        status: AppointmentStatusEnum.COMPLETED,
+      })
       .getRawOne();
 
     return {
@@ -199,7 +220,9 @@ export class DashboardStatsService {
         startDate,
         endDate,
       })
-      .andWhere('a.status = :status', { status: AppointmentStatusEnum.COMPLETED })
+      .andWhere('a.status = :status', {
+        status: AppointmentStatusEnum.COMPLETED,
+      })
       .getRawMany();
 
     if (patientsInPeriod.length === 0) {
@@ -209,7 +232,9 @@ export class DashboardStatsService {
     const patientIds = patientsInPeriod.map((p) => p.patientId);
     const firstVisits = await this.getPatientFirstVisits(doctorId, patientIds);
 
-    const firstVisitMap = new Map(firstVisits.map((fv) => [fv.patientId, fv.firstVisit]));
+    const firstVisitMap = new Map(
+      firstVisits.map((fv) => [fv.patientId, fv.firstVisit]),
+    );
 
     let newCount = 0;
     let returningCount = 0;
@@ -226,7 +251,11 @@ export class DashboardStatsService {
       }
     }
 
-    return { total: patientIds.length, new: newCount, returning: returningCount };
+    return {
+      total: patientIds.length,
+      new: newCount,
+      returning: returningCount,
+    };
   }
 
   private async getPatientFirstVisits(
@@ -240,7 +269,9 @@ export class DashboardStatsService {
         'MIN(a.scheduledAt) as firstVisit', // FIX: keep timestamptz
       ])
       .where('a.doctorId = :doctorId', { doctorId })
-      .andWhere('a.status = :status', { status: AppointmentStatusEnum.COMPLETED })
+      .andWhere('a.status = :status', {
+        status: AppointmentStatusEnum.COMPLETED,
+      })
       .andWhere('a.patientId IN (:...patientIds)', { patientIds })
       .groupBy('a.patientId')
       .getRawMany();
@@ -267,7 +298,9 @@ export class DashboardStatsService {
         startDate,
         endDate,
       })
-      .andWhere('a.status = :status', { status: AppointmentStatusEnum.COMPLETED })
+      .andWhere('a.status = :status', {
+        status: AppointmentStatusEnum.COMPLETED,
+      })
       .orderBy('date', 'ASC')
       .getRawMany();
 
@@ -275,11 +308,17 @@ export class DashboardStatsService {
 
     const patientIds = [...new Set(appointments.map((a) => a.patientId))];
     const firstVisits = await this.getPatientFirstVisits(doctorId, patientIds);
-    const firstVisitMap = new Map(firstVisits.map((fv) => [fv.patientId, fv.firstVisit]));
+    const firstVisitMap = new Map(
+      firstVisits.map((fv) => [fv.patientId, fv.firstVisit]),
+    );
 
     const dailyMap = new Map<
       string,
-      { visits: number; newPatients: Set<string>; returningPatients: Set<string> }
+      {
+        visits: number;
+        newPatients: Set<string>;
+        returningPatients: Set<string>;
+      }
     >();
 
     for (const apt of appointments) {
@@ -359,10 +398,16 @@ export class DashboardStatsService {
       previousPeriod: previous,
       percentChange: {
         revenue: calcPercent(current.revenue.total, previous.revenue),
-        visitCount: calcPercent(current.revenue.visitCount, previous.visitCount),
+        visitCount: calcPercent(
+          current.revenue.visitCount,
+          previous.visitCount,
+        ),
         inClinic: calcPercent(current.appointments.inClinic, previous.inClinic),
         video: calcPercent(current.appointments.video, previous.video),
-        totalPatients: calcPercent(current.patients.total, previous.totalPatients),
+        totalPatients: calcPercent(
+          current.patients.total,
+          previous.totalPatients,
+        ),
       },
     };
   }

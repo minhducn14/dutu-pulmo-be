@@ -4,9 +4,7 @@ import { IsOptional, IsString } from 'class-validator';
 /**
  * Request DTO for triggering AI analysis on a medical image
  */
-export class TriggerAiAnalysisDto {
-
-}
+export class TriggerAiAnalysisDto {}
 
 /**
  * Response DTO for AI analysis trigger

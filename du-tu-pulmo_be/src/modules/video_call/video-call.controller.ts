@@ -148,7 +148,7 @@
 //     );
 
 //     if (!appointment) {
-//       throw new NotFoundException('Appointment not found');
+//       throw new NotFoundException(ERROR_MESSAGES.APPOINTMENT_NOT_FOUND);
 //     }
 
 //     if (appointment.appointmentType !== AppointmentTypeEnum.VIDEO) {

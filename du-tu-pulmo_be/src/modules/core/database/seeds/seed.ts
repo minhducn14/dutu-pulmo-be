@@ -22,13 +22,20 @@ import { ScreeningRequest } from '@/modules/screening/entities/screening-request
 import { MedicalImage } from '@/modules/screening/entities/medical-image.entity';
 import { AiAnalysis } from '@/modules/screening/entities/ai-analysis.entity';
 import { ScreeningConclusion } from '@/modules/screening/entities/screening-conclusion.entity';
-import { Payment, PaymentStatus } from '@/modules/payment/entities/payment.entity';
+import {
+  Payment,
+  PaymentStatus,
+} from '@/modules/payment/entities/payment.entity';
 import { Review } from '@/modules/review/entities/review.entity';
 import { Favorite } from '@/modules/favorite/entities/favorite.entity';
 import { ChatRoom } from '@/modules/chatroom/entities/chatroom.entity';
 import { ChatMessage } from '@/modules/chatmessage/entities/chatmessage.entity';
 import { Notification } from '@/modules/notification/entities/notification.entity';
-import { Report, ReportType, ReportStatus } from '@/modules/report/entities/report.entity';
+import {
+  Report,
+  ReportType,
+  ReportStatus,
+} from '@/modules/report/entities/report.entity';
 
 // Enums
 import { DoctorTitle } from '@/modules/common/enums/doctor-title.enum';
@@ -80,10 +87,22 @@ const PULMO_COMPLAINTS = [
 ];
 
 const PULMO_SYMPTOMS = [
-  'Ho có đờm', 'Ho khan', 'Khó thở', 'Thở khò khè',
-  'Đau ngực', 'Sốt', 'Mệt mỏi', 'Sụt cân', 'Ra mồ hôi đêm',
-  'Tức ngực', 'Ho ra máu', 'Đau họng', 'Chảy mũi',
-  'Khó thở khi nằm', 'Thở nhanh', 'Tím tái',
+  'Ho có đờm',
+  'Ho khan',
+  'Khó thở',
+  'Thở khò khè',
+  'Đau ngực',
+  'Sốt',
+  'Mệt mỏi',
+  'Sụt cân',
+  'Ra mồ hôi đêm',
+  'Tức ngực',
+  'Ho ra máu',
+  'Đau họng',
+  'Chảy mũi',
+  'Khó thở khi nằm',
+  'Thở nhanh',
+  'Tím tái',
 ];
 
 const PULMO_DIAGNOSES = [
@@ -115,8 +134,13 @@ const MEDICAL_HISTORIES = [
 ];
 
 const COMMON_ALLERGIES = [
-  'Penicillin', 'Bụi nhà', 'Phấn hoa', 'Aspirin',
-  'Sulfamid', 'Hải sản', 'Lông động vật',
+  'Penicillin',
+  'Bụi nhà',
+  'Phấn hoa',
+  'Aspirin',
+  'Sulfamid',
+  'Hải sản',
+  'Lông động vật',
 ];
 
 const REVIEW_COMMENTS = [
@@ -248,7 +272,8 @@ async function seed() {
     const screeningRepo = dataSource.getRepository(ScreeningRequest);
     const medicalImageRepo = dataSource.getRepository(MedicalImage);
     const aiAnalysisRepo = dataSource.getRepository(AiAnalysis);
-    const screeningConclusionRepo = dataSource.getRepository(ScreeningConclusion);
+    const screeningConclusionRepo =
+      dataSource.getRepository(ScreeningConclusion);
     const paymentRepo = dataSource.getRepository(Payment);
     const reviewRepo = dataSource.getRepository(Review);
     const favoriteRepo = dataSource.getRepository(Favorite);
@@ -901,8 +926,14 @@ async function seed() {
     console.log('\n📅 Seeding Appointments...');
     const totalApps = 100;
     let appsCreated = 0;
-    const completedRecords: { record: MedicalRecord; appointment: Appointment; patient: Patient; doctor: Doctor }[] = [];
-    const paidAppointments: { appointment: Appointment; patient: Patient }[] = [];
+    const completedRecords: {
+      record: MedicalRecord;
+      appointment: Appointment;
+      patient: Patient;
+      doctor: Doctor;
+    }[] = [];
+    const paidAppointments: { appointment: Appointment; patient: Patient }[] =
+      [];
 
     for (let i = 0; i < totalApps; i++) {
       const rand = Math.random();
@@ -966,7 +997,10 @@ async function seed() {
       appsCreated++;
 
       // Track CONFIRMED/CHECKED_IN for payment seeding (paid to book)
-      if (status === AppointmentStatusEnum.CONFIRMED || status === AppointmentStatusEnum.CHECKED_IN) {
+      if (
+        status === AppointmentStatusEnum.CONFIRMED ||
+        status === AppointmentStatusEnum.CHECKED_IN
+      ) {
         paidAppointments.push({ appointment, patient });
       }
 
@@ -981,7 +1015,10 @@ async function seed() {
             diagnosis: faker.helpers.arrayElement(PULMO_DIAGNOSES),
             chiefComplaint: faker.helpers.arrayElement(PULMO_COMPLAINTS),
             medicalHistory: faker.helpers.arrayElement(MEDICAL_HISTORIES),
-            allergies: faker.helpers.arrayElements(COMMON_ALLERGIES, { min: 0, max: 2 }),
+            allergies: faker.helpers.arrayElements(COMMON_ALLERGIES, {
+              min: 0,
+              max: 2,
+            }),
           }),
         );
         completedRecords.push({ record, appointment, patient, doctor });
@@ -1031,7 +1068,7 @@ async function seed() {
     if (createdDoctors.length > 0 && allPatients.length > 0) {
       const testDoctor = createdDoctors[0]; // Dr. Respiratory
       const testPatient = allPatients[0];
-      
+
       const testDate = new Date();
       testDate.setHours(9, 0, 0, 0); // 9:00 AM Today
 
@@ -1046,9 +1083,11 @@ async function seed() {
           appointmentNumber: `TEST-QUEUE-01`,
           chiefComplaint: 'Testing Queue Manager - Start Exam Flow',
           feeAmount: testDoctor.defaultConsultationFee || '0',
-        })
+        }),
       );
-      console.log(`   ✅ Created TEST-QUEUE-01: CHECKED_IN for ${testDoctor.userId} (Dr. Respiratory)`);
+      console.log(
+        `   ✅ Created TEST-QUEUE-01: CHECKED_IN for ${testDoctor.userId} (Dr. Respiratory)`,
+      );
 
       const videoDate = new Date();
       videoDate.setHours(10, 0, 0, 0); // 10:00 AM Today
@@ -1064,9 +1103,11 @@ async function seed() {
           appointmentNumber: `TEST-VIDEO-01`,
           chiefComplaint: 'Testing Video Call Flow',
           feeAmount: testDoctor.defaultConsultationFee || '0',
-        })
+        }),
       );
-      console.log(`   ✅ Created TEST-VIDEO-01: CHECKED_IN (Video) for ${testDoctor.userId}`);
+      console.log(
+        `   ✅ Created TEST-VIDEO-01: CHECKED_IN (Video) for ${testDoctor.userId}`,
+      );
 
       // TEST VIDEO 2: CONFIRMED (Not yet checked in)
       const videoDate2 = new Date();
@@ -1083,7 +1124,7 @@ async function seed() {
           appointmentNumber: `TEST-VIDEO-02`,
           chiefComplaint: 'Video Call Test 2 - Confirmed Status',
           feeAmount: testDoctor.defaultConsultationFee || '0',
-        })
+        }),
       );
       console.log(`   ✅ Created TEST-VIDEO-02: CONFIRMED (Video)`);
 
@@ -1102,7 +1143,7 @@ async function seed() {
           appointmentNumber: `TEST-VIDEO-03`,
           chiefComplaint: 'Video Call Test 3 - Checked In',
           feeAmount: testDoctor.defaultConsultationFee || '0',
-        })
+        }),
       );
       console.log(`   ✅ Created TEST-VIDEO-03: CHECKED_IN (Video)`);
     }
@@ -1117,7 +1158,11 @@ async function seed() {
           medicalRecordId: record.id,
           height: faker.number.int({ min: 150, max: 185 }),
           weight: faker.number.int({ min: 45, max: 90 }),
-          temperature: parseFloat(faker.number.float({ min: 36.0, max: 37.5, fractionDigits: 1 }).toFixed(1)),
+          temperature: parseFloat(
+            faker.number
+              .float({ min: 36.0, max: 37.5, fractionDigits: 1 })
+              .toFixed(1),
+          ),
           bloodPressure: `${faker.number.int({ min: 90, max: 140 })}/${faker.number.int({ min: 60, max: 90 })}`,
           heartRate: faker.number.int({ min: 60, max: 100 }),
           respiratoryRate: faker.number.int({ min: 12, max: 20 }),
@@ -1170,14 +1215,21 @@ async function seed() {
 
       // AiAnalysis
       const primaryDx = faker.helpers.arrayElement(AI_PRIMARY_DIAGNOSES);
-      const numFindings = primaryDx.label === 'Normal' ? 0 : faker.number.int({ min: 1, max: 3 });
-      const findings = numFindings > 0 ? faker.helpers.arrayElements(AI_FINDINGS_POOL, numFindings) : [];
+      const numFindings =
+        primaryDx.label === 'Normal' ? 0 : faker.number.int({ min: 1, max: 3 });
+      const findings =
+        numFindings > 0
+          ? faker.helpers.arrayElements(AI_FINDINGS_POOL, numFindings)
+          : [];
 
       const analysis = await aiAnalysisRepo.save(
         aiAnalysisRepo.create({
           screeningId: screening.id,
           medicalImageId: image.id,
-          diagnosisStatus: primaryDx.label === 'Normal' ? AiDiagnosisStatusEnum.DETECTED : AiDiagnosisStatusEnum.DETECTED,
+          diagnosisStatus:
+            primaryDx.label === 'Normal'
+              ? AiDiagnosisStatusEnum.DETECTED
+              : AiDiagnosisStatusEnum.DETECTED,
           primaryDiagnosis: primaryDx,
           findings: findings,
           grayZoneNotes: [],
@@ -1198,7 +1250,9 @@ async function seed() {
           doctorId: doctor.id,
           agreesWithAi,
           decisionSource: 'DOCTOR_REVIEWED_AI' as const,
-          doctorOverrideReason: agreesWithAi ? undefined : 'Hình ảnh chưa đủ rõ, cần chụp lại hoặc bổ sung CT',
+          doctorOverrideReason: agreesWithAi
+            ? undefined
+            : 'Hình ảnh chưa đủ rõ, cần chụp lại hoặc bổ sung CT',
         }),
       );
 
@@ -1211,7 +1265,9 @@ async function seed() {
     let paymentsCreated = 0;
     for (let i = 0; i < paidAppointments.length; i++) {
       const { appointment, patient } = paidAppointments[i];
-      const patientUser = await userRepo.findOne({ where: { id: patient.userId } });
+      const patientUser = await userRepo.findOne({
+        where: { id: patient.userId },
+      });
 
       await paymentRepo.save(
         paymentRepo.create({
@@ -1232,14 +1288,20 @@ async function seed() {
     // ========== SEED REVIEWS (60% of completed) ==========
     console.log('\n⭐ Seeding Reviews...');
     let reviewsCreated = 0;
-    const reviewableRecords = completedRecords.filter(() => Math.random() < 0.6);
+    const reviewableRecords = completedRecords.filter(
+      () => Math.random() < 0.6,
+    );
     for (const { appointment, patient, doctor } of reviewableRecords) {
       await reviewRepo.save(
         reviewRepo.create({
           reviewerId: patient.userId,
           doctorId: doctor.id,
           appointmentId: appointment.id,
-          rating: parseFloat(faker.number.float({ min: 3.0, max: 5.0, fractionDigits: 1 }).toFixed(1)),
+          rating: parseFloat(
+            faker.number
+              .float({ min: 3.0, max: 5.0, fractionDigits: 1 })
+              .toFixed(1),
+          ),
           comment: faker.helpers.arrayElement(REVIEW_COMMENTS),
           isAnonymous: Math.random() < 0.2,
         }),
@@ -1288,8 +1350,12 @@ async function seed() {
     const chatPairs = Math.min(5, completedRecords.length);
     for (let i = 0; i < chatPairs; i++) {
       const { patient, doctor } = completedRecords[i];
-      const doctorUser = await userRepo.findOne({ where: { id: doctor.userId } });
-      const patientUser = await userRepo.findOne({ where: { id: patient.userId } });
+      const doctorUser = await userRepo.findOne({
+        where: { id: doctor.userId },
+      });
+      const patientUser = await userRepo.findOne({
+        where: { id: patient.userId },
+      });
       if (!doctorUser || !patientUser) continue;
 
       const room = await chatRoomRepo.save(
@@ -1441,8 +1507,12 @@ async function seed() {
           const slotDurMs = sched.slotDuration * 60000;
 
           const baseDate = startOfDayVN(iterDate);
-          const rangeStart = new Date(baseDate.getTime() + (sH * 60 + sM) * 60000);
-          const rangeEnd = new Date(baseDate.getTime() + (eH * 60 + eM) * 60000);
+          const rangeStart = new Date(
+            baseDate.getTime() + (sH * 60 + sM) * 60000,
+          );
+          const rangeEnd = new Date(
+            baseDate.getTime() + (eH * 60 + eM) * 60000,
+          );
 
           let curr = rangeStart.getTime();
           while (curr + slotDurMs <= rangeEnd.getTime()) {

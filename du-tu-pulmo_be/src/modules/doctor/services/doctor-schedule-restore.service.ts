@@ -93,11 +93,15 @@ export class DoctorScheduleRestoreService {
     for (const schedule of schedules) {
       const [startH, startM] = schedule.startTime.split(':').map(Number);
       const [endH, endM] = schedule.endTime.split(':').map(Number);
-      
+
       const baseDate = startOfDayVN(specificDate);
 
-      const scheduleStart = new Date(baseDate.getTime() + (startH * 60 + startM) * 60000);
-      const scheduleEnd = new Date(baseDate.getTime() + (endH * 60 + endM) * 60000);
+      const scheduleStart = new Date(
+        baseDate.getTime() + (startH * 60 + startM) * 60000,
+      );
+      const scheduleEnd = new Date(
+        baseDate.getTime() + (endH * 60 + endM) * 60000,
+      );
 
       const overlapStart = new Date(
         Math.max(scheduleStart.getTime(), rangeStart.getTime()),

@@ -13,19 +13,21 @@ import { MedicalRecord } from '@/modules/medical/entities/medical-record.entity'
 
 // ── Handlebars Helpers ──────────────────────────────────────────────────────
 
-Handlebars.registerHelper('eq', function (
-  a: unknown,
-  b: unknown,
-  options: Handlebars.HelperOptions,
-) {
-  return a === b ? options.fn(this) : options.inverse(this);
-});
+Handlebars.registerHelper(
+  'eq',
+  function (a: unknown, b: unknown, options: Handlebars.HelperOptions) {
+    return a === b ? options.fn(this) : options.inverse(this);
+  },
+);
 
-Handlebars.registerHelper('math', function (value: number, operator: string, operand: number) {
-  if (operator === '+') return value + operand;
-  if (operator === '-') return value - operand;
-  return value;
-});
+Handlebars.registerHelper(
+  'math',
+  function (value: number, operator: string, operand: number) {
+    if (operator === '+') return value + operand;
+    if (operator === '-') return value - operand;
+    return value;
+  },
+);
 
 // ── Template loader (once at startup) ─────────────────────────────────────
 
@@ -61,7 +63,9 @@ export class PdfService {
   /**
    * Generate Prescription PDF → upload to Cloudinary → save URL in DB.
    */
-  async generateAndSavePrescriptionPdf(prescriptionId: string): Promise<string> {
+  async generateAndSavePrescriptionPdf(
+    prescriptionId: string,
+  ): Promise<string> {
     const prescription = await this.prescriptionRepo.findOne({
       where: { id: prescriptionId },
       relations: [
@@ -76,7 +80,9 @@ export class PdfService {
     });
 
     if (!prescription) {
-      throw new NotFoundException(`Không tìm thấy đơn thuốc: ${prescriptionId}`);
+      throw new NotFoundException(
+        `Không tìm thấy đơn thuốc: ${prescriptionId}`,
+      );
     }
 
     const data = this.buildPrescriptionData(prescription);
@@ -127,7 +133,9 @@ export class PdfService {
 
   // ── Data Builders ─────────────────────────────────────────────────────────
 
-  private buildPrescriptionData(prescription: Prescription): Record<string, unknown> {
+  private buildPrescriptionData(
+    prescription: Prescription,
+  ): Record<string, unknown> {
     const user = prescription.patient?.user;
     const doctorUser = prescription.doctor?.user;
     const vitalSign = prescription.medicalRecord?.vitalSigns?.[0];
@@ -152,14 +160,19 @@ export class PdfService {
       clinicName: this.config('CLINIC_NAME', 'Phòng Khám Dutu Pulmo'),
       clinicPhone: this.config('CLINIC_PHONE', '0123456789'),
       prescriptionCode: prescription.prescriptionNumber,
-      patientCode: prescription.patient?.profileCode ?? prescription.patientId?.slice(0, 8).toUpperCase(),
+      patientCode:
+        prescription.patient?.profileCode ??
+        prescription.patientId?.slice(0, 8).toUpperCase(),
       patientName: user?.fullName ?? 'Bệnh nhân',
       gender: this.formatGender(user?.gender),
       age,
       birthYear,
       heartRate: vitalSign?.heartRate ?? undefined,
       bloodPressure: vitalSign?.bloodPressure ?? undefined,
-      temperature: vitalSign?.temperature != null ? Number(vitalSign.temperature) : undefined,
+      temperature:
+        vitalSign?.temperature != null
+          ? Number(vitalSign.temperature)
+          : undefined,
       height: vitalSign?.height ?? undefined,
       weight: vitalSign?.weight ?? undefined,
       patientPhone: user?.phone ?? undefined,
@@ -169,12 +182,16 @@ export class PdfService {
       medicines,
       advice: prescription.instructions ?? undefined,
       doctorName: doctorUser?.fullName ?? 'Bác sĩ',
-      revisitDate: prescription.validUntil ? this.formatDate(prescription.validUntil) : undefined,
+      revisitDate: prescription.validUntil
+        ? this.formatDate(prescription.validUntil)
+        : undefined,
       prescriptionDate: this.formatDate(prescription.createdAt),
     };
   }
 
-  private buildMedicalRecordData(record: MedicalRecord): Record<string, unknown> {
+  private buildMedicalRecordData(
+    record: MedicalRecord,
+  ): Record<string, unknown> {
     const patientUser = record.patient?.user;
     const doctorUser = record.doctor?.user;
     const vitalSign = record.vitalSigns?.[0];
@@ -210,7 +227,9 @@ export class PdfService {
       clinicName: this.config('CLINIC_NAME', 'Phòng Khám Dutu Pulmo'),
       clinicPhone: this.config('CLINIC_PHONE', '0123456789'),
       recordNumber: record.recordNumber,
-      patientCode: record.patient?.profileCode ?? record.patientId?.slice(0, 8).toUpperCase(),
+      patientCode:
+        record.patient?.profileCode ??
+        record.patientId?.slice(0, 8).toUpperCase(),
       patientName: patientUser?.fullName ?? 'Bệnh nhân',
       gender: this.formatGender(patientUser?.gender),
       age,
@@ -226,7 +245,10 @@ export class PdfService {
       vitalSigns: {
         heartRate: vitalSign?.heartRate ?? undefined,
         bloodPressure: vitalSign?.bloodPressure ?? undefined,
-        temperature: vitalSign?.temperature != null ? Number(vitalSign.temperature) : undefined,
+        temperature:
+          vitalSign?.temperature != null
+            ? Number(vitalSign.temperature)
+            : undefined,
         spo2: vitalSign?.spo2 ?? undefined,
         respiratoryRate: vitalSign?.respiratoryRate ?? undefined,
         height: vitalSign?.height ?? undefined,
@@ -270,7 +292,11 @@ export class PdfService {
 
     try {
       await this.generatePdfFile(html, tmpPath);
-      const result = await this.cloudinaryService.uploadPdfFile(tmpPath, folder, fileName);
+      const result = await this.cloudinaryService.uploadPdfFile(
+        tmpPath,
+        folder,
+        fileName,
+      );
       return result.url;
     } finally {
       if (fs.existsSync(tmpPath)) {
@@ -279,14 +305,24 @@ export class PdfService {
     }
   }
 
-  private async generatePdfFile(html: string, outputPath: string): Promise<void> {
+  private async generatePdfFile(
+    html: string,
+    outputPath: string,
+  ): Promise<void> {
     const browser = await puppeteer.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+      ],
     });
     try {
       const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
+      await page.setContent(html, {
+        waitUntil: 'networkidle0',
+        timeout: 30000,
+      });
       await page.pdf({
         path: outputPath,
         format: 'A4',

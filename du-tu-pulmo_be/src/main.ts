@@ -19,8 +19,7 @@ async function bootstrap() {
   );
 
   const port = process.env.PORT ?? 3000;
-  const serverUrl =
-    process.env.PUBLIC_URL || `http://localhost:${port}`;
+  const serverUrl = process.env.PUBLIC_URL || `http://localhost:${port}`;
 
   /**
    * Swagger configuration
@@ -119,7 +118,11 @@ async function bootstrap() {
   console.log(`🚀 Application running on: http://localhost:${port}`);
   console.log(`📚 Swagger API Docs: http://localhost:${port}/docs`);
   console.log(`📚 Swagger Admin API Docs: http://localhost:${port}/docs/admin`);
-  console.log(`📚 Swagger Doctor API Docs: http://localhost:${port}/docs/doctor`);
-  console.log(`📚 Swagger Patient API Docs: http://localhost:${port}/docs/patient`);
+  console.log(
+    `📚 Swagger Doctor API Docs: http://localhost:${port}/docs/doctor`,
+  );
+  console.log(
+    `📚 Swagger Patient API Docs: http://localhost:${port}/docs/patient`,
+  );
 }
 bootstrap();

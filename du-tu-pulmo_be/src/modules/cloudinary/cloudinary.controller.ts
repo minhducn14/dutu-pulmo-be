@@ -158,26 +158,26 @@ export class CloudinaryController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @UseInterceptors(
-  FileInterceptor('file', {
-    storage: diskStorage({
-      destination: './uploads/temp', 
-      filename: (req, file, callback) => {
-        const uniqueName = `${Date.now()}-${file.originalname}`;
-        callback(null, uniqueName);
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: './uploads/temp',
+        filename: (req, file, callback) => {
+          const uniqueName = `${Date.now()}-${file.originalname}`;
+          callback(null, uniqueName);
+        },
+      }),
+      limits: { fileSize: fileTypeConfigs.pdf.maxSize },
+      fileFilter: (req, file, callback) => {
+        if (file.mimetype !== 'application/pdf') {
+          return callback(
+            new BadRequestException('Only PDF files are allowed'),
+            false,
+          );
+        }
+        callback(null, true);
       },
     }),
-    limits: { fileSize: fileTypeConfigs.pdf.maxSize },
-    fileFilter: (req, file, callback) => {
-      if (file.mimetype !== 'application/pdf') {
-        return callback(
-          new BadRequestException('Only PDF files are allowed'),
-          false,
-        );
-      }
-      callback(null, true);
-    },
-  }),
-)
+  )
   @ApiOperation({ summary: 'Upload a PDF file' })
   @ApiConsumes('multipart/form-data')
   @ApiQuery({

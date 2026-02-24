@@ -33,7 +33,7 @@ import {
   VerifyEmailByOtpResult,
   SendResetPasswordOtpResult,
   VerifyResetPasswordOtpResult,
-  ResetPasswordWithOtpResult
+  ResetPasswordWithOtpResult,
 } from '@/modules/core/auth/auth.types';
 
 @Injectable()
@@ -754,7 +754,6 @@ export class AuthService {
         throw new UnauthorizedException(AUTH_ERRORS.ACCOUNT_NOT_FOUND);
       }
 
-
       // Step 5: CRITICAL - Validate token matches the one in database
       if (!account.resetPasswordToken) {
         throw new UnauthorizedException(AUTH_ERRORS.TOKEN_ALREADY_USED);
@@ -1041,9 +1040,7 @@ export class AuthService {
     }
   }
 
-
-  
-   /**
+  /**
    * Generate 6-digit OTP
    */
   private generateOtp(size: number = 6): string {
@@ -1129,7 +1126,9 @@ export class AuthService {
   /**
    * Resend verification OTP
    */
-  async resendVerificationOtp(email: string): Promise<ResendVerificationByOtpResult> {
+  async resendVerificationOtp(
+    email: string,
+  ): Promise<ResendVerificationByOtpResult> {
     const normalizedEmail = email.toLowerCase().trim();
 
     try {
@@ -1208,28 +1207,35 @@ export class AuthService {
           this.logger.debug(
             `Reset password OTP requested for non-existent email: ${normalizedEmail}`,
           );
-          return new ResponseCommon(200, 'SUCCESS', { message: 'Email not found' });
+          return new ResponseCommon(200, 'SUCCESS', {
+            message: 'Email not found',
+          });
         }
 
         if (!account.user) {
           this.logger.warn(
             `Account ${account.id} has no associated user. Skipping email.`,
           );
-          return new ResponseCommon(200, 'SUCCESS', { message: 'Email not found' });
+          return new ResponseCommon(200, 'SUCCESS', {
+            message: 'Email not found',
+          });
         }
 
         // Rate limiting: Check if OTP was sent recently (within 1 minute)
         if (account.resetPasswordOtpExpiry) {
           const now = new Date();
-          const timeSinceLastOtp = now.getTime() - account.resetPasswordOtpExpiry.getTime();
+          const timeSinceLastOtp =
+            now.getTime() - account.resetPasswordOtpExpiry.getTime();
           const nineMinutes = 9 * 60 * 1000; // 9 phút
-          
+
           // Nếu OTP cũ còn hơn 1 phút (tức mới gửi trong vòng 1 phút)
           if (timeSinceLastOtp < nineMinutes) {
             this.logger.warn(
               `Rate limit: Reset password OTP already sent recently for ${normalizedEmail}`,
             );
-            return new ResponseCommon(200, 'SUCCESS', { message: 'Rate limited' });
+            return new ResponseCommon(200, 'SUCCESS', {
+              message: 'Rate limited',
+            });
           }
         }
 
@@ -1256,8 +1262,8 @@ export class AuthService {
       });
     } catch (err) {
       this.logger.error('Send forgot password OTP error', err);
-      return new ResponseCommon(500, 'SERVER_ERROR', { 
-        message: 'Server error' 
+      return new ResponseCommon(500, 'SERVER_ERROR', {
+        message: 'Server error',
       });
     }
   }
@@ -1284,7 +1290,9 @@ export class AuthService {
           .getOne();
 
         if (!account) {
-          return new ResponseCommon(200, 'SUCCESS', { message: 'Email not found' });
+          return new ResponseCommon(200, 'SUCCESS', {
+            message: 'Email not found',
+          });
         }
 
         if (!account.resetPasswordOtp) {
@@ -1304,14 +1312,14 @@ export class AuthService {
           return new ResponseCommon(200, 'SUCCESS', { message: 'Invalid OTP' });
         }
 
-        return new ResponseCommon(200, 'SUCCESS', { 
-          message: 'OTP verified successfully'
+        return new ResponseCommon(200, 'SUCCESS', {
+          message: 'OTP verified successfully',
         });
       });
     } catch (err) {
       this.logger.error('Verify reset password OTP error', err);
-      return new ResponseCommon(500, 'SERVER_ERROR', { 
-        message: 'Server error' 
+      return new ResponseCommon(500, 'SERVER_ERROR', {
+        message: 'Server error',
       });
     }
   }
@@ -1343,14 +1351,14 @@ export class AuthService {
           .getOne();
 
         if (!account) {
-          return new ResponseCommon(200, 'SUCCESS', { 
-            message: 'Invalid OTP'
+          return new ResponseCommon(200, 'SUCCESS', {
+            message: 'Invalid OTP',
           });
         }
 
         if (!account.resetPasswordOtp) {
-          return new ResponseCommon(200, 'SUCCESS', { 
-            message: 'Invalid OTP'
+          return new ResponseCommon(200, 'SUCCESS', {
+            message: 'Invalid OTP',
           });
         }
 
@@ -1358,14 +1366,14 @@ export class AuthService {
           account.resetPasswordOtpExpiry &&
           account.resetPasswordOtpExpiry < new Date()
         ) {
-          return new ResponseCommon(200, 'SUCCESS', { 
-            message: 'OTP expired'
+          return new ResponseCommon(200, 'SUCCESS', {
+            message: 'OTP expired',
           });
         }
 
         if (account.resetPasswordOtp !== otp) {
-          return new ResponseCommon(200, 'SUCCESS', { 
-            message: 'Invalid OTP'
+          return new ResponseCommon(200, 'SUCCESS', {
+            message: 'Invalid OTP',
           });
         }
 
@@ -1374,15 +1382,15 @@ export class AuthService {
         account.password = hashedPassword;
         account.resetPasswordOtp = null;
         account.resetPasswordOtpExpiry = null;
-        
+
         await accountRepo.save(account);
 
         await this.refreshTokenRepo.update(
           { accountId: account.id, isRevoked: false },
-          { 
-            isRevoked: true, 
-            revokedAt: new Date(), 
-            revokedReason: 'password_reset' 
+          {
+            isRevoked: true,
+            revokedAt: new Date(),
+            revokedReason: 'password_reset',
           },
         );
 
@@ -1397,12 +1405,12 @@ export class AuthService {
     } catch (err) {
       this.logger.error('Reset password with OTP error', err);
       if (err instanceof BadRequestException) {
-        return new ResponseCommon(400, 'BAD_REQUEST', { 
-          message: err.message 
+        return new ResponseCommon(400, 'BAD_REQUEST', {
+          message: err.message,
         });
       }
-      return new ResponseCommon(500, 'SERVER_ERROR', { 
-        message: 'Server error' 
+      return new ResponseCommon(500, 'SERVER_ERROR', {
+        message: 'Server error',
       });
     }
   }

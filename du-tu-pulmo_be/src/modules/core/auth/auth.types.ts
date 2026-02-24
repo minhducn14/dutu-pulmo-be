@@ -26,11 +26,7 @@ export type ResendVerificationByOtpResult =
   | { status: 'SERVER_ERROR' };
 
 export type SendResetPasswordOtpResult = {
-  status:
-    | 'SUCCESS'
-    | 'EMAIL_NOT_FOUND'
-    | 'RATE_LIMITED'
-    | 'SERVER_ERROR';
+  status: 'SUCCESS' | 'EMAIL_NOT_FOUND' | 'RATE_LIMITED' | 'SERVER_ERROR';
 };
 
 export type VerifyResetPasswordOtpResult = {
@@ -44,9 +40,5 @@ export type VerifyResetPasswordOtpResult = {
 };
 
 export type ResetPasswordWithOtpResult = {
-  status:
-    | 'SUCCESS'
-    | 'INVALID_OTP'
-    | 'EXPIRED_OTP'
-    | 'SERVER_ERROR';
+  status: 'SUCCESS' | 'INVALID_OTP' | 'EXPIRED_OTP' | 'SERVER_ERROR';
 };

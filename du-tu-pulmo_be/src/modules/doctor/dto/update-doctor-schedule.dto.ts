@@ -6,7 +6,9 @@ import { CreateDoctorScheduleDto } from '@/modules/doctor/dto/create-doctor-sche
 /**
  * DTO for updating a doctor schedule (all fields optional).
  */
-export class UpdateDoctorScheduleDto extends PartialType(CreateDoctorScheduleDto) {
+export class UpdateDoctorScheduleDto extends PartialType(
+  CreateDoctorScheduleDto,
+) {
   @ApiProperty({
     description: 'ID của lịch cần cập nhật (UUID)',
     example: '550e8400-e29b-41d4-a716-446655440000',

@@ -1,4 +1,3 @@
-
 import {
   Controller,
   Get,
@@ -233,8 +232,7 @@ export class AppointmentReadController {
     this.accessService.checkViewAccess(user, appt);
 
     try {
-      const response =
-        await this.medicalService.getEncounterByAppointment(id);
+      const response = await this.medicalService.getEncounterByAppointment(id);
       const record = response.data;
       if (!record) {
         throw new NotFoundException('Không tìm thấy hồ sơ bệnh án');
@@ -276,8 +274,7 @@ export class AppointmentReadController {
     this.accessService.checkViewAccess(user, appt);
 
     try {
-      const response =
-        await this.medicalService.getEncounterByAppointment(id);
+      const response = await this.medicalService.getEncounterByAppointment(id);
       const record = response.data;
       const vitalSigns = record?.vitalSigns ?? [];
       const dtos = vitalSigns.map((vs) => mapVitalSignToDto(vs));
@@ -308,8 +305,7 @@ export class AppointmentReadController {
     this.accessService.checkViewAccess(user, appt);
 
     try {
-      const response =
-        await this.medicalService.getEncounterByAppointment(id);
+      const response = await this.medicalService.getEncounterByAppointment(id);
       const record = response.data;
       const prescriptions = record?.prescriptions ?? [];
       const dtos = prescriptions.map((p) => mapPrescriptionToDto(p));

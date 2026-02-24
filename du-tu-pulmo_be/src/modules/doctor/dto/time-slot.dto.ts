@@ -114,7 +114,6 @@ export class UpdateTimeSlotDto {
   // @ArrayMinSize(1)
   // @IsEnum(AppointmentTypeEnum, { each: true })
   // allowedAppointmentTypes?: AppointmentTypeEnum[];
-
   @ApiPropertyOptional({ description: 'Số lượng bệnh nhân tối đa' })
   @IsOptional()
   @IsInt()

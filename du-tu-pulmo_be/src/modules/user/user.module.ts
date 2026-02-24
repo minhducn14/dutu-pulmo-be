@@ -6,12 +6,12 @@ import { UserController } from '@/modules/user/user.controller';
 import { Account } from '@/modules/account/entities/account.entity';
 import { Doctor } from '@/modules/doctor/entities/doctor.entity';
 import { Patient } from '@/modules/patient/entities/patient.entity';
-import { CloudinaryModule } from '@/modules/cloudinary/cloudinary.module';
+import { CloudinaryModule } from '@/modules/cloudinary';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, Account, Doctor, Patient]),
-    CloudinaryModule
+    CloudinaryModule,
   ],
   controllers: [UserController],
   providers: [UserService],

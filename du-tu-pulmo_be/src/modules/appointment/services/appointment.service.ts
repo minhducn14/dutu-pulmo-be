@@ -226,6 +226,4 @@ export class AppointmentService {
   hasAnyAppointment(doctorId: string, patientId: string): Promise<boolean> {
     return this.appointmentEntityService.hasAnyAppointment(doctorId, patientId);
   }
-
-
 }

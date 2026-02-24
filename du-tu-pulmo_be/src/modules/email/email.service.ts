@@ -678,10 +678,7 @@ Hỗ trợ: support@dutupulmo.vn
   /**
    * Reset password OTP template
    */
-  private getResetPasswordOtpTemplate(
-    userName: string,
-    otp: string,
-  ): string {
+  private getResetPasswordOtpTemplate(userName: string, otp: string): string {
     return `
     <!DOCTYPE html>
     <html lang="vi">
@@ -737,10 +734,7 @@ Hỗ trợ: support@dutupulmo.vn
   /**
    * Plain text version for reset password OTP
    */
-  private getResetPasswordOtpPlainText(
-    otp: string,
-    userName: string,
-  ): string {
+  private getResetPasswordOtpPlainText(otp: string, userName: string): string {
     return `
   Xin chào ${userName},
 
@@ -782,7 +776,10 @@ Hỗ trợ: support@dutupulmo.vn
       await this.transporter.sendMail(mailOptions);
       this.logger.log(`Reset password OTP email sent to: ${to}`);
     } catch (error) {
-      this.logger.error(`Failed to send reset password OTP email to ${to}:`, error);
+      this.logger.error(
+        `Failed to send reset password OTP email to ${to}:`,
+        error,
+      );
       throw new Error('Không thể gửi email. Vui lòng thử lại sau.');
     }
   }

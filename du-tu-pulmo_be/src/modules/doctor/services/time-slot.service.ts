@@ -183,7 +183,6 @@ export class TimeSlotService {
     }
 
     this.validateAppointmentTypes(dto.allowedAppointmentTypes);
-    
   }
 
   private async countSlotsForDate(
@@ -623,11 +622,11 @@ export class TimeSlotService {
     }
 
     const validTypes = Object.values(AppointmentTypeEnum);
-    const invalidTypes = types.filter(type => !validTypes.includes(type));
-    
+    const invalidTypes = types.filter((type) => !validTypes.includes(type));
+
     if (invalidTypes.length > 0) {
       throw new BadRequestException(
-        `Loại hình khám không hợp lệ: ${invalidTypes.join(', ')}`
+        `Loại hình khám không hợp lệ: ${invalidTypes.join(', ')}`,
       );
     }
   }
