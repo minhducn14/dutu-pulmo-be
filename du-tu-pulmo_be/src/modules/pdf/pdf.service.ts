@@ -208,7 +208,7 @@ export class PdfService {
 
     return {
       clinicName: this.config('CLINIC_NAME', 'Phòng Khám Dutu Pulmo'),
-      clinicPhone: this.config('CLINIC_PHONE', ''),
+      clinicPhone: this.config('CLINIC_PHONE', '0123456789'),
       recordNumber: record.recordNumber,
       patientCode: record.patient?.profileCode ?? record.patientId?.slice(0, 8).toUpperCase(),
       patientName: patientUser?.fullName ?? 'Bệnh nhân',
