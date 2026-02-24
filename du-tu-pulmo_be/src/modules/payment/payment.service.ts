@@ -12,7 +12,7 @@ import { PayosService, WebhookData } from '@/modules/payment/payos.service';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import { PAYMENT_ERRORS, APPOINTMENT_ERRORS } from '@/common/constants/error-messages.constant';
-import { PaymentPurpose } from '../common/enums/payment-purpose.enum';
+import { PaymentPurpose } from '@/modules/common/enums/payment-purpose.enum';
 
 export interface CreatePaymentDto {
   appointmentId: string;

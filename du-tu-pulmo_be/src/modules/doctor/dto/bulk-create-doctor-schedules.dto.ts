@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { ArrayMinSize, ArrayMaxSize, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
-import { CreateDoctorScheduleDto } from './create-doctor-schedule.dto';
+import { CreateDoctorScheduleDto } from '@/modules/doctor/dto/create-doctor-schedule.dto';
 
 /**
  * DTO for bulk creating multiple doctor schedules in one request.

@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { AppointmentResponseDto } from './appointment-response.dto';
+import { AppointmentResponseDto } from '@/modules/appointment/dto/appointment-response.dto';
 
 export class JoinVideoCallResponseDto {
   @ApiProperty({ example: 'token-value' })

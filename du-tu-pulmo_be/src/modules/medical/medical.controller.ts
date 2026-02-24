@@ -46,7 +46,7 @@ import { RoleEnum } from '@/modules/common/enums/role.enum';
 import { AppointmentResponseDto } from '@/modules/appointment/dto/appointment-response.dto';
 import { DoctorResponseDto } from '@/modules/doctor/dto/doctor-response.dto';
 import { PatientResponseDto } from '@/modules/patient/dto/patient-response.dto';
-import { MedicalRecordSummaryDto } from './dto/medical-record-summary.dto';
+import { MedicalRecordSummaryDto } from '@/modules/medical/dto/medical-record-summary.dto';
 
 @ApiTags('Medical Records')
 @Controller('medical')

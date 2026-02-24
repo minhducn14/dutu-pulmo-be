@@ -9,8 +9,8 @@ import { RoleEnum } from '@/modules/common/enums/role.enum';
 import { Doctor } from '@/modules/doctor/entities/doctor.entity';
 import { Patient } from '@/modules/patient/entities/patient.entity';
 import { UserQueryDto } from '@/modules/user/dto/user-query.dto';
-import { UserResponseDto } from './dto/user-response.dto';
-import { CloudinaryService } from '../cloudinary';
+import { UserResponseDto } from '@/modules/user/dto/user-response.dto';
+import { CloudinaryService } from '@/modules/cloudinary/cloudinary.service';
 
 @Injectable()
 export class UserService {

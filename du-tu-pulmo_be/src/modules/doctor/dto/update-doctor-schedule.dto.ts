@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
-import { CreateDoctorScheduleDto } from './create-doctor-schedule.dto';
+import { CreateDoctorScheduleDto } from '@/modules/doctor/dto/create-doctor-schedule.dto';
 
 /**
  * DTO for updating a doctor schedule (all fields optional).

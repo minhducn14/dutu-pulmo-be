@@ -600,8 +600,6 @@ export class DoctorScheduleFlexibleService {
       };
     });
 
-    // Notifications removed since we don't auto-cancel anymore
-
     let message = 'Xóa lịch linh hoạt thành công.';
     if (result.appointmentsCount > 0) {
       message += ` ${result.appointmentsCount} lịch hẹn được giữ nguyên.`;

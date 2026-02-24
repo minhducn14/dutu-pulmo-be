@@ -7,7 +7,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { CreatePrescriptionItemDto } from './create-prescription-item.dto';
+import { CreatePrescriptionItemDto } from '@/modules/medical/dto/create-prescription-item.dto';
 
 /**
  * DTO for creating prescription via appointment endpoint

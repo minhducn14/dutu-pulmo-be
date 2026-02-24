@@ -15,7 +15,6 @@ import { Doctor } from '@/modules/doctor/entities/doctor.entity';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { VitalSign } from '@/modules/medical/entities/vital-sign.entity';
 import { Prescription } from '@/modules/medical/entities/prescription.entity';
-// Removed CareLog and LabResult imports
 import { MedicalRecordStatusEnum } from '@/modules/common/enums/medical-record-status.enum';
 import { ScreeningRequest } from '@/modules/screening/entities/screening-request.entity';
 

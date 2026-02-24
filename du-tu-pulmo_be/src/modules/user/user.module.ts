@@ -6,7 +6,7 @@ import { UserController } from '@/modules/user/user.controller';
 import { Account } from '@/modules/account/entities/account.entity';
 import { Doctor } from '@/modules/doctor/entities/doctor.entity';
 import { Patient } from '@/modules/patient/entities/patient.entity';
-import { CloudinaryModule } from '../cloudinary';
+import { CloudinaryModule } from '@/modules/cloudinary/cloudinary.module';
 
 @Module({
   imports: [

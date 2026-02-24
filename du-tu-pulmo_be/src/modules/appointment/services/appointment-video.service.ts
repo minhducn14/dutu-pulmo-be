@@ -14,7 +14,7 @@ import { DailyService } from '@/modules/video_call/daily.service';
 import { CallStateService } from '@/modules/video_call/call-state.service';
 import { MedicalService } from '@/modules/medical/medical.service';
 import { AppointmentReadService } from '@/modules/appointment/services/appointment-read.service';
-import { AppointmentResponseDto } from '../dto/appointment-response.dto';
+import { AppointmentResponseDto } from '@/modules/appointment/dto/appointment-response.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
 
 @Injectable()
