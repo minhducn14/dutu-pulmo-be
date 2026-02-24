@@ -246,7 +246,8 @@
     <!-- HEADER -->
     <div class="header">
         <div class="clinic-block">
-            <div class="clinic-avatar">🫁</div>
+            <img src="{{logoUrl}}" alt="Logo" class="clinic-avatar"
+                style="object-fit: contain; background: white; padding: 2px;" />
             <div>
                 <div class="clinic-name">{{clinicName}}</div>
                 <div class="clinic-sub">📞 {{clinicPhone}}</div>
@@ -352,7 +353,7 @@
                     <div class="med-name">{{this.name}}</div>
                     <div class="med-dosage">{{this.dosage}} — {{this.frequency}}</div>
                     {{#if this.instructions}}
-                    <div class="med-note">Dùng: {{this.instructions}}</div>
+                    <div class="med-note">Chú thích: {{this.instructions}}</div>
                     {{/if}}
                 </td>
                 <td class="center">{{this.quantity}}</td>
