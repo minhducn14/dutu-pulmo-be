@@ -36,8 +36,6 @@ export class ScreeningRequestResponseDto {
   })
   priority: ScreeningPriorityEnum;
 
-
-
   @ApiPropertyOptional({ example: '2024-10-11T09:30:00.000Z' })
   requestedAt?: Date;
 
@@ -50,8 +48,6 @@ export class ScreeningRequestResponseDto {
   @ApiPropertyOptional({ example: '2024-10-11T09:30:00.000Z' })
   aiCompletedAt?: Date;
 
-
-
   @ApiProperty({ example: '2024-10-11T09:30:00.000Z' })
   createdAt: Date;
 
@@ -63,8 +59,6 @@ export class ScreeningRequestResponseDto {
 
   @ApiPropertyOptional({ type: DoctorResponseDto })
   uploadedByDoctor?: DoctorResponseDto;
-
-
 
   @ApiPropertyOptional({ type: [MedicalImageResponseDto] })
   images?: MedicalImageResponseDto[];

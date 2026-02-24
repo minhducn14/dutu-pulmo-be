@@ -22,8 +22,6 @@ export class ScreeningConclusionResponseDto {
   @ApiPropertyOptional({ example: true })
   agreesWithAi?: boolean;
 
-
-
   @ApiPropertyOptional({
     example: 'DOCTOR_REVIEWED_AI',
     description: 'AI_ONLY, DOCTOR_ONLY, DOCTOR_REVIEWED_AI',
@@ -32,8 +30,6 @@ export class ScreeningConclusionResponseDto {
 
   @ApiPropertyOptional({ example: 'Override reason' })
   doctorOverrideReason?: string;
-
-
 
   @ApiProperty({ example: '2024-10-11T09:30:00.000Z' })
   reviewedAt: Date;

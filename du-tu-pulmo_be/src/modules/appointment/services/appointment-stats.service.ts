@@ -77,7 +77,8 @@ export class AppointmentStatsService {
     });
 
     // Total in queue = active appointments only (excludes overdue CONFIRMED)
-    const totalInQueue = inProgress.length + checkedIn.length + confirmed.length;
+    const totalInQueue =
+      inProgress.length + checkedIn.length + confirmed.length;
     let queueData: DoctorQueueDto;
 
     if (totalInQueue > 0) {

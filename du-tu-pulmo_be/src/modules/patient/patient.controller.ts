@@ -19,7 +19,10 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { PatientService } from '@/modules/patient/patient.service';
-import { PatientQueryDto, UpdatePatientDto } from '@/modules/patient/dto/patient.dto';
+import {
+  PatientQueryDto,
+  UpdatePatientDto,
+} from '@/modules/patient/dto/patient.dto';
 import {
   PatientResponseDto,
   PaginatedPatientResponseDto,

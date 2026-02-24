@@ -55,7 +55,9 @@ export class PatientStatsDto {
   @ApiProperty({ description: 'Tổng số bệnh nhân unique' })
   total: number;
 
-  @ApiProperty({ description: 'Số bệnh nhân mới (lần đầu khám với bác sĩ này)' })
+  @ApiProperty({
+    description: 'Số bệnh nhân mới (lần đầu khám với bác sĩ này)',
+  })
   new: number;
 
   @ApiProperty({ description: 'Số bệnh nhân cũ (đã từng khám trước đó)' })

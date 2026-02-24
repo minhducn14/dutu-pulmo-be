@@ -1,4 +1,3 @@
-
 import {
   Controller,
   Post,
@@ -114,7 +113,12 @@ export class AppointmentActionController {
   }
 
   @Post(':id/check-in')
-  @Roles(RoleEnum.DOCTOR, RoleEnum.PATIENT, RoleEnum.ADMIN, RoleEnum.RECEPTIONIST)
+  @Roles(
+    RoleEnum.DOCTOR,
+    RoleEnum.PATIENT,
+    RoleEnum.ADMIN,
+    RoleEnum.RECEPTIONIST,
+  )
   @ApiOperation({
     summary: 'Check-in bệnh nhân',
     description: `

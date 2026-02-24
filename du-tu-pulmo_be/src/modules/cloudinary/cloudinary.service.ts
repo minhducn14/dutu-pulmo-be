@@ -283,7 +283,9 @@ export class CloudinaryService {
               bytes: result.bytes,
             });
           } else {
-            reject(new BadRequestException('PDF  upload failed: Unknown error'));
+            reject(
+              new BadRequestException('PDF  upload failed: Unknown error'),
+            );
           }
         },
       );

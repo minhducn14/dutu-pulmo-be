@@ -21,7 +21,6 @@ import {
   MedicalRecordDetailResponseDto,
   SignedStatusEnum,
 } from '@/modules/medical/dto/get-medical-record-detail.dto';
-import { MedicalRecordExaminationDto } from '@/modules/medical/dto/medical-record-examination.dto';
 import { MedicalRecordSummaryDto } from '@/modules/medical/dto/medical-record-summary.dto';
 import { plainToInstance } from 'class-transformer';
 import { ScreeningRequestResponseDto } from '@/modules/screening/dto/screening-request-response.dto';
@@ -33,6 +32,8 @@ import {
   MEDICAL_ERRORS,
   APPOINTMENT_ERRORS,
 } from '@/common/constants/error-messages.constant';
+import { MedicalRecordExaminationDto } from '@/modules/medical/dto/medical-record-examination.dto';
+
 @Injectable()
 export class MedicalService {
   constructor(
@@ -910,7 +911,7 @@ export class MedicalService {
   // ============================================================================
   // DIGITAL SIGNATURE & PDF
   // ============================================================================
-// ============================================================================
+  // ============================================================================
   // DIGITAL SIGNATURE & PDF
   // ============================================================================
 

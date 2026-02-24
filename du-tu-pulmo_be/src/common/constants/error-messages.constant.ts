@@ -119,7 +119,8 @@ export const APPOINTMENT_ERRORS = {
   SLOT_DOCTOR_MISMATCH: 'SLOT_DOCTOR_MISMATCH',
   SLOT_IN_PAST: 'SLOT_IN_PAST',
   SLOT_NO_TYPE_CONFIG: 'SLOT_NO_TYPE_CONFIG',
-  SLOT_TYPE_MISMATCH: (current: string, supported: string) => `Slot type mismatch: ${current}. Supported: ${supported}`,
+  SLOT_TYPE_MISMATCH: (current: string, supported: string) =>
+    `Slot type mismatch: ${current}. Supported: ${supported}`,
   DUPLICATE_IN_SLOT: 'DUPLICATE_IN_SLOT',
   SLOT_UNAVAILABLE: 'SLOT_UNAVAILABLE',
   SLOT_FULL: 'SLOT_FULL',
@@ -136,7 +137,8 @@ export const DOCTOR_ERRORS = {
   MISSING_DOCTOR_INFO: 'MISSING_DOCTOR_INFO',
   NOT_DOCTOR: 'NOT_DOCTOR',
   CANNOT_DELETE_ACTIVE_SCHEDULE: 'CANNOT_DELETE_ACTIVE_SCHEDULE',
-  LICENSE_ALREADY_EXISTS: (license: string) => `Medical license ${license} already exists`,
+  LICENSE_ALREADY_EXISTS: (license: string) =>
+    `Medical license ${license} already exists`,
   DOCTOR_NOT_FOUND_ID: (id: string) => `Doctor with ID ${id} not found`,
 } as const;
 
@@ -155,8 +157,10 @@ export const PAYMENT_ERRORS = {
   INVALID_SIGNATURE: 'INVALID_SIGNATURE',
   PAYMENT_ALREADY_PROCESSED: 'PAYMENT_ALREADY_PROCESSED',
   PAYMENT_URL_GENERATION_FAILED: 'PAYMENT_URL_GENERATION_FAILED',
-  CANNOT_CREATE_PAYMENT_STATUS: (status: string) => `Cannot create payment for appointment with status: ${status}`,
-  CANNOT_CANCEL_PAYMENT_STATUS: (status: string) => `Cannot cancel payment with status: ${status}`,
+  CANNOT_CREATE_PAYMENT_STATUS: (status: string) =>
+    `Cannot create payment for appointment with status: ${status}`,
+  CANNOT_CANCEL_PAYMENT_STATUS: (status: string) =>
+    `Cannot cancel payment with status: ${status}`,
 } as const;
 
 // ============= MEDICAL ERRORS =============
@@ -175,7 +179,8 @@ export const MEDICAL_ERRORS = {
   NOT_SIGNED: 'NOT_SIGNED',
   DOCTOR_ID_INVALID: 'DOCTOR_ID_INVALID',
   DOCTOR_ID_MISSING: 'DOCTOR_ID_MISSING',
-  CANNOT_CREATE_RECORD_WITH_STATUS: (status: string) => `Cannot create medical record for appointment with status: ${status}`,
+  CANNOT_CREATE_RECORD_WITH_STATUS: (status: string) =>
+    `Cannot create medical record for appointment with status: ${status}`,
   MEDICINE_NAME_REQUIRED: 'MEDICINE_NAME_REQUIRED',
 } as const;
 

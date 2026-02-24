@@ -40,7 +40,6 @@ export class ScreeningRequest {
   @Column({ name: 'medical_record_id', type: 'uuid' })
   medicalRecordId: string;
 
-
   @ManyToOne(() => Doctor, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'uploaded_by_doctor_id' })
   uploadedByDoctor: Doctor;
@@ -86,8 +85,6 @@ export class ScreeningRequest {
 
   @Column({ name: 'ai_completed_at', type: 'timestamptz', nullable: true })
   aiCompletedAt: Date;
-
-
 
   @CreateDateColumn({
     name: 'created_at',

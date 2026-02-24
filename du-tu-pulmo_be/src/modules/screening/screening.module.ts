@@ -24,7 +24,7 @@ import { MedicalRecord } from '@/modules/medical/entities/medical-record.entity'
       AiAnalysis,
       ScreeningConclusion,
       Patient,
-      MedicalRecord
+      MedicalRecord,
     ]),
   ],
   controllers: [ScreeningController],

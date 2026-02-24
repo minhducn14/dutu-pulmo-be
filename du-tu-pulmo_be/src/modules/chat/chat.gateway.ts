@@ -75,7 +75,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // Store online users and typing states
   private onlineUsers = new Map<string, { socketId: string; user: any }>();
   private typingUsers = new Map<string, Map<string, UserTypingInfo>>();
-  
+
   private typingTimeouts = new Map<string, Map<string, NodeJS.Timeout>>();
 
   constructor(
@@ -290,7 +290,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
         const userTimeouts = this.typingTimeouts.get(chatroomId)!;
         const existingTimeout = userTimeouts.get(user.id);
-        
+
         if (existingTimeout) {
           clearTimeout(existingTimeout);
         }
@@ -307,7 +307,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         const timeout = setTimeout(() => {
           this.clearUserTyping(chatroomId, user.id);
         }, 3000);
-        
+
         userTimeouts.set(user.id, timeout);
       } else {
         // Remove user from typing list

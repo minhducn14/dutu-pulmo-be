@@ -2,8 +2,14 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserStatusEnum } from '@/modules/common/enums/user-status.enum';
 import { GenderEnum } from '@/modules/common/enums/gender.enum';
 import { CountryEnum } from '@/modules/common/enums/country.enum';
-import { EthnicityEnum, EthnicityName } from '@/modules/common/enums/ethnicity.enum';
-import { OccupationEnum, OccupationName } from '@/modules/common/enums/job.enum';
+import {
+  EthnicityEnum,
+  EthnicityName,
+} from '@/modules/common/enums/ethnicity.enum';
+import {
+  OccupationEnum,
+  OccupationName,
+} from '@/modules/common/enums/job.enum';
 
 export class UserResponseDto {
   @ApiProperty({
@@ -184,11 +190,17 @@ export class UserResponseDto {
     dto.status = user.status;
     dto.CCCD = user.CCCD;
     dto.nationality = user.nationality;
-    dto.nationalityName = user.nationality ? CountryEnum[user.nationality] : undefined;
+    dto.nationalityName = user.nationality
+      ? CountryEnum[user.nationality]
+      : undefined;
     dto.ethnicity = user.ethnicity;
-    dto.ethnicityName = user.ethnicity ? EthnicityEnum[user.ethnicity] : undefined;
+    dto.ethnicityName = user.ethnicity
+      ? EthnicityEnum[user.ethnicity]
+      : undefined;
     dto.occupation = user.occupation;
-    dto.occupationName = user.occupation ? OccupationEnum[user.occupation] : undefined;
+    dto.occupationName = user.occupation
+      ? OccupationEnum[user.occupation]
+      : undefined;
     dto.provinceCode = user.provinceCode;
     dto.province = user.province;
     dto.wardCode = user.wardCode;

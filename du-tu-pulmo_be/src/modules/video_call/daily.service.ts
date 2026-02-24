@@ -71,7 +71,7 @@ export class DailyService {
         this.logger.debug(
           `Room creation failed with 400, retrying getRoom for ${roomName}`,
         );
-        
+
         const existingRoom = await this.getRoom(roomName);
         if (existingRoom) {
           this.logger.log(
@@ -80,7 +80,7 @@ export class DailyService {
           return existingRoom;
         }
       }
-      
+
       // Re-throw if it's a different error or room still not found
       throw error;
     }

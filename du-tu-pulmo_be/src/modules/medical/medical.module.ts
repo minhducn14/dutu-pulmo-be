@@ -27,11 +27,7 @@ import { PdfModule } from '@/modules/pdf/pdf.module';
     PdfModule,
   ],
   controllers: [MedicalController, MedicineController],
-  providers: [
-    MedicalService,
-    MedicineService,
-  ],
+  providers: [MedicalService, MedicineService],
   exports: [MedicalService, MedicineService, TypeOrmModule],
 })
 export class MedicalModule {}
-

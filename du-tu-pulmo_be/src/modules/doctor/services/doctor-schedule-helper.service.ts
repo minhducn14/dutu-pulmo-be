@@ -210,10 +210,14 @@ export class DoctorScheduleHelperService {
       .andWhere('s.endTime > :startTime', { startTime });
 
     if (effectiveFrom) {
-      queryBuilder.andWhere('s.specificDate >= :effectiveFrom', { effectiveFrom });
+      queryBuilder.andWhere('s.specificDate >= :effectiveFrom', {
+        effectiveFrom,
+      });
     }
     if (effectiveUntil) {
-      queryBuilder.andWhere('s.specificDate <= :effectiveUntil', { effectiveUntil });
+      queryBuilder.andWhere('s.specificDate <= :effectiveUntil', {
+        effectiveUntil,
+      });
     }
 
     queryBuilder.andWhere('EXTRACT(DOW FROM s.specific_date) = :dayOfWeek', {

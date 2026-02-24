@@ -182,8 +182,14 @@ export class UserController {
         upload: {
           type: 'object',
           properties: {
-            url: { type: 'string', example: 'https://res.cloudinary.com/.../image/upload/...png' },
-            publicId: { type: 'string', example: 'avatars/avatar-uuid-20260202' },
+            url: {
+              type: 'string',
+              example: 'https://res.cloudinary.com/.../image/upload/...png',
+            },
+            publicId: {
+              type: 'string',
+              example: 'avatars/avatar-uuid-20260202',
+            },
             width: { type: 'number', example: 400 },
             height: { type: 'number', example: 400 },
             format: { type: 'string', example: 'png' },
@@ -206,7 +212,6 @@ export class UserController {
   ) {
     return this.userService.updateAvatar(user.userId, file);
   }
-
 
   @Delete(':id')
   @Roles(RoleEnum.ADMIN)

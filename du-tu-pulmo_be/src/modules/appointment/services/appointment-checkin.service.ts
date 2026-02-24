@@ -18,11 +18,7 @@ import { CallStateService } from '@/modules/video_call/call-state.service';
 import { AppointmentReadService } from '@/modules/appointment/services/appointment-read.service';
 import { AppointmentEntityService } from '@/modules/appointment/services/appointment-entity.service';
 import { CompleteExaminationDto } from '@/modules/appointment/dto/complete-examination.dto';
-import {
-  endOfDayVN,
-  startOfDayVN,
-  vnNow,
-} from '@/common/datetime';
+import { endOfDayVN, startOfDayVN, vnNow } from '@/common/datetime';
 import { MedicalRecordStatusEnum } from '@/modules/common/enums/medical-record-status.enum';
 
 @Injectable()
@@ -277,25 +273,29 @@ export class AppointmentCheckinService {
       record.status = MedicalRecordStatusEnum.IN_PROGRESS;
       await manager.save(record);
 
-      return appointment;
+      return { appointment, recordId: record.id };
     });
 
     if (
-      result.appointmentType === AppointmentTypeEnum.VIDEO &&
-      result.dailyCoChannel
+      result.appointment.appointmentType === AppointmentTypeEnum.VIDEO &&
+      result.appointment.dailyCoChannel
     ) {
       try {
-        await this.dailyService.deleteRoom(result.dailyCoChannel);
-        await this.callStateService.clearCallsForAppointment(result.id);
+        await this.dailyService.deleteRoom(result.appointment.dailyCoChannel);
+        await this.callStateService.clearCallsForAppointment(
+          result.appointment.id,
+        );
         this.logger.log(
-          `Cleaned up video room for completed appointment ${result.id}`,
+          `Cleaned up video room for completed appointment ${result.appointment.id}`,
         );
       } catch (error) {
         this.logger.warn(
-          `Failed to cleanup video room for ${result.id}: ${error}`,
+          `Failed to cleanup video room for ${result.appointment.id}: ${error}`,
         );
       }
     }
+
+    // Fire-and-forget PDF generation — don't block the response
 
     return this.appointmentReadService.findById(id);
   }

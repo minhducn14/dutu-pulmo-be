@@ -11,12 +11,7 @@ import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import { ScheduleType } from '@/modules/common/enums/schedule-type.enum';
-import {
-  addDaysVN,
-  endOfDayVN,
-  startOfDayVN,
-  vnNow,
-} from '@/common/datetime';
+import { addDaysVN, endOfDayVN, startOfDayVN, vnNow } from '@/common/datetime';
 
 @Injectable()
 export class DoctorScheduleQueryService {

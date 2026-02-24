@@ -26,11 +26,7 @@ import { DoctorScheduleHelperService } from '@/modules/doctor/services/doctor-sc
 import { DoctorScheduleQueryService } from '@/modules/doctor/services/doctor-schedule-query.service';
 import { DoctorScheduleUpdateService } from '@/modules/doctor/services/doctor-schedule-update.service';
 import { DoctorScheduleRestoreService } from '@/modules/doctor/services/doctor-schedule-restore.service';
-import {
-  endOfDayVN,
-  startOfDayVN,
-  vnNow,
-} from '@/common/datetime';
+import { endOfDayVN, startOfDayVN, vnNow } from '@/common/datetime';
 
 @Injectable()
 export class DoctorScheduleFlexibleService {
@@ -101,16 +97,20 @@ export class DoctorScheduleFlexibleService {
 
     const [startH, startM] = dto.startTime.split(':').map(Number);
     const [endH, endM] = dto.endTime.split(':').map(Number);
-    
+
     // specificDate usually is 00:00 VN if it came from normalized source or simple YYYY-MM-DD
     // But safely: derive base from it.
     // If specificDate is already a valid Date object?
     // Let's assume specificDate IS the base.
-    
+
     const baseDate = startOfDayVN(specificDate);
 
-    const scheduleStart = new Date(baseDate.getTime() + (startH * 60 + startM) * 60000);
-    const scheduleEnd = new Date(baseDate.getTime() + (endH * 60 + endM) * 60000);
+    const scheduleStart = new Date(
+      baseDate.getTime() + (startH * 60 + startM) * 60000,
+    );
+    const scheduleEnd = new Date(
+      baseDate.getTime() + (endH * 60 + endM) * 60000,
+    );
 
     const result = await this.dataSource.transaction(async (manager) => {
       const startOfDay = startOfDayVN(specificDate);
@@ -317,11 +317,15 @@ export class DoctorScheduleFlexibleService {
 
     const [startH, startM] = newStartTime.split(':').map(Number);
     const [endH, endM] = newEndTime.split(':').map(Number);
-    
+
     const baseDate = startOfDayVN(specificDate);
 
-    const scheduleStart = new Date(baseDate.getTime() + (startH * 60 + startM) * 60000);
-    const scheduleEnd = new Date(baseDate.getTime() + (endH * 60 + endM) * 60000);
+    const scheduleStart = new Date(
+      baseDate.getTime() + (startH * 60 + startM) * 60000,
+    );
+    const scheduleEnd = new Date(
+      baseDate.getTime() + (endH * 60 + endM) * 60000,
+    );
 
     const result = await this.dataSource.transaction(async (manager) => {
       await manager
@@ -498,11 +502,15 @@ export class DoctorScheduleFlexibleService {
 
     const [startH, startM] = schedule.startTime.split(':').map(Number);
     const [endH, endM] = schedule.endTime.split(':').map(Number);
-    
+
     const baseDate = startOfDayVN(specificDate);
 
-    const scheduleStart = new Date(baseDate.getTime() + (startH * 60 + startM) * 60000);
-    const scheduleEnd = new Date(baseDate.getTime() + (endH * 60 + endM) * 60000);
+    const scheduleStart = new Date(
+      baseDate.getTime() + (startH * 60 + startM) * 60000,
+    );
+    const scheduleEnd = new Date(
+      baseDate.getTime() + (endH * 60 + endM) * 60000,
+    );
 
     const result = await this.dataSource.transaction(async (manager) => {
       const dayStart = startOfDayVN(specificDate);
@@ -555,9 +563,13 @@ export class DoctorScheduleFlexibleService {
           // Construct regStart and regEnd based on specificDate (which acts as base here for day)
           // We assume specificDate is the target day.
           const base = startOfDayVN(specificDate);
-          
-          const regStart = new Date(base.getTime() + (regStartH * 60 + regStartM) * 60000);
-          const regEnd = new Date(base.getTime() + (regEndH * 60 + regEndM) * 60000);
+
+          const regStart = new Date(
+            base.getTime() + (regStartH * 60 + regStartM) * 60000,
+          );
+          const regEnd = new Date(
+            base.getTime() + (regEndH * 60 + regEndM) * 60000,
+          );
 
           if (apt.scheduledAt >= regStart && aptEnd <= regEnd) {
             isCoveredByRegular = true;
@@ -583,14 +595,13 @@ export class DoctorScheduleFlexibleService {
 
       await manager.remove(schedule);
 
-      const restoredSlots =
-        await this.restoreService.restoreSlots(
-          manager,
-          schedule.doctorId,
-          specificDate,
-          scheduleStart,
-          scheduleEnd,
-        );
+      const restoredSlots = await this.restoreService.restoreSlots(
+        manager,
+        schedule.doctorId,
+        specificDate,
+        scheduleStart,
+        scheduleEnd,
+      );
 
       return {
         appointmentsCount: dayAppointments.length,
@@ -599,6 +610,8 @@ export class DoctorScheduleFlexibleService {
         restoredSlots,
       };
     });
+
+    // Notifications removed since we don't auto-cancel anymore
 
     let message = 'Xóa lịch linh hoạt thành công.';
     if (result.appointmentsCount > 0) {

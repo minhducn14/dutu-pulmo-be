@@ -64,7 +64,6 @@ export function addDaysVN(base: Date, days: number): Date {
   return fromZonedTime(vnPlus, VN_TZ);
 }
 
-
 // Get day of week (0-6) in VN timezone
 export function getDayVN(date: Date): number {
   const vn = toZonedTime(date, VN_TZ);
@@ -92,4 +91,3 @@ export function isSameDayVN(date1: Date, date2: Date): boolean {
 export function formatDateVN(date: Date): string {
   return formatInTimeZone(date, VN_TZ, 'yyyy-MM-dd');
 }
-

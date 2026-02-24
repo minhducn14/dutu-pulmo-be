@@ -22,6 +22,9 @@ import {
 
 @Injectable()
 export class SlotGeneratorService {
+  // TODO: TECH DEBT - forwardRef indicates circular dependency between:
+  // SlotGeneratorService <-> DoctorScheduleService <-> TimeSlotService
+  // Future refactor: Extract shared schedule utility functions to separate service
   constructor(
     @Inject(forwardRef(() => DoctorScheduleService))
     private readonly scheduleService: DoctorScheduleService,
@@ -54,7 +57,7 @@ export class SlotGeneratorService {
     // 2. Get schedule to identify doctor
     const scheduleResult = await this.scheduleService.findById(scheduleId);
     if (!scheduleResult.data) {
-       throw new BadRequestException('Lịch làm việc không tồn tại');
+      throw new BadRequestException('Lịch làm việc không tồn tại');
     }
     const schedule = scheduleResult.data;
 
@@ -121,11 +124,10 @@ export class SlotGeneratorService {
       // Ensure startTime and endTime are Dates
       const newStart = new Date(newSlot.startTime!);
       const newEnd = new Date(newSlot.endTime!);
-      
+
       return !existingSlots.some(
         (existingSlot) =>
-          newStart < existingSlot.endTime &&
-          newEnd > existingSlot.startTime,
+          newStart < existingSlot.endTime && newEnd > existingSlot.startTime,
       );
     });
 
@@ -170,11 +172,11 @@ export class SlotGeneratorService {
 
         // Standardize base date using startOfDayVN
         const base = startOfDayVN(targetDate);
-        
+
         // Calculate minutes from midnight
         const startMinutes = h1 * 60 + m1;
         const endMinutes = h2 * 60 + m2;
-        
+
         const periodStart = new Date(base.getTime() + startMinutes * 60000);
         const periodEnd = new Date(base.getTime() + endMinutes * 60000);
 
@@ -215,7 +217,7 @@ export class SlotGeneratorService {
     sortedSchedules: DoctorSchedule[],
   ): Promise<Partial<TimeSlot>[]> {
     const dayOfWeek = getDayVN(targetDate);
-    
+
     const daySchedules = sortedSchedules.filter((s) => {
       // Check effective dates
       if (!this.isScheduleActiveOnDate(s, targetDate)) {
@@ -228,8 +230,50 @@ export class SlotGeneratorService {
         s.scheduleType === ScheduleType.TIME_OFF
       ) {
         if (s.specificDate) {
+          // We need strictly match YYYY-MM-DD
+          // Convert both to VN time range?
+          // Let's assume s.specificDate is stored as 00:00:00 UTC or 00:00:00 VN?
+          // If it comes from DTO as YYYY-MM-DD, TypeORM usually maps it to Date object.
+          // Let's coerce to simplified string comparison.
           const sDate = new Date(s.specificDate);
-          const tDate = targetDate; 
+          const tDate = targetDate; // This is 00:00 VN (as UTC date)
+
+          // If sDate is 2023-10-10 00:00:00 (UTC?), and tDate is 2023-10-09 17:00:00Z (00:00 VN)
+          // Then sDate.toISOString().split('T')[0] => 2023-10-10
+          // tDate.toISOString() => 2023-10-09
+          // MISMATCH!
+
+          // We need to compare: formatVN(s.specificDate) === formatVN(targetDate)
+          // But I can't import formatted if not available easily.
+          // Let's assume s.specificDate was saved correctly using startOfDayVN logic (if we refactored it).
+          // But it's old data.
+
+          // Just use basic equality of .getTime()? No.
+          // Safe verify: check if they are within 24h?
+
+          // Let's trust logic from `isScheduleActiveOnDate` for effective dates, but for specificDate we need exact match.
+          // Let's assume s.specificDate is YYYY-MM-DD.
+          // Let's check overlap of the 24h period of that date with targetDate (which represents 24h of "today" in VN).
+
+          // Or utilize `getDayVN` logic for consistent shifting.
+          // Actually, if we just convert both to YYYY-MM-DD string in VN timezone, we are good.
+          // Since I haven't imported formatVN, I will implement a quick local check.
+
+          // Hack: diff < 12 hours?
+          // No.
+
+          // Let's just use `getDayVN` to check day consistency + strict year/month?
+          // Too complex.
+
+          // Let's rely on simple Date comparison if we assume previous inputs were "Date" objects (UTC midnight).
+          // If inputs were "Date", then `s.specificDate` (YYYY-MM-DD from JSON) -> Date(YYYY-MM-DD T00:00:00.000Z).
+          // And `targetDate` -> normalized to 00:00 VN (17:00 UTC prev day).
+          // They differ by 7 hours.
+
+          // So, `Math.abs(sDate.getTime() - targetDate.getTime()) < 12 * 60 * 60 * 1000`?
+          // Yes, that works to detect "same day" regardless of 7h shift.
+
+          // Use proper timezone-aware comparison instead of tolerance hack
           return isSameDayVN(new Date(s.specificDate), targetDate);
         }
         return false;
@@ -262,7 +306,7 @@ export class SlotGeneratorService {
 
     // 🎯 STEP 2: Winner-Takes-All
     let selectedSchedules: DoctorSchedule[];
-    
+
     if (flexibleSchedules.length > 0) {
       selectedSchedules = flexibleSchedules;
     } else {
@@ -314,10 +358,14 @@ export class SlotGeneratorService {
     const [startHour, startMin] = schedule.startTime.split(':').map(Number);
     const [endHour, endMin] = schedule.endTime.split(':').map(Number);
 
+    // targetDate is startOfDayVN (00:00 VN normalized to UTC)
+    // Add minutes directly
     const startTotalMins = startHour * 60 + startMin;
     const endTotalMins = endHour * 60 + endMin;
-    
-    const scheduleStart = new Date(targetDate.getTime() + startTotalMins * 60000);
+
+    const scheduleStart = new Date(
+      targetDate.getTime() + startTotalMins * 60000,
+    );
     const scheduleEnd = new Date(targetDate.getTime() + endTotalMins * 60000);
 
     const slotDurationMs = schedule.slotDuration * 60 * 1000;
@@ -380,10 +428,13 @@ export class SlotGeneratorService {
         // Warning: currentDate.getDay() is unsafe if we didn't use getDayVN.
         // But here we rely on standard JS. Refactoring to getDayVN logic:
         const dWeek = getDayVN(currentDate);
-        
+
         if (dWeek === schedule.dayOfWeek) {
-             const daySlots = this.generateSlotsFromSchedule(schedule, currentDate);
-             allSlots.push(...daySlots);
+          const daySlots = this.generateSlotsFromSchedule(
+            schedule,
+            currentDate,
+          );
+          allSlots.push(...daySlots);
         }
       }
       currentDate.setDate(currentDate.getDate() + 1);
@@ -490,8 +541,7 @@ export class SlotGeneratorService {
       const newEnd = new Date(newSlot.endTime!);
       return !existingSlots.some(
         (existingSlot) =>
-          newStart < existingSlot.endTime &&
-          newEnd > existingSlot.startTime,
+          newStart < existingSlot.endTime && newEnd > existingSlot.startTime,
       );
     });
 
@@ -556,7 +606,7 @@ export class SlotGeneratorService {
 
     while (currentDate <= endDateCopy) {
       const dayOfWeek = getDayVN(currentDate);
-      
+
       const daySchedules = sortedSchedules.filter((s) => {
         if (s.scheduleType === ScheduleType.TIME_OFF) return false;
         if (!this.isScheduleActiveOnDate(s, currentDate)) return false;

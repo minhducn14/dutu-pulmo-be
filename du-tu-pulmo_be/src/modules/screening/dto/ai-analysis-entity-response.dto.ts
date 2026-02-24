@@ -16,8 +16,6 @@ export class AiAnalysisResponseDto {
   @ApiProperty({ example: '7d8c6d9b-92b1-4b62-8f1b-0d5a7b1c2e3f' })
   medicalImageId: string;
 
-
-
   @ApiPropertyOptional({ example: '550e8400-e29b-41d4-a716-446655440000' })
   pulmoFileId?: string;
 
@@ -54,8 +52,6 @@ export class AiAnalysisResponseDto {
   })
   evaluatedImageUrl?: string;
 
-
-
   @ApiPropertyOptional({ type: Object })
   rawPredictions?: Record<string, unknown>;
 
@@ -87,7 +83,6 @@ export class AiAnalysisResponseDto {
     errorMessage?: string | null;
     analyzedAt: Date;
     createdAt: Date;
-
   }): AiAnalysisResponseDto {
     const dto = new AiAnalysisResponseDto();
     dto.id = analysis.id;

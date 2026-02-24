@@ -475,7 +475,11 @@ export class MedicalController {
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<{ pdfUrl: string }>> {
     const pdfUrl = await this.pdfService.generateAndSaveMedicalRecordPdf(id);
-    return new ResponseCommon(HttpStatus.CREATED, 'Tạo PDF bệnh án thành công', { pdfUrl });
+    return new ResponseCommon(
+      HttpStatus.CREATED,
+      'Tạo PDF bệnh án thành công',
+      { pdfUrl },
+    );
   }
 
   @Get('records/:id/pdf')
@@ -493,7 +497,9 @@ export class MedicalController {
   ): Promise<ResponseCommon<{ pdfUrl: string | null }>> {
     const result = await this.medicalService.getMedicalRecordDetail(id, user);
     if (!result.data) throw new NotFoundException('Không tìm thấy bệnh án');
-    return new ResponseCommon(HttpStatus.OK, 'Thành công', { pdfUrl: result.data.pdfUrl ?? null });
+    return new ResponseCommon(HttpStatus.OK, 'Thành công', {
+      pdfUrl: result.data.pdfUrl ?? null,
+    });
   }
 
   @Post('prescriptions/:id/pdf')
@@ -510,7 +516,11 @@ export class MedicalController {
     @CurrentUser() _user: JwtUser,
   ): Promise<ResponseCommon<{ pdfUrl: string }>> {
     const pdfUrl = await this.pdfService.generateAndSavePrescriptionPdf(id);
-    return new ResponseCommon(HttpStatus.CREATED, 'Tạo PDF đơn thuốc thành công', { pdfUrl });
+    return new ResponseCommon(
+      HttpStatus.CREATED,
+      'Tạo PDF đơn thuốc thành công',
+      { pdfUrl },
+    );
   }
 
   @Get('prescriptions/:id/pdf')
@@ -528,6 +538,8 @@ export class MedicalController {
   ): Promise<ResponseCommon<{ pdfUrl: string | null }>> {
     const result = await this.medicalService.getPrescriptionDetail(id);
     if (!result.data) throw new NotFoundException('Không tìm thấy đơn thuốc');
-    return new ResponseCommon(HttpStatus.OK, 'Thành công', { pdfUrl: result.data.pdfUrl ?? null });
+    return new ResponseCommon(HttpStatus.OK, 'Thành công', {
+      pdfUrl: result.data.pdfUrl ?? null,
+    });
   }
 }

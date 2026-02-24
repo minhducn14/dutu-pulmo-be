@@ -1,4 +1,3 @@
-
 import {
   Controller,
   Get,
@@ -144,7 +143,8 @@ export class AppointmentStatsController {
   @Roles(RoleEnum.DOCTOR)
   @ApiOperation({
     summary: 'Lấy báo cáo tổng quan dashboard của bác sĩ',
-    description: 'Trả về thống kê doanh thu, lượt khám, bệnh nhân mới/cũ theo kỳ',
+    description:
+      'Trả về thống kê doanh thu, lượt khám, bệnh nhân mới/cũ theo kỳ',
   })
   @ApiResponse({ status: HttpStatus.OK, type: DashboardStatsDto })
   async getMyDashboard(

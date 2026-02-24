@@ -36,58 +36,68 @@ export class AppointmentVideoService {
     userId: string,
     userName: string,
     isDoctor: boolean,
-  ): Promise<{ token: string; url: string; appointment: ResponseCommon<AppointmentResponseDto> }> {
+  ): Promise<{
+    token: string;
+    url: string;
+    appointment: ResponseCommon<AppointmentResponseDto>;
+  }> {
     let appointment = await this.dataSource.transaction(async (manager) => {
-    const apt = await manager.findOne(Appointment, {
-      where: { id: appointmentId },
-      lock: { mode: 'pessimistic_write' },
-    });
+      const apt = await manager.findOne(Appointment, {
+        where: { id: appointmentId },
+        lock: { mode: 'pessimistic_write' },
+      });
 
-    if (!apt) {
-      throw new NotFoundException('Appointment not found');
-    }
+      if (!apt) {
+        throw new NotFoundException('Appointment not found');
+      }
 
-    const aptWithRelations = await manager.findOne(Appointment, {
-      where: { id: appointmentId },
-      relations: ['patient', 'patient.user', 'doctor', 'doctor.user'],
-    });
+      const aptWithRelations = await manager.findOne(Appointment, {
+        where: { id: appointmentId },
+        relations: ['patient', 'patient.user', 'doctor', 'doctor.user'],
+      });
 
-    if (!aptWithRelations) {
-      throw new NotFoundException('Appointment not found');
-    }
+      if (!aptWithRelations) {
+        throw new NotFoundException('Appointment not found');
+      }
 
-    if (isDoctor) {
-      if (!aptWithRelations.doctor?.userId || aptWithRelations.doctor.userId !== userId) {
-        throw new ForbiddenException(
-          'Bạn không phải là bác sĩ của cuộc hẹn này',
+      if (isDoctor) {
+        if (
+          !aptWithRelations.doctor?.userId ||
+          aptWithRelations.doctor.userId !== userId
+        ) {
+          throw new ForbiddenException(
+            'Bạn không phải là bác sĩ của cuộc hẹn này',
+          );
+        }
+      } else {
+        if (
+          !aptWithRelations.patient?.userId ||
+          aptWithRelations.patient.userId !== userId
+        ) {
+          throw new ForbiddenException(
+            'Bạn không phải là bệnh nhân của cuộc hẹn này',
+          );
+        }
+      }
+
+      if (aptWithRelations.appointmentType !== AppointmentTypeEnum.VIDEO) {
+        throw new BadRequestException('This is not a video appointment');
+      }
+
+      const validStates = [
+        AppointmentStatusEnum.CONFIRMED,
+        AppointmentStatusEnum.CHECKED_IN,
+        AppointmentStatusEnum.IN_PROGRESS,
+      ];
+
+      if (!validStates.includes(aptWithRelations.status)) {
+        throw new BadRequestException(
+          `Cannot join meeting in status: ${aptWithRelations.status}`,
         );
       }
-    } else {
-      if (!aptWithRelations.patient?.userId || aptWithRelations.patient.userId !== userId) {
-        throw new ForbiddenException(
-          'Bạn không phải là bệnh nhân của cuộc hẹn này',
-        );
-      }
-    }
 
-    if (aptWithRelations.appointmentType !== AppointmentTypeEnum.VIDEO) {
-      throw new BadRequestException('This is not a video appointment');
-    }
-
-    const validStates = [
-      AppointmentStatusEnum.CONFIRMED,
-      AppointmentStatusEnum.CHECKED_IN,
-      AppointmentStatusEnum.IN_PROGRESS,
-    ];
-
-    if (!validStates.includes(aptWithRelations.status)) {
-      throw new BadRequestException(
-        `Cannot join meeting in status: ${aptWithRelations.status}`,
-      );
-    }
-
-    return aptWithRelations;
-  });
+      return aptWithRelations;
+    });
 
     let roomUrl = appointment.meetingUrl;
     let roomName = appointment.dailyCoChannel;
@@ -182,9 +192,14 @@ export class AppointmentVideoService {
         isDoctor,
       );
 
-      await this.callStateService.setCurrentCall(userId, appointmentId, roomName);
+      await this.callStateService.setCurrentCall(
+        userId,
+        appointmentId,
+        roomName,
+      );
 
-      const appointmentData = await this.appointmentReadService.findById(appointmentId);
+      const appointmentData =
+        await this.appointmentReadService.findById(appointmentId);
 
       return {
         token: tokenData.token,

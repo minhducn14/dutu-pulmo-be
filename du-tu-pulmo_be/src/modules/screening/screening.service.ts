@@ -126,9 +126,7 @@ export class ScreeningService {
   ): void {
     const allowedTransitions = this.validTransitions[currentStatus] || [];
     if (!allowedTransitions.includes(newStatus)) {
-      throw new BadRequestException(
-        SCREENING_ERRORS.INVALID_STATUS_TRANSITION,
-      );
+      throw new BadRequestException(SCREENING_ERRORS.INVALID_STATUS_TRANSITION);
     }
   }
 
@@ -198,8 +196,6 @@ export class ScreeningService {
     });
   }
 
-
-
   async findByUploaderDoctor(doctorId: string): Promise<ScreeningRequest[]> {
     return this.screeningRepository.find({
       where: { uploadedByDoctorId: doctorId },
@@ -241,7 +237,9 @@ export class ScreeningService {
         }
 
         if (screening.status === ScreeningStatusEnum.CANCELLED) {
-          throw new BadRequestException(SCREENING_ERRORS.CANNOT_ANALYZE_CANCELLED);
+          throw new BadRequestException(
+            SCREENING_ERRORS.CANNOT_ANALYZE_CANCELLED,
+          );
         }
 
         const image = await this.findImageById(imageId);
@@ -384,7 +382,9 @@ export class ScreeningService {
         this.logger.error(
           `[${correlationId}] Pulmo AI error: ${JSON.stringify(axiosError.response.data)}`,
         );
-        throw new Error(axiosError.response.data?.error || SCREENING_ERRORS.PULMO_AI_ERROR);
+        throw new Error(
+          axiosError.response.data?.error || SCREENING_ERRORS.PULMO_AI_ERROR,
+        );
       }
       throw error;
     }
@@ -488,9 +488,7 @@ export class ScreeningService {
       relations: ['screening', 'medicalImage'],
     });
     if (!analysis) {
-      throw new NotFoundException(
-        SCREENING_ERRORS.AI_ANALYSIS_NOT_FOUND,
-      );
+      throw new NotFoundException(SCREENING_ERRORS.AI_ANALYSIS_NOT_FOUND);
     }
     return analysis;
   }

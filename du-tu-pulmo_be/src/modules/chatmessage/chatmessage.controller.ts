@@ -73,20 +73,19 @@ export class ChatMessageController {
     });
 
     if (response.data) {
-      this.chatGateway.emitMessageToRoom(
-        createChatMessageDto.chatroomId,
-        {
-          id: response.data.id,
-          chatroomId: response.data.chatroom?.id || createChatMessageDto.chatroomId,
-          content: response.data.content,
-          sender: {
-            id: user.id,
-            fullName: user.fullName || user.email,
-            email: user.email,
-          },
-          createdAt: response.data.createdAt?.toISOString() || new Date().toISOString(),
+      this.chatGateway.emitMessageToRoom(createChatMessageDto.chatroomId, {
+        id: response.data.id,
+        chatroomId:
+          response.data.chatroom?.id || createChatMessageDto.chatroomId,
+        content: response.data.content,
+        sender: {
+          id: user.id,
+          fullName: user.fullName || user.email,
+          email: user.email,
         },
-      );
+        createdAt:
+          response.data.createdAt?.toISOString() || new Date().toISOString(),
+      });
     }
 
     return new ResponseCommon(
