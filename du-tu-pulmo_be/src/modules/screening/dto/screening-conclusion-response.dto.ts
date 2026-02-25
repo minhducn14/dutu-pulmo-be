@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import type { DecisionSource } from '@/modules/common/enums/decision-source.enum';
 
 export class ScreeningConclusionResponseDto {
   @ApiProperty({ example: 'f1e2d3c4-b5a6-7890-1234-56789abcdef0' })
@@ -26,7 +27,7 @@ export class ScreeningConclusionResponseDto {
     example: 'DOCTOR_REVIEWED_AI',
     description: 'AI_ONLY, DOCTOR_ONLY, DOCTOR_REVIEWED_AI',
   })
-  decisionSource?: 'AI_ONLY' | 'DOCTOR_ONLY' | 'DOCTOR_REVIEWED_AI';
+  decisionSource?: DecisionSource;
 
   @ApiPropertyOptional({ example: 'Override reason' })
   doctorOverrideReason?: string;
@@ -49,7 +50,7 @@ export class ScreeningConclusionResponseDto {
     doctorId?: string | null;
     agreesWithAi?: boolean | null;
 
-    decisionSource?: 'AI_ONLY' | 'DOCTOR_ONLY' | 'DOCTOR_REVIEWED_AI' | null;
+    decisionSource?: DecisionSource | null;
     doctorOverrideReason?: string | null;
 
     reviewedAt: Date;
