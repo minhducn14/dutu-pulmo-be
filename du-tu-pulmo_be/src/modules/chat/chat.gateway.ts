@@ -1,8 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/require-await */
+
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   WebSocketGateway,
@@ -12,33 +10,32 @@ import {
   ConnectedSocket,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger, UseFilters } from '@nestjs/common';
+import { Logger, UseFilters, Catch, ArgumentsHost } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { ChatMessageService } from '@/modules/chatmessage/chatmessage.service';
 import { ChatRoomService } from '@/modules/chatroom/chatroom.service';
-
-// WebSocket Exception Filter
-import { Catch, ArgumentsHost } from '@nestjs/common';
 import { BaseWsExceptionFilter, WsException } from '@nestjs/websockets';
+import { ERROR_MESSAGES } from '../../common/constants/error-messages.constant';
+
+// ─── Exception Filter ────────────────────────────────────────────────────────
 
 @Catch(WsException)
 export class WebsocketExceptionsFilter extends BaseWsExceptionFilter {
   catch(exception: WsException, host: ArgumentsHost) {
-    const client = host.switchToWs().getClient();
+    const client = host.switchToWs().getClient<Socket>();
     const error = exception.getError();
     const details = error instanceof Object ? { ...error } : { message: error };
-
-    client.emit('error', {
-      id: client.id,
-      rid: Math.random().toString(36).substring(2, 15),
+    client.emit('exception', {
+      socketId: client.id,
       ...details,
     });
   }
 }
 
-// Interface for socket events
+// ─── Interfaces ──────────────────────────────────────────────────────────────
+
 interface JoinRoomData {
   chatroomId: string;
 }
@@ -48,6 +45,12 @@ interface TypingData {
   isTyping: boolean;
 }
 
+interface UserInfo {
+  id: string;
+  fullName: string;
+  email: string;
+}
+
 interface UserTypingInfo {
   userId: string;
   fullName: string;
@@ -55,9 +58,11 @@ interface UserTypingInfo {
   timestamp: number;
 }
 
+// ─── Gateway ─────────────────────────────────────────────────────────────────
+
 @WebSocketGateway({
   cors: {
-    origin: process.env.FRONTEND_URL || [
+    origin: process.env.FRONTEND_URL?.split(',') || [
       'http://localhost:3000',
       'http://localhost:3001',
     ],
@@ -66,119 +71,104 @@ interface UserTypingInfo {
   namespace: '/chat',
 })
 @UseFilters(new WebsocketExceptionsFilter())
-export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class ChatGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
   private readonly logger = new Logger(ChatGateway.name);
 
-  // Store online users and typing states
-  private onlineUsers = new Map<string, { socketId: string; user: any }>();
+  // userId → { socketId, user }
+  private onlineUsers = new Map<string, { socketId: string; user: UserInfo }>();
+
+  // chatroomId → (userId → UserTypingInfo)
   private typingUsers = new Map<string, Map<string, UserTypingInfo>>();
 
+  // chatroomId → (userId → timeout)
   private typingTimeouts = new Map<string, Map<string, NodeJS.Timeout>>();
 
+  private readonly TYPING_TIMEOUT_MS = 3000;
+
   constructor(
-    private chatMessageService: ChatMessageService,
     private chatRoomService: ChatRoomService,
     private jwtService: JwtService,
   ) {}
 
   afterInit() {
-    this.logger.log('🚀 ChatGateway WebSocket server initialized');
+    this.logger.log('🚀 ChatGateway initialized at namespace /chat');
   }
 
-  // Connection handlers
+  // ─── Connection ────────────────────────────────────────────────────────────
+
   async handleConnection(client: Socket) {
     try {
-      const authToken = this.extractTokenFromHandshake(client);
+      const token = this.extractToken(client);
 
-      if (!authToken) {
-        this.logger.error(
-          `No authentication token found for socket ${client.id}`,
-        );
+      if (!token) {
+        this.logger.warn(`[${client.id}] No token — disconnecting`);
+        client.emit('exception', {
+          message: 'Unauthorized: no token provided',
+        });
         client.disconnect(true);
         return;
       }
 
-      const payload = await this.jwtService.verify(authToken);
-
-      // Transform JWT payload to user structure
-      const user = {
+      const payload = await this.jwtService.verifyAsync(token);
+      const user: UserInfo = {
         id: payload.sub || payload.id,
         email: payload.email,
         fullName:
           payload.fullName || payload.name || payload.email.split('@')[0],
-        roles: payload.roles || [],
       };
 
       if (!user.id || !user.email) {
-        this.logger.error(`Invalid user data for socket ${client.id}`);
+        this.logger.warn(`[${client.id}] Invalid JWT payload — disconnecting`);
         client.disconnect(true);
         return;
       }
 
       client.data.user = user;
 
-      // Store online user
-      this.onlineUsers.set(user.id, {
-        socketId: client.id,
-        user: {
-          id: user.id,
-          fullName: user.fullName,
-          email: user.email,
-        },
-      });
+      // Nếu user đang có session cũ, disconnect session đó
+      const existingSession = this.onlineUsers.get(user.id);
+      if (existingSession) {
+        const existingSocket = this.server.sockets.sockets.get(
+          existingSession.socketId,
+        );
+        existingSocket?.disconnect(true);
+      }
 
-      this.logger.log(`User ${user.fullName} connected: ${client.id}`);
+      this.onlineUsers.set(user.id, { socketId: client.id, user });
 
-      // Notify about user coming online
+      this.logger.log(`✅ [${client.id}] User "${user.fullName}" connected`);
+
+      // Thông báo cho các client khác
       client.broadcast.emit('user-online', {
         userId: user.id,
         fullName: user.fullName,
         timestamp: new Date().toISOString(),
       });
+
+      // Trả về danh sách online ngay khi connect
+      client.emit('online-users', this.getOnlineUsers());
     } catch (error) {
-      this.logger.error(
-        `Connection error for socket ${client.id}:`,
-        error.message,
-      );
+      this.logger.error(`[${client.id}] Connection error:`, error.message);
+      client.emit('exception', { message: 'Unauthorized: invalid token' });
       client.disconnect(true);
     }
   }
 
   async handleDisconnect(client: Socket) {
     try {
-      const user = client.data.user;
+      const user: UserInfo = client.data.user;
       if (!user) return;
 
-      // Remove from online users
       this.onlineUsers.delete(user.id);
+      this.cleanupUserTyping(user.id);
 
-      for (const [chatroomId, userTimeouts] of this.typingTimeouts) {
-        const timeout = userTimeouts.get(user.id);
-        if (timeout) {
-          clearTimeout(timeout);
-          userTimeouts.delete(user.id);
-        }
-      }
+      this.logger.log(`❌ [${client.id}] User "${user.fullName}" disconnected`);
 
-      // Clear typing state for this user
-      for (const [chatroomId, typingInRoom] of this.typingUsers) {
-        if (typingInRoom.has(user.id)) {
-          typingInRoom.delete(user.id);
-
-          // Notify room about user stopped typing
-          client.to(chatroomId).emit('user-typing', {
-            chatroomId,
-            users: Array.from(typingInRoom.values()),
-          });
-        }
-      }
-
-      this.logger.log(`User ${user.fullName} disconnected: ${client.id}`);
-
-      // Notify all rooms about user going offline
       client.broadcast.emit('user-offline', {
         userId: user.id,
         fullName: user.fullName,
@@ -189,52 +179,48 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  // Chat room events
+  // ─── Room Events ───────────────────────────────────────────────────────────
+
   @SubscribeMessage('join-room')
   async handleJoinRoom(
     @MessageBody() data: JoinRoomData,
     @ConnectedSocket() client: Socket,
   ) {
-    try {
-      const { chatroomId } = data;
-      const user = client.data.user;
+    const { chatroomId } = data;
+    const user: UserInfo = client.data.user;
 
-      // Validate user access to room
-      const chatRoom = await this.chatRoomService.findOne(chatroomId);
-      const room = chatRoom.data;
-
-      if (!room) {
-        throw new WsException('Chat room not found');
-      }
-
-      const isParticipant =
-        room.user1.id === user.id || room.user2.id === user.id;
-      if (!isParticipant) {
-        throw new WsException('Access denied to this chat room');
-      }
-
-      // Join the socket room
-      await client.join(chatroomId);
-
-      this.logger.log(`User ${user.fullName} joined room: ${chatroomId}`);
-
-      // Send confirmation to client
-      client.emit('joined-room', {
-        chatroomId,
-        message: 'Successfully joined chat room',
-      });
-
-      // Notify other room members about user joining
-      client.to(chatroomId).emit('user-joined-room', {
-        chatroomId,
-        userId: user.id,
-        fullName: user.fullName,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      this.logger.error('Join room error:', error);
-      throw new WsException(error.message || 'Failed to join room');
+    if (!chatroomId) {
+      throw new WsException(ERROR_MESSAGES.CHATROOM_ID_IS_REQUIRED);
     }
+
+    const chatRoom = await this.chatRoomService.findOne(chatroomId);
+    const room = chatRoom.data;
+    if (!room) {
+      throw new WsException(ERROR_MESSAGES.CHAT_ROOM_NOT_FOUND);
+    }
+    const isParticipant =
+      room.user1?.id === user.id || room.user2?.id === user.id;
+    if (!isParticipant) {
+      throw new WsException(ERROR_MESSAGES.ACCESS_DENIED_NOT_A_MEMBER);
+    }
+
+    await client.join(chatroomId);
+
+    this.logger.log(`User "${user.fullName}" joined room ${chatroomId}`);
+
+    // Confirm join cho chính client
+    client.emit('joined-room', {
+      chatroomId,
+      message: 'Successfully joined chat room',
+    });
+
+    // Notify các user khác trong room
+    client.to(chatroomId).emit('user-joined-room', {
+      chatroomId,
+      userId: user.id,
+      fullName: user.fullName,
+      timestamp: new Date().toISOString(),
+    });
   }
 
   @SubscribeMessage('leave-room')
@@ -242,100 +228,119 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: JoinRoomData,
     @ConnectedSocket() client: Socket,
   ) {
-    try {
-      const { chatroomId } = data;
-      const user = client.data.user;
+    const { chatroomId } = data;
+    const user: UserInfo = client.data.user;
 
-      await client.leave(chatroomId);
-
-      // Clear typing state
-      this.clearUserTyping(chatroomId, user.id);
-
-      this.logger.log(`User ${user.fullName} left room: ${chatroomId}`);
-
-      // Notify room about user leaving
-      client.to(chatroomId).emit('user-left-room', {
-        chatroomId,
-        userId: user.id,
-        fullName: user.fullName,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      this.logger.error('Leave room error:', error);
-      throw new WsException('Failed to leave room');
+    if (!chatroomId) {
+      throw new WsException(ERROR_MESSAGES.CHATROOM_ID_IS_REQUIRED);
     }
+
+    await client.leave(chatroomId);
+    this.clearUserTypingInRoom(chatroomId, user.id);
+
+    this.logger.log(`User "${user.fullName}" left room ${chatroomId}`);
+
+    client.to(chatroomId).emit('user-left-room', {
+      chatroomId,
+      userId: user.id,
+      fullName: user.fullName,
+      timestamp: new Date().toISOString(),
+    });
   }
 
-  // Typing indicators
+  // ─── Typing ────────────────────────────────────────────────────────────────
+
   @SubscribeMessage('typing')
   handleTyping(
     @MessageBody() data: TypingData,
     @ConnectedSocket() client: Socket,
   ) {
-    try {
-      const { chatroomId, isTyping } = data;
-      const user = client.data.user;
+    const { chatroomId, isTyping } = data;
+    const user: UserInfo = client.data.user;
 
-      // Initialize typing map for room if not exists
-      if (!this.typingUsers.has(chatroomId)) {
-        this.typingUsers.set(chatroomId, new Map());
+    if (!chatroomId) return;
+
+    if (!this.typingUsers.has(chatroomId)) {
+      this.typingUsers.set(chatroomId, new Map());
+    }
+
+    const typingInRoom = this.typingUsers.get(chatroomId)!;
+
+    if (isTyping) {
+      if (!this.typingTimeouts.has(chatroomId)) {
+        this.typingTimeouts.set(chatroomId, new Map());
       }
 
-      const typingInRoom = this.typingUsers.get(chatroomId)!;
+      const userTimeouts = this.typingTimeouts.get(chatroomId)!;
+      const existing = userTimeouts.get(user.id);
+      if (existing) clearTimeout(existing);
 
-      if (isTyping) {
-        if (!this.typingTimeouts.has(chatroomId)) {
-          this.typingTimeouts.set(chatroomId, new Map());
-        }
-
-        const userTimeouts = this.typingTimeouts.get(chatroomId)!;
-        const existingTimeout = userTimeouts.get(user.id);
-
-        if (existingTimeout) {
-          clearTimeout(existingTimeout);
-        }
-
-        // Add user to typing list
-        typingInRoom.set(user.id, {
-          userId: user.id,
-          fullName: user.fullName,
-          isTyping: true,
-          timestamp: Date.now(),
-        });
-
-        // Set new timeout and store reference
-        const timeout = setTimeout(() => {
-          this.clearUserTyping(chatroomId, user.id);
-        }, 3000);
-
-        userTimeouts.set(user.id, timeout);
-      } else {
-        // Remove user from typing list
-        this.clearUserTyping(chatroomId, user.id);
-      }
-
-      // Broadcast typing state to room (except sender)
-      client.to(chatroomId).emit('user-typing', {
-        chatroomId,
-        users: Array.from(typingInRoom.values()),
+      typingInRoom.set(user.id, {
+        userId: user.id,
+        fullName: user.fullName,
+        isTyping: true,
+        timestamp: Date.now(),
       });
+
+      const timeout = setTimeout(() => {
+        this.clearUserTypingInRoom(chatroomId, user.id);
+      }, this.TYPING_TIMEOUT_MS);
+
+      userTimeouts.set(user.id, timeout);
+    } else {
+      this.clearUserTypingInRoom(chatroomId, user.id);
+    }
+
+    client.to(chatroomId).emit('user-typing', {
+      chatroomId,
+      users: Array.from(typingInRoom.values()),
+    });
+  }
+
+  // ─── Online Users ──────────────────────────────────────────────────────────
+
+  @SubscribeMessage('get-online-users')
+  handleGetOnlineUsers(@ConnectedSocket() client: Socket) {
+    client.emit('online-users', this.getOnlineUsers());
+  }
+
+  // ─── Public Methods (gọi từ REST controller) ───────────────────────────────
+
+  public emitMessageToRoom(chatroomId: string, messageData: unknown) {
+    try {
+      this.server.to(chatroomId).emit('new-message', messageData);
+      this.logger.log(`Message emitted to room ${chatroomId}`);
     } catch (error) {
-      this.logger.error('Typing indicator error:', error);
+      this.logger.error(`Error emitting to room ${chatroomId}:`, error);
     }
   }
 
-  // Get online users
-  @SubscribeMessage('get-online-users')
-  handleGetOnlineUsers(@ConnectedSocket() client: Socket) {
-    const onlineUsersList = Array.from(this.onlineUsers.values()).map(
-      (item) => item.user,
-    );
-    client.emit('online-users', onlineUsersList);
+  public isUserOnline(userId: string): boolean {
+    return this.onlineUsers.has(userId);
   }
 
-  // Utility methods
-  private clearUserTyping(chatroomId: string, userId: string) {
-    // Clear timeout if exists
+  public getOnlineUsers(): UserInfo[] {
+    return Array.from(this.onlineUsers.values()).map((item) => item.user);
+  }
+
+  // ─── Private Helpers ───────────────────────────────────────────────────────
+
+  private extractToken(client: Socket): string | undefined {
+    const authHeader = client.handshake.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
+      return authHeader.substring(7);
+    }
+    const fromQuery = client.handshake.query.token as string;
+    if (fromQuery) return fromQuery;
+
+    const fromAuth = client.handshake.auth?.token;
+    if (fromAuth) return fromAuth;
+
+    return undefined;
+  }
+
+  private clearUserTypingInRoom(chatroomId: string, userId: string) {
+    // Clear timeout
     const userTimeouts = this.typingTimeouts.get(chatroomId);
     if (userTimeouts) {
       const timeout = userTimeouts.get(userId);
@@ -345,12 +350,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
     }
 
-    // Remove from typing users
+    // Remove from typing map và broadcast
     const typingInRoom = this.typingUsers.get(chatroomId);
-    if (typingInRoom && typingInRoom.has(userId)) {
+    if (typingInRoom?.has(userId)) {
       typingInRoom.delete(userId);
-
-      // Broadcast updated typing state
       this.server.to(chatroomId).emit('user-typing', {
         chatroomId,
         users: Array.from(typingInRoom.values()),
@@ -358,46 +361,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  // Public method to emit messages from external services (REST API)
-  public emitMessageToRoom(chatroomId: string, messageData: any) {
-    try {
-      this.server.to(chatroomId).emit('new-message', messageData);
-      this.logger.log(`Message emitted to room ${chatroomId}`);
-    } catch (error) {
-      this.logger.error(`Error emitting message to room ${chatroomId}:`, error);
+  /**
+   * Cleanup tất cả typing state của 1 user khi họ disconnect
+   */
+  private cleanupUserTyping(userId: string) {
+    for (const [chatroomId] of this.typingUsers) {
+      this.clearUserTypingInRoom(chatroomId, userId);
     }
-  }
-
-  // Public method to get online status
-  public isUserOnline(userId: string): boolean {
-    return this.onlineUsers.has(userId);
-  }
-
-  // Public method to get online users list
-  public getOnlineUsers(): any[] {
-    return Array.from(this.onlineUsers.values()).map((item) => item.user);
-  }
-
-  // JWT Token extraction method
-  private extractTokenFromHandshake(client: Socket): string | undefined {
-    // Try to get token from auth header
-    const authHeader = client.handshake.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      return authHeader.substring(7);
+    for (const [chatroomId, userTimeouts] of this.typingTimeouts) {
+      const timeout = userTimeouts.get(userId);
+      if (timeout) {
+        clearTimeout(timeout);
+        userTimeouts.delete(userId);
+      }
     }
-
-    // Try to get token from query parameters
-    const tokenFromQuery = client.handshake.query.token as string;
-    if (tokenFromQuery) {
-      return tokenFromQuery;
-    }
-
-    // Try to get token from auth object in handshake
-    const tokenFromAuth = client.handshake.auth?.token;
-    if (tokenFromAuth) {
-      return tokenFromAuth;
-    }
-
-    return undefined;
   }
 }

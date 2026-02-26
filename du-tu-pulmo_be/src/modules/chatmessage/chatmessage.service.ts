@@ -6,6 +6,8 @@ import { CreateChatMessageDto } from '@/modules/chatmessage/dto/create-chatmessa
 import { UpdateChatMessageDto } from '@/modules/chatmessage/dto/update-chatmessage.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
 
+const MESSAGE_RELATIONS = ['chatroom', 'sender', 'sender.account'];
+
 @Injectable()
 export class ChatMessageService {
   constructor(
@@ -18,7 +20,6 @@ export class ChatMessageService {
   ): Promise<ResponseCommon<ChatMessage>> {
     const { chatroomId, senderId, content } = createChatMessageDto;
 
-    // Create and save the message
     const chatMessage = this.chatMessageRepository.create({
       chatroom: { id: chatroomId },
       sender: { id: senderId },
@@ -27,10 +28,9 @@ export class ChatMessageService {
 
     const saved = await this.chatMessageRepository.save(chatMessage);
 
-    // Load full message with relations for response
     const fullMessage = await this.chatMessageRepository.findOne({
       where: { id: saved.id },
-      relations: ['chatroom', 'sender'],
+      relations: MESSAGE_RELATIONS,
     });
 
     if (!fullMessage) {
@@ -42,7 +42,7 @@ export class ChatMessageService {
 
   async findAll(): Promise<ResponseCommon<ChatMessage[]>> {
     const messages = await this.chatMessageRepository.find({
-      relations: ['chatroom', 'sender'],
+      relations: MESSAGE_RELATIONS,
       order: { createdAt: 'ASC' },
     });
     return new ResponseCommon(200, 'SUCCESS', messages);
@@ -53,7 +53,7 @@ export class ChatMessageService {
   ): Promise<ResponseCommon<ChatMessage[]>> {
     const messages = await this.chatMessageRepository.find({
       where: { chatroom: { id: chatroomId } },
-      relations: ['chatroom', 'sender'],
+      relations: MESSAGE_RELATIONS,
       order: { createdAt: 'ASC' },
     });
     return new ResponseCommon(200, 'SUCCESS', messages);
@@ -61,8 +61,8 @@ export class ChatMessageService {
 
   async findOne(id: string): Promise<ResponseCommon<ChatMessage | null>> {
     const message = await this.chatMessageRepository.findOne({
-      where: { id: id },
-      relations: ['chatroom', 'sender'],
+      where: { id },
+      relations: MESSAGE_RELATIONS,
     });
     return new ResponseCommon(200, 'SUCCESS', message);
   }
@@ -71,10 +71,13 @@ export class ChatMessageService {
     id: string,
     updateChatMessageDto: UpdateChatMessageDto,
   ): Promise<ResponseCommon<ChatMessage>> {
-    await this.chatMessageRepository.update(id, updateChatMessageDto);
+    // Chỉ update content
+    await this.chatMessageRepository.update(id, {
+      content: updateChatMessageDto.content,
+    });
     const updatedMessage = await this.chatMessageRepository.findOne({
       where: { id },
-      relations: ['chatroom', 'sender'],
+      relations: MESSAGE_RELATIONS,
     });
     if (!updatedMessage) {
       throw new Error(`ChatMessage with id ${id} not found`);

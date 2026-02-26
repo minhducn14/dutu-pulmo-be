@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 
 export class CreateChatMessageDto {
   @IsNotEmpty()
@@ -9,17 +9,15 @@ export class CreateChatMessageDto {
   })
   chatroomId: string;
 
-  @IsNotEmpty()
-  @ApiProperty({
-    example: '81df6c8e-902e-41f6-9d92-9433e4f5c6b7',
-    description: 'ID người gửi',
-  })
-  senderId: string;
-
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(5000)
   @ApiProperty({
-    example: 'Em sẽ ghé xem phòng vào chiều nay được không ạ?',
+    example: 'Xin chào bác sĩ, tôi muốn tư vấn về triệu chứng ho kéo dài.',
     description: 'Nội dung tin nhắn',
   })
   content: string;
+
+  // senderId được inject từ JWT token ở controller, không nhận từ request body
+  senderId?: string;
 }

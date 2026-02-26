@@ -7,6 +7,14 @@ import { UpdateChatRoomDto } from '@/modules/chatroom/dto/update-chatroom.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { CHATROOM_ERRORS } from '@/common/constants/error-messages.constant';
 
+const CHATROOM_RELATIONS = [
+  'user1',
+  'user2',
+  'user1.account',
+  'user2.account',
+  'messages',
+];
+
 @Injectable()
 export class ChatRoomService {
   constructor(
@@ -18,25 +26,48 @@ export class ChatRoomService {
     createChatRoomDto: CreateChatRoomDto,
   ): Promise<ResponseCommon<ChatRoom>> {
     const { user1Id, user2Id } = createChatRoomDto;
+
+    // Kiểm tra chatroom đã tồn tại giữa 2 users chưa
+    const existing = await this.chatRoomRepository.findOne({
+      where: [
+        { user1: { id: user1Id }, user2: { id: user2Id } },
+        { user1: { id: user2Id }, user2: { id: user1Id } },
+      ],
+      relations: CHATROOM_RELATIONS,
+    });
+
+    if (existing) {
+      return new ResponseCommon(200, 'CHATROOM_ALREADY_EXISTS', existing);
+    }
+
     const chatRoom = this.chatRoomRepository.create({
       user1: { id: user1Id },
       user2: { id: user2Id },
     });
+
     const saved = await this.chatRoomRepository.save(chatRoom);
-    return new ResponseCommon(200, 'SUCCESS', saved);
+
+    // Load full relations for response
+    const full = await this.chatRoomRepository.findOne({
+      where: { id: saved.id },
+      relations: CHATROOM_RELATIONS,
+    });
+
+    return new ResponseCommon(201, 'SUCCESS', full!);
   }
 
   async findAll(): Promise<ResponseCommon<ChatRoom[]>> {
     const rooms = await this.chatRoomRepository.find({
-      relations: ['user1', 'user2', 'messages'],
+      relations: CHATROOM_RELATIONS,
+      order: { updatedAt: 'DESC' },
     });
     return new ResponseCommon(200, 'SUCCESS', rooms);
   }
 
   async findOne(id: string): Promise<ResponseCommon<ChatRoom>> {
     const chatRoom = await this.chatRoomRepository.findOne({
-      where: { id: id },
-      relations: ['user1', 'user2', 'property', 'messages'],
+      where: { id },
+      relations: CHATROOM_RELATIONS,
     });
     if (!chatRoom) {
       throw new NotFoundException(CHATROOM_ERRORS.CHATROOM_NOT_FOUND);
@@ -60,22 +91,15 @@ export class ChatRoomService {
     return new ResponseCommon(200, 'SUCCESS', null);
   }
 
-  /**
-   * Lấy tất cả chatrooms của user hiện tại
-   */
   async findByCurrentUser(userId: string): Promise<ResponseCommon<ChatRoom[]>> {
     const chatRooms = await this.chatRoomRepository.find({
       where: [{ user1: { id: userId } }, { user2: { id: userId } }],
-      relations: ['user1', 'user2', 'property', 'messages'],
+      relations: CHATROOM_RELATIONS,
       order: { updatedAt: 'DESC' },
     });
-
     return new ResponseCommon(200, 'SUCCESS', chatRooms);
   }
 
-  /**
-   * Tìm chatroom giữa 2 users cụ thể
-   */
   async findBetweenUsers(
     user1Id: string,
     user2Id: string,
@@ -85,16 +109,12 @@ export class ChatRoomService {
         { user1: { id: user1Id }, user2: { id: user2Id } },
         { user1: { id: user2Id }, user2: { id: user1Id } },
       ],
-      relations: ['user1', 'user2', 'property', 'messages'],
+      relations: CHATROOM_RELATIONS,
       order: { updatedAt: 'DESC' },
     });
-
     return new ResponseCommon(200, 'SUCCESS', chatRooms);
   }
 
-  /**
-   * Check if user is member of chatroom (for IDOR prevention)
-   */
   async isUserMemberOfChatRoom(
     chatRoomId: string,
     userId: string,
@@ -104,10 +124,7 @@ export class ChatRoomService {
       relations: ['user1', 'user2'],
     });
 
-    if (!chatRoom) {
-      return false;
-    }
-
+    if (!chatRoom) return false;
     return chatRoom.user1?.id === userId || chatRoom.user2?.id === userId;
   }
 }
