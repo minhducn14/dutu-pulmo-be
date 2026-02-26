@@ -1,6 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EmailService } from '@/modules/email/email.service';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Notification } from '@/modules/notification/entities/notification.entity';
+import { StatusEnum } from '@/modules/common/enums/status.enum';
+import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.enum';
+import { CreateNotificationDto } from './dto/create-notification.dto';
+import { PaginationDto } from '@/common/dto/pagination.dto';
 
 export type CancellationReason = 'SCHEDULE_CHANGE' | 'TIME_OFF';
 
@@ -8,7 +15,78 @@ export type CancellationReason = 'SCHEDULE_CHANGE' | 'TIME_OFF';
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
 
-  constructor(private readonly emailService: EmailService) {}
+  constructor(
+    private readonly emailService: EmailService,
+    @InjectRepository(Notification)
+    private readonly notificationRepository: Repository<Notification>,
+  ) {}
+
+  /**
+   * Lấy danh sách thông báo của 1 user có phân trang
+   */
+  async findUserNotifications(userId: string, query: PaginationDto) {
+    const { page = 1, limit = 10 } = query;
+    const skip = (page - 1) * limit;
+
+    const [items, total] = await this.notificationRepository.findAndCount({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      skip,
+      take: limit,
+    });
+
+    return {
+      items,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Đánh dấu 1 thông báo là đã đọc
+   */
+  async markAsRead(userId: string, notificationId: string): Promise<boolean> {
+    const result = await this.notificationRepository.update(
+      { id: notificationId, userId },
+      { status: StatusEnum.ACTIVE }, // ACTIVE = Đã đọc
+    );
+    return (result.affected ?? 0) > 0;
+  }
+
+  /**
+   * Tạo một thông báo chung (Generic) lưu vào DB
+   */
+  async createNotification(dto: CreateNotificationDto): Promise<Notification> {
+    const notification = this.notificationRepository.create({
+      userId: dto.userId,
+      type: dto.type,
+      title: dto.title,
+      content: dto.content,
+      status: dto.status ?? StatusEnum.PENDING,
+      refId: dto.refId ?? null,
+      refType: dto.refType ?? null,
+    });
+    
+    // Save to DB
+    const saved = await this.notificationRepository.save(notification);
+    this.logger.log(`Created notification ${saved.id} for user ${dto.userId}`);
+    return saved;
+  }
+
+  /**
+   * Đánh dấu toàn bộ thông báo của 1 user là đã đọc
+   */
+  async markAllAsRead(userId: string): Promise<boolean> {
+    const result = await this.notificationRepository.update(
+      { userId, status: StatusEnum.PENDING }, // PENDING = Chưa đọc
+      { status: StatusEnum.ACTIVE },
+    );
+    return (result.affected ?? 0) > 0;
+  }
 
   /**
    * Notify patients about cancelled appointments
@@ -27,7 +105,44 @@ export class NotificationService {
     );
 
     const results = await Promise.allSettled(
-      appointments.map((apt) => this.sendCancellationEmail(apt, reason)),
+      appointments.map(async (apt) => {
+        // Send Email
+        await this.sendCancellationEmail(apt, reason);
+        
+        // Notify Patient in-app
+        const patientUserId = apt.patient?.user?.id;
+        if (!patientUserId) {
+          this.logger.warn(
+            `Cannot create in-app notification - missing patient.user.id for appointment ${apt.id}`,
+          );
+        } else {
+          await this.createNotification({
+            userId: patientUserId,
+            type: NotificationTypeEnum.APPOINTMENT,
+            title: 'Lịch hẹn đã bị hủy',
+            content: `Lịch hẹn mã ${apt.appointmentNumber} của bạn đã bị hủy do ${reason === 'TIME_OFF' ? 'bác sĩ có lịch nghỉ phép' : 'sự thay đổi lịch làm việc'}.`,
+            refId: apt.id,
+            refType: 'APPOINTMENT',
+          });
+        }
+
+        // Notify Doctor in-app
+        const doctorUserId = apt.doctor?.user?.id;
+        if (!doctorUserId) {
+          this.logger.warn(
+            `Cannot create in-app notification - missing doctor.user.id for appointment ${apt.id}`,
+          );
+        } else {
+          await this.createNotification({
+            userId: doctorUserId,
+            type: NotificationTypeEnum.APPOINTMENT,
+            title: 'Hệ thống đã hủy lịch hẹn',
+            content: `Hệ thống đã tự động hủy lịch hẹn mã ${apt.appointmentNumber} do lịch làm việc của bạn có sự thay đổi.`,
+            refId: apt.id,
+            refType: 'APPOINTMENT',
+          });
+        }
+      }),
     );
 
     const succeeded = results.filter((r) => r.status === 'fulfilled').length;
@@ -288,9 +403,46 @@ export class NotificationService {
     );
 
     const results = await Promise.allSettled(
-      appointments.map((apt) =>
-        this.sendScheduleChangeWarningEmail(apt, changeInfo),
-      ),
+      appointments.map(async (apt) => {
+        // Send Warning Email
+        await this.sendScheduleChangeWarningEmail(apt, changeInfo);
+
+        // Notify Patient in-app
+        const patientUserId = apt.patient?.user?.id;
+        const effectiveFromStr = changeInfo.effectiveFrom.toLocaleDateString('vi-VN');
+        
+        if (!patientUserId) {
+          this.logger.warn(
+            `Cannot create in-app notification - missing patient.user.id for appointment ${apt.id}`,
+          );
+        } else {
+          await this.createNotification({
+            userId: patientUserId,
+            type: NotificationTypeEnum.APPOINTMENT,
+            title: 'Cảnh báo thay đổi lịch làm việc',
+            content: `Bác sĩ ${apt.doctor?.user?.fullName || ''} đã thay đổi lịch làm việc từ ${effectiveFromStr}. Vui lòng kiểm tra lại lịch hẹn mã ${apt.appointmentNumber} của bạn.`,
+            refId: apt.id,
+            refType: 'APPOINTMENT',
+          });
+        }
+
+        // Notify Doctor in-app
+        const doctorUserId = apt.doctor?.user?.id;
+        if (!doctorUserId) {
+          this.logger.warn(
+            `Cannot create in-app notification - missing doctor.user.id for appointment ${apt.id}`,
+          );
+        } else {
+          await this.createNotification({
+            userId: doctorUserId,
+            type: NotificationTypeEnum.APPOINTMENT,
+            title: 'Lịch làm việc của bạn đã được cập nhật',
+            content: `Lịch làm việc của bạn đã thay đổi từ ${effectiveFromStr}. Lịch hẹn mã ${apt.appointmentNumber} có thể bị ảnh hưởng.`,
+            refId: apt.id,
+            refType: 'APPOINTMENT',
+          });
+        }
+      }),
     );
 
     const succeeded = results.filter((r) => r.status === 'fulfilled').length;

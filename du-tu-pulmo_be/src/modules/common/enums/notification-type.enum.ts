@@ -4,4 +4,5 @@ export enum NotificationTypeEnum {
   CONTRACT = 'CONTRACT',
   PENALTY = 'PENALTY',
   SYSTEM = 'SYSTEM',
+  APPOINTMENT = 'APPOINTMENT',
 }

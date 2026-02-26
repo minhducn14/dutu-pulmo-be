@@ -1,10 +1,9 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ChatGateway } from '@/modules/chat/chat.gateway';
 import { ChatMessageModule } from '@/modules/chatmessage/chatmessage.module';
 import { ChatRoomModule } from '@/modules/chatroom/chatroom.module';
-import { forwardRef } from '@nestjs/common';
 
 @Module({
   imports: [

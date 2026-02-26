@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsEnum } from 'class-validator';
+import { IsNotEmpty, IsString, IsEnum, IsOptional, IsUUID } from 'class-validator';
 import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.enum';
 import { StatusEnum } from '@/modules/common/enums/status.enum';
 import { ApiProperty } from '@nestjs/swagger';
@@ -33,6 +33,7 @@ export class CreateNotificationDto {
   })
   content: string;
 
+  @IsOptional()
   @IsEnum(StatusEnum)
   @ApiProperty({
     example: StatusEnum.PENDING,
@@ -41,4 +42,22 @@ export class CreateNotificationDto {
     description: 'Trạng thái thông báo',
   })
   status?: StatusEnum;
+
+  @IsOptional()
+  @IsUUID()
+  @ApiProperty({
+    example: 'b17ee20d-cae4-422f-bf8c-11a8c0de4f33',
+    required: false,
+    description: 'ID của entity liên quan (VD: Appointment ID)',
+  })
+  refId?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({
+    example: 'APPOINTMENT',
+    required: false,
+    description: 'Loại entity liên quan',
+  })
+  refType?: string;
 }

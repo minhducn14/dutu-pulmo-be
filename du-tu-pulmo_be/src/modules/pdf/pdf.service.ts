@@ -32,7 +32,10 @@ Handlebars.registerHelper(
 // ── Template loader (once at startup) ─────────────────────────────────────
 
 function loadTemplate(filename: string): HandlebarsTemplateDelegate {
-  const templatePath = path.join(__dirname, 'templates', filename);
+  let templatePath = path.join(__dirname, 'templates', filename);
+  if (!fs.existsSync(templatePath)) {
+    templatePath = path.join(process.cwd(), 'src', 'modules', 'pdf', 'templates', filename);
+  }
   const html = fs.readFileSync(templatePath, 'utf8');
   return Handlebars.compile(html);
 }
@@ -157,7 +160,8 @@ export class PdfService {
     }));
 
     return {
-      clinicName: this.config('CLINIC_NAME', 'Phòng Khám Dutu Pulmo'),
+      logoUrl: this.config('CLINIC_LOGO', 'https://res.cloudinary.com/dto1lgngv/image/upload/v1771943840/logo_cezsy0.jpg'),
+      clinicName: this.config('CLINIC_NAME', 'Dutu Pulmo'),
       clinicPhone: this.config('CLINIC_PHONE', '0123456789'),
       prescriptionCode: prescription.prescriptionNumber,
       patientCode:
@@ -224,6 +228,7 @@ export class PdfService {
     }));
 
     return {
+      logoUrl: this.config('CLINIC_LOGO', 'https://res.cloudinary.com/dto1lgngv/image/upload/v1771943840/logo_cezsy0.jpg'),
       clinicName: this.config('CLINIC_NAME', 'Phòng Khám Dutu Pulmo'),
       clinicPhone: this.config('CLINIC_PHONE', '0123456789'),
       recordNumber: record.recordNumber,
@@ -272,6 +277,10 @@ export class PdfService {
       secondaryDiagnosis: record.secondaryDiagnosis ?? undefined,
       treatmentPlan: record.treatmentPlan ?? undefined,
       treatmentGiven: record.treatmentGiven ?? undefined,
+      treatmentStartDate: record.treatmentStartDate ? this.formatDate(record.treatmentStartDate) : undefined,
+      treatmentEndDate: record.treatmentEndDate ? this.formatDate(record.treatmentEndDate) : undefined,
+      dischargeDiagnosis: record.dischargeDiagnosis ?? undefined,
+      dischargeCondition: this.formatDischargeCondition(record.dischargeCondition),
       followUpInstructions: record.followUpInstructions ?? undefined,
       hasPrescription: prescriptions.length > 0,
       prescriptions,
@@ -355,5 +364,17 @@ export class PdfService {
     if (g === 'male' || g === 'nam') return 'Nam';
     if (g === 'female' || g === 'nữ' || g === 'nu') return 'Nữ';
     return gender;
+  }
+
+  private formatDischargeCondition(condition: string | null | undefined): string | undefined {
+    if (!condition) return undefined;
+    const condMap: Record<string, string> = {
+      improved: 'Khỏi bệnh',
+      stable: 'Đỡ, cần tiếp tục điều trị',
+      unchanged: 'Không thay đổi',
+      worsened: 'Nặng hơn',
+      deceased: 'Tử vong'
+    };
+    return condMap[condition] || condition;
   }
 }

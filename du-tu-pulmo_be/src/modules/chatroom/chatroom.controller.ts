@@ -10,6 +10,7 @@ import {
   HttpStatus,
   UseGuards,
   ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import { ChatRoomService } from '@/modules/chatroom/chatroom.service';
 import { UpdateChatRoomDto } from '@/modules/chatroom/dto/update-chatroom.dto';
@@ -27,6 +28,7 @@ import { CreateChatRoomDto } from '@/modules/chatroom/dto/create-chatroom.dto';
 import { CurrentUser } from '@/common/decorators/user.decorator';
 import type { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
 import { ResponseCommon } from '@/common/dto/response.dto';
+import { CHATROOM_ERRORS } from '@/common/constants/error-messages.constant';
 
 @ApiTags('Chat')
 @Controller('chatrooms')
@@ -37,15 +39,11 @@ export class ChatRoomController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Tạo chatroom mới' })
+  @ApiOperation({ summary: 'Tạo hoặc lấy chatroom giữa 2 users' })
   @ApiResponse({
     status: HttpStatus.CREATED,
     type: ChatRoomResponseDto,
-    description: 'Tạo chatroom thành công',
-  })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Request không hợp lệ',
+    description: 'Tạo hoặc lấy chatroom thành công',
   })
   async create(
     @Body() createChatRoomDto: CreateChatRoomDto,
@@ -59,10 +57,10 @@ export class ChatRoomController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Lấy danh sách chatroom (Admin)' })
-  @ApiResponse({ status: HttpStatus.OK, type: [ChatRoomResponseDto] })
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
+  @ApiOperation({ summary: 'Lấy danh sách tất cả chatroom (Admin)' })
+  @ApiResponse({ status: HttpStatus.OK, type: [ChatRoomResponseDto] })
   async findAll(): Promise<ResponseCommon<ChatRoomResponseDto[]>> {
     const response = await this.chatRoomService.findAll();
     const data = (response.data ?? []).map((room) =>
@@ -72,7 +70,7 @@ export class ChatRoomController {
   }
 
   @Get('my-chats')
-  @ApiOperation({ summary: 'Lấy tất cả chats của user hiện tại' })
+  @ApiOperation({ summary: 'Lấy tất cả chatrooms của user hiện tại' })
   @ApiResponse({
     status: HttpStatus.OK,
     type: [ChatRoomResponseDto],
@@ -105,22 +103,24 @@ export class ChatRoomController {
   ): Promise<ResponseCommon<ChatRoomResponseDto>> {
     const response = await this.chatRoomService.findOne(id);
 
+    if (!response.data) {
+      throw new NotFoundException(CHATROOM_ERRORS.CHATROOM_NOT_FOUND);
+    }
+
     if (!user.roles?.includes('ADMIN')) {
       const isMember = await this.chatRoomService.isUserMemberOfChatRoom(
         id,
         user.id,
       );
       if (!isMember) {
-        throw new ForbiddenException(
-          'Báº¡n khÃ´ng pháº£i thÃ nh viÃªn cá»§a phÃ²ng chat nÃ y',
-        );
+        throw new ForbiddenException(CHATROOM_ERRORS.NOT_MEMBER);
       }
     }
 
     return new ResponseCommon(
       response.code,
       response.message,
-      ChatRoomResponseDto.fromEntity(response.data!),
+      ChatRoomResponseDto.fromEntity(response.data),
     );
   }
 

@@ -24,7 +24,6 @@ export class Notification {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  // Add scalar userId for IDOR checks without loading relation
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
@@ -41,10 +40,10 @@ export class Notification {
   status: StatusEnum;
 
   @Column({ name: 'ref_id', type: 'uuid', nullable: true })
-  refId: string;
+  refId: string | null;
 
-  @Column({ name: 'ref_type', length: 50, nullable: true })
-  refType: string; // APPOINTMENT, SCREENING, PAYMENT, etc.
+  @Column({ name: 'ref_type', type: 'varchar', length: 50, nullable: true })
+  refType: string | null; // APPOINTMENT, SCREENING, PAYMENT, etc.
 
   @Column({ name: 'sent_at', type: 'timestamptz', nullable: true })
   sentAt: Date;

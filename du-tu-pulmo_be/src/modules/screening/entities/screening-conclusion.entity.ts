@@ -11,6 +11,7 @@ import { ScreeningRequest } from '@/modules/screening/entities/screening-request
 import { AiAnalysis } from '@/modules/screening/entities/ai-analysis.entity';
 import { Patient } from '@/modules/patient/entities/patient.entity';
 import { Doctor } from '@/modules/doctor/entities/doctor.entity';
+import type { DecisionSource } from '@/modules/common/enums/decision-source.enum';
 
 @Entity('screening_conclusions')
 export class ScreeningConclusion {
@@ -65,7 +66,7 @@ export class ScreeningConclusion {
     nullable: true,
     comment: 'AI_ONLY, DOCTOR_ONLY, DOCTOR_REVIEWED_AI',
   })
-  decisionSource: 'AI_ONLY' | 'DOCTOR_ONLY' | 'DOCTOR_REVIEWED_AI';
+  decisionSource: DecisionSource;
 
   @Column({ name: 'doctor_override_reason', type: 'text', nullable: true })
   doctorOverrideReason: string;

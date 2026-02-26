@@ -24,6 +24,8 @@ import { ScreeningStatusEnum } from '@/modules/common/enums/screening-status.enu
 import { AiDiagnosisStatusEnum } from '@/modules/common/enums/ai-diagnosis-status.enum';
 import { PulmoAiResponseDto } from '@/modules/screening/dto/ai-analysis-response.dto';
 import { SCREENING_ERRORS } from '@/common/constants/error-messages.constant';
+import { GetScreeningRequestsDto } from '@/modules/screening/dto/get-screening-requests.dto';
+import { CreateConclusionDto } from '@/modules/screening/dto/create-conclusion.dto';
 
 @Injectable()
 export class ScreeningService {
@@ -49,10 +51,47 @@ export class ScreeningService {
     );
   }
 
-  async findAll(): Promise<ScreeningRequest[]> {
-    return this.screeningRepository.find({
-      relations: ['patient', 'uploadedByDoctor'],
-    });
+  async findAll(
+    query: GetScreeningRequestsDto,
+  ): Promise<[ScreeningRequest[], number]> {
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      status,
+      screeningType,
+      patientId,
+      sort = 'createdAt',
+      order = 'DESC',
+    } = query;
+    const skip = (page - 1) * limit;
+
+    const qb = this.screeningRepository
+      .createQueryBuilder('screening')
+      .leftJoinAndSelect('screening.patient', 'patient')
+      .leftJoinAndSelect('screening.uploadedByDoctor', 'uploadedByDoctor');
+
+    if (status) {
+      qb.andWhere('screening.status = :status', { status });
+    }
+    if (screeningType) {
+      qb.andWhere('screening.screeningType = :screeningType', {
+        screeningType,
+      });
+    }
+    if (patientId) {
+      qb.andWhere('screening.patientId = :patientId', { patientId });
+    }
+    if (search) {
+      qb.andWhere(
+        '(screening.screeningNumber ILIKE :search OR patient.fullName ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    qb.orderBy(`screening.${sort}`, order).skip(skip).take(limit);
+
+    return qb.getManyAndCount();
   }
 
   async findById(id: string): Promise<ScreeningRequest> {
@@ -101,6 +140,8 @@ export class ScreeningService {
     ],
     [ScreeningStatusEnum.AI_COMPLETED]: [
       ScreeningStatusEnum.PENDING_DOCTOR,
+      ScreeningStatusEnum.DOCTOR_REVIEWING,
+      ScreeningStatusEnum.DOCTOR_COMPLETED,
       ScreeningStatusEnum.CANCELLED,
     ],
     [ScreeningStatusEnum.AI_FAILED]: [
@@ -109,6 +150,7 @@ export class ScreeningService {
     ],
     [ScreeningStatusEnum.PENDING_DOCTOR]: [
       ScreeningStatusEnum.DOCTOR_REVIEWING,
+      ScreeningStatusEnum.DOCTOR_COMPLETED,
       ScreeningStatusEnum.CANCELLED,
     ],
     [ScreeningStatusEnum.DOCTOR_REVIEWING]: [
@@ -171,6 +213,51 @@ export class ScreeningService {
     return this.conclusionRepository.save(conclusion);
   }
 
+  async createConclusion(
+    screeningId: string,
+    doctorId: string,
+    dto: CreateConclusionDto,
+  ): Promise<ScreeningConclusion> {
+    const screening = await this.findById(screeningId);
+
+    const analyses = await this.findAiAnalysesByScreening(screeningId);
+    const latestAnalysis = analyses.length > 0 ? analyses[0] : null;
+
+    const conclusion = this.conclusionRepository.create({
+      screeningId,
+      aiAnalysisId: latestAnalysis?.id,
+      patientId: screening.patientId,
+      doctorId,
+      medicalRecordId: screening.medicalRecordId,
+      agreesWithAi: dto.agreesWithAi,
+      decisionSource: dto.decisionSource,
+      doctorOverrideReason: dto.doctorOverrideReason,
+      reviewedAt: new Date(),
+    });
+
+    const saved = await this.conclusionRepository.save(conclusion);
+
+    if (
+      screening.status !== ScreeningStatusEnum.DOCTOR_COMPLETED &&
+      screening.status !== ScreeningStatusEnum.CANCELLED
+    ) {
+      await this.updateStatus(
+        screeningId,
+        ScreeningStatusEnum.DOCTOR_COMPLETED,
+      );
+    }
+
+    return saved;
+  }
+
+  async getConclusions(screeningId: string): Promise<ScreeningConclusion[]> {
+    return this.conclusionRepository.find({
+      where: { screeningId },
+      order: { reviewedAt: 'DESC' },
+      relations: ['doctor'],
+    });
+  }
+
   private generateScreeningNumber(): string {
     const timestamp = Date.now().toString(36).toUpperCase();
     const random = Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -196,12 +283,50 @@ export class ScreeningService {
     });
   }
 
-  async findByUploaderDoctor(doctorId: string): Promise<ScreeningRequest[]> {
-    return this.screeningRepository.find({
-      where: { uploadedByDoctorId: doctorId },
-      relations: ['patient', 'images', 'uploadedByDoctor'],
-      order: { createdAt: 'DESC' },
-    });
+  async findByUploaderDoctor(
+    doctorId: string,
+    query: GetScreeningRequestsDto,
+  ): Promise<[ScreeningRequest[], number]> {
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      status,
+      screeningType,
+      patientId,
+      sort = 'createdAt',
+      order = 'DESC',
+    } = query;
+    const skip = (page - 1) * limit;
+
+    const qb = this.screeningRepository
+      .createQueryBuilder('screening')
+      .leftJoinAndSelect('screening.patient', 'patient')
+      .leftJoinAndSelect('screening.images', 'images')
+      .leftJoinAndSelect('screening.uploadedByDoctor', 'uploadedByDoctor')
+      .where('screening.uploadedByDoctorId = :doctorId', { doctorId });
+
+    if (status) {
+      qb.andWhere('screening.status = :status', { status });
+    }
+    if (screeningType) {
+      qb.andWhere('screening.screeningType = :screeningType', {
+        screeningType,
+      });
+    }
+    if (patientId) {
+      qb.andWhere('screening.patientId = :patientId', { patientId });
+    }
+    if (search) {
+      qb.andWhere(
+        '(screening.screeningNumber ILIKE :search OR patient.fullName ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    qb.orderBy(`screening.${sort}`, order).skip(skip).take(limit);
+
+    return qb.getManyAndCount();
   }
 
   async checkPulmoAiHealth(): Promise<boolean> {

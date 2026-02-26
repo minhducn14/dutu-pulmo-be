@@ -21,7 +21,10 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { ChatMessageResponseDto } from '@/modules/chatmessage/dto/chatmessage-response.dto';
+import {
+  ChatMessageResponseDto,
+  ChatMessageMapper,
+} from '@/modules/chatmessage/dto/chatmessage-response.dto';
 import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
 import { Roles } from '@/common/decorators/roles.decorator';
@@ -46,11 +49,7 @@ export class ChatMessageController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Gửi message mới (chỉ thành viên chatroom)' })
-  @ApiResponse({
-    status: HttpStatus.CREATED,
-    type: ChatMessageResponseDto,
-    description: 'Gửi message thành công',
-  })
+  @ApiResponse({ status: HttpStatus.CREATED, type: ChatMessageResponseDto })
   @ApiResponse({
     status: HttpStatus.FORBIDDEN,
     description: 'Bạn không phải thành viên của chatroom này',
@@ -67,32 +66,20 @@ export class ChatMessageController {
       throw new ForbiddenException(CHAT_ERRORS.NOT_MEMBER);
     }
 
+    // Inject senderId từ JWT — không tin tưởng body
     const response = await this.chatMessageService.create({
       ...createChatMessageDto,
       senderId: user.id,
     });
 
+    const dto = ChatMessageMapper.toDto(response.data!);
+
+    // Emit realtime event tới room
     if (response.data) {
-      this.chatGateway.emitMessageToRoom(createChatMessageDto.chatroomId, {
-        id: response.data.id,
-        chatroomId:
-          response.data.chatroom?.id || createChatMessageDto.chatroomId,
-        content: response.data.content,
-        sender: {
-          id: user.id,
-          fullName: user.fullName || user.email,
-          email: user.email,
-        },
-        createdAt:
-          response.data.createdAt?.toISOString() || new Date().toISOString(),
-      });
+      this.chatGateway.emitMessageToRoom(createChatMessageDto.chatroomId, dto);
     }
 
-    return new ResponseCommon(
-      response.code,
-      response.message,
-      ChatMessageResponseDto.fromEntity(response.data!),
-    );
+    return new ResponseCommon(response.code, response.message, dto);
   }
 
   @Get()
@@ -102,10 +89,11 @@ export class ChatMessageController {
   @ApiResponse({ status: HttpStatus.OK, type: [ChatMessageResponseDto] })
   async findAll(): Promise<ResponseCommon<ChatMessageResponseDto[]>> {
     const response = await this.chatMessageService.findAll();
-    const data = (response.data ?? []).map((message) =>
-      ChatMessageResponseDto.fromEntity(message),
+    return new ResponseCommon(
+      response.code,
+      response.message,
+      ChatMessageMapper.toDtoList(response.data ?? []),
     );
-    return new ResponseCommon(response.code, response.message, data);
   }
 
   @Get('chatroom/:chatroomId')
@@ -133,10 +121,11 @@ export class ChatMessageController {
 
     const response =
       await this.chatMessageService.findAllByChatRoomId(chatroomId);
-    const data = (response.data ?? []).map((message) =>
-      ChatMessageResponseDto.fromEntity(message),
+    return new ResponseCommon(
+      response.code,
+      response.message,
+      ChatMessageMapper.toDtoList(response.data ?? []),
     );
-    return new ResponseCommon(response.code, response.message, data);
   }
 
   @Get(':id')
@@ -176,12 +165,12 @@ export class ChatMessageController {
     return new ResponseCommon(
       response.code,
       response.message,
-      ChatMessageResponseDto.fromEntity(response.data),
+      ChatMessageMapper.toDto(response.data),
     );
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Cập nhật message (chỉ người gửi)' })
+  @ApiOperation({ summary: 'Cập nhật nội dung message (chỉ người gửi)' })
   @ApiResponse({ status: HttpStatus.OK, type: ChatMessageResponseDto })
   @ApiResponse({
     status: HttpStatus.FORBIDDEN,
@@ -198,12 +187,7 @@ export class ChatMessageController {
       throw new NotFoundException(CHAT_ERRORS.MESSAGE_NOT_FOUND);
     }
 
-    const senderId = message.data.sender?.id;
-    if (!senderId) {
-      throw new NotFoundException('Message sender not found');
-    }
-
-    if (!user.roles?.includes('ADMIN') && senderId !== user.id) {
+    if (!user.roles?.includes('ADMIN') && message.data.sender?.id !== user.id) {
       throw new ForbiddenException(CHAT_ERRORS.NOT_SENDER);
     }
 
@@ -214,7 +198,7 @@ export class ChatMessageController {
     return new ResponseCommon(
       response.code,
       response.message,
-      ChatMessageResponseDto.fromEntity(response.data!),
+      ChatMessageMapper.toDto(response.data!),
     );
   }
 
@@ -239,12 +223,7 @@ export class ChatMessageController {
       throw new NotFoundException(CHAT_ERRORS.MESSAGE_NOT_FOUND);
     }
 
-    const senderId = message.data.sender?.id;
-    if (!senderId) {
-      throw new NotFoundException('Message sender not found');
-    }
-
-    if (!user.roles?.includes('ADMIN') && senderId !== user.id) {
+    if (!user.roles?.includes('ADMIN') && message.data.sender?.id !== user.id) {
       throw new ForbiddenException(CHAT_ERRORS.NOT_SENDER);
     }
 

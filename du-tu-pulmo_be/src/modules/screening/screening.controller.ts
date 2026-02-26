@@ -13,6 +13,7 @@ import {
   UploadedFile,
   BadRequestException,
   NotFoundException,
+  Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -41,6 +42,11 @@ import { PatientService } from '@/modules/patient/patient.service';
 import { ScreeningRequestResponseDto } from '@/modules/screening/dto/screening-request-response.dto';
 import { MedicalImageResponseDto } from '@/modules/screening/dto/medical-image-response.dto';
 import { AiAnalysisResponseDto } from '@/modules/screening/dto/ai-analysis-entity-response.dto';
+import { GetScreeningRequestsDto } from '@/modules/screening/dto/get-screening-requests.dto';
+import { PaginatedResponseDto } from '@/common/dto/pagination.dto';
+import { CreateConclusionDto } from '@/modules/screening/dto/create-conclusion.dto';
+import { ScreeningConclusionResponseDto } from '@/modules/screening/dto/screening-conclusion-response.dto';
+
 import {
   SCREENING_ERRORS,
   DOCTOR_ERRORS,
@@ -68,30 +74,48 @@ export class ScreeningController {
     description: 'Danh sách yêu cầu sàng lọc',
     type: [ScreeningRequestResponseDto],
   })
-  async findAll(): Promise<ResponseCommon<ScreeningRequestResponseDto[]>> {
-    const screenings = await this.screeningService.findAll();
+  async findAll(
+    @Query() query: GetScreeningRequestsDto,
+  ): Promise<
+    ResponseCommon<PaginatedResponseDto<ScreeningRequestResponseDto>>
+  > {
+    const [screenings, total] = await this.screeningService.findAll(query);
     const data = (screenings ?? []).map((screening) =>
       ScreeningRequestResponseDto.fromEntity(screening),
     );
-    return new ResponseCommon(HttpStatus.OK, 'SUCCESS', data);
+    const paginatedData = new PaginatedResponseDto(
+      data,
+      total,
+      query.page || 1,
+      query.limit || 10,
+    );
+    return new ResponseCommon(HttpStatus.OK, 'SUCCESS', paginatedData);
   }
 
   @Get('uploaded')
   @Roles('DOCTOR')
   @ApiOperation({ summary: 'Lấy danh sách screening do bác sĩ tạo/upload' })
   async findUploadedByMe(
+    @Query() query: GetScreeningRequestsDto,
     @CurrentUser() user: JwtUser,
-  ): Promise<ResponseCommon<ScreeningRequestResponseDto[]>> {
+  ): Promise<
+    ResponseCommon<PaginatedResponseDto<ScreeningRequestResponseDto>>
+  > {
     if (!user.doctorId) {
       throw new ForbiddenException(DOCTOR_ERRORS.MISSING_DOCTOR_INFO);
     }
-    const screenings = await this.screeningService.findByUploaderDoctor(
-      user.doctorId,
-    );
+    const [screenings, total] =
+      await this.screeningService.findByUploaderDoctor(user.doctorId, query);
     const data = (screenings ?? []).map((screening) =>
       ScreeningRequestResponseDto.fromEntity(screening),
     );
-    return new ResponseCommon(HttpStatus.OK, 'SUCCESS', data);
+    const paginatedData = new PaginatedResponseDto(
+      data,
+      total,
+      query.page || 1,
+      query.limit || 10,
+    );
+    return new ResponseCommon(HttpStatus.OK, 'SUCCESS', paginatedData);
   }
 
   @Get(':id')
@@ -449,6 +473,74 @@ export class ScreeningController {
       'SUCCESS',
       AiAnalysisResponseDto.fromEntity(analysis),
     );
+  }
+
+  @Post(':screeningId/conclusions')
+  @Roles('DOCTOR', 'ADMIN')
+  @ApiOperation({ summary: 'Bác sĩ đưa ra kết luận chẩn đoán' })
+  @ApiParam({ name: 'screeningId', description: 'Screening Request ID (UUID)' })
+  @ApiBody({ type: CreateConclusionDto })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Tạo kết luận thành công',
+    type: ScreeningConclusionResponseDto,
+  })
+  async createConclusion(
+    @Param('screeningId', ParseUUIDPipe) screeningId: string,
+    @Body() dto: CreateConclusionDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<ScreeningConclusionResponseDto>> {
+    const screening = await this.screeningService.findById(screeningId);
+
+    if (!user.roles?.includes('ADMIN')) {
+      const canConclude = screening.uploadedByDoctorId === user.doctorId;
+      if (!canConclude) {
+        throw new ForbiddenException(SCREENING_ERRORS.ACCESS_DENIED_SCREENING);
+      }
+    }
+
+    const conclusion = await this.screeningService.createConclusion(
+      screeningId,
+      user.doctorId as string,
+      dto,
+    );
+
+    return new ResponseCommon(
+      HttpStatus.CREATED,
+      'SUCCESS',
+      ScreeningConclusionResponseDto.fromEntity(conclusion),
+    );
+  }
+
+  @Get(':screeningId/conclusions')
+  @ApiOperation({ summary: 'Lấy danh sách kết luận của 1 phiên sàng lọc' })
+  @ApiParam({ name: 'screeningId', description: 'Screening Request ID (UUID)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Danh sách kết luận',
+    type: [ScreeningConclusionResponseDto],
+  })
+  async getConclusions(
+    @Param('screeningId', ParseUUIDPipe) screeningId: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<ScreeningConclusionResponseDto[]>> {
+    const screening = await this.screeningService.findById(screeningId);
+
+    if (!user.roles?.includes('ADMIN')) {
+      if (
+        user.roles?.includes('PATIENT') &&
+        screening.patientId !== user.patientId
+      ) {
+        throw new ForbiddenException(SCREENING_ERRORS.ACCESS_DENIED_SCREENING);
+      }
+    }
+
+    const conclusions = await this.screeningService.getConclusions(screeningId);
+    const data = conclusions.map((c) =>
+      ScreeningConclusionResponseDto.fromEntity(c as any),
+    );
+
+    return new ResponseCommon(HttpStatus.OK, 'SUCCESS', data);
   }
 
   @Post('workflow/xray-analyze')

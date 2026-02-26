@@ -13,352 +13,241 @@
 
         body {
             font-family: "Times New Roman", Times, serif;
-            font-size: 12.5px;
+            font-size: 13pt;
             color: #000;
-            padding: 15mm 12mm 12mm 15mm;
+            padding: 10mm 15mm;
             width: 210mm;
+            line-height: 1.5;
         }
 
-        /* ── HEADER ── */
-        .header {
+        .flex {
             display: flex;
+        }
+
+        .justify-between {
             justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 12px;
-            padding-bottom: 10px;
-            border-bottom: 3px solid #0A5F8C;
         }
 
-        .clinic-block {
-            display: flex;
+        .items-center {
             align-items: center;
-            gap: 12px;
         }
 
-        .clinic-avatar {
-            width: 62px;
-            height: 62px;
-            border-radius: 50%;
-            background: #D6EBF8;
-            border: 2px solid #0A5F8C;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 30px;
+        .items-end {
+            align-items: flex-end;
         }
 
-        .clinic-name {
-            font-size: 16px;
-            font-weight: bold;
-            color: #0A5F8C;
+        .mt-1 {
+            margin-top: 4px;
         }
 
-        .clinic-sub {
-            font-size: 11px;
-            color: #555;
-            margin-top: 3px;
+        .mt-2 {
+            margin-top: 8px;
         }
 
-        .header-right {
-            text-align: right;
-            font-size: 11px;
-            line-height: 1.9;
-            color: #333;
+        .mt-4 {
+            margin-top: 16px;
         }
 
-        .header-right span {
-            font-weight: bold;
-            color: #000;
+        .mb-2 {
+            margin-bottom: 8px;
         }
 
-        /* ── TITLE ── */
-        .title-block {
+        .mb-4 {
+            margin-bottom: 16px;
+        }
+
+        .ml-2 {
+            margin-left: 8px;
+        }
+
+        .mr-2 {
+            margin-right: 8px;
+        }
+
+        .text-center {
             text-align: center;
-            margin: 10px 0 14px;
         }
 
-        .title {
-            font-size: 20px;
+        .text-right {
+            text-align: right;
+        }
+
+        .font-bold {
             font-weight: bold;
-            letter-spacing: 3px;
-            color: #0A5F8C;
-            display: block;
         }
 
-        .title-sub {
-            font-size: 12px;
-            color: #555;
-            margin-top: 3px;
+        .uppercase {
+            text-transform: uppercase;
         }
 
-        .title-divider {
-            width: 100px;
-            height: 2px;
-            background: #0A5F8C;
-            margin: 6px auto 0;
+        /* Typography */
+        h1 {
+            font-size: 18pt;
+            margin: 15px 0 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
-        /* ── SECTION HEADERS ── */
-        .section-title {
-            background: #0A5F8C;
-            color: #fff;
+        h2 {
+            font-size: 14pt;
+            margin: 15px 0 10px;
+            text-transform: uppercase;
+        }
+
+        h3 {
+            font-size: 13pt;
+            margin: 10px 0 5px;
             font-weight: bold;
-            padding: 5px 12px;
-            font-size: 12.5px;
-            margin: 12px 0 8px;
-            border-radius: 3px;
-            letter-spacing: 0.5px;
         }
 
-        /* ── GENERAL CARD ── */
-        .card {
-            background: #F5FAFD;
-            border: 1px solid #C8DDE8;
-            border-radius: 6px;
-            padding: 10px 14px;
-            margin-bottom: 10px;
+        /* Lines */
+        .dot-line {
+            flex-grow: 1;
+            border-bottom: 1px dotted #000;
+            margin: 0 5px;
+            position: relative;
+            top: -4px;
         }
 
-        .info-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px 22px;
-            margin-bottom: 5px;
-        }
-
-        .info-row:last-child {
-            margin-bottom: 0;
-        }
-
-        .info-item {
-            display: flex;
-            gap: 5px;
-        }
-
-        .lbl {
-            font-weight: bold;
-            color: #333;
+        .dot-val {
+            position: absolute;
+            bottom: 2px;
+            left: 5px;
             white-space: nowrap;
         }
 
-        .val {
-            color: #000;
-        }
-
-        /* ── TEXT FIELDS ── */
-        .field-row {
+        .row {
             display: flex;
+            align-items: flex-end;
             margin-bottom: 6px;
         }
 
-        .field-label {
-            font-weight: bold;
-            color: #333;
-            min-width: 160px;
-            flex-shrink: 0;
+        .label {
+            white-space: nowrap;
         }
 
-        .field-value {
-            color: #000;
-            flex: 1;
+        /* Checkboxes */
+        .checkbox-group {
+            display: inline-flex;
+            align-items: center;
+            margin-left: 10px;
         }
 
-        /* ── TAG LIST ── */
-        .tag-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
-            margin-top: 3px;
-        }
-
-        .tag {
-            background: #E8F4FB;
-            border: 1px solid #A8CCE0;
-            border-radius: 12px;
-            padding: 2px 10px;
-            font-size: 11.5px;
-            color: #0A5F8C;
-        }
-
-        .tag.warning {
-            background: #FEF9E7;
-            border-color: #F0C060;
-            color: #7A5200;
-        }
-
-        /* ── VITAL SIGNS TABLE ── */
-        .vital-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
-        }
-
-        .vital-item {
-            background: #fff;
-            border: 1px solid #C8DDE8;
-            border-radius: 5px;
-            padding: 6px 10px;
+        .checkbox {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 1px solid #000;
+            margin: 0 4px;
+            line-height: 10px;
             text-align: center;
-        }
-
-        .vital-label {
-            font-size: 10.5px;
-            color: #555;
-        }
-
-        .vital-val {
-            font-size: 15px;
-            font-weight: bold;
-            color: #0A5F8C;
-            margin: 3px 0 1px;
-        }
-
-        .vital-unit {
-            font-size: 10px;
-            color: #777;
-        }
-
-        /* ── DIAGNOSIS BLOCK ── */
-        .diagnosis-block {
-            padding: 8px 14px;
-            background: #E8F4FB;
-            border-left: 4px solid #0A5F8C;
-            border-radius: 0 6px 6px 0;
-            margin-bottom: 10px;
-        }
-
-        /* ── PRESCRIPTION TABLE ── */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 10px;
             font-size: 12px;
         }
 
-        thead tr {
-            background: #0A5F8C;
-            color: #fff;
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            margin-bottom: 15px;
+            font-size: 12pt;
         }
 
-        th {
-            padding: 6px 9px;
-            text-align: center;
-            font-weight: bold;
-        }
-
+        th,
         td {
-            border: 1px solid #ccc;
-            padding: 6px 9px;
+            border: 1px solid #000;
+            padding: 6px 8px;
             vertical-align: top;
         }
 
-        tbody tr:nth-child(even) {
-            background: #F0F8FD;
-        }
-
-        td.center {
+        th {
             text-align: center;
-            vertical-align: middle;
-        }
-
-        .med-name {
             font-weight: bold;
         }
 
-        .med-dosage {
-            color: #222;
-            margin-top: 3px;
-            font-size: 11.5px;
+        .vital-table {
+            width: 250px;
+            float: right;
+            margin-left: 15px;
+            margin-bottom: 15px;
+            font-size: 11pt;
         }
 
-        /* ── SIGNATURE ── */
-        .sig-container {
+        .vital-table th,
+        .vital-table td {
+            padding: 4px;
+        }
+
+        .clearfix::after {
+            content: "";
+            clear: both;
+            display: table;
+        }
+
+        /* Diagnosis Box */
+        .diagnosis-box {
+            display: inline-block;
+            border: 1px solid #000;
+            padding: 2px 10px;
+            margin-left: 10px;
+            min-width: 60px;
+            text-align: center;
+            height: 24px;
+        }
+
+        .section {
+            margin-bottom: 15px;
+        }
+
+        .paragraph {
+            text-indent: 15px;
+            text-align: justify;
+            margin-bottom: 6px;
+        }
+
+        .signature-area {
             display: flex;
             justify-content: flex-end;
-            margin: 16px 0 10px;
+            margin-top: 30px;
+            page-break-inside: avoid;
         }
 
-        .sig-block {
+        .sig-box {
             text-align: center;
-            min-width: 180px;
-        }
-
-        .sig-date {
-            font-size: 12.5px;
-            color: #333;
-        }
-
-        .sig-role {
-            color: #555;
-            margin-top: 3px;
+            width: 300px;
         }
 
         .sig-space {
-            height: 45px;
-        }
-
-        .sig-name {
-            font-weight: bold;
-            font-size: 14px;
-            color: #0A5F8C;
-        }
-
-        /* ── FOOTER ── */
-        .footer {
-            border-top: 2px dashed #aaa;
-            padding-top: 8px;
-            font-size: 11.5px;
-            color: #555;
-            margin-top: 12px;
-            text-align: center;
-            font-style: italic;
-        }
-
-        /* ── MISC ── */
-        .badge {
-            display: inline-block;
-            font-size: 11px;
-            padding: 2px 8px;
-            border-radius: 10px;
-            margin-left: 6px;
-        }
-
-        .badge-signed {
-            background: #D5F5E3;
-            color: #1A7A3C;
-            border: 1px solid #A9DFBF;
-        }
-
-        .badge-unsigned {
-            background: #FDECEA;
-            color: #9B2335;
-            border: 1px solid #F5B7B1;
+            height: 80px;
         }
     </style>
 </head>
 
 <body>
 
-    <!-- HEADER -->
-    <div class="header">
-        <div class="clinic-block">
-            <div class="clinic-avatar">🫁</div>
+    <!-- HEADER: SỞ Y TẾ - BỆNH VIỆN / SỐ BỆNH ÁN -->
+    <div class="flex justify-between">
+        <div class="flex items-center">
+            <img src="{{logoUrl}}" alt="Logo"
+                style="width: 60px; height: 60px; object-fit: contain; margin-right: 15px;" />
             <div>
-                <div class="clinic-name">{{clinicName}}</div>
-                <div class="clinic-sub">📞 {{clinicPhone}}</div>
+                <div class="font-bold uppercase">Sở y tế: TP. HCM</div>
+                <div class="font-bold uppercase">Cơ sở KB, CB: {{clinicName}}</div>
+                {{#if clinicPhone}}<div>Điện thoại: {{clinicPhone}}</div>{{/if}}
             </div>
         </div>
-        <div class="header-right">
-            <div>Số bệnh án: <span>{{recordNumber}}</span></div>
-            <div>MSBN: <span>{{patientCode}}</span></div>
-            <div>Ngày lập: <span>{{createdDate}}</span></div>
+        <div class="text-right">
+            <div>Số vào viện: <span class="font-bold">{{recordNumber}}</span></div>
+            <div>Mã y tế: <span class="font-bold">{{patientCode}}</span></div>
+            {{#if appointmentNumber}}
+            <div>Mã cuộc hẹn: {{appointmentNumber}}</div>
+            {{/if}}
             {{#if signedStatus}}
-            <div>
-                Trạng thái:
+            <div class="mt-1">
                 {{#eq signedStatus "SIGNED"}}
-                <span class="badge badge-signed">✅ Đã ký</span>
+                <i>(Trạng thái: Đã ký)</i>
                 {{else}}
-                <span class="badge badge-unsigned">⏳ Chưa ký</span>
+                <i>(Trạng thái: Chưa ký)</i>
                 {{/eq}}
             </div>
             {{/if}}
@@ -366,307 +255,269 @@
     </div>
 
     <!-- TITLE -->
-    <div class="title-block">
-        <span class="title">BỆNH ÁN NGOẠI TRÚ</span>
-        <div class="title-sub">{{recordType}}</div>
-        <div class="title-divider"></div>
+    <div class="text-center">
+        <h1>BỆNH ÁN NGOẠI TRÚ</h1>
+        <div><i>({{recordType}})</i></div>
     </div>
 
-    <!-- 1. THÔNG TIN BỆNH NHÂN -->
-    <div class="section-title">I. THÔNG TIN BỆNH NHÂN</div>
-    <div class="card">
-        <div class="info-row">
-            <div class="info-item">
-                <span class="lbl">Họ và tên:</span>
-                <span class="val"><strong>{{patientName}}</strong></span>
-            </div>
-            <div class="info-item">
-                <span class="lbl">Giới tính:</span>
-                <span class="val">{{gender}}</span>
-            </div>
-            {{#if birthYear}}
-            <div class="info-item">
-                <span class="lbl">Năm sinh:</span>
-                <span class="val">{{age}} tuổi ({{birthYear}})</span>
-            </div>
-            {{/if}}
+    <!-- I. HÀNH CHÍNH -->
+    <div class="section mt-4">
+        <h2>I. HÀNH CHÍNH</h2>
+
+        <div class="row">
+            <div class="label">1. Họ và tên (In hoa):</div>
+            <div class="font-bold uppercase ml-2" style="flex-grow: 1;">{{patientName}}</div>
+            <div class="label ml-2">2. Sinh ngày:</div>
+            <div class="ml-2">{{birthYear}}</div>
+            <div class="label ml-4">Tuổi:</div>
+            <div class="ml-2">{{age}}</div>
         </div>
-        {{#if patientPhone}}
-        <div class="info-row">
-            <div class="info-item">
-                <span class="lbl">Điện thoại:</span>
-                <span class="val">{{patientPhone}}</span>
+
+        <div class="row">
+            <div class="label">3. Giới tính:</div>
+            <div class="checkbox-group">
+                Nam <span class="checkbox">{{#eq gender "Nam"}}x{{else}}&nbsp;{{/eq}}</span>
+                Nữ <span class="checkbox">{{#eq gender "Nữ"}}x{{else}}&nbsp;{{/eq}}</span>
             </div>
-            {{#if address}}
-            <div class="info-item">
-                <span class="lbl">Địa chỉ:</span>
-                <span class="val">{{address}}</span>
-            </div>
-            {{/if}}
+            <div class="label ml-4">4. Dân tộc:</div>
+            <div class="dot-line"><span class="dot-val">Kinh</span></div>
         </div>
-        {{/if}}
-        <div class="info-row">
-            <div class="info-item">
-                <span class="lbl">Bác sĩ phụ trách:</span>
-                <span class="val">{{doctorName}}</span>
-            </div>
-            {{#if appointmentNumber}}
-            <div class="info-item">
-                <span class="lbl">Mã cuộc hẹn:</span>
-                <span class="val">{{appointmentNumber}}</span>
-            </div>
-            {{/if}}
+
+        <div class="row">
+            <div class="label">5. Địa chỉ:</div>
+            <div class="dot-line"><span class="dot-val">{{address}}</span></div>
+        </div>
+
+        <div class="row">
+            <div class="label">6. Điện thoại:</div>
+            <div class="dot-line"><span class="dot-val">{{patientPhone}}</span></div>
+            <div class="label ml-2">7. Đối tượng:</div>
+            <div class="dot-line"><span class="dot-val">Khám dịch vụ</span></div>
+        </div>
+
+        <div class="row mt-2">
+            <div class="label">8. Đến khám bệnh lúc:</div>
+            <div class="dot-line"><span class="dot-val">{{createdDate}}</span></div>
         </div>
     </div>
 
-    <!-- 2. CHỈ SỐ SINH HIỆU -->
-    {{#if hasVitalSigns}}
-    <div class="section-title">II. CHỈ SỐ SINH HIỆU</div>
-    <div class="card">
-        <div class="vital-grid">
-            {{#if vitalSigns.heartRate}}
-            <div class="vital-item">
-                <div class="vital-label">Mạch</div>
-                <div class="vital-val">{{vitalSigns.heartRate}}</div>
-                <div class="vital-unit">lần/phút</div>
-            </div>
-            {{/if}}
-            {{#if vitalSigns.bloodPressure}}
-            <div class="vital-item">
-                <div class="vital-label">Huyết áp</div>
-                <div class="vital-val">{{vitalSigns.bloodPressure}}</div>
-                <div class="vital-unit">mmHg</div>
-            </div>
-            {{/if}}
-            {{#if vitalSigns.temperature}}
-            <div class="vital-item">
-                <div class="vital-label">Nhiệt độ</div>
-                <div class="vital-val">{{vitalSigns.temperature}}</div>
-                <div class="vital-unit">°C</div>
-            </div>
-            {{/if}}
-            {{#if vitalSigns.spo2}}
-            <div class="vital-item">
-                <div class="vital-label">SpO₂</div>
-                <div class="vital-val">{{vitalSigns.spo2}}</div>
-                <div class="vital-unit">%</div>
-            </div>
-            {{/if}}
-            {{#if vitalSigns.respiratoryRate}}
-            <div class="vital-item">
-                <div class="vital-label">Nhịp thở</div>
-                <div class="vital-val">{{vitalSigns.respiratoryRate}}</div>
-                <div class="vital-unit">lần/phút</div>
-            </div>
-            {{/if}}
-            {{#if vitalSigns.height}}
-            <div class="vital-item">
-                <div class="vital-label">Chiều cao</div>
-                <div class="vital-val">{{vitalSigns.height}}</div>
-                <div class="vital-unit">cm</div>
-            </div>
-            {{/if}}
-            {{#if vitalSigns.weight}}
-            <div class="vital-item">
-                <div class="vital-label">Cân nặng</div>
-                <div class="vital-val">{{vitalSigns.weight}}</div>
-                <div class="vital-unit">kg</div>
-            </div>
-            {{/if}}
-            {{#if vitalSigns.bmi}}
-            <div class="vital-item">
-                <div class="vital-label">BMI</div>
-                <div class="vital-val">{{vitalSigns.bmi}}</div>
-                <div class="vital-unit">kg/m²</div>
-            </div>
-            {{/if}}
-        </div>
-    </div>
-    {{/if}}
+    <!-- II. LÝ DO VÀO VIỆN & HỎI BỆNH -->
+    <div class="section">
+        <h2>II. LÝ DO VÀO VIỆN & HỎI BỆNH</h2>
 
-    <!-- 3. TIỀN SỬ & LÝ DO KHÁM -->
-    <div class="section-title">III. LÝ DO KHÁM &amp; TIỀN SỬ BỆNH</div>
-    <div class="card">
-        {{#if chiefComplaint}}
-        <div class="field-row">
-            <div class="field-label">Lý do khám:</div>
-            <div class="field-value">{{chiefComplaint}}</div>
+        <div class="mb-2">
+            <span class="font-bold">1. Lý do vào viện / khám bệnh:</span>
+            <span>{{chiefComplaint}}</span>
         </div>
-        {{/if}}
-        {{#if presentIllness}}
-        <div class="field-row">
-            <div class="field-label">Quá trình bệnh lý:</div>
-            <div class="field-value">{{presentIllness}}</div>
+
+        <div class="mb-2">
+            <span class="font-bold">2. Quá trình bệnh lý:</span>
+            <i>(khởi phát, diễn biến, chẩn đoán, điều trị của tuyến dưới)</i>
+            <div class="paragraph mt-1">{{presentIllness}}</div>
         </div>
-        {{/if}}
-        {{#if medicalHistory}}
-        <div class="field-row">
-            <div class="field-label">Tiền sử bản thân:</div>
-            <div class="field-value">{{medicalHistory}}</div>
+
+        <div class="mb-2">
+            <span class="font-bold">3. Tiền sử bệnh:</span>
         </div>
-        {{/if}}
-        {{#if familyHistory}}
-        <div class="field-row">
-            <div class="field-label">Tiền sử gia đình:</div>
-            <div class="field-value">{{familyHistory}}</div>
-        </div>
-        {{/if}}
-        {{#if allergies.length}}
-        <div class="field-row">
-            <div class="field-label">Dị ứng:</div>
-            <div class="field-value">
-                <div class="tag-list">
-                    {{#each allergies}}<span class="tag warning">{{this}}</span>{{/each}}
-                </div>
+
+        <div class="ml-2 mb-2">
+            <div class="row">
+                <div class="label font-bold">+ Bản thân:</div>
+                <div class="dot-line" style="flex-grow: 1;"><span class="dot-val">{{medicalHistory}}</span></div>
             </div>
-        </div>
-        {{/if}}
-        {{#if chronicDiseases.length}}
-        <div class="field-row">
-            <div class="field-label">Bệnh mãn tính:</div>
-            <div class="field-value">
-                <div class="tag-list">
-                    {{#each chronicDiseases}}<span class="tag">{{this}}</span>{{/each}}
-                </div>
+            {{#if surgicalHistory}}
+            <div class="row">
+                <div class="label">- Phẫu thuật:</div>
+                <div class="dot-line" style="flex-grow: 1;"><span class="dot-val">{{surgicalHistory}}</span></div>
             </div>
-        </div>
-        {{/if}}
-        <div class="field-row">
-            <div class="field-label">Hút thuốc lá:</div>
-            <div class="field-value">{{smokingText}}</div>
-        </div>
-        <div class="field-row">
-            <div class="field-label">Uống rượu bia:</div>
-            <div class="field-value">{{alcoholText}}</div>
-        </div>
-    </div>
-
-    <!-- 4. KHÁM LÂM SÀNG -->
-    {{#if physicalExamNotes}}
-    <div class="section-title">IV. KHÁM LÂM SÀNG</div>
-    <div class="card">
-        <div class="field-row">
-            <div class="field-label">Khám toàn thân:</div>
-            <div class="field-value">{{physicalExamNotes}}</div>
-        </div>
-        {{#if systemsReview}}
-        <div class="field-row">
-            <div class="field-label">Khám các bộ phận:</div>
-            <div class="field-value">{{systemsReview}}</div>
-        </div>
-        {{/if}}
-    </div>
-    {{/if}}
-
-    <!-- 5. CHẨN ĐOÁN -->
-    <div class="section-title">V. CHẨN ĐOÁN</div>
-    <div class="diagnosis-block">
-        {{#if diagnosis}}
-        <div class="field-row" style="margin-bottom:5px;">
-            <div class="field-label">Chẩn đoán:</div>
-            <div class="field-value"><strong>{{diagnosis}}</strong></div>
-        </div>
-        {{/if}}
-        {{#if primaryDiagnosis}}
-        <div class="field-row" style="margin-bottom:5px;">
-            <div class="field-label">Bệnh chính:</div>
-            <div class="field-value">{{primaryDiagnosis}}</div>
-        </div>
-        {{/if}}
-        {{#if secondaryDiagnosis}}
-        <div class="field-row" style="margin-bottom:0;">
-            <div class="field-label">Bệnh kèm theo:</div>
-            <div class="field-value">{{secondaryDiagnosis}}</div>
-        </div>
-        {{/if}}
-    </div>
-
-    <!-- 6. ĐIỀU TRỊ -->
-    {{#if treatmentPlan}}
-    <div class="section-title">VI. PHÁC ĐỒ ĐIỀU TRỊ</div>
-    <div class="card">
-        {{#if treatmentPlan}}
-        <div class="field-row">
-            <div class="field-label">Phác đồ điều trị:</div>
-            <div class="field-value">{{treatmentPlan}}</div>
-        </div>
-        {{/if}}
-        {{#if treatmentGiven}}
-        <div class="field-row">
-            <div class="field-label">Đã xử lý:</div>
-            <div class="field-value">{{treatmentGiven}}</div>
-        </div>
-        {{/if}}
-        {{#if followUpInstructions}}
-        <div class="field-row">
-            <div class="field-label">Hướng điều trị tiếp:</div>
-            <div class="field-value">{{followUpInstructions}}</div>
-        </div>
-        {{/if}}
-    </div>
-    {{/if}}
-
-    <!-- 7. ĐƠN THUỐC -->
-    {{#if hasPrescription}}
-    <div class="section-title">VII. ĐƠN THUỐC KÈM THEO</div>
-    {{#each prescriptions}}
-    <div style="margin-bottom:8px;">
-        <div style="font-size:11.5px; color:#555; margin-bottom:4px;">
-            Đơn thuốc: <strong>{{this.prescriptionNumber}}</strong>
-            {{#if this.notes}} — {{this.notes}}{{/if}}
-        </div>
-        <table>
-            <thead>
-                <tr>
-                    <th style="width:5%">STT</th>
-                    <th>Tên thuốc</th>
-                    <th style="width:12%">Liều / Tần suất</th>
-                    <th style="width:8%">SL</th>
-                    <th style="width:9%">ĐVT</th>
-                </tr>
-            </thead>
-            <tbody>
-                {{#each this.items}}
-                <tr>
-                    <td class="center">{{math @index "+1"}}</td>
-                    <td>
-                        <div class="med-name">{{this.medicineName}}</div>
-                        {{#if this.instructions}}
-                        <div class="med-dosage">{{this.instructions}}</div>
+            {{/if}}
+            <div class="row">
+                <div class="label">- Dị ứng:</div>
+                <div class="dot-line" style="flex-grow: 1;">
+                    <span class="dot-val">
+                        {{#if allergies.length}}
+                        {{#each allergies}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}
+                        {{else}}
+                        Không ghi nhận
                         {{/if}}
-                    </td>
-                    <td class="center">{{this.dosage}} / {{this.frequency}}</td>
-                    <td class="center">{{this.quantity}}</td>
-                    <td class="center">{{this.unit}}</td>
+                    </span>
+                </div>
+            </div>
+            <div class="row">
+                <div class="label">- Lối sống (Thuốc lá, rượu bia):</div>
+                <div class="dot-line" style="flex-grow: 1;">
+                    <span class="dot-val">Thuốc lá: {{smokingText}} | Rượu bia: {{alcoholText}}</span>
+                </div>
+            </div>
+            <div class="row mt-2">
+                <div class="label font-bold">+ Gia đình:</div>
+                <div class="dot-line" style="flex-grow: 1;"><span class="dot-val">{{familyHistory}}</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- III. KHÁM BỆNH -->
+    <div class="section clearfix">
+        <h2>III. KHÁM BỆNH</h2>
+
+        {{#if hasVitalSigns}}
+        <table class="vital-table">
+            <tbody>
+                <tr>
+                    <td>Mạch:</td>
+                    <td class="text-right">{{vitalSigns.heartRate}} lần/phút</td>
                 </tr>
-                {{/each}}
+                <tr>
+                    <td>Nhiệt độ:</td>
+                    <td class="text-right">{{vitalSigns.temperature}} °C</td>
+                </tr>
+                <tr>
+                    <td>Huyết áp:</td>
+                    <td class="text-right">{{vitalSigns.bloodPressure}} mmHg</td>
+                </tr>
+                <tr>
+                    <td>Nhịp thở:</td>
+                    <td class="text-right">{{vitalSigns.respiratoryRate}} lần/phút</td>
+                </tr>
+                <tr>
+                    <td>SpO2:</td>
+                    <td class="text-right">{{vitalSigns.spo2}} %</td>
+                </tr>
+                <tr>
+                    <td>Cân nặng:</td>
+                    <td class="text-right">{{vitalSigns.weight}} kg</td>
+                </tr>
+                <tr>
+                    <td>Chiều cao:</td>
+                    <td class="text-right">{{vitalSigns.height}} cm</td>
+                </tr>
+                <tr>
+                    <td>BMI:</td>
+                    <td class="text-right">{{vitalSigns.bmi}}</td>
+                </tr>
             </tbody>
         </table>
-    </div>
-    {{/each}}
-    {{/if}}
+        {{/if}}
 
-    <!-- 8. TỔNG KẾT -->
-    {{#if fullRecordSummary}}
-    <div class="section-title">VIII. TÓM TẮT &amp; GHI CHÚ</div>
-    <div class="card">
-        <div class="field-value">{{fullRecordSummary}}</div>
+        <div class="mb-2">
+            <span class="font-bold">1. Khám toàn thân:</span>
+            <i>(ý thức, da niêm mạc, hệ thống hạch,...)</i>
+            <div class="paragraph mt-1">{{physicalExamNotes}}</div>
+        </div>
+
+        <div class="mb-2">
+            <span class="font-bold">2. Khám các bộ phận:</span>
+            <div class="paragraph mt-1">{{systemsReview}}</div>
+        </div>
+
+        <div class="mb-2">
+            <span class="font-bold">3. Tóm tắt kết quả cận lâm sàng (nếu có):</span>
+            <div class="paragraph mt-1">{{fullRecordSummary}}</div>
+        </div>
+
+    </div>
+
+    <!-- IV. CHẨN ĐOÁN & KẾ HOẠCH -->
+    <div class="section">
+        <h2>IV. CHẨN ĐOÁN VÀ ĐIỀU TRỊ</h2>
+
+        <div class="row">
+            <div class="label font-bold">1. Chẩn đoán ban đầu/Chẩn đoán bệnh:</div>
+            <div class="dot-line" style="flex-grow: 1;"><span class="dot-val">{{diagnosis}}</span></div>
+        </div>
+
+        <div class="row">
+            <div class="label font-bold">2. Bệnh kèm theo:</div>
+            <div class="dot-line" style="flex-grow: 1;"><span class="dot-val">{{secondaryDiagnosis}}</span></div>
+        </div>
+
+        <div class="row">
+            <div class="label font-bold">3. Đã xử lý (thuốc, chăm sóc):</div>
+            <div class="dot-line" style="flex-grow: 1;"><span class="dot-val">{{treatmentGiven}}</span></div>
+        </div>
+
+        <div class="row">
+            <div class="label font-bold">4. Phác đồ điều trị:</div>
+            <div class="dot-line" style="flex-grow: 1;"><span class="dot-val">{{treatmentPlan}}</span></div>
+        </div>
+    </div>
+
+    <!-- V. CHẨN ĐOÁN RA VIỆN -->
+    <div class="section">
+        <h3 style="text-decoration: underline; margin-bottom: 10px;">Chẩn đoán khi ra viện (Tổng kết):</h3>
+
+        <div class="row">
+            <div class="label font-bold">- Chẩn đoán ra viện:</div>
+            <div class="dot-line" style="flex-grow: 1;"><span class="dot-val font-bold">{{primaryDiagnosis}}</span>
+            </div>
+            <div class="diagnosis-box">MÃ ICD</div>
+        </div>
+
+        <div class="row">
+            <div class="label font-bold">- Tình trạng người bệnh lúc ra viện:</div>
+            <div class="dot-line" style="flex-grow: 1;"><span class="dot-val">{{dischargeCondition}}</span></div>
+        </div>
+
+        {{#if treatmentStartDate}}
+        <div class="row">
+            <div class="label font-bold">- Điều trị ngoại trú từ ngày:</div>
+            <div class="ml-2 mr-2">{{treatmentStartDate}}</div>
+            <div class="label font-bold">đến ngày:</div>
+            <div class="ml-2">{{treatmentEndDate}}</div>
+        </div>
+        {{/if}}
+
+        <div class="row">
+            <div class="label font-bold">- Hướng dẫn khám lại:</div>
+            <div class="dot-line" style="flex-grow: 1;"><span class="dot-val">{{followUpInstructions}}</span></div>
+        </div>
+    </div>
+
+    <!-- VI. ĐƠN THUỐC -->
+    {{#if hasPrescription}}
+    <div class="section" style="page-break-before: auto;">
+        <h2>V. ĐƠN THUỐC KÈM THEO</h2>
+        {{#each prescriptions}}
+        <div class="mb-4">
+            <div class="font-bold">Mã số đơn thuốc: {{this.prescriptionNumber}}</div>
+            {{#if this.notes}}<div><i>Ghi chú: {{this.notes}}</i></div>{{/if}}
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 5%;">STT</th>
+                        <th style="width: 35%;">Tên thuốc (Nồng độ/Hàm lượng)</th>
+                        <th style="width: 20%;">Liều dùng/Tần suất</th>
+                        <th style="width: 10%;">Số lượng</th>
+                        <th style="width: 10%;">ĐVT</th>
+                        <th style="width: 20%;">Cách dùng</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{#each this.items}}
+                    <tr>
+                        <td class="text-center">{{math @index "+" 1}}</td>
+                        <td class="font-bold">{{this.medicineName}}</td>
+                        <td class="text-center">{{this.dosage}} / {{this.frequency}}</td>
+                        <td class="text-center">{{this.quantity}}</td>
+                        <td class="text-center">{{this.unit}}</td>
+                        <td>{{this.instructions}}</td>
+                    </tr>
+                    {{/each}}
+                </tbody>
+            </table>
+        </div>
+        {{/each}}
     </div>
     {{/if}}
 
     <!-- SIGNATURE -->
-    <div class="sig-container">
-        <div class="sig-block">
-            <div class="sig-date">{{createdDate}}</div>
-            <div class="sig-role">Bác sĩ điều trị</div>
+    <div class="signature-area">
+        <div class="sig-box">
+            <div>Ngày ..... tháng ..... năm 20.....</div>
+            <div class="font-bold mt-1">BÁC SĨ ĐIỀU TRỊ</div>
             <div class="sig-space"></div>
-            <div class="sig-name">{{doctorName}}</div>
+            <div class="font-bold">{{doctorName}}</div>
         </div>
-    </div>
-
-    <!-- FOOTER -->
-    <div class="footer">
-        Bệnh án được lập bởi hệ thống Dutu Pulmo — Dữ liệu bảo mật, chỉ dùng trong phạm vi y tế
     </div>
 
 </body>
