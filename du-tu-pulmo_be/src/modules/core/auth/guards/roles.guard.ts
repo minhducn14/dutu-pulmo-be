@@ -8,6 +8,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -30,9 +31,7 @@ export class RolesGuard implements CanActivate {
       requiredRoles.includes(role),
     );
     if (!hasRole) {
-      throw new ForbiddenException(
-        'Bạn không có quyền truy cập chức năng này!',
-      );
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
     return true;
   }

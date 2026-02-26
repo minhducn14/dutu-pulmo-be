@@ -14,10 +14,7 @@ import {
 import { PayosService, WebhookData } from '@/modules/payment/payos.service';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
-import {
-  PAYMENT_ERRORS,
-  APPOINTMENT_ERRORS,
-} from '@/common/constants/error-messages.constant';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { PaymentPurpose } from '@/modules/common/enums/payment-purpose.enum';
 
 export interface CreatePaymentDto {
@@ -85,12 +82,12 @@ export class PaymentService {
     });
 
     if (!appointment) {
-      throw new NotFoundException(APPOINTMENT_ERRORS.APPOINTMENT_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.APPOINTMENT_NOT_FOUND);
     }
 
     if (appointment.status !== AppointmentStatusEnum.PENDING_PAYMENT) {
       throw new BadRequestException(
-        PAYMENT_ERRORS.CANNOT_CREATE_PAYMENT_STATUS(appointment.status),
+        ERROR_MESSAGES.CANNOT_CREATE_PAYMENT_STATUS,
       );
     }
 
@@ -192,7 +189,7 @@ export class PaymentService {
     });
 
     if (!payment) {
-      throw new NotFoundException(PAYMENT_ERRORS.PAYMENT_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.PAYMENT_NOT_FOUND);
     }
 
     return this.toDto(payment);
@@ -206,11 +203,11 @@ export class PaymentService {
       where: { orderCode },
     });
     if (!payment) {
-      throw new NotFoundException(PAYMENT_ERRORS.PAYMENT_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.PAYMENT_NOT_FOUND);
     }
     void this.cancelPaymentByAppointmentId(payment.appointmentId, '');
     if (!payment) {
-      throw new NotFoundException(PAYMENT_ERRORS.PAYMENT_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.PAYMENT_NOT_FOUND);
     }
 
     return this.toDto(payment);
@@ -225,7 +222,7 @@ export class PaymentService {
     });
 
     if (!payment) {
-      throw new NotFoundException(PAYMENT_ERRORS.PAYMENT_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.PAYMENT_NOT_FOUND);
     }
 
     return this.toDto(payment);
@@ -244,7 +241,7 @@ export class PaymentService {
     });
 
     if (!payment) {
-      throw new NotFoundException(PAYMENT_ERRORS.PAYMENT_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.PAYMENT_NOT_FOUND);
     }
 
     return this.cancelPaymentInternal(payment, reason, cancelledBy);
@@ -260,7 +257,7 @@ export class PaymentService {
   ): Promise<PaymentResponseDto> {
     if (payment.status !== PaymentStatus.PENDING) {
       throw new BadRequestException(
-        PAYMENT_ERRORS.CANNOT_CANCEL_PAYMENT_STATUS(payment.status),
+        ERROR_MESSAGES.CANNOT_CANCEL_PAYMENT_STATUS,
       );
     }
 
@@ -297,7 +294,7 @@ export class PaymentService {
     const verifiedData = await this.payosService.verifyWebhookData(webhookData);
     if (!verifiedData) {
       this.logger.warn('Invalid webhook signature');
-      throw new BadRequestException(PAYMENT_ERRORS.INVALID_SIGNATURE);
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_SIGNATURE);
     }
 
     const { orderCode } = verifiedData;
@@ -435,7 +432,7 @@ export class PaymentService {
     });
 
     if (!payment) {
-      throw new NotFoundException(PAYMENT_ERRORS.PAYMENT_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.PAYMENT_NOT_FOUND);
     }
 
     return this.syncPaymentStatusInternal(payment);
@@ -452,7 +449,7 @@ export class PaymentService {
     });
 
     if (!payment) {
-      throw new NotFoundException(PAYMENT_ERRORS.PAYMENT_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.PAYMENT_NOT_FOUND);
     }
 
     return this.syncPaymentStatusInternal(payment);

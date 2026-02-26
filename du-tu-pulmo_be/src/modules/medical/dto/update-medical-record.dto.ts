@@ -2,12 +2,10 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsString,
   IsOptional,
-  MaxLength,
   IsArray,
   IsBoolean,
   IsInt,
   IsDateString,
-  IsEnum,
 } from 'class-validator';
 
 export class UpdateMedicalRecordDto {

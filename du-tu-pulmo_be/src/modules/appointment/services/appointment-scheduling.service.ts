@@ -1,3 +1,4 @@
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import {
   BadRequestException,
   ConflictException,
@@ -12,7 +13,7 @@ import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status
 import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { AppointmentResponseDto } from '@/modules/appointment/dto/appointment-response.dto';
-import { APPOINTMENT_ERRORS } from '@/common/constants/error-messages.constant';
+
 import { DailyService } from '@/modules/video_call/daily.service';
 import { CallStateService } from '@/modules/video_call/call-state.service';
 import { AppointmentMapperService } from '@/modules/appointment/services/appointment-mapper.service';
@@ -40,17 +41,18 @@ export class AppointmentSchedulingService {
       });
 
       if (!appointment) {
-        throw new NotFoundException(APPOINTMENT_ERRORS.APPOINTMENT_NOT_FOUND);
+        this.logger.error('Appointment not found');
+        throw new NotFoundException(ERROR_MESSAGES.APPOINTMENT_NOT_FOUND);
       }
 
       if (appointment.status === AppointmentStatusEnum.COMPLETED) {
-        throw new BadRequestException(
-          APPOINTMENT_ERRORS.CANNOT_CANCEL_COMPLETED,
-        );
+        this.logger.error('Appointment is completed');
+        throw new BadRequestException(ERROR_MESSAGES.CANNOT_CANCEL_COMPLETED);
       }
 
       if (appointment.status === AppointmentStatusEnum.CANCELLED) {
-        throw new BadRequestException(APPOINTMENT_ERRORS.ALREADY_CANCELLED);
+        this.logger.error('Appointment is already cancelled');
+        throw new BadRequestException(ERROR_MESSAGES.ALREADY_CANCELLED);
       }
 
       if (appointment.timeSlotId) {
@@ -87,7 +89,7 @@ export class AppointmentSchedulingService {
       ) {
         try {
           await this.dailyService.deleteRoom(appointment.dailyCoChannel);
-          this.callStateService.clearCallsForAppointment(appointment.id);
+          void this.callStateService.clearCallsForAppointment(appointment.id);
           this.logger.log(
             `Cleaned up video room for cancelled appointment ${appointment.id}`,
           );
@@ -117,7 +119,8 @@ export class AppointmentSchedulingService {
       });
 
       if (!appointment) {
-        throw new NotFoundException(APPOINTMENT_ERRORS.APPOINTMENT_NOT_FOUND);
+        this.logger.error('Appointment not found');
+        throw new NotFoundException(ERROR_MESSAGES.APPOINTMENT_NOT_FOUND);
       }
 
       if (
@@ -127,9 +130,8 @@ export class AppointmentSchedulingService {
           AppointmentStatusEnum.PENDING_PAYMENT,
         ].includes(appointment.status)
       ) {
-        throw new BadRequestException(
-          APPOINTMENT_ERRORS.CANNOT_RESCHEDULE_STATUS,
-        );
+        this.logger.error('Appointment is not in confirmed, pending, or pending payment status');
+        throw new BadRequestException(ERROR_MESSAGES.CANNOT_RESCHEDULE_STATUS);
       }
 
       const oldSlot = appointment.timeSlotId
@@ -145,30 +147,30 @@ export class AppointmentSchedulingService {
       });
 
       if (!newSlot) {
-        throw new NotFoundException(APPOINTMENT_ERRORS.NEW_SLOT_NOT_FOUND);
+        this.logger.error('New slot not found');
+        throw new NotFoundException(ERROR_MESSAGES.NEW_SLOT_NOT_FOUND);
       }
 
       if (newSlot.doctorId !== appointment.doctorId) {
-        throw new BadRequestException(APPOINTMENT_ERRORS.SLOT_DOCTOR_MISMATCH);
+        this.logger.error('Slot doctor mismatch');
+        throw new BadRequestException(ERROR_MESSAGES.SLOT_DOCTOR_MISMATCH);
       }
 
       if (newSlot.startTime < new Date()) {
-        throw new BadRequestException(APPOINTMENT_ERRORS.SLOT_IN_PAST);
+        this.logger.error('Slot in past');
+        throw new BadRequestException(ERROR_MESSAGES.SLOT_IN_PAST);
       }
 
       if (!newSlot.allowedAppointmentTypes?.length) {
-        throw new BadRequestException(APPOINTMENT_ERRORS.SLOT_NO_TYPE_CONFIG);
+        this.logger.error('Slot has no allowed appointment types');
+        throw new BadRequestException(ERROR_MESSAGES.SLOT_NO_TYPE_CONFIG);
       }
 
       if (
         !newSlot.allowedAppointmentTypes.includes(appointment.appointmentType)
       ) {
-        throw new BadRequestException(
-          APPOINTMENT_ERRORS.SLOT_TYPE_MISMATCH(
-            appointment.appointmentType,
-            newSlot.allowedAppointmentTypes.join(', '),
-          ),
-        );
+        this.logger.error('Slot type mismatch');
+        throw new BadRequestException(ERROR_MESSAGES.SLOT_TYPE_MISMATCH);
       }
 
       const duplicateInNewSlot = await manager.findOne(Appointment, {
@@ -181,15 +183,18 @@ export class AppointmentSchedulingService {
       });
 
       if (duplicateInNewSlot) {
-        throw new ConflictException(APPOINTMENT_ERRORS.DUPLICATE_IN_SLOT);
+        this.logger.error('Duplicate in new slot');
+        throw new ConflictException(ERROR_MESSAGES.DUPLICATE_IN_SLOT);
       }
 
       if (!newSlot.isAvailable) {
-        throw new ConflictException(APPOINTMENT_ERRORS.SLOT_UNAVAILABLE);
+        this.logger.error('Slot unavailable');
+        throw new ConflictException(ERROR_MESSAGES.SLOT_UNAVAILABLE);
       }
 
       if (newSlot.bookedCount >= newSlot.capacity) {
-        throw new ConflictException(APPOINTMENT_ERRORS.SLOT_FULL);
+        this.logger.error('Slot full');
+        throw new ConflictException(ERROR_MESSAGES.SLOT_FULL);
       }
 
       if (oldSlot) {

@@ -86,6 +86,7 @@ const PULMO_COMPLAINTS = [
   'Ho nhiều đờm buổi sáng kèm mệt mỏi',
 ];
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const PULMO_SYMPTOMS = [
   'Ho có đờm',
   'Ho khan',

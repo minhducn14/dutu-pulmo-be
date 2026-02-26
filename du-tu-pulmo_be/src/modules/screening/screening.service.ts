@@ -23,7 +23,7 @@ import { ScreeningConclusion } from '@/modules/screening/entities/screening-conc
 import { ScreeningStatusEnum } from '@/modules/common/enums/screening-status.enum';
 import { AiDiagnosisStatusEnum } from '@/modules/common/enums/ai-diagnosis-status.enum';
 import { PulmoAiResponseDto } from '@/modules/screening/dto/ai-analysis-response.dto';
-import { SCREENING_ERRORS } from '@/common/constants/error-messages.constant';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { GetScreeningRequestsDto } from '@/modules/screening/dto/get-screening-requests.dto';
 import { CreateConclusionDto } from '@/modules/screening/dto/create-conclusion.dto';
 
@@ -106,7 +106,7 @@ export class ScreeningService {
       ],
     });
     if (!screening)
-      throw new NotFoundException(SCREENING_ERRORS.SCREENING_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.SCREENING_NOT_FOUND);
     return screening;
   }
 
@@ -168,7 +168,7 @@ export class ScreeningService {
   ): void {
     const allowedTransitions = this.validTransitions[currentStatus] || [];
     if (!allowedTransitions.includes(newStatus)) {
-      throw new BadRequestException(SCREENING_ERRORS.INVALID_STATUS_TRANSITION);
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_STATUS_TRANSITION);
     }
   }
 
@@ -270,7 +270,7 @@ export class ScreeningService {
       relations: ['screening'],
     });
     if (!image) {
-      throw new NotFoundException(SCREENING_ERRORS.SCREENING_IMAGE_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.SCREENING_IMAGE_NOT_FOUND);
     }
     return image;
   }
@@ -358,19 +358,19 @@ export class ScreeningService {
         });
 
         if (!screening) {
-          throw new NotFoundException(SCREENING_ERRORS.SCREENING_NOT_FOUND);
+          throw new NotFoundException(ERROR_MESSAGES.SCREENING_NOT_FOUND);
         }
 
         if (screening.status === ScreeningStatusEnum.CANCELLED) {
           throw new BadRequestException(
-            SCREENING_ERRORS.CANNOT_ANALYZE_CANCELLED,
+            ERROR_MESSAGES.CANNOT_ANALYZE_CANCELLED,
           );
         }
 
         const image = await this.findImageById(imageId);
         if (image.screeningId !== screeningId) {
           throw new BadRequestException(
-            SCREENING_ERRORS.IMAGE_NOT_BELONG_TO_SCREENING,
+            ERROR_MESSAGES.IMAGE_NOT_BELONG_TO_SCREENING,
           );
         }
 
@@ -412,7 +412,7 @@ export class ScreeningService {
 
           if (!updatedAnalysis) {
             throw new InternalServerErrorException(
-              SCREENING_ERRORS.AI_ANALYSIS_RETRIEVE_FAILED,
+              ERROR_MESSAGES.AI_ANALYSIS_RETRIEVE_FAILED,
             );
           }
 
@@ -435,7 +435,7 @@ export class ScreeningService {
           await manager.save(screening);
 
           throw new InternalServerErrorException(
-            SCREENING_ERRORS.AI_ANALYSIS_FAILED,
+            ERROR_MESSAGES.AI_ANALYSIS_FAILED,
           );
         }
       },
@@ -468,7 +468,7 @@ export class ScreeningService {
     }
 
     throw new InternalServerErrorException(
-      SCREENING_ERRORS.AI_ANALYSIS_MAX_RETRIES,
+      ERROR_MESSAGES.AI_ANALYSIS_MAX_RETRIES,
     );
   }
 
@@ -508,7 +508,7 @@ export class ScreeningService {
           `[${correlationId}] Pulmo AI error: ${JSON.stringify(axiosError.response.data)}`,
         );
         throw new Error(
-          axiosError.response.data?.error || SCREENING_ERRORS.PULMO_AI_ERROR,
+          axiosError.response.data?.error || ERROR_MESSAGES.PULMO_AI_ERROR,
         );
       }
       throw error;
@@ -521,7 +521,7 @@ export class ScreeningService {
     if (!response.success) {
       return {
         diagnosisStatus: AiDiagnosisStatusEnum.ERROR,
-        errorMessage: response.error || SCREENING_ERRORS.PULMO_AI_UNKNOWN_ERROR,
+        errorMessage: response.error || ERROR_MESSAGES.PULMO_AI_UNKNOWN_ERROR,
       };
     }
 
@@ -613,7 +613,7 @@ export class ScreeningService {
       relations: ['screening', 'medicalImage'],
     });
     if (!analysis) {
-      throw new NotFoundException(SCREENING_ERRORS.AI_ANALYSIS_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.AI_ANALYSIS_NOT_FOUND);
     }
     return analysis;
   }

@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Between, In, MoreThanOrEqual, Not, Repository } from 'typeorm';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
+import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import {
   AppointmentStatisticsDto,
@@ -57,8 +58,6 @@ export class AppointmentStatsService {
       (a) => a.status === AppointmentStatusEnum.CHECKED_IN,
     );
 
-    // Filter CONFIRMED: only show if still within late threshold
-    // Overdue appointments can't check-in, so they shouldn't appear in queue
     const confirmed = appointments.filter((a) => {
       if (a.status !== AppointmentStatusEnum.CONFIRMED) return false;
 
@@ -67,16 +66,14 @@ export class AppointmentStatsService {
         (scheduledTime.getTime() - now.getTime()) / (1000 * 60);
 
       const lateThreshold =
-        a.appointmentType === 'VIDEO'
+        a.appointmentType === AppointmentTypeEnum.VIDEO
           ? CHECKIN_TIME_THRESHOLDS.VIDEO.LATE_MINUTES
           : CHECKIN_TIME_THRESHOLDS.IN_CLINIC.LATE_MINUTES;
 
-      // timeDiffMinutes < 0 means past scheduled time
-      // Allow if not too late (within threshold)
+
       return timeDiffMinutes >= -lateThreshold;
     });
 
-    // Total in queue = active appointments only (excludes overdue CONFIRMED)
     const totalInQueue =
       inProgress.length + checkedIn.length + confirmed.length;
     let queueData: DoctorQueueDto;

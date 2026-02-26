@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { User } from '@/modules/user/entities/user.entity';
 import { UpdateUserDto } from '@/modules/user/dto/update-user.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
-import { USER_ERRORS } from '@/common/constants/error-messages.constant';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { RoleEnum } from '@/modules/common/enums/role.enum';
 import { Doctor } from '@/modules/doctor/entities/doctor.entity';
 import { Patient } from '@/modules/patient/entities/patient.entity';
@@ -98,7 +98,7 @@ export class UserService {
       relations: ['account'],
     });
     if (!user) {
-      throw new NotFoundException(USER_ERRORS.USER_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
     }
     // Nếu role là doctor thì lấy thông tin doctor
     if (user.account.roles.includes(RoleEnum.DOCTOR)) {
@@ -123,7 +123,7 @@ export class UserService {
   ): Promise<ResponseCommon<User>> {
     const existingUser = await this.userRepository.findOne({ where: { id } });
     if (!existingUser) {
-      throw new NotFoundException(USER_ERRORS.USER_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
     }
 
     const { dateOfBirth, ...rest } = updateUserDto;
@@ -139,7 +139,7 @@ export class UserService {
   async remove(id: string): Promise<ResponseCommon> {
     const existingUser = await this.userRepository.findOne({ where: { id } });
     if (!existingUser) {
-      throw new NotFoundException(USER_ERRORS.USER_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
     }
 
     await this.userRepository.softDelete(id);
@@ -153,13 +153,15 @@ export class UserService {
       where: { id: userId },
     });
 
-    if (!user) throw new NotFoundException(USER_ERRORS.USER_NOT_FOUND);
+    if (!user) throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
 
     const uploaded = await this.cloudinaryService.uploadAvatar(file, userId);
     if (user.avatarPublicId) {
       try {
         await this.cloudinaryService.deleteImage(user.avatarPublicId);
-      } catch (_) {}
+      } catch {
+        // Ignore cleanup error for old avatar and continue update flow.
+      }
     }
 
     user.avatarUrl = uploaded.url;

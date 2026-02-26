@@ -1,8 +1,10 @@
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import {
   Injectable,
   NotFoundException,
   ConflictException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, DataSource, MoreThanOrEqual, In } from 'typeorm';
@@ -18,8 +20,14 @@ import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.e
 const MAX_SLOTS_PER_REQUEST = 100;
 const MAX_SLOTS_PER_DAY = 50;
 
+interface AvailabilitySummaryRaw {
+  date: string;
+  count: string;
+}
+
 @Injectable()
 export class TimeSlotService {
+  private readonly logger = new Logger(TimeSlotService.name);
   constructor(
     @InjectRepository(TimeSlot)
     private readonly timeSlotRepository: Repository<TimeSlot>,
@@ -34,7 +42,8 @@ export class TimeSlotService {
       relations: ['doctor', 'schedule'],
     });
     if (!slot) {
-      throw new NotFoundException(`Không tìm thấy time slot với ID ${id}`);
+      this.logger.error('Slot not found');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
     return new ResponseCommon(200, 'SUCCESS', slot);
   }
@@ -45,7 +54,8 @@ export class TimeSlotService {
       relations: ['doctor', 'schedule', 'appointments'],
     });
     if (!slot) {
-      throw new NotFoundException(`Không tìm thấy time slot với ID ${id}`);
+      this.logger.error('Slot not found');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
     return new ResponseCommon(200, 'SUCCESS', slot);
   }
@@ -101,7 +111,8 @@ export class TimeSlotService {
     date: Date,
   ): Promise<ResponseCommon<TimeSlot[]>> {
     if (isNaN(date.getTime())) {
-      throw new BadRequestException('Ngày không hợp lệ');
+      this.logger.error('Invalid date');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const now = new Date();
@@ -141,9 +152,7 @@ export class TimeSlotService {
     const overlapping = await queryBuilder.getOne();
 
     if (overlapping) {
-      throw new ConflictException(
-        `Time slot trùng với slot hiện có (${overlapping.startTime.toISOString()} - ${overlapping.endTime.toISOString()})`,
-      );
+      throw new ConflictException(ERROR_MESSAGES.CONFLICT_DETECTED);
     }
   }
 
@@ -156,9 +165,8 @@ export class TimeSlotService {
     const now = new Date();
 
     if (startTime >= endTime) {
-      throw new BadRequestException(
-        'Thời gian bắt đầu phải trước thời gian kết thúc',
-      );
+      this.logger.error('Invalid time range');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const minBookingHours = doctorSchedule?.minimumBookingTime || 1;
@@ -166,9 +174,8 @@ export class TimeSlotService {
     const earliestAllowed = new Date(now.getTime() + minBookingBufferMs);
 
     if (startTime < earliestAllowed) {
-      throw new BadRequestException(
-        `Slot phải bắt đầu sau ${earliestAllowed.toISOString()} (tối thiểu ${minBookingHours} giờ từ hiện tại)`,
-      );
+      this.logger.error('Invalid time range. Start time is before earliest allowed');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const maxAdvanceDays = doctorSchedule?.maxAdvanceBookingDays || 90;
@@ -177,9 +184,8 @@ export class TimeSlotService {
     );
 
     if (startTime > maxDate) {
-      throw new BadRequestException(
-        `Không thể tạo slot quá ${maxAdvanceDays} ngày trong tương lai`,
-      );
+      this.logger.error('Invalid time range. Start time is after max advance days');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     this.validateAppointmentTypes(dto.allowedAppointmentTypes);
@@ -207,7 +213,6 @@ export class TimeSlotService {
     doctorId: string,
     dto: CreateTimeSlotDto,
   ): Promise<ResponseCommon<TimeSlot>> {
-    // Fetch schedule if scheduleId is provided to use its settings
     let doctorSchedule: DoctorSchedule | null = null;
     if (dto.scheduleId) {
       doctorSchedule = await this.scheduleRepository.findOne({
@@ -223,9 +228,8 @@ export class TimeSlotService {
       // Validate version match if provided
       if (dto.scheduleVersion !== undefined && doctorSchedule) {
         if (dto.scheduleVersion !== doctorSchedule.version) {
-          throw new BadRequestException(
-            `Schedule version không khớp. Hiện tại: ${doctorSchedule.version}, Nhận được: ${dto.scheduleVersion}`,
-          );
+          this.logger.error('Invalid schedule version');
+          throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
         }
       }
     }
@@ -239,9 +243,8 @@ export class TimeSlotService {
 
     const existingCount = await this.countSlotsForDate(doctorId, startTime);
     if (existingCount >= MAX_SLOTS_PER_DAY) {
-      throw new BadRequestException(
-        `Tối đa ${MAX_SLOTS_PER_DAY} slots mỗi ngày`,
-      );
+      this.logger.error('Invalid time range. Too many slots for this day');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const slot = this.timeSlotRepository.create({
@@ -264,13 +267,13 @@ export class TimeSlotService {
     dtos: CreateTimeSlotDto[],
   ): Promise<ResponseCommon<TimeSlot[]>> {
     if (dtos.length > MAX_SLOTS_PER_REQUEST) {
-      throw new BadRequestException(
-        `Tối đa ${MAX_SLOTS_PER_REQUEST} slots mỗi request`,
-      );
+      this.logger.error('Invalid request. Too many slots to create');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     if (dtos.length === 0) {
-      throw new BadRequestException('Danh sách slots không được rỗng');
+      this.logger.error('Invalid request. No slots to create');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const timeRanges: Array<{ startTime: Date; endTime: Date }> = [];
@@ -304,9 +307,8 @@ export class TimeSlotService {
 
       const slotKey = `${startTime.getTime()}-${endTime.getTime()}`;
       if (seenSlots.has(slotKey)) {
-        throw new BadRequestException(
-          `Phát hiện slot trùng lặp trong batch: ${dto.startTime}`,
-        );
+        this.logger.error('Invalid request. Duplicate slot');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
       seenSlots.add(slotKey);
 
@@ -322,9 +324,7 @@ export class TimeSlotService {
 
       const totalSlots = existingCount + newCount;
       if (totalSlots > MAX_SLOTS_PER_DAY) {
-        throw new BadRequestException(
-          `Tối đa ${MAX_SLOTS_PER_DAY} slots mỗi ngày. Ngày ${dateKey} đang có ${existingCount}, không thể thêm ${newCount} slots.`,
-        );
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
     }
 
@@ -386,9 +386,7 @@ export class TimeSlotService {
       );
 
       if (overlapping) {
-        throw new ConflictException(
-          `Phát hiện slot trùng: ${overlapping.startTime.toISOString()} - ${overlapping.endTime.toISOString()}`,
-        );
+        throw new ConflictException(ERROR_MESSAGES.CONFLICT_DETECTED);
       }
     }
   }
@@ -401,9 +399,8 @@ export class TimeSlotService {
     const slot = slotResult.data!;
 
     if (!isAvailable && slot.bookedCount > 0) {
-      throw new BadRequestException(
-        `Không thể tắt slot đã có ${slot.bookedCount} booking. Vui lòng hủy booking trước.`,
-      );
+      this.logger.error('Invalid request. Slot is not available but has booked count');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     await this.timeSlotRepository.update(slotId, { isAvailable });
@@ -426,11 +423,13 @@ export class TimeSlotService {
     ResponseCommon<{ success: number; failed: number; errors: string[] }>
   > {
     if (slotIds.length === 0) {
-      throw new BadRequestException('Danh sách slot IDs không được rỗng');
+      this.logger.error('Invalid request. No slots to toggle availability');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     if (slotIds.length > 100) {
-      throw new BadRequestException('Tối đa 100 slots mỗi lần');
+      this.logger.error('Invalid request. Too many slots to toggle availability');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     let success = 0;
@@ -483,7 +482,8 @@ export class TimeSlotService {
     const targetDate = new Date(dateStr);
 
     if (isNaN(targetDate.getTime())) {
-      throw new BadRequestException('Ngày không hợp lệ');
+      this.logger.error('Invalid request. Invalid date');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const startOfDay = new Date(targetDate);
@@ -528,18 +528,16 @@ export class TimeSlotService {
       const endTime = dto.endTime ? new Date(dto.endTime) : existing.endTime;
 
       if (startTime >= endTime) {
-        throw new BadRequestException(
-          'Thời gian bắt đầu phải trước thời gian kết thúc',
-        );
+        this.logger.error('Invalid request. Invalid time range');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
 
       await this.checkOverlap(existing.doctorId, startTime, endTime, id);
     }
 
     if (dto.isAvailable === false && existing.bookedCount > 0) {
-      throw new BadRequestException(
-        `Không thể tắt slot đã có ${existing.bookedCount} booking. Vui lòng hủy booking trước.`,
-      );
+      this.logger.error('Invalid request. Slot is not available but has booked count');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const updateData: Partial<TimeSlot> = {
@@ -559,7 +557,8 @@ export class TimeSlotService {
     const slot = slotResult.data!;
 
     if (slot.bookedCount > 0) {
-      throw new ConflictException('Không thể xóa slot đã có booking');
+      this.logger.error('Invalid request. Slot has booked count');
+      throw new ConflictException(ERROR_MESSAGES.CONFLICT_DETECTED);
     }
 
     // Soft delete để giữ lại history
@@ -618,16 +617,16 @@ export class TimeSlotService {
 
   private validateAppointmentTypes(types: AppointmentTypeEnum[]): void {
     if (!types || types.length === 0) {
-      throw new BadRequestException('Phải có ít nhất 1 loại hình khám');
+      this.logger.error('Invalid request. No appointment types provided');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const validTypes = Object.values(AppointmentTypeEnum);
     const invalidTypes = types.filter((type) => !validTypes.includes(type));
 
     if (invalidTypes.length > 0) {
-      throw new BadRequestException(
-        `Loại hình khám không hợp lệ: ${invalidTypes.join(', ')}`,
-      );
+      this.logger.error('Invalid request. Invalid appointment types');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
   }
 
@@ -655,7 +654,7 @@ export class TimeSlotService {
       .andWhere('slot.bookedCount < slot.capacity')
       .groupBy("TO_CHAR(slot.startTime, 'YYYY-MM-DD')")
       .orderBy("TO_CHAR(slot.startTime, 'YYYY-MM-DD')", 'ASC')
-      .getRawMany();
+      .getRawMany<AvailabilitySummaryRaw>();
 
     const summary = result.map((item) => ({
       date: item.date,

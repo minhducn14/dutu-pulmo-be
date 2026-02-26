@@ -1,7 +1,9 @@
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -17,7 +19,6 @@ import { DoctorSchedule } from '@/modules/doctor/entities/doctor-schedule.entity
 import { Doctor } from '@/modules/doctor/entities/doctor.entity';
 import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
-import { BulkUpdateDoctorSchedulesDto } from '@/modules/doctor/dto/bulk-update-doctor-schedules.dto';
 import { CreateDoctorScheduleDto } from '@/modules/doctor/dto/create-doctor-schedule.dto';
 import { UpdateDoctorScheduleDto } from '@/modules/doctor/dto/update-doctor-schedule.dto';
 import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
@@ -34,6 +35,7 @@ import { addDaysVN, endOfDayVN, startOfDayVN, vnNow } from '@/common/datetime';
 
 @Injectable()
 export class DoctorScheduleRegularService {
+  private readonly logger = new Logger(DoctorScheduleRegularService.name);
   constructor(
     @InjectRepository(DoctorSchedule)
     private readonly scheduleRepository: Repository<DoctorSchedule>,
@@ -57,16 +59,16 @@ export class DoctorScheduleRegularService {
     });
 
     if (!doctor) {
-      throw new NotFoundException('Bác sĩ không tồn tại');
+      this.logger.error('Doctor not found');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
     const scheduleType = ScheduleType.REGULAR;
     const priority = SCHEDULE_TYPE_PRIORITY[scheduleType];
 
     if (dto.dayOfWeek < 0 || dto.dayOfWeek > 6) {
-      throw new BadRequestException(
-        'Ngày trong tuần phải từ 0 (Chủ nhật) đến 6 (Thứ 7)',
-      );
+      this.logger.error('Invalid day of week. Day of week must be between 0 and 6');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     this.helper.validateTimeRange(dto);
@@ -96,9 +98,8 @@ export class DoctorScheduleRegularService {
 
     if (dto.appointmentType === AppointmentTypeEnum.IN_CLINIC) {
       if (!doctor?.primaryHospitalId) {
-        throw new BadRequestException(
-          'Khám tại phòng khám yêu cầu bác sĩ có bệnh viện/phòng khám chính (primaryHospitalId)',
-        );
+        this.logger.error('Doctor does not have a primary hospital'); 
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
     }
 
@@ -173,11 +174,13 @@ export class DoctorScheduleRegularService {
     });
 
     if (!doctor) {
-      throw new NotFoundException('Bác sĩ không tồn tại');
+      this.logger.error('Doctor not found');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
     if (dtos.length === 0) {
-      throw new BadRequestException('Danh sách lịch làm việc không được rỗng');
+      this.logger.error('No schedules provided');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const scheduleType = ScheduleType.REGULAR;
@@ -192,9 +195,7 @@ export class DoctorScheduleRegularService {
 
     for (const dto of dtosWithPriority) {
       if (dto.dayOfWeek < 0 || dto.dayOfWeek > 6) {
-        throw new BadRequestException(
-          `Ngày trong tuần phải từ 0 (Chủ nhật) đến 6 (Thứ 7). Nhận được: ${dto.dayOfWeek}`,
-        );
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
 
       this.helper.validateTimeRange(dto);
@@ -205,9 +206,8 @@ export class DoctorScheduleRegularService {
 
       if (dto.appointmentType === AppointmentTypeEnum.IN_CLINIC) {
         if (!doctor?.primaryHospitalId) {
-          throw new BadRequestException(
-            'Khám tại phòng khám yêu cầu bác sĩ có bệnh viện/phòng khám chính (primaryHospitalId)',
-          );
+          this.logger.error('Doctor does not have a primary hospital');
+          throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
         }
       }
     }
@@ -257,9 +257,7 @@ export class DoctorScheduleRegularService {
               (jFrom === null || iUntil === null || jFrom <= iUntil);
 
             if (dateOverlap) {
-              throw new ConflictException(
-                `Lịch ${i + 1} trùng với lịch ${j + 1} trong cùng ngày ${dtosWithPriority[i].dayOfWeek} và khoảng thời gian hiệu lực`,
-              );
+              throw new ConflictException(ERROR_MESSAGES.CONFLICT_DETECTED);
             }
           }
         }
@@ -347,13 +345,13 @@ export class DoctorScheduleRegularService {
   ): Promise<ResponseCommon<DoctorSchedule>> {
     const existing = await this.scheduleRepository.findOne({ where: { id } });
     if (!existing) {
-      throw new NotFoundException(`Không tìm thấy lịch với ID ${id}`);
+      this.logger.error('Schedule not found');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
     if (existing.scheduleType !== ScheduleType.REGULAR) {
-      throw new BadRequestException(
-        `Lịch này không phải là lịch cố định (REGULAR). Sử dụng API phù hợp để cập nhật loại lịch ${existing.scheduleType}`,
-      );
+      this.logger.error('Invalid schedule type');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     this.helper.validateTimeRange(dto);
@@ -402,9 +400,8 @@ export class DoctorScheduleRegularService {
         select: ['id', 'primaryHospitalId'],
       });
       if (!doctor?.primaryHospitalId) {
-        throw new BadRequestException(
-          'Khám tại phòng khám yêu cầu bác sĩ có bệnh viện/phòng khám chính (primaryHospitalId)',
-        );
+        this.logger.error('Doctor does not have a primary hospital');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
     }
 
@@ -469,7 +466,8 @@ export class DoctorScheduleRegularService {
     }>
   > {
     if (!items || items.length === 0) {
-      throw new BadRequestException('Danh sách lịch làm việc không được rỗng');
+      this.logger.error('No schedules provided');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const doctor = await this.doctorRepository.findOne({
@@ -478,7 +476,8 @@ export class DoctorScheduleRegularService {
     });
 
     if (!doctor) {
-      throw new NotFoundException('Bác sĩ không tồn tại');
+      this.logger.error('Doctor not found');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
     const scheduleIds = items.map((item) => item.id);
@@ -508,15 +507,11 @@ export class DoctorScheduleRegularService {
     }
 
     if (notFoundIds.length > 0) {
-      throw new NotFoundException(
-        `Không tìm thấy các lịch với ID: ${notFoundIds.join(', ')}`,
-      );
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
     if (notRegularIds.length > 0) {
-      throw new BadRequestException(
-        `Các lịch sau không phải là lịch cố định (REGULAR): ${notRegularIds.join(', ')}`,
-      );
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const updatedSchedules: DoctorSchedule[] = [];
@@ -970,13 +965,13 @@ export class DoctorScheduleRegularService {
   > {
     const schedule = await this.scheduleRepository.findOne({ where: { id } });
     if (!schedule) {
-      throw new NotFoundException(`Không tìm thấy lịch với ID ${id}`);
+      this.logger.error('Schedule not found');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
     if (schedule.scheduleType !== ScheduleType.REGULAR) {
-      throw new BadRequestException(
-        `Lịch này không phải là lịch cố định (REGULAR). Sử dụng API phù hợp để xóa loại lịch ${schedule.scheduleType}`,
-      );
+      this.logger.error('Invalid schedule type');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const now = new Date();

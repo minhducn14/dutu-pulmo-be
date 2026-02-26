@@ -1,12 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import {
-  Repository,
-  Between,
-  MoreThanOrEqual,
-  LessThanOrEqual,
-  FindOptionsWhere,
-} from 'typeorm';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
+import { Repository } from 'typeorm';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import { ResponseCommon } from '@/common/dto/response.dto';
@@ -26,6 +21,7 @@ import { applyPaginationAndSort } from '@/common/utils/pagination.util';
 
 @Injectable()
 export class AppointmentReadService {
+  private readonly logger = new Logger(AppointmentReadService.name);
   constructor(
     @InjectRepository(Appointment)
     private readonly appointmentRepository: Repository<Appointment>,
@@ -102,7 +98,8 @@ export class AppointmentReadService {
       relations: APPOINTMENT_BASE_RELATIONS,
     });
     if (!appointment) {
-      throw new NotFoundException(`Appointment with ID ${id} not found`);
+      this.logger.error('Appointment not found');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
     const dto = this.mapper.toDto(appointment);

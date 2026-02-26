@@ -6,7 +6,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '@/common/decorators/public.decorator';
-import { AUTH_GUARD_ERRORS } from '@/common/constants/error-messages.constant';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
@@ -27,18 +27,18 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     // Check if error is due to token expiration
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     if (info?.name === 'TokenExpiredError') {
-      throw new UnauthorizedException(AUTH_GUARD_ERRORS.TOKEN_EXPIRED);
+      throw new UnauthorizedException(ERROR_MESSAGES.TOKEN_EXPIRED);
     }
 
     // Check if error is due to invalid token
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     if (info?.name === 'JsonWebTokenError') {
-      throw new UnauthorizedException(AUTH_GUARD_ERRORS.INVALID_TOKEN);
+      throw new UnauthorizedException(ERROR_MESSAGES.INVALID_TOKEN);
     }
 
     // If there's an error or no user, throw unauthorized
     if (err || !user) {
-      throw err || new UnauthorizedException(AUTH_GUARD_ERRORS.UNAUTHORIZED);
+      throw err || new UnauthorizedException(ERROR_MESSAGES.UNAUTHORIZED);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return

@@ -43,6 +43,32 @@ interface PatientFirstVisit {
   firstVisit: Date;
 }
 
+interface RevenueStatsRaw {
+  total: string | number | null;
+  visitCount: string | number | null;
+  prescriptions: string | number | null;
+  labTests: string | number | null;
+}
+
+interface AppointmentStatsRaw {
+  inClinic: string | number | null;
+  video: string | number | null;
+}
+
+interface PatientIdRaw {
+  patientId: string;
+}
+
+interface PatientFirstVisitRaw {
+  patientId: string;
+  firstVisit: string | Date;
+}
+
+interface DailyAppointmentRaw {
+  date: string;
+  patientId: string;
+}
+
 @Injectable()
 export class DashboardStatsService {
   private readonly logger = new Logger(DashboardStatsService.name);
@@ -170,7 +196,7 @@ export class DashboardStatsService {
         startDate,
         endDate,
       })
-      .getRawOne();
+      .getRawOne<RevenueStatsRaw>();
 
     return {
       total: Number(result?.total) || 0,
@@ -199,7 +225,7 @@ export class DashboardStatsService {
       .andWhere('a.status = :status', {
         status: AppointmentStatusEnum.COMPLETED,
       })
-      .getRawOne();
+      .getRawOne<AppointmentStatsRaw>();
 
     return {
       inClinic: Number(result?.inClinic) || 0,
@@ -223,7 +249,7 @@ export class DashboardStatsService {
       .andWhere('a.status = :status', {
         status: AppointmentStatusEnum.COMPLETED,
       })
-      .getRawMany();
+      .getRawMany<PatientIdRaw>();
 
     if (patientsInPeriod.length === 0) {
       return { total: 0, new: 0, returning: 0 };
@@ -266,7 +292,7 @@ export class DashboardStatsService {
       .createQueryBuilder('a')
       .select([
         'a.patientId as patientId',
-        'MIN(a.scheduledAt) as firstVisit', // FIX: keep timestamptz
+        'MIN(a.scheduledAt) as firstVisit',
       ])
       .where('a.doctorId = :doctorId', { doctorId })
       .andWhere('a.status = :status', {
@@ -274,7 +300,7 @@ export class DashboardStatsService {
       })
       .andWhere('a.patientId IN (:...patientIds)', { patientIds })
       .groupBy('a.patientId')
-      .getRawMany();
+      .getRawMany<PatientFirstVisitRaw>();
 
     return results.map((r) => ({
       patientId: r.patientId,
@@ -302,7 +328,7 @@ export class DashboardStatsService {
         status: AppointmentStatusEnum.COMPLETED,
       })
       .orderBy('date', 'ASC')
-      .getRawMany();
+      .getRawMany<DailyAppointmentRaw>();
 
     if (appointments.length === 0) return [];
 

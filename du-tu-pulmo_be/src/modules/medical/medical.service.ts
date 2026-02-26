@@ -4,7 +4,6 @@ import {
   BadRequestException,
   ForbiddenException,
   HttpStatus,
-  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager, In, DataSource } from 'typeorm';
@@ -28,10 +27,7 @@ import { UpdateMedicalRecordDto } from '@/modules/medical/dto/update-medical-rec
 import { SignMedicalRecordDto } from '@/modules/medical/dto/sign-medical-record.dto';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import { PrescriptionStatusEnum } from '@/modules/common/enums/prescription-status.enum';
-import {
-  MEDICAL_ERRORS,
-  APPOINTMENT_ERRORS,
-} from '@/common/constants/error-messages.constant';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { MedicalRecordExaminationDto } from '@/modules/medical/dto/medical-record-examination.dto';
 
 @Injectable()
@@ -137,7 +133,7 @@ export class MedicalService {
   ): Promise<ResponseCommon<MedicalRecord>> {
     const record = await this.recordRepository.findOne({ where: { id } });
     if (!record) {
-      throw new NotFoundException(MEDICAL_ERRORS.MEDICAL_RECORD_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.MEDICAL_RECORD_NOT_FOUND);
     }
 
     Object.assign(record, data);
@@ -279,6 +275,7 @@ export class MedicalService {
 
   async getPrescriptionDetail(
     id: string,
+    user: JwtUser,
   ): Promise<ResponseCommon<Prescription>> {
     const prescription = await this.prescriptionRepository.findOne({
       where: { id },
@@ -294,9 +291,21 @@ export class MedicalService {
     });
 
     if (!prescription) {
-      throw new NotFoundException(MEDICAL_ERRORS.PRESCRIPTION_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.PRESCRIPTION_NOT_FOUND);
     }
 
+    // Check if user has access to this prescription
+    if (user.roles?.includes(RoleEnum.PATIENT)) {
+      if (prescription.patient.user.id !== user.id) {
+        throw new ForbiddenException(ERROR_MESSAGES.PRESCRIPTION_NOT_FOUND);
+      }
+    }
+
+    if (user.roles?.includes(RoleEnum.DOCTOR)) {
+      if (prescription.doctor.user.id !== user.id) {
+        throw new ForbiddenException(ERROR_MESSAGES.PRESCRIPTION_NOT_FOUND);
+      }
+    }
     return new ResponseCommon(HttpStatus.OK, 'Thành công', prescription);
   }
 
@@ -359,7 +368,7 @@ export class MedicalService {
       ],
     });
     if (!record) {
-      throw new NotFoundException(MEDICAL_ERRORS.MEDICAL_RECORD_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.MEDICAL_RECORD_NOT_FOUND);
     }
     return new ResponseCommon(HttpStatus.OK, 'Thành công', record);
   }
@@ -378,7 +387,7 @@ export class MedicalService {
         where: { id: appointmentId },
       });
       if (!appointment) {
-        throw new NotFoundException(APPOINTMENT_ERRORS.APPOINTMENT_NOT_FOUND);
+        throw new NotFoundException(ERROR_MESSAGES.APPOINTMENT_NOT_FOUND);
       }
 
       let record = await manager.findOne(MedicalRecord, {
@@ -395,7 +404,7 @@ export class MedicalService {
 
       if (!canEdit && !record) {
         throw new BadRequestException(
-          MEDICAL_ERRORS.CANNOT_CREATE_RECORD_WITH_STATUS(appointment.status),
+          ERROR_MESSAGES.CANNOT_CREATE_RECORD_WITH_STATUS,
         );
       }
 
@@ -547,13 +556,13 @@ export class MedicalService {
       if (item.medicineId) {
         const medicine = medicineMap.get(item.medicineId);
         if (!medicine) {
-          throw new NotFoundException(MEDICAL_ERRORS.MEDICINE_NOT_FOUND);
+          throw new NotFoundException(ERROR_MESSAGES.MEDICINE_NOT_FOUND);
         }
         finalName = medicine.name;
         finalUnit = finalUnit || medicine.unit;
       } else {
         if (!finalName) {
-          throw new BadRequestException(MEDICAL_ERRORS.MEDICINE_NAME_REQUIRED);
+          throw new BadRequestException(ERROR_MESSAGES.MEDICINE_NAME_REQUIRED);
         }
       }
 
@@ -600,7 +609,7 @@ export class MedicalService {
     });
 
     if (!prescription) {
-      throw new NotFoundException(MEDICAL_ERRORS.PRESCRIPTION_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.PRESCRIPTION_NOT_FOUND);
     }
 
     // Permission Check
@@ -608,16 +617,16 @@ export class MedicalService {
       if (user.roles?.includes(RoleEnum.DOCTOR)) {
         if (prescription.doctor?.id !== user.doctorId) {
           throw new ForbiddenException(
-            MEDICAL_ERRORS.CANCEL_PRESCRIPTION_FORBIDDEN,
+            ERROR_MESSAGES.CANCEL_PRESCRIPTION_FORBIDDEN,
           );
         }
       } else {
-        throw new ForbiddenException(MEDICAL_ERRORS.ACCESS_DENIED_MEDICAL);
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_MEDICAL);
       }
     }
 
     if (prescription.status === PrescriptionStatusEnum.FILLED) {
-      throw new BadRequestException(MEDICAL_ERRORS.CANNOT_CANCEL_DISPENSED);
+      throw new BadRequestException(ERROR_MESSAGES.CANNOT_CANCEL_DISPENSED);
     }
 
     prescription.status = PrescriptionStatusEnum.CANCELLED;
@@ -654,7 +663,7 @@ export class MedicalService {
     });
 
     if (!prescription) {
-      throw new NotFoundException(MEDICAL_ERRORS.PRESCRIPTION_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.PRESCRIPTION_NOT_FOUND);
     }
 
     // Permission Check
@@ -662,16 +671,16 @@ export class MedicalService {
       if (user.roles?.includes(RoleEnum.DOCTOR)) {
         if (prescription.doctor?.id !== user.doctorId) {
           throw new ForbiddenException(
-            MEDICAL_ERRORS.EDIT_PRESCRIPTION_FORBIDDEN,
+            ERROR_MESSAGES.EDIT_PRESCRIPTION_FORBIDDEN,
           );
         }
       } else {
-        throw new ForbiddenException(MEDICAL_ERRORS.ACCESS_DENIED_MEDICAL);
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_MEDICAL);
       }
     }
 
     if (prescription.status !== PrescriptionStatusEnum.ACTIVE) {
-      throw new BadRequestException(MEDICAL_ERRORS.INVALID_PRESCRIPTION_STATUS);
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_PRESCRIPTION_STATUS);
     }
 
     // Prepare Update
@@ -702,7 +711,7 @@ export class MedicalService {
         if (item.medicineId) {
           const medicine = medicineMap.get(item.medicineId);
           if (!medicine)
-            throw new NotFoundException(MEDICAL_ERRORS.MEDICINE_NOT_FOUND);
+            throw new NotFoundException(ERROR_MESSAGES.MEDICINE_NOT_FOUND);
           finalName = medicine.name;
         }
 
@@ -776,20 +785,20 @@ export class MedicalService {
     });
 
     if (!record) {
-      throw new NotFoundException(MEDICAL_ERRORS.MEDICAL_RECORD_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.MEDICAL_RECORD_NOT_FOUND);
     }
 
     // Permission check
     if (user.roles?.includes(RoleEnum.PATIENT)) {
       if (user.patientId !== record.patientId) {
-        throw new ForbiddenException(MEDICAL_ERRORS.ACCESS_DENIED_MEDICAL);
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_MEDICAL);
       }
     } else if (user.roles?.includes(RoleEnum.DOCTOR)) {
       if (user.doctorId !== record.doctorId) {
-        throw new ForbiddenException(MEDICAL_ERRORS.ACCESS_DENIED_MEDICAL);
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_MEDICAL);
       }
     } else if (!user.roles?.includes(RoleEnum.ADMIN)) {
-      throw new ForbiddenException(MEDICAL_ERRORS.ACCESS_DENIED_MEDICAL);
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_MEDICAL);
     }
 
     // Get latest vital sign
@@ -798,10 +807,6 @@ export class MedicalService {
           .slice()
           .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0]
       : null;
-
-    const activePrescription = record.prescriptions
-      ?.filter((p) => p.status !== 'CANCELLED')
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
 
     // Build response
     const response: MedicalRecordDetailResponseDto = {
@@ -824,7 +829,7 @@ export class MedicalService {
         scheduledAt: record.appointment?.scheduledAt || new Date(),
       },
       signedStatus:
-        record.signedStatus === SignedStatusEnum.SIGNED
+        String(record.signedStatus) === 'SIGNED'
           ? SignedStatusEnum.SIGNED
           : SignedStatusEnum.NOT_SIGNED,
       signedAt: record.signedAt || undefined,
@@ -926,7 +931,7 @@ export class MedicalService {
     });
 
     if (!record) {
-      throw new NotFoundException(MEDICAL_ERRORS.MEDICAL_RECORD_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.MEDICAL_RECORD_NOT_FOUND);
     }
 
     // Check permission
@@ -934,17 +939,17 @@ export class MedicalService {
       !user.roles?.includes(RoleEnum.ADMIN) &&
       user.doctorId !== record.doctorId
     ) {
-      throw new ForbiddenException(MEDICAL_ERRORS.SIGN_FORBIDDEN);
+      throw new ForbiddenException(ERROR_MESSAGES.SIGN_FORBIDDEN);
     }
 
     // Check status
     if (record.appointment?.status !== AppointmentStatusEnum.COMPLETED) {
-      throw new BadRequestException(MEDICAL_ERRORS.SIGN_COMPLETED_ONLY);
+      throw new BadRequestException(ERROR_MESSAGES.SIGN_COMPLETED_ONLY);
     }
 
     const signedStatus = record.signedStatus as SignedStatusEnum;
     if (signedStatus === SignedStatusEnum.SIGNED) {
-      throw new BadRequestException(MEDICAL_ERRORS.ALREADY_SIGNED);
+      throw new BadRequestException(ERROR_MESSAGES.ALREADY_SIGNED);
     }
 
     record.signedStatus = SignedStatusEnum.SIGNED;
@@ -967,23 +972,23 @@ export class MedicalService {
     });
 
     if (!record) {
-      throw new NotFoundException(MEDICAL_ERRORS.MEDICAL_RECORD_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.MEDICAL_RECORD_NOT_FOUND);
     }
 
     if (user.roles?.includes(RoleEnum.PATIENT)) {
       if (user.patientId !== record.patientId) {
-        throw new ForbiddenException(MEDICAL_ERRORS.ACCESS_DENIED_MEDICAL);
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_MEDICAL);
       }
     } else if (user.roles?.includes(RoleEnum.DOCTOR)) {
       if (user.doctorId !== record.doctorId) {
-        throw new ForbiddenException(MEDICAL_ERRORS.ACCESS_DENIED_MEDICAL);
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_MEDICAL);
       }
     } else if (!user.roles?.includes(RoleEnum.ADMIN)) {
-      throw new ForbiddenException('Access denied');
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
 
     if (record.signedStatus !== 'SIGNED') {
-      throw new BadRequestException(MEDICAL_ERRORS.NOT_SIGNED);
+      throw new BadRequestException(ERROR_MESSAGES.NOT_SIGNED);
     }
 
     if (record.pdfUrl) {
@@ -1012,7 +1017,6 @@ export class MedicalService {
 
   async getMedicalRecordForExamination(
     recordId: string,
-    user: JwtUser,
   ): Promise<ResponseCommon<MedicalRecordExaminationDto>> {
     const record = await this.recordRepository.findOne({
       where: { id: recordId },
@@ -1020,7 +1024,7 @@ export class MedicalService {
     });
 
     if (!record) {
-      throw new NotFoundException(MEDICAL_ERRORS.MEDICAL_RECORD_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.MEDICAL_RECORD_NOT_FOUND);
     }
 
     // Permission: DOCTOR only (checked in controller)
@@ -1107,7 +1111,6 @@ export class MedicalService {
 
   async getMedicalRecordForSummary(
     recordId: string,
-    user: JwtUser,
   ): Promise<ResponseCommon<MedicalRecordSummaryDto>> {
     const record = await this.recordRepository.findOne({
       where: { id: recordId },
@@ -1121,7 +1124,7 @@ export class MedicalService {
     });
 
     if (!record) {
-      throw new NotFoundException(MEDICAL_ERRORS.MEDICAL_RECORD_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.MEDICAL_RECORD_NOT_FOUND);
     }
 
     // Permission check done in controller or here if needed
@@ -1153,7 +1156,12 @@ export class MedicalService {
         record.prescriptions?.map((p) => ({
           id: p.id,
           prescriptionNumber: p.prescriptionNumber,
-          diagnosis: (p as any).diagnosis?.name || undefined,
+          diagnosis:
+            (
+              p as Prescription & {
+                diagnosis?: { name?: string };
+              }
+            ).diagnosis?.name || undefined,
           createdAt: p.createdAt,
         })) || [],
       status: record.status || '',

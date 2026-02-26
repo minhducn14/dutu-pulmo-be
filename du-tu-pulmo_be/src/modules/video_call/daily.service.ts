@@ -57,7 +57,7 @@ export class DailyService {
         this.logger.log(`Found existing room: ${roomName}`);
         return existingRoom;
       }
-    } catch (error) {
+    } catch {
       // Ignore, we'll try to create
       this.logger.debug(`Room ${roomName} not found, will create new one`);
     }
@@ -66,8 +66,9 @@ export class DailyService {
     try {
       const newRoom = await this.createRoom(roomName);
       return newRoom;
-    } catch (error: any) {
-      if (error.response?.status === 400) {
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { status?: number } };
+      if (axiosError.response?.status === 400) {
         this.logger.debug(
           `Room creation failed with 400, retrying getRoom for ${roomName}`,
         );

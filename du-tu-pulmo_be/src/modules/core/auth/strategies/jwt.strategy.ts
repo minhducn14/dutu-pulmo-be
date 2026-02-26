@@ -20,7 +20,7 @@ export type JwtPayload = {
 };
 
 export type JwtUser = {
-  id: string; // DEPRECATED: Use accountId or userId explicitly
+  id: string;
   accountId: string; // Account ID (for account-level operations)
   userId: string; // User ID (for data ownership)
   email?: string;

@@ -28,7 +28,7 @@ import { CreateChatRoomDto } from '@/modules/chatroom/dto/create-chatroom.dto';
 import { CurrentUser } from '@/common/decorators/user.decorator';
 import type { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
 import { ResponseCommon } from '@/common/dto/response.dto';
-import { CHATROOM_ERRORS } from '@/common/constants/error-messages.constant';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 
 @ApiTags('Chat')
 @Controller('chatrooms')
@@ -104,7 +104,7 @@ export class ChatRoomController {
     const response = await this.chatRoomService.findOne(id);
 
     if (!response.data) {
-      throw new NotFoundException(CHATROOM_ERRORS.CHATROOM_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.CHATROOM_NOT_FOUND);
     }
 
     if (!user.roles?.includes('ADMIN')) {
@@ -113,7 +113,7 @@ export class ChatRoomController {
         user.id,
       );
       if (!isMember) {
-        throw new ForbiddenException(CHATROOM_ERRORS.NOT_MEMBER);
+        throw new ForbiddenException(ERROR_MESSAGES.NOT_MEMBER);
       }
     }
 

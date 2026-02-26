@@ -11,6 +11,7 @@ import { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
 import { RoleEnum } from '@/modules/common/enums/role.enum';
 import { DoctorSchedule } from '@/modules/doctor/entities/doctor-schedule.entity';
 import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 
 @Injectable()
 export class DoctorOwnershipGuard implements CanActivate {
@@ -29,7 +30,7 @@ export class DoctorOwnershipGuard implements CanActivate {
     const doctorIdParam = request.params.doctorId;
 
     if (!user) {
-      throw new ForbiddenException('Không tìm thấy thông tin người dùng');
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
 
     if (user.roles?.includes(RoleEnum.ADMIN)) {
@@ -37,12 +38,10 @@ export class DoctorOwnershipGuard implements CanActivate {
     }
 
     if (!user.doctorId) {
-      throw new ForbiddenException('Bạn không phải bác sĩ');
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
     if (user.doctorId !== doctorIdParam) {
-      throw new ForbiddenException(
-        'Bạn chỉ được quản lý lịch làm việc của mình',
-      );
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
 
     const scheduleId = request.params.scheduleId;
@@ -52,10 +51,10 @@ export class DoctorOwnershipGuard implements CanActivate {
         select: ['id', 'doctorId'],
       });
       if (!schedule) {
-        throw new ForbiddenException('Không tìm thấy schedule');
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
       }
       if (schedule.doctorId !== doctorIdParam) {
-        throw new ForbiddenException('Schedule không thuộc bác sĩ này');
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
       }
     }
 
@@ -66,10 +65,10 @@ export class DoctorOwnershipGuard implements CanActivate {
         select: ['id', 'doctorId'],
       });
       if (!slot) {
-        throw new ForbiddenException('Không tìm thấy time slot');
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
       }
       if (slot.doctorId !== doctorIdParam) {
-        throw new ForbiddenException('Time slot không thuộc bác sĩ này');
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
       }
     }
 

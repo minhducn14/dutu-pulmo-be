@@ -1,3 +1,4 @@
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import {
   Controller,
   Get,
@@ -57,7 +58,7 @@ export class PublicDoctorController {
     const response = await this.doctorService.findOne(id);
     const doc = response.data;
     if (!doc) {
-      throw new NotFoundException('Không tìm thấy bác sĩ');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
     return new ResponseCommon(
       response.code,

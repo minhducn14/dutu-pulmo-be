@@ -10,6 +10,7 @@ import * as os from 'os';
 import { CloudinaryService } from '@/modules/cloudinary/cloudinary.service';
 import { Prescription } from '@/modules/medical/entities/prescription.entity';
 import { MedicalRecord } from '@/modules/medical/entities/medical-record.entity';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 
 // ── Handlebars Helpers ──────────────────────────────────────────────────────
 
@@ -34,7 +35,14 @@ Handlebars.registerHelper(
 function loadTemplate(filename: string): HandlebarsTemplateDelegate {
   let templatePath = path.join(__dirname, 'templates', filename);
   if (!fs.existsSync(templatePath)) {
-    templatePath = path.join(process.cwd(), 'src', 'modules', 'pdf', 'templates', filename);
+    templatePath = path.join(
+      process.cwd(),
+      'src',
+      'modules',
+      'pdf',
+      'templates',
+      filename,
+    );
   }
   const html = fs.readFileSync(templatePath, 'utf8');
   return Handlebars.compile(html);
@@ -83,9 +91,7 @@ export class PdfService {
     });
 
     if (!prescription) {
-      throw new NotFoundException(
-        `Không tìm thấy đơn thuốc: ${prescriptionId}`,
-      );
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
     const data = this.buildPrescriptionData(prescription);
@@ -119,7 +125,7 @@ export class PdfService {
     });
 
     if (!record) {
-      throw new NotFoundException(`Không tìm thấy bệnh án: ${recordId}`);
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
     const data = this.buildMedicalRecordData(record);
@@ -160,7 +166,10 @@ export class PdfService {
     }));
 
     return {
-      logoUrl: this.config('CLINIC_LOGO', 'https://res.cloudinary.com/dto1lgngv/image/upload/v1771943840/logo_cezsy0.jpg'),
+      logoUrl: this.config(
+        'CLINIC_LOGO',
+        'https://res.cloudinary.com/dto1lgngv/image/upload/v1771943840/logo_cezsy0.jpg',
+      ),
       clinicName: this.config('CLINIC_NAME', 'Dutu Pulmo'),
       clinicPhone: this.config('CLINIC_PHONE', '0123456789'),
       prescriptionCode: prescription.prescriptionNumber,
@@ -228,7 +237,10 @@ export class PdfService {
     }));
 
     return {
-      logoUrl: this.config('CLINIC_LOGO', 'https://res.cloudinary.com/dto1lgngv/image/upload/v1771943840/logo_cezsy0.jpg'),
+      logoUrl: this.config(
+        'CLINIC_LOGO',
+        'https://res.cloudinary.com/dto1lgngv/image/upload/v1771943840/logo_cezsy0.jpg',
+      ),
       clinicName: this.config('CLINIC_NAME', 'Phòng Khám Dutu Pulmo'),
       clinicPhone: this.config('CLINIC_PHONE', '0123456789'),
       recordNumber: record.recordNumber,
@@ -277,10 +289,16 @@ export class PdfService {
       secondaryDiagnosis: record.secondaryDiagnosis ?? undefined,
       treatmentPlan: record.treatmentPlan ?? undefined,
       treatmentGiven: record.treatmentGiven ?? undefined,
-      treatmentStartDate: record.treatmentStartDate ? this.formatDate(record.treatmentStartDate) : undefined,
-      treatmentEndDate: record.treatmentEndDate ? this.formatDate(record.treatmentEndDate) : undefined,
+      treatmentStartDate: record.treatmentStartDate
+        ? this.formatDate(record.treatmentStartDate)
+        : undefined,
+      treatmentEndDate: record.treatmentEndDate
+        ? this.formatDate(record.treatmentEndDate)
+        : undefined,
       dischargeDiagnosis: record.dischargeDiagnosis ?? undefined,
-      dischargeCondition: this.formatDischargeCondition(record.dischargeCondition),
+      dischargeCondition: this.formatDischargeCondition(
+        record.dischargeCondition,
+      ),
       followUpInstructions: record.followUpInstructions ?? undefined,
       hasPrescription: prescriptions.length > 0,
       prescriptions,
@@ -366,14 +384,16 @@ export class PdfService {
     return gender;
   }
 
-  private formatDischargeCondition(condition: string | null | undefined): string | undefined {
+  private formatDischargeCondition(
+    condition: string | null | undefined,
+  ): string | undefined {
     if (!condition) return undefined;
     const condMap: Record<string, string> = {
       improved: 'Khỏi bệnh',
       stable: 'Đỡ, cần tiếp tục điều trị',
       unchanged: 'Không thay đổi',
       worsened: 'Nặng hơn',
-      deceased: 'Tử vong'
+      deceased: 'Tử vong',
     };
     return condMap[condition] || condition;
   }

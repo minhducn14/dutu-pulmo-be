@@ -34,7 +34,7 @@ import { MedicalRecordDetailResponseDto } from '@/modules/medical/dto/get-medica
 import { MedicalRecordExaminationDto } from '@/modules/medical/dto/medical-record-examination.dto';
 import { UpdateMedicalRecordDto } from '@/modules/medical/dto/update-medical-record.dto';
 import { SignMedicalRecordDto } from '@/modules/medical/dto/sign-medical-record.dto';
-import { MEDICAL_ERRORS } from '@/common/constants/error-messages.constant';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
 import { Roles } from '@/common/decorators/roles.decorator';
@@ -65,34 +65,32 @@ export class MedicalController {
     patientId: string,
   ): Promise<void> {
     if (!user.roles) {
-      throw new ForbiddenException(MEDICAL_ERRORS.ACCESS_DENIED_MEDICAL);
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_MEDICAL);
     }
 
     if (user.roles.includes(RoleEnum.ADMIN)) return;
 
     if (user.roles.includes(RoleEnum.PATIENT)) {
       if (user.patientId !== patientId) {
-        throw new ForbiddenException(MEDICAL_ERRORS.ACCESS_DENIED_MEDICAL);
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_MEDICAL);
       }
       return;
     }
 
     if (user.roles.includes(RoleEnum.DOCTOR)) {
       if (!user.doctorId)
-        throw new ForbiddenException(MEDICAL_ERRORS.DOCTOR_ID_INVALID);
+        throw new ForbiddenException(ERROR_MESSAGES.DOCTOR_ID_INVALID);
       const hasAccess = await this.appointmentService.hasAnyAppointment(
         user.doctorId,
         patientId,
       );
       if (!hasAccess) {
-        throw new ForbiddenException(
-          'Bạn chỉ có thể xem hồ sơ của bệnh nhân bạn đã khám',
-        );
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
       }
       return;
     }
 
-    throw new ForbiddenException('Không có quyền truy cập');
+    throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
   }
 
   // ==================== Mappers ====================
@@ -217,7 +215,7 @@ export class MedicalController {
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<MedicalRecordResponseDto[]>> {
     if (!user.doctorId)
-      throw new ForbiddenException(MEDICAL_ERRORS.DOCTOR_ID_MISSING);
+      throw new ForbiddenException(ERROR_MESSAGES.DOCTOR_ID_MISSING);
 
     const result = await this.medicalService.findRecordsByDoctor(user.doctorId);
     const dtos = (result.data || []).map((r) => this.toRecordDto(r));
@@ -242,16 +240,16 @@ export class MedicalController {
 
     if (user.roles?.includes(RoleEnum.PATIENT)) {
       if (user.patientId !== patientId)
-        throw new ForbiddenException(MEDICAL_ERRORS.ACCESS_DENIED_MEDICAL);
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_MEDICAL);
       result = await this.medicalService.findRecordsByPatient(patientId);
     } else if (user.roles?.includes(RoleEnum.ADMIN)) {
       result = await this.medicalService.findRecordsByPatient(patientId);
     } else if (user.roles?.includes(RoleEnum.DOCTOR)) {
       if (!user.doctorId)
-        throw new ForbiddenException(MEDICAL_ERRORS.DOCTOR_ID_MISSING);
+        throw new ForbiddenException(ERROR_MESSAGES.DOCTOR_ID_MISSING);
       result = await this.medicalService.findRecordsByPatient(patientId);
     } else {
-      throw new ForbiddenException(MEDICAL_ERRORS.ACCESS_DENIED_MEDICAL);
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_MEDICAL);
     }
 
     // Safe access
@@ -296,7 +294,7 @@ export class MedicalController {
     const record = recordResponse.data;
 
     if (!record) {
-      throw new ForbiddenException(MEDICAL_ERRORS.MEDICAL_RECORD_NOT_FOUND);
+      throw new ForbiddenException(ERROR_MESSAGES.MEDICAL_RECORD_NOT_FOUND);
     }
 
     if (
@@ -304,7 +302,7 @@ export class MedicalController {
       !user.roles.includes(RoleEnum.ADMIN)
     ) {
       if (record.doctor.id !== user.doctorId) {
-        throw new ForbiddenException(MEDICAL_ERRORS.ACCESS_DENIED_MEDICAL);
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_MEDICAL);
       }
     }
 
@@ -342,9 +340,8 @@ export class MedicalController {
   })
   async getMedicalRecordForExamination(
     @Param('id') id: string,
-    @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<MedicalRecordExaminationDto>> {
-    return this.medicalService.getMedicalRecordForExamination(id, user);
+    return this.medicalService.getMedicalRecordForExamination(id);
   }
 
   @Get('records/:id/summary')
@@ -358,9 +355,8 @@ export class MedicalController {
   })
   async getMedicalRecordForSummary(
     @Param('id') id: string,
-    @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<MedicalRecordSummaryDto>> {
-    return this.medicalService.getMedicalRecordForSummary(id, user);
+    return this.medicalService.getMedicalRecordForSummary(id);
   }
 
   // ==================== Vital Signs ====================
@@ -406,7 +402,7 @@ export class MedicalController {
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<PrescriptionResponseDto[]>> {
     if (!user.doctorId)
-      throw new ForbiddenException(MEDICAL_ERRORS.DOCTOR_ID_MISSING);
+      throw new ForbiddenException(ERROR_MESSAGES.DOCTOR_ID_MISSING);
 
     const result = await this.medicalService.findPrescriptionsByDoctor(
       user.doctorId,
@@ -427,7 +423,7 @@ export class MedicalController {
     @Param('id') id: string,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<PrescriptionResponseDto>> {
-    const result = await this.medicalService.getPrescriptionDetail(id);
+    const result = await this.medicalService.getPrescriptionDetail(id, user);
     const dto = this.toPrescriptionDto(result.data!);
     return new ResponseCommon(result.code, result.message, dto);
   }
@@ -472,7 +468,6 @@ export class MedicalController {
   })
   async generateMedicalRecordPdf(
     @Param('id') id: string,
-    @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<{ pdfUrl: string }>> {
     const pdfUrl = await this.pdfService.generateAndSaveMedicalRecordPdf(id);
     return new ResponseCommon(
@@ -496,7 +491,8 @@ export class MedicalController {
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<{ pdfUrl: string | null }>> {
     const result = await this.medicalService.getMedicalRecordDetail(id, user);
-    if (!result.data) throw new NotFoundException('Không tìm thấy bệnh án');
+    if (!result.data)
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     return new ResponseCommon(HttpStatus.OK, 'Thành công', {
       pdfUrl: result.data.pdfUrl ?? null,
     });
@@ -513,7 +509,6 @@ export class MedicalController {
   })
   async generatePrescriptionPdf(
     @Param('id') id: string,
-    @CurrentUser() _user: JwtUser,
   ): Promise<ResponseCommon<{ pdfUrl: string }>> {
     const pdfUrl = await this.pdfService.generateAndSavePrescriptionPdf(id);
     return new ResponseCommon(
@@ -534,10 +529,11 @@ export class MedicalController {
   })
   async getPrescriptionPdfUrl(
     @Param('id') id: string,
-    @CurrentUser() _user: JwtUser,
+    @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<{ pdfUrl: string | null }>> {
-    const result = await this.medicalService.getPrescriptionDetail(id);
-    if (!result.data) throw new NotFoundException('Không tìm thấy đơn thuốc');
+    const result = await this.medicalService.getPrescriptionDetail(id, user);
+    if (!result.data)
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     return new ResponseCommon(HttpStatus.OK, 'Thành công', {
       pdfUrl: result.data.pdfUrl ?? null,
     });

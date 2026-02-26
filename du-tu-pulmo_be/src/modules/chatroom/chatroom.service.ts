@@ -5,7 +5,7 @@ import { ChatRoom } from '@/modules/chatroom/entities/chatroom.entity';
 import { CreateChatRoomDto } from '@/modules/chatroom/dto/create-chatroom.dto';
 import { UpdateChatRoomDto } from '@/modules/chatroom/dto/update-chatroom.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
-import { CHATROOM_ERRORS } from '@/common/constants/error-messages.constant';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 
 const CHATROOM_RELATIONS = [
   'user1',
@@ -70,7 +70,7 @@ export class ChatRoomService {
       relations: CHATROOM_RELATIONS,
     });
     if (!chatRoom) {
-      throw new NotFoundException(CHATROOM_ERRORS.CHATROOM_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.CHATROOM_NOT_FOUND);
     }
     return new ResponseCommon(200, 'SUCCESS', chatRoom);
   }

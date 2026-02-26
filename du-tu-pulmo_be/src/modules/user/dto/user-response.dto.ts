@@ -2,14 +2,8 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserStatusEnum } from '@/modules/common/enums/user-status.enum';
 import { GenderEnum } from '@/modules/common/enums/gender.enum';
 import { CountryEnum } from '@/modules/common/enums/country.enum';
-import {
-  EthnicityEnum,
-  EthnicityName,
-} from '@/modules/common/enums/ethnicity.enum';
-import {
-  OccupationEnum,
-  OccupationName,
-} from '@/modules/common/enums/job.enum';
+import { EthnicityEnum } from '@/modules/common/enums/ethnicity.enum';
+import { OccupationEnum } from '@/modules/common/enums/job.enum';
 
 export class UserResponseDto {
   @ApiProperty({
@@ -191,15 +185,15 @@ export class UserResponseDto {
     dto.CCCD = user.CCCD;
     dto.nationality = user.nationality;
     dto.nationalityName = user.nationality
-      ? CountryEnum[user.nationality]
+      ? (CountryEnum[user.nationality] as string)
       : undefined;
     dto.ethnicity = user.ethnicity;
     dto.ethnicityName = user.ethnicity
-      ? EthnicityEnum[user.ethnicity]
+      ? (EthnicityEnum[user.ethnicity] as string)
       : undefined;
     dto.occupation = user.occupation;
     dto.occupationName = user.occupation
-      ? OccupationEnum[user.occupation]
+      ? (OccupationEnum[user.occupation] as string)
       : undefined;
     dto.provinceCode = user.provinceCode;
     dto.province = user.province;

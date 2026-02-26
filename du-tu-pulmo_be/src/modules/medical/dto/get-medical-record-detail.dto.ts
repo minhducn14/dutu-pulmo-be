@@ -1,6 +1,20 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { ScreeningRequestResponseDto } from '@/modules/screening/dto/screening-request-response.dto';
+const toOptionalString = ({ value }: { value: unknown }): string =>
+  typeof value === 'string' ? value : '';
+
+const toStringArray = ({ value }: { value: unknown }): string[] =>
+  Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : [];
+
+const toScreeningRequests = ({
+  value,
+}: {
+  value: unknown;
+}): ScreeningRequestResponseDto[] =>
+  Array.isArray(value) ? (value as ScreeningRequestResponseDto[]) : [];
 
 export enum SignedStatusEnum {
   NOT_SIGNED = 'NOT_SIGNED',
@@ -43,11 +57,11 @@ export class MedicalRecordDetailResponseDto {
   signedAt?: Date;
 
   @ApiPropertyOptional({ description: 'Digital signature data' })
-  @Transform(({ value }) => value ?? '')
+  @Transform(toOptionalString)
   digitalSignature?: string;
 
   @ApiPropertyOptional({ description: 'Diagnosis' })
-  @Transform(({ value }) => value ?? '')
+  @Transform(toOptionalString)
   diagnosis?: string;
 
   // TAB 1: BỆNH ÁN
@@ -55,7 +69,7 @@ export class MedicalRecordDetailResponseDto {
   recordType: string;
 
   @ApiPropertyOptional({ description: 'Lý do vào viện' })
-  @Transform(({ value }) => value ?? '')
+  @Transform(toOptionalString)
   chiefComplaint?: string;
 
   @ApiProperty({ description: 'Chỉ số sinh hiệu' })
@@ -71,31 +85,31 @@ export class MedicalRecordDetailResponseDto {
   };
 
   @ApiPropertyOptional({ description: 'Quá trình bệnh lý' })
-  @Transform(({ value }) => value ?? '')
+  @Transform(toOptionalString)
   presentIllness?: string;
 
-  @ApiPropertyOptional({ description: 'Tiền sử bản thân' })
-  @Transform(({ value }) => value ?? '')
+  @ApiPropertyOptional({ description: 'Tiền sử bệnh tật' })
+  @Transform(toOptionalString)
   medicalHistory?: string;
 
   @ApiPropertyOptional({ description: 'Tiền sử gia đình' })
-  @Transform(({ value }) => value ?? '')
+  @Transform(toOptionalString)
   familyHistory?: string;
 
   @ApiPropertyOptional({ description: 'Khám toàn thân' })
-  @Transform(({ value }) => value ?? '')
+  @Transform(toOptionalString)
   physicalExamNotes?: string;
 
-  @ApiPropertyOptional({ description: 'Các bộ phận' })
-  @Transform(({ value }) => value ?? '')
+  @ApiPropertyOptional({ description: 'Các bệnh lý' })
+  @Transform(toOptionalString)
   systemsReview?: string;
 
-  @ApiPropertyOptional({ description: 'Đã xử lý' })
-  @Transform(({ value }) => value ?? '')
+  @ApiPropertyOptional({ description: 'Đã điều trị' })
+  @Transform(toOptionalString)
   treatmentGiven?: string;
 
   @ApiPropertyOptional({ description: 'Chẩn đoán khi ra viện' })
-  @Transform(({ value }) => value ?? '')
+  @Transform(toOptionalString)
   dischargeDiagnosis?: string;
 
   @ApiPropertyOptional({ description: 'Ngày bắt đầu điều trị' })
@@ -126,78 +140,78 @@ export class MedicalRecordDetailResponseDto {
     instructions?: string;
   }>;
 
-  // TAB 3: TỔNG KẾT
+    // TAB 3: TỔNG KẾT
   @ApiPropertyOptional({ description: 'Quá trình bệnh lý và diễn biến' })
-  @Transform(({ value }) => value ?? '')
+  @Transform(toOptionalString)
   progressNotes?: string;
 
   @ApiPropertyOptional({ description: 'Bệnh chính' })
-  @Transform(({ value }) => value ?? '')
+  @Transform(toOptionalString)
   primaryDiagnosis?: string;
 
   @ApiPropertyOptional({ description: 'Bệnh kèm theo' })
-  @Transform(({ value }) => value ?? '')
+  @Transform(toOptionalString)
   secondaryDiagnosis?: string;
 
   @ApiPropertyOptional({ description: 'Phương pháp điều trị' })
-  @Transform(({ value }) => value ?? '')
+  @Transform(toOptionalString)
   treatmentPlan?: string;
 
   @ApiPropertyOptional({ description: 'Tình trạng ra viện' })
-  @Transform(({ value }) => value ?? '')
+  @Transform(toOptionalString)
   dischargeCondition?: string;
 
   @ApiPropertyOptional({ description: 'Hướng điều trị tiếp theo' })
-  @Transform(({ value }) => value ?? '')
+  @Transform(toOptionalString)
   followUpInstructions?: string;
 
   @ApiPropertyOptional({ description: 'Tóm tắt hồ sơ' })
-  @Transform(({ value }) => value ?? '')
+  @Transform(toOptionalString)
   fullRecordSummary?: string;
 
-  @ApiPropertyOptional({ description: 'Assessment' })
-  @Transform(({ value }) => value ?? '')
+  @ApiPropertyOptional({ description: 'Đánh giá chẩn đoán' })
+  @Transform(toOptionalString)
   assessment?: string;
 
-  @ApiPropertyOptional({ description: 'Surgical history' })
-  @Transform(({ value }) => value ?? '')
+  @ApiPropertyOptional({ description: 'Lịch sử phẫu thuật' })
+  @Transform(toOptionalString)
   surgicalHistory?: string;
 
-  @ApiPropertyOptional({ description: 'Allergies' })
-  @Transform(({ value }) => value ?? [])
+  @ApiPropertyOptional({ description: 'Danh sách dị ứng' })
+  @Transform(toStringArray)
   allergies?: string[];
 
-  @ApiPropertyOptional({ description: 'Chronic diseases' })
-  @Transform(({ value }) => value ?? [])
+  @ApiPropertyOptional({ description: 'Chẩn đoán tật' })
+  @Transform(toStringArray)
   chronicDiseases?: string[];
 
-  @ApiPropertyOptional({ description: 'Current medications' })
-  @Transform(({ value }) => value ?? [])
+  @ApiPropertyOptional({ description: 'Danh sách thuốc hiện tại' })
+  @Transform(toStringArray)
   currentMedications?: string[];
 
-  @ApiPropertyOptional({ description: 'Smoking status' })
+  @ApiPropertyOptional({ description: 'Tình trạng hút thuốc' })
   smokingStatus?: boolean;
 
-  @ApiPropertyOptional({ description: 'Smoking years' })
+  @ApiPropertyOptional({ description: 'Số năm hút thuốc' })
   smokingYears?: number;
 
-  @ApiPropertyOptional({ description: 'Alcohol consumption' })
+  @ApiPropertyOptional({ description: 'Tình trạng rượu bia' })
   alcoholConsumption?: boolean;
 
-  @ApiProperty({ description: 'Status bệnh án' })
+  @ApiProperty({ description: 'Trạng thái bệnh án' })
   status: string;
 
-  @ApiProperty({ description: 'Created at' })
+  @ApiProperty({ description: 'Ngày tạo' })
   createdAt: Date;
 
-  @ApiProperty({ description: 'Updated at' })
+  @ApiProperty({ description: 'Ngày cập nhật' })
   updatedAt: Date;
 
   @ApiPropertyOptional({ description: 'PDF URL' })
-  @Transform(({ value }) => value ?? '')
+  @Transform(toOptionalString)
   pdfUrl?: string;
 
   @ApiPropertyOptional({ type: [ScreeningRequestResponseDto] })
-  @Transform(({ value }) => value ?? [])
+  @Transform(toScreeningRequests)
   screeningRequests?: ScreeningRequestResponseDto[];
 }

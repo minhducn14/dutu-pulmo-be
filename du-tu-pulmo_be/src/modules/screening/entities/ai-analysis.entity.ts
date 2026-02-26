@@ -5,7 +5,6 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
-  Unique,
   Index,
 } from 'typeorm';
 import { ScreeningRequest } from '@/modules/screening/entities/screening-request.entity';

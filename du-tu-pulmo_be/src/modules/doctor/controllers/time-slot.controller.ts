@@ -37,6 +37,7 @@ import {
 } from '@/modules/doctor/dto/time-slot.dto';
 import { TimeSlotResponseDto } from '@/modules/doctor/dto/schedule-response.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 
 @ApiTags('Time Slots')
 @ApiBearerAuth('JWT-auth')
@@ -80,13 +81,11 @@ export class TimeSlotController {
     @Query('date') dateStr: string,
   ): Promise<ResponseCommon<TimeSlotResponseDto[]>> {
     if (!dateStr) {
-      throw new BadRequestException('Ngày không được để trống');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) {
-      throw new BadRequestException(
-        'Ngày không hợp lệ, sử dụng format YYYY-MM-DD',
-      );
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
     const result = await this.timeSlotService.findAvailableSlotsByDate(
       doctorId,
@@ -121,13 +120,13 @@ export class TimeSlotController {
     @Query('to') toStr: string,
   ) {
     if (!fromStr || !toStr) {
-      throw new BadRequestException('Vui lòng cung cấp from và to date');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
     const fromDate = new Date(fromStr);
     const toDate = new Date(toStr);
 
     if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
-      throw new BadRequestException('Ngày không hợp lệ (YYYY-MM-DD)');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     return this.timeSlotService.getAvailabilitySummary(

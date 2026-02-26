@@ -1,3 +1,4 @@
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
@@ -17,7 +18,6 @@ import { Logger, UseFilters, Catch, ArgumentsHost } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ChatRoomService } from '@/modules/chatroom/chatroom.service';
 import { BaseWsExceptionFilter, WsException } from '@nestjs/websockets';
-import { ERROR_MESSAGES } from '../../common/constants/error-messages.constant';
 
 // ─── Exception Filter ────────────────────────────────────────────────────────
 
@@ -114,12 +114,26 @@ export class ChatGateway
         return;
       }
 
-      const payload = await this.jwtService.verifyAsync(token);
+      const payloadUnknown: unknown = await this.jwtService.verifyAsync(token);
+      if (!payloadUnknown || typeof payloadUnknown !== 'object') {
+        client.emit('exception', { message: 'Unauthorized: invalid token' });
+        this.logger.error(`[${client.id}] Invalid JWT payload`);
+        client.disconnect(true);
+        return;
+      }
+
+      const payload = payloadUnknown as Record<string, unknown>;
+      const email =
+        typeof payload.email === 'string' ? payload.email : undefined;
+      const sub = typeof payload.sub === 'string' ? payload.sub : undefined;
+      const id = typeof payload.id === 'string' ? payload.id : undefined;
+      const fullName =
+        typeof payload.fullName === 'string' ? payload.fullName : undefined;
+      const name = typeof payload.name === 'string' ? payload.name : undefined;
       const user: UserInfo = {
-        id: payload.sub || payload.id,
-        email: payload.email,
-        fullName:
-          payload.fullName || payload.name || payload.email.split('@')[0],
+        id: sub || id || '',
+        email: email ?? '',
+        fullName: fullName || name || email?.split('@')[0] || '',
       };
 
       if (!user.id || !user.email) {
@@ -159,7 +173,7 @@ export class ChatGateway
     }
   }
 
-  async handleDisconnect(client: Socket) {
+  handleDisconnect(client: Socket) {
     try {
       const user: UserInfo = client.data.user;
       if (!user) return;
@@ -190,18 +204,21 @@ export class ChatGateway
     const user: UserInfo = client.data.user;
 
     if (!chatroomId) {
-      throw new WsException(ERROR_MESSAGES.CHATROOM_ID_IS_REQUIRED);
+      this.logger.error(`[${client.id}] Invalid chatroomId`);
+      throw new WsException(ERROR_MESSAGES.OPERATION_FAILED);
     }
 
     const chatRoom = await this.chatRoomService.findOne(chatroomId);
     const room = chatRoom.data;
     if (!room) {
-      throw new WsException(ERROR_MESSAGES.CHAT_ROOM_NOT_FOUND);
+      this.logger.error(`[${client.id}] Chat room not found`);
+      throw new WsException(ERROR_MESSAGES.OPERATION_FAILED);
     }
     const isParticipant =
       room.user1?.id === user.id || room.user2?.id === user.id;
     if (!isParticipant) {
-      throw new WsException(ERROR_MESSAGES.ACCESS_DENIED_NOT_A_MEMBER);
+      this.logger.error(`[${client.id}] User is not a participant`);
+      throw new WsException(ERROR_MESSAGES.OPERATION_FAILED);
     }
 
     await client.join(chatroomId);
@@ -232,7 +249,8 @@ export class ChatGateway
     const user: UserInfo = client.data.user;
 
     if (!chatroomId) {
-      throw new WsException(ERROR_MESSAGES.CHATROOM_ID_IS_REQUIRED);
+      this.logger.error(`[${client.id}] Invalid chatroomId`);
+      throw new WsException(ERROR_MESSAGES.OPERATION_FAILED);
     }
 
     await client.leave(chatroomId);
@@ -291,6 +309,7 @@ export class ChatGateway
       this.clearUserTypingInRoom(chatroomId, user.id);
     }
 
+    this.logger.log(`User "${user.fullName}" is typing in room ${chatroomId}`);
     client.to(chatroomId).emit('user-typing', {
       chatroomId,
       users: Array.from(typingInRoom.values()),
@@ -368,7 +387,7 @@ export class ChatGateway
     for (const [chatroomId] of this.typingUsers) {
       this.clearUserTypingInRoom(chatroomId, userId);
     }
-    for (const [chatroomId, userTimeouts] of this.typingTimeouts) {
+    for (const [, userTimeouts] of this.typingTimeouts) {
       const timeout = userTimeouts.get(userId);
       if (timeout) {
         clearTimeout(timeout);

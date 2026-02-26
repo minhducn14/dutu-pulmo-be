@@ -1,3 +1,4 @@
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import {
   Controller,
   Post,
@@ -91,17 +92,17 @@ export class AppointmentActionController {
 
     if (isPatientOnly) {
       if (!user.patientId) {
-        throw new ForbiddenException('Không tìm thấy thông tin bệnh nhân');
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
       }
 
       if (dto.patientId && dto.patientId !== user.patientId) {
-        throw new ForbiddenException('Bạn chỉ có thể đặt lịch cho chính mình');
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
       }
 
       dto.patientId = user.patientId;
     } else {
       if (!dto.patientId) {
-        throw new BadRequestException('Vui lòng chọn bệnh nhân');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
     }
 
@@ -151,9 +152,7 @@ export class AppointmentActionController {
           appointment.doctor.id === user.doctorId);
 
       if (!canCheckIn) {
-        throw new ForbiddenException(
-          'Chỉ lễ tân, y tá hoặc bác sĩ mới có thể check-in cho lịch hẹn tại phòng khám',
-        );
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
       }
     } else if (appointment.appointmentType === AppointmentTypeEnum.VIDEO) {
       const isPatient = appointment.patient.id === user.patientId;
@@ -161,9 +160,7 @@ export class AppointmentActionController {
       const isAdmin = user.roles?.includes(RoleEnum.ADMIN);
 
       if (!isPatient && !isDoctor && !isAdmin) {
-        throw new ForbiddenException(
-          'Chỉ bệnh nhân hoặc bác sĩ của cuộc hẹn mới có thể check-in',
-        );
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
       }
     }
 
@@ -222,7 +219,7 @@ export class AppointmentActionController {
     const isDoctor = appointment.doctor.id === user.doctorId;
 
     if (!isPatient && !isDoctor && !user.roles?.includes(RoleEnum.ADMIN)) {
-      throw new ForbiddenException('Bạn không có quyền check-in cuộc hẹn này');
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
 
     const response = await this.appointmentService.checkInVideo(id);
@@ -250,7 +247,7 @@ export class AppointmentActionController {
     const appointment = result.data!;
 
     if (appointment.doctor.id !== user.doctorId) {
-      throw new ForbiddenException('Bạn chỉ có thể khám bệnh nhân của mình');
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
 
     const response = await this.appointmentService.startExamination(id);
@@ -279,9 +276,7 @@ export class AppointmentActionController {
     const appointment = result.data!;
 
     if (appointment.doctor.id !== user.doctorId) {
-      throw new ForbiddenException(
-        'Bạn chỉ có thể hoàn thành khám bệnh nhân của mình',
-      );
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
 
     const response = await this.appointmentService.completeExamination(id, dto);
@@ -306,9 +301,7 @@ export class AppointmentActionController {
       dto.status === AppointmentStatusEnum.IN_PROGRESS ||
       dto.status === AppointmentStatusEnum.COMPLETED
     ) {
-      throw new BadRequestException(
-        'Vui lòng sử dụng API /start-examination hoặc /complete-examination để thay đổi trạng thái này',
-      );
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     if (
@@ -317,9 +310,7 @@ export class AppointmentActionController {
     ) {
       const result = await this.appointmentService.findById(id);
       if (result.data!.doctor.id !== user.doctorId) {
-        throw new ForbiddenException(
-          'Bạn chỉ có thể cập nhật lịch hẹn của mình',
-        );
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
       }
     }
     const response = await this.appointmentService.updateStatus(id, dto.status);
@@ -347,13 +338,13 @@ export class AppointmentActionController {
         user.roles?.includes(RoleEnum.PATIENT) &&
         appointment.patient.id !== user.patientId
       ) {
-        throw new ForbiddenException('Bạn chỉ có thể hủy lịch hẹn của mình');
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
       }
       if (
         user.roles?.includes(RoleEnum.DOCTOR) &&
         appointment.doctor.id !== user.doctorId
       ) {
-        throw new ForbiddenException('Bạn chỉ có thể hủy lịch hẹn của mình');
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
       }
     }
 
@@ -395,13 +386,13 @@ export class AppointmentActionController {
         user.roles?.includes(RoleEnum.PATIENT) &&
         appointment.patient.id !== user.patientId
       ) {
-        throw new ForbiddenException('Bạn chỉ có thể đổi lịch của mình');
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
       }
       if (
         user.roles?.includes(RoleEnum.DOCTOR) &&
         appointment.doctor.id !== user.doctorId
       ) {
-        throw new ForbiddenException('Bạn chỉ có thể đổi lịch của mình');
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
       }
     }
 
@@ -447,7 +438,7 @@ export class AppointmentActionController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtUser,
   ) {
-    this.appointmentService.leaveCall(user.userId, id);
+    void this.appointmentService.leaveCall(user.userId, id);
     return { message: 'Left call successfully' };
   }
 
@@ -498,9 +489,7 @@ export class AppointmentActionController {
     ) {
       const result = await this.appointmentService.findById(id);
       if (result.data!.doctor.id !== user.doctorId) {
-        throw new ForbiddenException(
-          'Bạn chỉ có thể cập nhật lịch hẹn của mình',
-        );
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
       }
     }
 
@@ -524,7 +513,7 @@ export class AppointmentActionController {
     @CurrentUser() user: JwtUser,
   ) {
     const appt = await this.appointmentService.findOne(id);
-    if (!appt) throw new NotFoundException('Không tìm thấy lịch hẹn');
+    if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
     this.accessService.validateMedicalStatus(appt.status, 'EDIT');
     this.accessService.checkEditAccess(user, appt);
@@ -535,7 +524,7 @@ export class AppointmentActionController {
     );
     const record = response.data;
     if (!record) {
-      throw new NotFoundException('Không tìm thấy hồ sơ bệnh án');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
     return new ResponseCommon(
       response.code,
@@ -560,7 +549,7 @@ export class AppointmentActionController {
     @CurrentUser() user: JwtUser,
   ) {
     const appt = await this.appointmentService.findOne(id);
-    if (!appt) throw new NotFoundException('Không tìm thấy lịch hẹn');
+    if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
     this.accessService.validateMedicalStatus(appt.status, 'EDIT');
     this.accessService.checkEditAccess(user, appt);
@@ -568,7 +557,8 @@ export class AppointmentActionController {
     const encounterResponse =
       await this.medicalService.getEncounterByAppointment(id);
     const encounter = encounterResponse.data;
-    if (!encounter) throw new NotFoundException('Không tìm thấy hồ sơ bệnh án');
+    if (!encounter)
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
     const response = await this.medicalService.addVitalSignToEncounter(
       encounter.id,
@@ -577,7 +567,7 @@ export class AppointmentActionController {
     );
     const vitalSign = response.data;
     if (!vitalSign) {
-      throw new NotFoundException('Không tìm thấy chỉ số sinh tồn');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
     return new ResponseCommon(
       response.code,
@@ -600,22 +590,22 @@ export class AppointmentActionController {
     @CurrentUser() user: JwtUser,
   ) {
     const appt = await this.appointmentService.findOne(id);
-    if (!appt) throw new NotFoundException('Không tìm thấy lịch hẹn');
+    if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
     this.accessService.validateMedicalStatus(appt.status, 'EDIT');
 
     const isDoctor = user.doctorId === appt.doctorId;
-    if (!isDoctor)
-      throw new ForbiddenException('Chỉ bác sĩ phụ trách mới có thể kê đơn');
+    if (!isDoctor) throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
 
     if (!dto.items || dto.items.length === 0) {
-      throw new BadRequestException('Đơn thuốc phải có ít nhất 1 loại thuốc');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const encounterResponse =
       await this.medicalService.getEncounterByAppointment(id);
     const encounter = encounterResponse.data;
-    if (!encounter) throw new NotFoundException('Không tìm thấy hồ sơ bệnh án');
+    if (!encounter)
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
     const response = await this.medicalService.createPrescriptionForEncounter(
       encounter.id,
@@ -626,7 +616,7 @@ export class AppointmentActionController {
     );
     const prescription = response.data;
     if (!prescription) {
-      throw new NotFoundException('Không tìm thấy đơn thuốc');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
     return new ResponseCommon(
       response.code,
@@ -648,7 +638,7 @@ export class AppointmentActionController {
     @CurrentUser() user: JwtUser,
   ) {
     const appt = await this.appointmentService.findOne(id);
-    if (!appt) throw new NotFoundException('Không tìm thấy lịch hẹn');
+    if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
     this.accessService.validateMedicalStatus(appt.status, 'EDIT');
 
@@ -658,7 +648,7 @@ export class AppointmentActionController {
     );
     const prescription = response.data;
     if (!prescription) {
-      throw new NotFoundException('Không tìm thấy đơn thuốc');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
     return new ResponseCommon(
       response.code,
@@ -692,7 +682,7 @@ export class AppointmentActionController {
     @CurrentUser() user: JwtUser,
   ) {
     const appt = await this.appointmentService.findOne(id);
-    if (!appt) throw new NotFoundException('Không tìm thấy lịch hẹn');
+    if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
     this.accessService.validateMedicalStatus(appt.status, 'EDIT');
 
@@ -703,7 +693,7 @@ export class AppointmentActionController {
     );
     const prescription = response.data;
     if (!prescription) {
-      throw new NotFoundException('Không tìm thấy đơn thuốc');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
     return new ResponseCommon(
       response.code,

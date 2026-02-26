@@ -1,3 +1,4 @@
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import {
   Controller,
   Post,
@@ -22,8 +23,6 @@ import {
 } from '@nestjs/swagger';
 import { CloudinaryService } from '@/modules/cloudinary/cloudinary.service';
 import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
-import { CurrentUser } from '@/common/decorators/user.decorator';
-import type { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
 import {
   fileTypeConfigs,
   FileDefaults,
@@ -46,9 +45,7 @@ export class CloudinaryController {
       fileFilter: (req, file, callback) => {
         if (!fileTypeConfigs.image.allowedMimeTypes.includes(file.mimetype)) {
           return callback(
-            new BadRequestException(
-              'Only image files are allowed (jpg, jpeg, png, gif, webp)',
-            ),
+            new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST),
             false,
           );
         }
@@ -79,7 +76,7 @@ export class CloudinaryController {
     @Query('folder') folder?: string,
   ): Promise<ResponseCommon<CloudinaryUploadResponseDto>> {
     if (!file) {
-      throw new BadRequestException('No file provided');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
     const result = await this.cloudinaryService.uploadImage(file, folder);
     return new ResponseCommon(
@@ -98,9 +95,7 @@ export class CloudinaryController {
       fileFilter: (req, file, callback) => {
         if (!fileTypeConfigs.image.allowedMimeTypes.includes(file.mimetype)) {
           return callback(
-            new BadRequestException(
-              'Only image files are allowed (jpg, jpeg, png, gif, webp)',
-            ),
+            new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST),
             false,
           );
         }
@@ -134,7 +129,7 @@ export class CloudinaryController {
     @Query('folder') folder?: string,
   ): Promise<ResponseCommon<CloudinaryUploadResponseDto[]>> {
     if (!files || files.length === 0) {
-      throw new BadRequestException('No files provided');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
     const results = await this.cloudinaryService.uploadImages(files, folder);
     const data = (results ?? []).map((result) =>
@@ -170,7 +165,7 @@ export class CloudinaryController {
       fileFilter: (req, file, callback) => {
         if (file.mimetype !== 'application/pdf') {
           return callback(
-            new BadRequestException('Only PDF files are allowed'),
+            new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST),
             false,
           );
         }
@@ -201,7 +196,7 @@ export class CloudinaryController {
     @Query('folder') folder?: string,
   ): Promise<ResponseCommon<CloudinaryUploadResponseDto>> {
     if (!file) {
-      throw new BadRequestException('No file provided');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
     const result = await this.cloudinaryService.uploadPdfFile(
       file.path,

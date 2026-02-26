@@ -2,13 +2,16 @@ import {
   Injectable,
   BadRequestException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import type { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
 import { RoleEnum } from '@/modules/common/enums/role.enum';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 
 @Injectable()
 export class AppointmentMedicalAccessService {
+  private readonly logger = new Logger(AppointmentMedicalAccessService.name);
   private readonly viewStatuses = [
     AppointmentStatusEnum.IN_PROGRESS,
     AppointmentStatusEnum.COMPLETED,
@@ -28,13 +31,11 @@ export class AppointmentMedicalAccessService {
       type === 'EDIT' ? this.editStatuses : this.viewStatuses;
     if (!validStatuses.includes(status)) {
       if (type === 'EDIT') {
-        throw new BadRequestException(
-          'Chỉ có thể chỉnh sửa hồ sơ khi đang khám (IN_PROGRESS). Hồ sơ đã hoàn thành (COMPLETED) sẽ bị khóa.',
-        );
+        this.logger.error('Appointment is not in progress');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
-      throw new BadRequestException(
-        'Chưa thể xem hồ sơ (Cuộc hẹn chưa bắt đầu)',
-      );
+      this.logger.error('Appointment is not in progress');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
   }
 
@@ -47,7 +48,8 @@ export class AppointmentMedicalAccessService {
     const isPatient = user.patientId === appt.patientId;
 
     if (!isAdmin && !isDoctor && !isPatient) {
-      throw new ForbiddenException('Bạn không có quyền xem hồ sơ này');
+      this.logger.error('Access denied');
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
   }
 
@@ -56,9 +58,8 @@ export class AppointmentMedicalAccessService {
     const isDoctor = user.doctorId === appt.doctorId;
 
     if (!isAdmin && !isDoctor) {
-      throw new ForbiddenException(
-        'Chỉ bác sĩ phụ trách hoặc admin mới có thể cập nhật',
-      );
+      this.logger.error('Access denied');
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
   }
 }

@@ -5,8 +5,6 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
-  BeforeInsert,
-  BeforeUpdate,
 } from 'typeorm';
 import { Expose } from 'class-transformer';
 import { Patient } from '@/modules/patient/entities/patient.entity';

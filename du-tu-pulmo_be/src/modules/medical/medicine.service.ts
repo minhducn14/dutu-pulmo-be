@@ -6,7 +6,7 @@ import { CreateMedicineDto } from '@/modules/medical/dto/create-medicine.dto';
 import { FilterMedicineDto } from '@/modules/medical/dto/filter-medicine.dto';
 import { UpdateMedicineDto } from '@/modules/medical/dto/update-medicine.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
-import { MEDICAL_ERRORS } from '@/common/constants/error-messages.constant';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { PaginatedResponseDto } from '@/common/dto/pagination.dto';
 import { applyPaginationAndSort } from '@/common/utils/pagination.util';
 
@@ -95,7 +95,7 @@ export class MedicineService {
   async findOne(id: string): Promise<ResponseCommon<Medicine>> {
     const medicine = await this.medicineRepository.findOne({ where: { id } });
     if (!medicine) {
-      throw new NotFoundException(MEDICAL_ERRORS.MEDICINE_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.MEDICINE_NOT_FOUND);
     }
     return new ResponseCommon(HttpStatus.OK, 'Thành công', medicine);
   }
@@ -107,7 +107,7 @@ export class MedicineService {
     const response = await this.findOne(id);
     const medicine = response.data;
     if (!medicine)
-      throw new NotFoundException(MEDICAL_ERRORS.MEDICINE_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.MEDICINE_NOT_FOUND);
 
     Object.assign(medicine, updateMedicineDto);
     const result = await this.medicineRepository.save(medicine);
@@ -118,7 +118,7 @@ export class MedicineService {
     const response = await this.findOne(id);
     const medicine = response.data;
     if (!medicine)
-      throw new NotFoundException(MEDICAL_ERRORS.MEDICINE_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.MEDICINE_NOT_FOUND);
 
     medicine.status = false;
     await this.medicineRepository.save(medicine);

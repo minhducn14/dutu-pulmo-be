@@ -1,14 +1,9 @@
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import {
   Controller,
   Get,
-  Post,
-  Put,
-  Patch,
-  Delete,
   Param,
-  Body,
   HttpStatus,
-  UseGuards,
   Query,
   ParseUUIDPipe,
   BadRequestException,
@@ -19,22 +14,8 @@ import {
   ApiResponse,
   ApiParam,
   ApiQuery,
-  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { TimeSlotService } from '@/modules/doctor/services/time-slot.service';
-import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
-import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
-import { DoctorOwnershipGuard } from '@/modules/core/auth/guards/doctor-ownership.guard';
-import { Roles } from '@/common/decorators/roles.decorator';
-import { RoleEnum } from '@/modules/common/enums/role.enum';
-import {
-  CreateTimeSlotDto,
-  BulkCreateTimeSlotsDto,
-  UpdateTimeSlotDto,
-  ToggleSlotAvailabilityDto,
-  BulkToggleSlotsDto,
-  DisableSlotsForDayDto,
-} from '@/modules/doctor/dto/time-slot.dto';
 import { TimeSlotResponseDto } from '@/modules/doctor/dto/schedule-response.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
 
@@ -79,13 +60,11 @@ export class PublicTimeSlotController {
     @Query('date') dateStr: string,
   ): Promise<ResponseCommon<TimeSlotResponseDto[]>> {
     if (!dateStr) {
-      throw new BadRequestException('Ngày không được để trống');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) {
-      throw new BadRequestException(
-        'Ngày không hợp lệ, sử dụng format YYYY-MM-DD',
-      );
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
     const result = await this.timeSlotService.findAvailableSlotsByDate(
       doctorId,
@@ -139,7 +118,7 @@ export class PublicTimeSlotController {
     }
 
     if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
-      throw new BadRequestException('Ngày không hợp lệ (YYYY-MM-DD)');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     return this.timeSlotService.getAvailabilitySummary(

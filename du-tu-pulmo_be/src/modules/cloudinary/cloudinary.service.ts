@@ -2,6 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 import { existsSync, unlinkSync } from 'fs';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 
 export interface CloudinaryUploadResult {
   url: string;
@@ -47,11 +48,7 @@ export class CloudinaryService {
         },
         (error, result: UploadApiResponse | undefined) => {
           if (error) {
-            reject(
-              new BadRequestException(
-                `Medical image upload failed: ${error.message}`,
-              ),
-            );
+            reject(new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST));
           } else if (result) {
             resolve({
               url: result.secure_url,
@@ -62,11 +59,7 @@ export class CloudinaryService {
               bytes: result.bytes,
             });
           } else {
-            reject(
-              new BadRequestException(
-                'Medical image upload failed: Unknown error',
-              ),
-            );
+            reject(new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST));
           }
         },
       );
@@ -94,7 +87,7 @@ export class CloudinaryService {
         },
         (error, result: UploadApiResponse | undefined) => {
           if (error) {
-            reject(new BadRequestException(`Upload failed: ${error.message}`));
+            reject(new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST));
           } else if (result) {
             resolve({
               url: result.secure_url,
@@ -105,7 +98,7 @@ export class CloudinaryService {
               bytes: result.bytes,
             });
           } else {
-            reject(new BadRequestException('Upload failed: Unknown error'));
+            reject(new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST));
           }
         },
       );
@@ -148,7 +141,7 @@ export class CloudinaryService {
         },
         (error, result: UploadApiResponse | undefined) => {
           if (error) {
-            reject(new BadRequestException(`Upload failed: ${error.message}`));
+            reject(new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST));
           } else if (result) {
             resolve({
               url: result.secure_url,
@@ -158,7 +151,7 @@ export class CloudinaryService {
               format: result.format,
             });
           } else {
-            reject(new BadRequestException('Upload failed: Unknown error'));
+            reject(new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST));
           }
         },
       );
@@ -176,10 +169,8 @@ export class CloudinaryService {
         result: string;
       };
       return result;
-    } catch (error) {
-      throw new BadRequestException(
-        `Failed to delete image: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      );
+    } catch {
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
   }
 
@@ -189,10 +180,8 @@ export class CloudinaryService {
   async deleteImages(publicIds: string[]): Promise<void> {
     try {
       await cloudinary.api.delete_resources(publicIds);
-    } catch (error) {
-      throw new BadRequestException(
-        `Failed to delete images: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      );
+    } catch {
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
   }
 
@@ -257,7 +246,7 @@ export class CloudinaryService {
     fileName: string,
   ): Promise<CloudinaryUploadResult> {
     return new Promise((resolve, reject) => {
-      cloudinary.uploader.upload(
+      void cloudinary.uploader.upload(
         filePath,
         {
           folder: folder,
@@ -272,9 +261,7 @@ export class CloudinaryService {
           }
 
           if (error) {
-            reject(
-              new BadRequestException(`PDF upload failed: ${error.message}`),
-            );
+            reject(new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST));
           } else if (result) {
             resolve({
               url: result.secure_url,
@@ -283,9 +270,7 @@ export class CloudinaryService {
               bytes: result.bytes,
             });
           } else {
-            reject(
-              new BadRequestException('PDF  upload failed: Unknown error'),
-            );
+            reject(new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST));
           }
         },
       );

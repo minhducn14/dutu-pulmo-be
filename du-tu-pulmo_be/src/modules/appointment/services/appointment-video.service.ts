@@ -16,6 +16,7 @@ import { MedicalService } from '@/modules/medical/medical.service';
 import { AppointmentReadService } from '@/modules/appointment/services/appointment-read.service';
 import { AppointmentResponseDto } from '@/modules/appointment/dto/appointment-response.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 
 @Injectable()
 export class AppointmentVideoService {
@@ -48,7 +49,8 @@ export class AppointmentVideoService {
       });
 
       if (!apt) {
-        throw new NotFoundException('Appointment not found');
+        this.logger.error('Appointment not found');
+        throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
       }
 
       const aptWithRelations = await manager.findOne(Appointment, {
@@ -57,7 +59,8 @@ export class AppointmentVideoService {
       });
 
       if (!aptWithRelations) {
-        throw new NotFoundException('Appointment not found');
+        this.logger.error('Appointment with relations not found');
+        throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
       }
 
       if (isDoctor) {
@@ -65,23 +68,22 @@ export class AppointmentVideoService {
           !aptWithRelations.doctor?.userId ||
           aptWithRelations.doctor.userId !== userId
         ) {
-          throw new ForbiddenException(
-            'Bạn không phải là bác sĩ của cuộc hẹn này',
-          );
+          this.logger.error('Doctor user ID mismatch');
+          throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
         }
       } else {
         if (
           !aptWithRelations.patient?.userId ||
           aptWithRelations.patient.userId !== userId
         ) {
-          throw new ForbiddenException(
-            'Bạn không phải là bệnh nhân của cuộc hẹn này',
-          );
+          this.logger.error('Patient user ID mismatch');
+          throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
         }
       }
 
       if (aptWithRelations.appointmentType !== AppointmentTypeEnum.VIDEO) {
-        throw new BadRequestException('This is not a video appointment');
+        this.logger.error('Appointment type is not video');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
 
       const validStates = [
@@ -91,9 +93,8 @@ export class AppointmentVideoService {
       ];
 
       if (!validStates.includes(aptWithRelations.status)) {
-        throw new BadRequestException(
-          `Cannot join meeting in status: ${aptWithRelations.status}`,
-        );
+        this.logger.error('Invalid status transition');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
 
       return aptWithRelations;
@@ -120,14 +121,11 @@ export class AppointmentVideoService {
           );
         } catch (error) {
           this.logger.error(`Failed to create room: ${error}`);
-          throw new BadRequestException(
-            'Không thể tạo phòng họp video. Vui lòng thử lại.',
-          );
+          throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
         }
       } else {
-        throw new BadRequestException(
-          'Phòng họp chưa được tạo. Vui lòng đợi bác sĩ bắt đầu cuộc gọi trước khi tham gia.',
-        );
+        this.logger.error('Patient cannot create room');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
     }
 
@@ -138,7 +136,8 @@ export class AppointmentVideoService {
       });
 
       if (!apt) {
-        throw new NotFoundException('Appointment not found');
+        this.logger.error('Appointment not found'); 
+        throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
       }
 
       let statusChanged = false;
@@ -210,9 +209,7 @@ export class AppointmentVideoService {
       this.logger.error(
         `Failed to generate meeting token for ${appointmentId}: ${error}`,
       );
-      throw new BadRequestException(
-        'Không thể tạo token join video. Vui lòng thử lại.',
-      );
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
   }
 
@@ -241,7 +238,8 @@ export class AppointmentVideoService {
     const currentCall = await this.callStateService.getCurrentCall(userId);
     this.logger.log(`leaveCall: ${JSON.stringify(currentCall)}`);
     if (!currentCall || currentCall.appointmentId !== appointmentId) {
-      throw new BadRequestException('User is not in this call');
+      this.logger.error('Invalid call');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     await this.callStateService.clearCurrentCall(userId);

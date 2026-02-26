@@ -47,12 +47,7 @@ import { PaginatedResponseDto } from '@/common/dto/pagination.dto';
 import { CreateConclusionDto } from '@/modules/screening/dto/create-conclusion.dto';
 import { ScreeningConclusionResponseDto } from '@/modules/screening/dto/screening-conclusion-response.dto';
 
-import {
-  SCREENING_ERRORS,
-  DOCTOR_ERRORS,
-  PATIENT_ERRORS,
-  USER_ERRORS,
-} from '@/common/constants/error-messages.constant';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 
 @ApiTags('Screening')
 @Controller('screenings')
@@ -102,7 +97,7 @@ export class ScreeningController {
     ResponseCommon<PaginatedResponseDto<ScreeningRequestResponseDto>>
   > {
     if (!user.doctorId) {
-      throw new ForbiddenException(DOCTOR_ERRORS.MISSING_DOCTOR_INFO);
+      throw new ForbiddenException(ERROR_MESSAGES.MISSING_DOCTOR_INFO);
     }
     const [screenings, total] =
       await this.screeningService.findByUploaderDoctor(user.doctorId, query);
@@ -145,18 +140,14 @@ export class ScreeningController {
         const canAccess = screening.uploadedByDoctorId === user.doctorId;
 
         if (!canAccess) {
-          throw new ForbiddenException(
-            SCREENING_ERRORS.ACCESS_DENIED_SCREENING,
-          );
+          throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_SCREENING);
         }
       }
 
       // nếu vẫn cho PATIENT xem:
       if (user.roles?.includes('PATIENT')) {
         if (screening.patientId !== user.patientId) {
-          throw new ForbiddenException(
-            SCREENING_ERRORS.ACCESS_DENIED_SCREENING,
-          );
+          throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_SCREENING);
         }
       }
     }
@@ -204,7 +195,7 @@ export class ScreeningController {
       const canUpdate = screening.uploadedByDoctorId === user.doctorId;
 
       if (!canUpdate) {
-        throw new ForbiddenException(SCREENING_ERRORS.ACCESS_DENIED_SCREENING);
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_SCREENING);
       }
     }
 
@@ -225,10 +216,10 @@ export class ScreeningController {
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<ScreeningRequestResponseDto>> {
     if (!user.doctorId && !user.roles?.includes('ADMIN')) {
-      throw new ForbiddenException(DOCTOR_ERRORS.MISSING_DOCTOR_INFO);
+      throw new ForbiddenException(ERROR_MESSAGES.MISSING_DOCTOR_INFO);
     }
     if (!data.patientId) {
-      throw new BadRequestException(PATIENT_ERRORS.MISSING_PATIENT_ID);
+      throw new BadRequestException(ERROR_MESSAGES.MISSING_PATIENT_ID);
     }
 
     const created = await this.screeningService.create({
@@ -285,7 +276,7 @@ export class ScreeningController {
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<MedicalImageResponseDto>> {
     if (!file) {
-      throw new BadRequestException(USER_ERRORS.NO_FILE_UPLOADED);
+      throw new BadRequestException(ERROR_MESSAGES.NO_FILE_UPLOADED);
     }
 
     const screening = await this.screeningService.findById(screeningId);
@@ -294,7 +285,7 @@ export class ScreeningController {
       const canUpload = screening.uploadedByDoctorId === user.doctorId;
 
       if (!canUpload) {
-        throw new ForbiddenException(SCREENING_ERRORS.ACCESS_DENIED_SCREENING);
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_SCREENING);
       }
     }
 
@@ -364,7 +355,7 @@ export class ScreeningController {
     if (!user.roles?.includes('ADMIN')) {
       const canAnalyze = screening.uploadedByDoctorId === user.doctorId;
       if (!canAnalyze) {
-        throw new ForbiddenException(SCREENING_ERRORS.ACCESS_DENIED_SCREENING);
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_SCREENING);
       }
     }
 
@@ -398,7 +389,7 @@ export class ScreeningController {
         user.roles?.includes('PATIENT') &&
         screening.patientId !== user.patientId
       ) {
-        throw new ForbiddenException(SCREENING_ERRORS.ACCESS_DENIED_SCREENING);
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_SCREENING);
       }
     }
 
@@ -430,7 +421,7 @@ export class ScreeningController {
         user.roles?.includes('PATIENT') &&
         screening.patientId !== user.patientId
       ) {
-        throw new ForbiddenException(SCREENING_ERRORS.ACCESS_DENIED_SCREENING);
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_SCREENING);
       }
     }
 
@@ -464,7 +455,7 @@ export class ScreeningController {
         user.roles?.includes('PATIENT') &&
         screening.patientId !== user.patientId
       ) {
-        throw new ForbiddenException(SCREENING_ERRORS.ACCESS_DENIED_SCREENING);
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_SCREENING);
       }
     }
 
@@ -495,7 +486,7 @@ export class ScreeningController {
     if (!user.roles?.includes('ADMIN')) {
       const canConclude = screening.uploadedByDoctorId === user.doctorId;
       if (!canConclude) {
-        throw new ForbiddenException(SCREENING_ERRORS.ACCESS_DENIED_SCREENING);
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_SCREENING);
       }
     }
 
@@ -531,13 +522,16 @@ export class ScreeningController {
         user.roles?.includes('PATIENT') &&
         screening.patientId !== user.patientId
       ) {
-        throw new ForbiddenException(SCREENING_ERRORS.ACCESS_DENIED_SCREENING);
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_SCREENING);
       }
     }
 
     const conclusions = await this.screeningService.getConclusions(screeningId);
+    type ScreeningConclusionEntity = Parameters<
+      typeof ScreeningConclusionResponseDto.fromEntity
+    >[0];
     const data = conclusions.map((c) =>
-      ScreeningConclusionResponseDto.fromEntity(c as any),
+      ScreeningConclusionResponseDto.fromEntity(c as ScreeningConclusionEntity),
     );
 
     return new ResponseCommon(HttpStatus.OK, 'SUCCESS', data);
@@ -595,10 +589,10 @@ export class ScreeningController {
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<UploadAnalyzeResponseDto>> {
     if (!user.doctorId && !user.roles?.includes('ADMIN')) {
-      throw new ForbiddenException(DOCTOR_ERRORS.MISSING_DOCTOR_INFO);
+      throw new ForbiddenException(ERROR_MESSAGES.MISSING_DOCTOR_INFO);
     }
 
-    if (!file) throw new BadRequestException('Không có file được upload');
+    if (!file) throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
 
     const patientResponse = patientId
       ? await this.patientService.findOne(patientId)
@@ -606,7 +600,7 @@ export class ScreeningController {
     const patient = patientResponse?.data;
 
     if (!patient) {
-      throw new NotFoundException(PATIENT_ERRORS.PATIENT_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.PATIENT_NOT_FOUND);
     }
 
     const screening = screeningId
@@ -618,13 +612,13 @@ export class ScreeningController {
         });
 
     if (!screeningId && !patientId) {
-      throw new BadRequestException(PATIENT_ERRORS.MISSING_PATIENT_ID);
+      throw new BadRequestException(ERROR_MESSAGES.MISSING_PATIENT_ID);
     }
 
     if (!user.roles?.includes('ADMIN')) {
       const canOperate = screening.uploadedByDoctorId === user.doctorId;
       if (!canOperate) {
-        throw new ForbiddenException(SCREENING_ERRORS.ACCESS_DENIED_SCREENING);
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_SCREENING);
       }
     }
 

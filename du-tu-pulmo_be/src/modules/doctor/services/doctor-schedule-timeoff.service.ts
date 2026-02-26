@@ -1,6 +1,8 @@
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -30,6 +32,7 @@ import { endOfDayVN, startOfDayVN, vnNow } from '@/common/datetime';
 
 @Injectable()
 export class DoctorScheduleTimeOffService {
+  private readonly logger = new Logger(DoctorScheduleTimeOffService.name);
   constructor(
     @InjectRepository(Doctor)
     private readonly doctorRepository: Repository<Doctor>,
@@ -55,20 +58,20 @@ export class DoctorScheduleTimeOffService {
     >
   > {
     const specificDate = new Date(dto.specificDate);
-    const dayOfWeek = specificDate.getDay();
     const priority = SCHEDULE_TYPE_PRIORITY[ScheduleType.TIME_OFF];
 
     if (dto.startTime >= dto.endTime) {
-      throw new BadRequestException('Giờ bắt đầu phải trước giờ kết thúc');
+      this.logger.error('Invalid time range');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const today = startOfDayVN(vnNow());
     const specificDateNormalized = startOfDayVN(specificDate);
+    const dayOfWeek = specificDateNormalized.getDay();
 
     if (specificDateNormalized < today) {
-      throw new BadRequestException(
-        'Không thể tạo lịch nghỉ cho ngày trong quá khứ',
-      );
+      this.logger.error('Specific date is in the past');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const doctor = await this.doctorRepository.findOne({
@@ -76,7 +79,8 @@ export class DoctorScheduleTimeOffService {
       select: ['id'],
     });
     if (!doctor) {
-      throw new NotFoundException(`Không tìm thấy bác sĩ với ID ${doctorId}`);
+      this.logger.error('Doctor not found');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
     await this.helper.checkOverlap(
@@ -216,7 +220,8 @@ export class DoctorScheduleTimeOffService {
     const existing = existingResult.data!;
 
     if (existing.scheduleType !== ScheduleType.TIME_OFF) {
-      throw new BadRequestException('Lịch này không phải là lịch nghỉ');
+      this.logger.error('Invalid schedule type');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const timeChanged =
@@ -241,11 +246,11 @@ export class DoctorScheduleTimeOffService {
     existing: DoctorSchedule,
   ): Promise<ResponseCommon<DoctorSchedule>> {
     if (!existing.specificDate) {
-      throw new BadRequestException('Lịch nghỉ phải có specificDate');
+      this.logger.error('Specific date not found');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const specificDate = new Date(existing.specificDate);
-    const dayOfWeek = specificDate.getDay();
 
     const [oldStartH, oldStartM] = existing.startTime.split(':').map(Number);
     const [oldEndH, oldEndM] = existing.endTime.split(':').map(Number);
@@ -262,7 +267,8 @@ export class DoctorScheduleTimeOffService {
     const newStartTime = dto.startTime ?? existing.startTime;
     const newEndTime = dto.endTime ?? existing.endTime;
     if (newStartTime >= newEndTime) {
-      throw new BadRequestException('Giờ bắt đầu phải trước giờ kết thúc');
+      this.logger.error('Invalid time range');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const [startH, startM] = newStartTime.split(':').map(Number);
@@ -489,18 +495,16 @@ export class DoctorScheduleTimeOffService {
     const schedule = existingResult.data!;
 
     if (schedule.scheduleType !== ScheduleType.TIME_OFF) {
-      throw new BadRequestException(
-        `Lịch này không phải là lịch nghỉ (TIME_OFF). Sử dụng API phù hợp để xóa loại lịch ${schedule.scheduleType}`,
-      );
+      this.logger.error('Invalid schedule type');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     if (!schedule.specificDate) {
-      throw new BadRequestException('Lịch nghỉ phải có specificDate');
+      this.logger.error('Specific date not found');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const specificDate = new Date(schedule.specificDate);
-    const dayOfWeek = specificDate.getDay();
-
     const [startH, startM] = schedule.startTime.split(':').map(Number);
     const [endH, endM] = schedule.endTime.split(':').map(Number);
 

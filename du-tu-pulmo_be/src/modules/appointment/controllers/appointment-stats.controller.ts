@@ -1,3 +1,4 @@
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import {
   Controller,
   Get,
@@ -66,7 +67,7 @@ export class AppointmentStatsController {
       user.roles?.includes(RoleEnum.DOCTOR)
     ) {
       if (user.doctorId !== doctorId) {
-        throw new ForbiddenException('Bạn chỉ có thể xem hàng đợi của mình');
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
       }
     }
 
@@ -82,7 +83,7 @@ export class AppointmentStatsController {
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<DoctorQueueDto>> {
     if (!user.doctorId) {
-      throw new ForbiddenException('Không tìm thấy thông tin bác sĩ');
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
     const response = await this.appointmentService.getDoctorQueue(
       user.doctorId,
@@ -100,7 +101,7 @@ export class AppointmentStatsController {
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<AppointmentResponseDto[]>> {
     if (!user.doctorId) {
-      throw new ForbiddenException('Không tìm thấy thông tin bác sĩ');
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
     const response = await this.appointmentService.findCheckedInByDoctor(
       user.doctorId,
@@ -128,7 +129,7 @@ export class AppointmentStatsController {
     @Query('endDate') endDate?: string,
   ): Promise<ResponseCommon<AppointmentStatisticsDto>> {
     if (!user.doctorId) {
-      throw new ForbiddenException('Không tìm thấy thông tin bác sĩ');
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
 
     const response = await this.appointmentService.getDoctorStatistics(
@@ -152,7 +153,7 @@ export class AppointmentStatsController {
     @Query() query: DashboardQueryDto,
   ): Promise<ResponseCommon<DashboardStatsDto>> {
     if (!user.doctorId) {
-      throw new ForbiddenException('Không tìm thấy thông tin bác sĩ');
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
     return this.dashboardStatsService.getStats(user.doctorId, query.period);
   }
@@ -179,7 +180,7 @@ export class AppointmentStatsController {
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<AppointmentStatisticsDto>> {
     if (!user.patientId) {
-      throw new ForbiddenException('Không tìm thấy thông tin bệnh nhân');
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
     const response = await this.appointmentService.getPatientStatistics(
       user.patientId,
@@ -213,7 +214,7 @@ export class AppointmentStatsController {
       user.roles?.includes(RoleEnum.DOCTOR)
     ) {
       if (user.doctorId !== doctorId) {
-        throw new ForbiddenException('Bạn chỉ có thể xem lịch của mình');
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
       }
     }
 
@@ -247,7 +248,7 @@ export class AppointmentStatsController {
     @Query('endDate') endDate: string,
   ): Promise<ResponseCommon<AppointmentResponseDto[]>> {
     if (!user.doctorId) {
-      throw new ForbiddenException('Không tìm thấy thông tin bác sĩ');
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
 
     const response = await this.appointmentService.getCalendar(
@@ -287,13 +288,11 @@ export class AppointmentStatsController {
     const isDoctor = appointment.doctor.id === user.doctorId;
 
     if (!isPatient && !isDoctor && !user.roles?.includes(RoleEnum.ADMIN)) {
-      throw new ForbiddenException(
-        'Bạn không có quyền xem thông tin cuộc hẹn này',
-      );
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
 
     if (appointment.appointmentType !== AppointmentTypeEnum.VIDEO) {
-      throw new ForbiddenException('This is not a VIDEO appointment');
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
 
     const now = new Date();

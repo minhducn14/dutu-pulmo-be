@@ -19,6 +19,7 @@ import { AppointmentResponseDto } from '@/modules/appointment/dto/appointment-re
 import { DailyService } from '@/modules/video_call/daily.service';
 import { AppointmentMapperService } from '@/modules/appointment/services/appointment-mapper.service';
 import { diffMinutes, isBeforeVN, vnNow } from '@/common/datetime';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 
 @Injectable()
 export class AppointmentCreateService {
@@ -46,9 +47,8 @@ export class AppointmentCreateService {
     data: Partial<Appointment>,
   ): Promise<ResponseCommon<AppointmentResponseDto>> {
     if (!data.timeSlotId || !data.patientId) {
-      throw new BadRequestException(
-        'Missing required fields: timeSlotId, patientId',
-      );
+      this.logger.error('Time slot ID or patient ID is missing');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const patient = await this.dataSource
@@ -56,7 +56,8 @@ export class AppointmentCreateService {
       .findOne({ where: { id: data.patientId } });
 
     if (!patient) {
-      throw new NotFoundException('Bệnh nhân không tồn tại');
+      this.logger.error('Patient not found');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
     return this.dataSource.transaction(async (manager) => {
@@ -69,7 +70,8 @@ export class AppointmentCreateService {
         .getOne();
 
       if (!slot) {
-        throw new NotFoundException('Time slot không tồn tại');
+        this.logger.error('Time slot not found');
+        throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
       }
 
       const schedule = slot.scheduleId
@@ -79,15 +81,17 @@ export class AppointmentCreateService {
         : null;
 
       if (!slot.isAvailable) {
-        throw new ConflictException('Khung giờ không khả dụng');
+        this.logger.error('Time slot is not available');
+        throw new ConflictException(ERROR_MESSAGES.CONFLICT_DETECTED);
       }
 
       if (slot.bookedCount >= slot.capacity) {
-        throw new ConflictException('Khung giờ đã hết chỗ');
+        this.logger.error('Time slot is full');
+        throw new ConflictException(ERROR_MESSAGES.CONFLICT_DETECTED);
       }
 
       if (isBeforeVN(slot.startTime, vnNow())) {
-        throw new BadRequestException('Không thể đặt lịch cho slot quá khứ');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
 
       const existingAppointment = await manager.findOne(Appointment, {
@@ -100,13 +104,13 @@ export class AppointmentCreateService {
       });
 
       if (existingAppointment) {
-        throw new ConflictException('Bạn đã đặt lịch slot này rồi');
+        this.logger.error('Existing appointment found');
+        throw new ConflictException(ERROR_MESSAGES.CONFLICT_DETECTED);
       }
 
       if (!slot.allowedAppointmentTypes?.length) {
-        throw new BadRequestException(
-          'Slot chưa được cấu hình appointment type',
-        );
+        this.logger.error('Time slot has no allowed appointment types');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
 
       const appointmentType = slot.allowedAppointmentTypes[0];
@@ -140,7 +144,8 @@ export class AppointmentCreateService {
       const durationMinutes = diffMinutes(slot.endTime, slot.startTime);
 
       if (durationMinutes <= 0) {
-        throw new BadRequestException('Slot có thời gian không hợp lệ');
+        this.logger.error('Duration minutes is less than or equal to 0');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
 
       const appointment = manager.create(Appointment, {

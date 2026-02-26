@@ -1,3 +1,4 @@
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import {
   ForbiddenException,
   Injectable,
@@ -49,7 +50,7 @@ export class DoctorScheduleQueryService {
       where: { id },
     });
     if (!schedule) {
-      throw new NotFoundException(`Không tìm thấy lịch với ID ${id}`);
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
     return new ResponseCommon(200, 'SUCCESS', schedule);
   }
@@ -62,7 +63,7 @@ export class DoctorScheduleQueryService {
       relations: ['timeSlots'],
     });
     if (!schedule) {
-      throw new NotFoundException(`Không tìm thấy lịch với ID ${id}`);
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
     return new ResponseCommon(200, 'SUCCESS', schedule);
   }
@@ -75,7 +76,7 @@ export class DoctorScheduleQueryService {
     const schedule = result.data!;
 
     if (schedule.doctorId !== doctorId) {
-      throw new ForbiddenException('Bạn không có quyền thao tác với lịch này');
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
 
     return schedule;

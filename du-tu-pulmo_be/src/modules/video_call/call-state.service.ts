@@ -16,7 +16,7 @@ export class CallStateService {
   /**
    * Set user's current call
    */
-  async setCurrentCall(
+  setCurrentCall(
     userId: string,
     appointmentId: string,
     roomName: string,
@@ -29,19 +29,20 @@ export class CallStateService {
     this.logger.log(
       `User ${userId} joined call for appointment ${appointmentId}`,
     );
+    return Promise.resolve();
   }
 
   /**
    * Get user's current call info
    */
-  async getCurrentCall(userId: string): Promise<ActiveCall | null> {
-    return this.activeCalls.get(userId) || null;
+  getCurrentCall(userId: string): Promise<ActiveCall | null> {
+    return Promise.resolve(this.activeCalls.get(userId) || null);
   }
 
   /**
    * Clear user's current call (when leaving)
    */
-  async clearCurrentCall(userId: string): Promise<void> {
+  clearCurrentCall(userId: string): Promise<void> {
     const call = this.activeCalls.get(userId);
     if (call) {
       this.activeCalls.delete(userId);
@@ -49,32 +50,33 @@ export class CallStateService {
         `User ${userId} left call for appointment ${call.appointmentId}`,
       );
     }
+    return Promise.resolve();
   }
 
   /**
    * Check if user is currently in a call
    */
-  async isUserInCall(userId: string): Promise<boolean> {
-    return this.activeCalls.has(userId);
+  isUserInCall(userId: string): Promise<boolean> {
+    return Promise.resolve(this.activeCalls.has(userId));
   }
 
   /**
    * Get all users currently in a specific appointment call
    */
-  async getUsersInCall(appointmentId: string): Promise<string[]> {
+  getUsersInCall(appointmentId: string): Promise<string[]> {
     const users: string[] = [];
     this.activeCalls.forEach((call, oderId) => {
       if (call.appointmentId === appointmentId) {
         users.push(oderId);
       }
     });
-    return users;
+    return Promise.resolve(users);
   }
 
   /**
    * Clear all calls for a specific appointment
    */
-  async clearCallsForAppointment(appointmentId: string): Promise<void> {
+  clearCallsForAppointment(appointmentId: string): Promise<void> {
     const usersToRemove: string[] = [];
     this.activeCalls.forEach((call, oderId) => {
       if (call.appointmentId === appointmentId) {
@@ -83,5 +85,6 @@ export class CallStateService {
     });
     usersToRemove.forEach((userId) => this.activeCalls.delete(userId));
     this.logger.log(`Cleared all calls for appointment ${appointmentId}`);
+    return Promise.resolve();
   }
 }

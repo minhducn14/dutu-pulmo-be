@@ -28,7 +28,7 @@ import {
   PaginatedPatientResponseDto,
   PatientProfileResponseDto,
 } from '@/modules/patient/dto/patient-response.dto';
-import { PATIENT_ERRORS } from '@/common/constants/error-messages.constant';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
 import { Roles } from '@/common/decorators/roles.decorator';
@@ -231,7 +231,7 @@ export class PatientController {
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<PatientResponseDto>> {
     if (!user.patientId) {
-      throw new ForbiddenException(PATIENT_ERRORS.NOT_PATIENT);
+      throw new ForbiddenException(ERROR_MESSAGES.NOT_PATIENT);
     }
     const result = await this.patientService.findOne(user.patientId);
     return new ResponseCommon(
@@ -252,7 +252,7 @@ export class PatientController {
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<PatientProfileResponseDto>> {
     if (!user.patientId) {
-      throw new ForbiddenException(PATIENT_ERRORS.NOT_PATIENT);
+      throw new ForbiddenException(ERROR_MESSAGES.NOT_PATIENT);
     }
     const result = await this.patientService.getProfile(user.patientId);
 
@@ -307,9 +307,7 @@ export class PatientController {
     const isOwner = user.patientId === id;
 
     if (!isAdminOrDoctor && !isOwner) {
-      throw new ForbiddenException(
-        'Bạn không có quyền xem thông tin bệnh nhân này',
-      );
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
 
     const result = await this.patientService.findOne(id);
@@ -341,9 +339,7 @@ export class PatientController {
     const isOwner = user.patientId === id;
 
     if (!isAdmin && !isOwner) {
-      throw new ForbiddenException(
-        'Bạn chỉ có thể cập nhật thông tin của mình',
-      );
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
 
     const result = await this.patientService.update(id, dto);
@@ -498,9 +494,7 @@ export class PatientController {
     const isOwner = user.patientId === patientId;
 
     if (!isAdminOrDoctor && !isOwner) {
-      throw new ForbiddenException(
-        'Bạn không có quyền xem thông tin bệnh nhân này',
-      );
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
   }
 }

@@ -1,8 +1,10 @@
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import {
   Injectable,
   BadRequestException,
   Inject,
   forwardRef,
+  Logger,
 } from '@nestjs/common';
 import { DoctorSchedule } from '@/modules/doctor/entities/doctor-schedule.entity';
 import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
@@ -22,10 +24,8 @@ import {
 
 @Injectable()
 export class SlotGeneratorService {
-  // TODO: TECH DEBT - forwardRef indicates circular dependency between:
-  // SlotGeneratorService <-> DoctorScheduleService <-> TimeSlotService
-  // Future refactor: Extract shared schedule utility functions to separate service
-  constructor(
+  private readonly logger = new Logger(SlotGeneratorService.name);
+   constructor(
     @Inject(forwardRef(() => DoctorScheduleService))
     private readonly scheduleService: DoctorScheduleService,
     @Inject(forwardRef(() => TimeSlotService))
@@ -39,25 +39,27 @@ export class SlotGeneratorService {
   ): Promise<ResponseCommon<TimeSlot[]>> {
     const now = vnNow();
     if (startDate < now) {
-      // If start date is in past, start from tomorrow VN time
       const startOfToday = startOfDayVN(now);
       const startOfTomorrow = addDaysVN(startOfToday, 1);
       startDate = startOfTomorrow;
     }
 
     if (endDate < startDate) {
-      throw new BadRequestException('Ngày kết thúc phải sau ngày bắt đầu');
+      this.logger.error('Invalid date range. End date is before start date');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const maxEndDate = addDaysVN(startDate, 90);
     if (endDate > maxEndDate) {
-      throw new BadRequestException('Tối đa 90 ngày cho mỗi lần generate');
+      this.logger.error('Invalid date range. End date is after 90 days');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     // 2. Get schedule to identify doctor
     const scheduleResult = await this.scheduleService.findById(scheduleId);
     if (!scheduleResult.data) {
-      throw new BadRequestException('Lịch làm việc không tồn tại');
+      this.logger.error('Schedule not found');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
     const schedule = scheduleResult.data;
 
@@ -92,10 +94,7 @@ export class SlotGeneratorService {
     const currentDate = startOfDayVN(startDate);
 
     while (currentDate <= endDate) {
-      const daySlots = await this.generateSlotsForDay(
-        currentDate,
-        sortedSchedules,
-      );
+      const daySlots = this.generateSlotsForDay(currentDate, sortedSchedules);
       allSlots.push(...daySlots);
       currentDate.setDate(currentDate.getDate() + 1);
     }
@@ -109,10 +108,6 @@ export class SlotGeneratorService {
     }
 
     // 6. Get existing slots to filter out overlaps
-    // NOTE: While this check is outside the transaction, TimeSlotService.createMany
-    // internally performs checkOverlapBulk + transactional insert, which will throw
-    // ConflictException if any slots were created by concurrent requests. This provides
-    // sufficient protection against duplicate slots.
     const existingSlots = await this.timeSlotService.findSlotsInRange(
       schedule.doctorId,
       startDate,
@@ -212,10 +207,10 @@ export class SlotGeneratorService {
   /**
    * 🎯 Generate slots for a specific day following Winner-Takes-All principle
    */
-  private async generateSlotsForDay(
+  private generateSlotsForDay(
     targetDate: Date,
     sortedSchedules: DoctorSchedule[],
-  ): Promise<Partial<TimeSlot>[]> {
+  ): Partial<TimeSlot>[] {
     const dayOfWeek = getDayVN(targetDate);
 
     const daySchedules = sortedSchedules.filter((s) => {
@@ -230,56 +225,11 @@ export class SlotGeneratorService {
         s.scheduleType === ScheduleType.TIME_OFF
       ) {
         if (s.specificDate) {
-          // We need strictly match YYYY-MM-DD
-          // Convert both to VN time range?
-          // Let's assume s.specificDate is stored as 00:00:00 UTC or 00:00:00 VN?
-          // If it comes from DTO as YYYY-MM-DD, TypeORM usually maps it to Date object.
-          // Let's coerce to simplified string comparison.
-          const sDate = new Date(s.specificDate);
-          const tDate = targetDate; // This is 00:00 VN (as UTC date)
-
-          // If sDate is 2023-10-10 00:00:00 (UTC?), and tDate is 2023-10-09 17:00:00Z (00:00 VN)
-          // Then sDate.toISOString().split('T')[0] => 2023-10-10
-          // tDate.toISOString() => 2023-10-09
-          // MISMATCH!
-
-          // We need to compare: formatVN(s.specificDate) === formatVN(targetDate)
-          // But I can't import formatted if not available easily.
-          // Let's assume s.specificDate was saved correctly using startOfDayVN logic (if we refactored it).
-          // But it's old data.
-
-          // Just use basic equality of .getTime()? No.
-          // Safe verify: check if they are within 24h?
-
-          // Let's trust logic from `isScheduleActiveOnDate` for effective dates, but for specificDate we need exact match.
-          // Let's assume s.specificDate is YYYY-MM-DD.
-          // Let's check overlap of the 24h period of that date with targetDate (which represents 24h of "today" in VN).
-
-          // Or utilize `getDayVN` logic for consistent shifting.
-          // Actually, if we just convert both to YYYY-MM-DD string in VN timezone, we are good.
-          // Since I haven't imported formatVN, I will implement a quick local check.
-
-          // Hack: diff < 12 hours?
-          // No.
-
-          // Let's just use `getDayVN` to check day consistency + strict year/month?
-          // Too complex.
-
-          // Let's rely on simple Date comparison if we assume previous inputs were "Date" objects (UTC midnight).
-          // If inputs were "Date", then `s.specificDate` (YYYY-MM-DD from JSON) -> Date(YYYY-MM-DD T00:00:00.000Z).
-          // And `targetDate` -> normalized to 00:00 VN (17:00 UTC prev day).
-          // They differ by 7 hours.
-
-          // So, `Math.abs(sDate.getTime() - targetDate.getTime()) < 12 * 60 * 60 * 1000`?
-          // Yes, that works to detect "same day" regardless of 7h shift.
-
-          // Use proper timezone-aware comparison instead of tolerance hack
           return isSameDayVN(new Date(s.specificDate), targetDate);
         }
         return false;
       }
 
-      // REGULAR and other types use dayOfWeek
       return s.dayOfWeek === dayOfWeek;
     });
 
@@ -351,15 +301,14 @@ export class SlotGeneratorService {
     targetDate: Date,
   ): Partial<TimeSlot>[] {
     if (!schedule.slotDuration || schedule.slotDuration <= 0) {
-      throw new BadRequestException('Thời lượng slot phải lớn hơn 0 phút');
+      this.logger.error('Invalid slot duration');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const slots: Partial<TimeSlot>[] = [];
     const [startHour, startMin] = schedule.startTime.split(':').map(Number);
     const [endHour, endMin] = schedule.endTime.split(':').map(Number);
 
-    // targetDate is startOfDayVN (00:00 VN normalized to UTC)
-    // Add minutes directly
     const startTotalMins = startHour * 60 + startMin;
     const endTotalMins = endHour * 60 + endMin;
 
@@ -425,8 +374,6 @@ export class SlotGeneratorService {
 
     while (currentDate <= effectiveEnd) {
       if (currentDate.getDay() === schedule.dayOfWeek && schedule.isAvailable) {
-        // Warning: currentDate.getDay() is unsafe if we didn't use getDayVN.
-        // But here we rely on standard JS. Refactoring to getDayVN logic:
         const dWeek = getDayVN(currentDate);
 
         if (dWeek === schedule.dayOfWeek) {
@@ -467,12 +414,13 @@ export class SlotGeneratorService {
     }
 
     if (endDate < startDate) {
-      throw new BadRequestException('Ngày kết thúc phải sau ngày bắt đầu');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const maxEndDate = addDaysVN(startDate, 90);
     if (endDate > maxEndDate) {
-      throw new BadRequestException('Tối đa 90 ngày cho mỗi lần generate');
+      this.logger.error('Invalid date range. End date is after 90 days');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const allSchedulesResult =
@@ -514,10 +462,7 @@ export class SlotGeneratorService {
     const currentDate = startOfDayVN(startDate);
 
     while (currentDate <= endDate) {
-      const daySlots = await this.generateSlotsForDay(
-        currentDate,
-        sortedSchedules,
-      );
+      const daySlots = this.generateSlotsForDay(currentDate, sortedSchedules);
       allSlots.push(...daySlots);
       currentDate.setDate(currentDate.getDate() + 1);
     }

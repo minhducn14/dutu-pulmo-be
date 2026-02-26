@@ -13,7 +13,6 @@ import {
   Post,
   UseInterceptors,
   UploadedFile,
-  Req,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -138,14 +137,10 @@ export class UserController {
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<UserResponseDto>> {
     if (!user.roles?.includes(RoleEnum.ADMIN) && user.userId !== id) {
-      throw new ForbiddenException(
-        'Bạn không có quyền cập nhật thông tin cá nhân',
-      );
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
     if (!user.roles?.includes(RoleEnum.ADMIN) && updateUserDto.status) {
-      throw new ForbiddenException(
-        'Bạn không có quyền cập nhật trạng thái tài khoản',
-      );
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
     const response = await this.userService.update(id, updateUserDto);
     return new ResponseCommon(

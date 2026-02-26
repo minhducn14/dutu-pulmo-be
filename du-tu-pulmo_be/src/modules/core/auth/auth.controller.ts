@@ -8,6 +8,7 @@ import {
   Query,
   Res,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { AuthService } from '@/modules/core/auth/auth.service';
 import { RegisterDto } from '@/modules/core/auth/dto/register.dto';
@@ -38,11 +39,13 @@ import { ConfigService } from '@nestjs/config';
 import { VerifyOtpDto } from '@/modules/core/auth/dto/verify-otp.dto';
 import { AuthMessageResponseDto } from '@/modules/core/auth/dto/auth-message-response.dto';
 import { ResetPasswordWithOtpDto } from '@/modules/core/auth/dto/reset-password-with-otp.dto';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 
 @ApiTags('Auth')
 @Throttle({ default: { limit: 15, ttl: 60000 } })
 @Controller('auth')
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
   constructor(
     private configService: ConfigService,
     private authService: AuthService,
@@ -86,7 +89,7 @@ export class AuthController {
   ): Promise<ResponseCommon<LoginResponseDto>> {
     const response = await this.authService.login(dto);
     if (!response.data) {
-      throw new BadRequestException('Login response is empty');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
     return new ResponseCommon(
       response.code,
@@ -242,7 +245,7 @@ export class AuthController {
       dto.refreshToken,
     );
     if (!response.data?.accessToken) {
-      throw new BadRequestException('Refresh token response is empty');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
     return new ResponseCommon(response.code, response.message, {
       accessToken: response.data.accessToken,
@@ -337,7 +340,8 @@ export class AuthController {
     const result = await this.authService.resendVerificationEmail(dto.email);
 
     if (result.status === 'ALREADY_VERIFIED') {
-      throw new BadRequestException('Tài khoản đã được xác thực.');
+      this.logger.error('Email already verified');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     return new ResponseCommon(200, 'SUCCESS', {
@@ -366,15 +370,22 @@ export class AuthController {
 
     switch (result.status) {
       case 'INVALID_OTP':
-        throw new BadRequestException('Mã OTP không hợp lệ');
+      {
+        this.logger.error('Invalid OTP');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+      }
 
       case 'ALREADY_VERIFIED':
-        throw new BadRequestException('Tài khoản đã được xác thực');
+      {
+        this.logger.error('Email already verified');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+      }
 
       case 'EXPIRED_OTP':
-        throw new BadRequestException(
-          'Mã OTP đã hết hạn. Vui lòng yêu cầu gửi lại mã mới',
-        );
+      {
+        this.logger.error('Expired OTP');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+      }
 
       case 'SUCCESS':
         return new ResponseCommon(200, 'SUCCESS', {
@@ -382,7 +393,10 @@ export class AuthController {
         });
 
       default:
-        throw new BadRequestException('Đã có lỗi xảy ra. Vui lòng thử lại');
+      {
+        this.logger.error('Invalid OTP');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+      }  
     }
   }
 
@@ -404,12 +418,16 @@ export class AuthController {
 
     switch (result.status) {
       case 'ALREADY_VERIFIED':
-        throw new BadRequestException('Tài khoản đã được xác thực');
+      {
+        this.logger.error('Email already verified');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+      }
 
       case 'RATE_LIMITED':
-        throw new BadRequestException(
-          'Vui lòng đợi ít nhất 1 phút trước khi yêu cầu gửi lại mã OTP',
-        );
+      {
+        this.logger.error('Rate limited');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+      }
 
       case 'SUCCESS':
         return new ResponseCommon(200, 'SUCCESS', {

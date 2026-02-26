@@ -70,7 +70,7 @@ export class NotificationService {
       refId: dto.refId ?? null,
       refType: dto.refType ?? null,
     });
-    
+
     // Save to DB
     const saved = await this.notificationRepository.save(notification);
     this.logger.log(`Created notification ${saved.id} for user ${dto.userId}`);
@@ -108,7 +108,7 @@ export class NotificationService {
       appointments.map(async (apt) => {
         // Send Email
         await this.sendCancellationEmail(apt, reason);
-        
+
         // Notify Patient in-app
         const patientUserId = apt.patient?.user?.id;
         if (!patientUserId) {
@@ -409,8 +409,9 @@ export class NotificationService {
 
         // Notify Patient in-app
         const patientUserId = apt.patient?.user?.id;
-        const effectiveFromStr = changeInfo.effectiveFrom.toLocaleDateString('vi-VN');
-        
+        const effectiveFromStr =
+          changeInfo.effectiveFrom.toLocaleDateString('vi-VN');
+
         if (!patientUserId) {
           this.logger.warn(
             `Cannot create in-app notification - missing patient.user.id for appointment ${apt.id}`,

@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsString, IsEnum, IsOptional, IsUUID } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsEnum,
+  IsOptional,
+  IsUUID,
+} from 'class-validator';
 import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.enum';
 import { StatusEnum } from '@/modules/common/enums/status.enum';
 import { ApiProperty } from '@nestjs/swagger';

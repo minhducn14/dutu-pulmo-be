@@ -1,3 +1,4 @@
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import {
   BadRequestException,
   Injectable,
@@ -40,13 +41,13 @@ export class AppointmentCheckinService {
     const appointment = await this.appointmentEntityService.findOne(id);
 
     if (!appointment) {
-      throw new NotFoundException('Appointment not found');
+      this.logger.error('Appointment not found');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
     if (appointment.status !== AppointmentStatusEnum.CONFIRMED) {
-      throw new BadRequestException(
-        'Bạn phải thực hiện thanh toán trước khi check-in',
-      );
+      this.logger.error('Appointment is not confirmed');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const now = new Date();
@@ -56,32 +57,23 @@ export class AppointmentCheckinService {
 
     if (appointment.appointmentType === AppointmentTypeEnum.IN_CLINIC) {
       if (timeDiffMinutes > 30) {
-        throw new BadRequestException(
-          'Chưa đến giờ check-in. Vui lòng check-in trong vòng 30 phút trước giờ hẹn. ' +
-            `(Còn ${Math.round(timeDiffMinutes)} phút nữa)`,
-        );
+        this.logger.error('Appointment is too early in clinic');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
 
       if (timeDiffMinutes < -15) {
-        throw new BadRequestException(
-          `Đã quá giờ hẹn ${Math.abs(Math.round(timeDiffMinutes))} phút. ` +
-            'Vui lòng liên hệ lễ tân để sắp xếp lại.',
-        );
+        this.logger.error('Appointment is too late in clinic');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
     } else if (appointment.appointmentType === AppointmentTypeEnum.VIDEO) {
       if (timeDiffMinutes > 60) {
-        throw new BadRequestException(
-          'Chưa đến giờ check-in cho cuộc gọi video. ' +
-            'Vui lòng check-in trong vòng 1 giờ trước giờ hẹn. ' +
-            `(Còn ${Math.round(timeDiffMinutes)} phút nữa)`,
-        );
+        this.logger.error('Appointment is too early in video');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
 
       if (timeDiffMinutes < -30) {
-        throw new BadRequestException(
-          `Đã quá giờ hẹn ${Math.abs(Math.round(timeDiffMinutes))} phút. ` +
-            'Vui lòng liên hệ để được hỗ trợ.',
-        );
+        this.logger.error('Appointment is too late in video');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
     }
 
@@ -130,9 +122,8 @@ export class AppointmentCheckinService {
     });
 
     if (!appointment) {
-      throw new NotFoundException(
-        `Không tìm thấy lịch hẹn với mã ${appointmentNumber}`,
-      );
+      this.logger.error('Appointment not found');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
     return this.checkIn(appointment.id);
@@ -144,25 +135,18 @@ export class AppointmentCheckinService {
     const appointment = await this.appointmentEntityService.findOne(id);
 
     if (!appointment) {
-      throw new NotFoundException('Appointment not found');
+      this.logger.error('Appointment not found');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
     if (appointment.status !== AppointmentStatusEnum.CONFIRMED) {
-      throw new BadRequestException(
-        'Bạn phải thực hiện thanh toán trước khi check-in',
-      );
+      this.logger.error('Appointment is not confirmed');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     if (appointment.appointmentType !== AppointmentTypeEnum.VIDEO) {
-      throw new BadRequestException(
-        'This method is only for VIDEO appointments. Use /check-in for IN_CLINIC.',
-      );
-    }
-
-    if (appointment.status !== AppointmentStatusEnum.CONFIRMED) {
-      throw new BadRequestException(
-        `Không thể check-in từ trạng thái ${String(appointment.status)}`,
-      );
+      this.logger.error('Appointment is not video');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const now = new Date();
@@ -171,13 +155,13 @@ export class AppointmentCheckinService {
       (scheduledTime.getTime() - now.getTime()) / (1000 * 60);
 
     if (timeDiffMinutes > 60) {
-      throw new BadRequestException(
-        'Cuộc gọi video chưa mở. Vui lòng join trong vòng 1 giờ trước giờ hẹn.',
-      );
+      this.logger.error('Appointment is too early in video');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     if (timeDiffMinutes < -30) {
-      throw new BadRequestException('Cuộc gọi video đã kết thúc.');
+      this.logger.error('Appointment is too late in video');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     await this.appointmentRepository.update(id, {
@@ -200,14 +184,13 @@ export class AppointmentCheckinService {
       });
 
       if (!appointment) {
-        throw new NotFoundException('Appointment not found');
+        this.logger.error('Appointment not found');
+        throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
       }
 
       if (appointment.status !== AppointmentStatusEnum.CHECKED_IN) {
-        throw new BadRequestException(
-          `Không thể bắt đầu khám từ trạng thái ${appointment.status}. ` +
-            'Chỉ có thể bắt đầu khám khi ở trạng thái CHECKED_IN',
-        );
+        this.logger.error('Appointment is not checked in');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
 
       appointment.status = AppointmentStatusEnum.IN_PROGRESS;
@@ -233,14 +216,13 @@ export class AppointmentCheckinService {
       });
 
       if (!appointment) {
-        throw new NotFoundException('Appointment not found');
+        this.logger.error('Appointment not found');
+        throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
       }
 
       if (appointment.status !== AppointmentStatusEnum.IN_PROGRESS) {
-        throw new BadRequestException(
-          `Không thể hoàn thành khám từ trạng thái ${appointment.status}. ` +
-            'Chỉ có thể hoàn thành khi đang khám (IN_PROGRESS)',
-        );
+        this.logger.error('Appointment is not in progress');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
 
       const record = await manager.findOne(MedicalRecord, {
@@ -248,9 +230,8 @@ export class AppointmentCheckinService {
       });
 
       if (!record) {
-        throw new BadRequestException(
-          'Medical record not found. This should not happen - record should be created when examination starts.',
-        );
+        this.logger.error('Medical record not found');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
 
       if (dto.physicalExamNotes)

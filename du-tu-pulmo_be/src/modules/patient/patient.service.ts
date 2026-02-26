@@ -10,7 +10,7 @@ import {
   UpdatePatientDto,
 } from '@/modules/patient/dto/patient.dto';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
-import { PATIENT_ERRORS } from '@/common/constants/error-messages.constant';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { applyPaginationAndSort } from '@/common/utils/pagination.util';
 
 export interface PaginatedPatientResponseDto {
@@ -99,7 +99,7 @@ export class PatientService {
     });
 
     if (!patient) {
-      throw new NotFoundException(PATIENT_ERRORS.PATIENT_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.PATIENT_NOT_FOUND);
     }
 
     return new ResponseCommon(200, 'SUCCESS', patient);
@@ -115,7 +115,7 @@ export class PatientService {
     });
 
     if (!patient) {
-      throw new NotFoundException(PATIENT_ERRORS.PATIENT_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.PATIENT_NOT_FOUND);
     }
 
     return new ResponseCommon(200, 'SUCCESS', patient);
@@ -131,7 +131,7 @@ export class PatientService {
     const patient = await this.patientRepository.findOne({ where: { id } });
 
     if (!patient) {
-      throw new NotFoundException(PATIENT_ERRORS.PATIENT_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.PATIENT_NOT_FOUND);
     }
 
     // Build update data, handling Date conversion for insuranceExpiry
@@ -163,7 +163,7 @@ export class PatientService {
       where: { id: patientId },
     });
     if (!patient) {
-      throw new NotFoundException(PATIENT_ERRORS.PATIENT_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.PATIENT_NOT_FOUND);
     }
 
     return this.medicalService.findRecordsByPatient(patientId);
@@ -177,7 +177,7 @@ export class PatientService {
       where: { id: patientId },
     });
     if (!patient) {
-      throw new NotFoundException(PATIENT_ERRORS.PATIENT_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.PATIENT_NOT_FOUND);
     }
 
     return this.medicalService.findVitalSignsByPatient(patientId);
@@ -191,7 +191,7 @@ export class PatientService {
       where: { id: patientId },
     });
     if (!patient) {
-      throw new NotFoundException(PATIENT_ERRORS.PATIENT_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.PATIENT_NOT_FOUND);
     }
 
     return this.medicalService.findPrescriptionsByPatient(patientId);
@@ -208,7 +208,7 @@ export class PatientService {
       where: { id: patientId },
     });
     if (!patient) {
-      throw new NotFoundException(PATIENT_ERRORS.PATIENT_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.PATIENT_NOT_FOUND);
     }
 
     return this.appointmentService.findByPatient(patientId, {
@@ -232,7 +232,7 @@ export class PatientService {
     });
 
     if (!patient) {
-      throw new NotFoundException(PATIENT_ERRORS.PATIENT_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.PATIENT_NOT_FOUND);
     }
 
     // Get counts for summary using Raw methods

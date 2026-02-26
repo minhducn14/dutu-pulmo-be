@@ -7,9 +7,12 @@ import { ResponseCommon } from '@/common/dto/response.dto';
 import { AppointmentResponseDto } from '@/modules/appointment/dto/appointment-response.dto';
 import { APPOINTMENT_BASE_RELATIONS } from '@/modules/appointment/appointment.constants';
 import { AppointmentMapperService } from '@/modules/appointment/services/appointment-mapper.service';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class AppointmentCalendarService {
+  private readonly logger = new Logger(AppointmentCalendarService.name);
   constructor(
     @InjectRepository(Appointment)
     private readonly appointmentRepository: Repository<Appointment>,
@@ -25,7 +28,8 @@ export class AppointmentCalendarService {
       (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
     );
     if (daysDiff > 90) {
-      throw new BadRequestException('Khoảng thời gian tối đa là 90 ngày');
+      this.logger.error('Invalid request: daysDiff > 90');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const appointments = await this.appointmentRepository.find({

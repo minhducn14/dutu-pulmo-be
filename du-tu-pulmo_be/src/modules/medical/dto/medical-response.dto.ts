@@ -3,8 +3,6 @@ import { PaginationMeta } from '@/common/dto/pagination.dto';
 import { AppointmentResponseDto } from '@/modules/appointment/dto/appointment-response.dto';
 import { DoctorResponseDto } from '@/modules/doctor/dto/doctor-response.dto';
 import { PatientResponseDto } from '@/modules/patient/dto/patient-response.dto';
-import { MedicalRecord } from '@/modules/medical/entities/medical-record.entity';
-import { SignedStatusEnum } from '@/modules/medical/dto/get-medical-record-detail.dto';
 
 // ============================================================================
 // MEDICAL RECORD RESPONSE DTOs

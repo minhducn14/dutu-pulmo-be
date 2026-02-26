@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { Account } from '@/modules/account/entities/account.entity';
 import { User } from '@/modules/user/entities/user.entity';
@@ -24,16 +24,13 @@ import { vnNow } from '@/common/datetime';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { EmailService } from '@/modules/email/email.service';
-import { AUTH_ERRORS } from '@/common/constants/error-messages.constant';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import * as crypto from 'crypto';
 import {
   VerifyEmailResult,
   ResendVerificationResult,
   ResendVerificationByOtpResult,
   VerifyEmailByOtpResult,
-  SendResetPasswordOtpResult,
-  VerifyResetPasswordOtpResult,
-  ResetPasswordWithOtpResult,
 } from '@/modules/core/auth/auth.types';
 
 @Injectable()
@@ -78,23 +75,22 @@ export class AuthService {
     if (dto.phone) {
       const vietnamesePhoneRegex = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/;
       if (!vietnamesePhoneRegex.test(dto.phone)) {
-        throw new BadRequestException(AUTH_ERRORS.INVALID_PHONE_FORMAT);
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_PHONE_FORMAT);
       }
     }
 
     if (!dto.fullName || dto.fullName.trim().length < 2) {
-      throw new BadRequestException(AUTH_ERRORS.NAME_TOO_SHORT);
+      throw new BadRequestException(ERROR_MESSAGES.NAME_TOO_SHORT);
     }
 
     const passwordRegex =
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     if (!passwordRegex.test(dto.password)) {
-      throw new BadRequestException(AUTH_ERRORS.PASSWORD_TOO_WEAK);
+      throw new BadRequestException(ERROR_MESSAGES.PASSWORD_TOO_WEAK);
     }
 
-    return await this.dataSource.transaction(async (manager) => {
+    return await this.dataSource.transaction(async (manager: EntityManager) => {
       const accountRepo = manager.getRepository(Account);
-      const userRepo = manager.getRepository(User);
 
       const existingAccount = await accountRepo
         .createQueryBuilder('a')
@@ -104,7 +100,7 @@ export class AuthService {
         .getOne();
 
       if (existingAccount && existingAccount.isVerified) {
-        throw new ConflictException(AUTH_ERRORS.EMAIL_ALREADY_REGISTERED);
+        throw new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_REGISTERED);
       }
 
       if (existingAccount && !existingAccount.isVerified) {
@@ -113,14 +109,14 @@ export class AuthService {
         );
 
         if (dto.phone) {
-          const phoneExists = await userRepo
+          const phoneExists = await this.userRepo
             .createQueryBuilder('u')
             .where('u.phone = :phone', { phone: dto.phone })
             .andWhere('u.id != :userId', { userId: existingAccount.user.id })
             .getOne();
 
           if (phoneExists) {
-            throw new ConflictException(AUTH_ERRORS.PHONE_USED_BY_OTHER);
+            throw new ConflictException(ERROR_MESSAGES.PHONE_USED_BY_OTHER);
           }
         }
 
@@ -154,12 +150,12 @@ export class AuthService {
       }
 
       if (dto.phone) {
-        const phoneExists = await userRepo.findOne({
+        const phoneExists = await this.userRepo.findOne({
           where: { phone: dto.phone },
         });
 
         if (phoneExists) {
-          throw new ConflictException(AUTH_ERRORS.PHONE_ALREADY_USED);
+          throw new ConflictException(ERROR_MESSAGES.PHONE_ALREADY_USED);
         }
       }
 
@@ -222,32 +218,31 @@ export class AuthService {
       // Optional but recommended: transaction để update account + user cùng lúc
       return await this.dataSource.transaction(async (manager) => {
         const accountRepo = manager.getRepository(Account);
-        const userRepo = manager.getRepository(User);
 
-        const account = await accountRepo
-          .createQueryBuilder('acc')
-          .leftJoinAndSelect('acc.user', 'user')
-          .addSelect('acc.verificationToken')
-          .where('acc.verificationToken = :token', { token })
-          .getOne();
+          const account = await accountRepo
+            .createQueryBuilder('acc')
+            .leftJoinAndSelect('acc.user', 'user')
+            .addSelect('acc.verificationToken')
+            .where('acc.verificationToken = :token', { token })
+            .getOne();
 
-        if (!account) return { status: 'INVALID_TOKEN' };
+          if (!account) return { status: 'INVALID_TOKEN' };
 
-        if (account.isVerified) return { status: 'ALREADY_VERIFIED' };
+          if (account.isVerified) return { status: 'ALREADY_VERIFIED' };
 
-        if (
-          account.verificationExpiry &&
-          account.verificationExpiry < new Date()
-        ) {
-          return { status: 'EXPIRED_TOKEN', email: account.email };
-        }
+          if (
+            account.verificationExpiry &&
+            account.verificationExpiry < new Date()
+          ) {
+            return { status: 'EXPIRED_TOKEN', email: account.email };
+          }
 
-        // Update account
-        account.isVerified = true;
-        account.verificationToken = null;
-        account.verificationExpiry = null;
-        account.verifiedAt = new Date();
-        await accountRepo.save(account);
+          // Update account
+          account.isVerified = true;
+          account.verificationToken = null;
+          account.verificationExpiry = null;
+          account.verifiedAt = new Date();
+          await accountRepo.save(account);
 
         // Fire-and-forget welcome email (không làm fail transaction)
         this.emailService
@@ -256,8 +251,9 @@ export class AuthService {
             this.logger.error('Failed to send welcome email', err),
           );
 
-        return { status: 'SUCCESS' };
-      });
+          return { status: 'SUCCESS' };
+        },
+      );
     } catch (err) {
       this.logger.error('Email verification error', err);
       return { status: 'SERVER_ERROR' };
@@ -282,28 +278,28 @@ export class AuthService {
       this.logger.debug(
         `Login attempt for non-existent email: ${this.maskEmail(normalizedEmail)}`,
       );
-      throw new UnauthorizedException(AUTH_ERRORS.INVALID_CREDENTIALS);
+      throw new UnauthorizedException(ERROR_MESSAGES.INVALID_CREDENTIALS);
     }
 
     if (!(await bcrypt.compare(dto.password, acc.password))) {
       this.logger.debug(
         `Invalid password for email: ${this.maskEmail(normalizedEmail)}`,
       );
-      throw new UnauthorizedException(AUTH_ERRORS.INVALID_CREDENTIALS);
+      throw new UnauthorizedException(ERROR_MESSAGES.INVALID_CREDENTIALS);
     }
 
     if (!acc.isVerified) {
       this.logger.debug(
         `Email not verified for email: ${this.maskEmail(normalizedEmail)}`,
       );
-      throw new UnauthorizedException(AUTH_ERRORS.EMAIL_NOT_VERIFIED);
+      throw new UnauthorizedException(ERROR_MESSAGES.EMAIL_NOT_VERIFIED);
     }
 
     if (acc.deletedAt) {
       this.logger.debug(
         `Account deleted for email: ${this.maskEmail(normalizedEmail)}`,
       );
-      throw new UnauthorizedException(AUTH_ERRORS.ACCOUNT_DELETED);
+      throw new UnauthorizedException(ERROR_MESSAGES.ACCOUNT_DELETED);
     }
 
     let patientId: string | undefined;
@@ -509,7 +505,7 @@ export class AuthService {
       };
     } catch (error) {
       this.logger.error('Google OAuth error:', error);
-      throw new UnauthorizedException(AUTH_ERRORS.GOOGLE_AUTH_FAILED);
+      throw new UnauthorizedException(ERROR_MESSAGES.GOOGLE_AUTH_FAILED);
     }
   }
 
@@ -670,7 +666,7 @@ export class AuthService {
             }
           }
         } catch {
-          // Invalid or expired token, proceed with new one
+          this.logger.error('Invalid or expired token, proceed with new one');
         }
       }
 
@@ -734,12 +730,12 @@ export class AuthService {
 
       // Step 2: Validate token type
       if (decoded.type !== 'reset-password') {
-        throw new UnauthorizedException(AUTH_ERRORS.INVALID_TOKEN_TYPE);
+        throw new UnauthorizedException(ERROR_MESSAGES.INVALID_TOKEN_TYPE);
       }
 
       // Step 3: Validate email exists in decoded token
       if (!decoded.email) {
-        throw new UnauthorizedException(AUTH_ERRORS.TOKEN_MISSING_EMAIL);
+        throw new UnauthorizedException(ERROR_MESSAGES.TOKEN_MISSING_EMAIL);
       }
 
       // Step 4: Find account by email first
@@ -751,17 +747,17 @@ export class AuthService {
         .getOne();
 
       if (!account) {
-        throw new UnauthorizedException(AUTH_ERRORS.ACCOUNT_NOT_FOUND);
+        throw new UnauthorizedException(ERROR_MESSAGES.ACCOUNT_NOT_FOUND);
       }
 
       // Step 5: CRITICAL - Validate token matches the one in database
       if (!account.resetPasswordToken) {
-        throw new UnauthorizedException(AUTH_ERRORS.TOKEN_ALREADY_USED);
+        throw new UnauthorizedException(ERROR_MESSAGES.TOKEN_ALREADY_USED);
       }
 
       // Step 6: CRITICAL - Token in DB must exactly match the provided token
       if (account.resetPasswordToken !== token) {
-        throw new UnauthorizedException(AUTH_ERRORS.TOKEN_MISMATCH);
+        throw new UnauthorizedException(ERROR_MESSAGES.TOKEN_MISMATCH);
       }
 
       // Step 7: Additional security - Verify token timestamp is within reasonable time
@@ -771,7 +767,7 @@ export class AuthService {
         // Extra check beyond JWT expiry
         account.resetPasswordToken = null;
         await this.accountRepo.save(account);
-        throw new UnauthorizedException(AUTH_ERRORS.TOKEN_EXPIRED);
+        throw new UnauthorizedException(ERROR_MESSAGES.TOKEN_EXPIRED);
       }
 
       // Step 8: Hash new password with bcrypt
@@ -796,7 +792,7 @@ export class AuthService {
         error.name === 'JsonWebTokenError' ||
         error.name === 'TokenExpiredError'
       ) {
-        throw new UnauthorizedException(AUTH_ERRORS.INVALID_TOKEN);
+        throw new UnauthorizedException(ERROR_MESSAGES.INVALID_TOKEN);
       }
       throw error;
     }
@@ -820,12 +816,14 @@ export class AuthService {
 
       // Step 2: Validate token type
       if (decoded.type !== 'refresh') {
-        throw new UnauthorizedException(AUTH_ERRORS.INVALID_TOKEN_TYPE);
+        throw new UnauthorizedException(ERROR_MESSAGES.INVALID_TOKEN_TYPE);
       }
 
       // Step 3: Validate required fields
       if (!decoded.email || !decoded.sub) {
-        throw new UnauthorizedException(AUTH_ERRORS.TOKEN_MISSING_CREDENTIALS);
+        throw new UnauthorizedException(
+          ERROR_MESSAGES.TOKEN_MISSING_CREDENTIALS,
+        );
       }
 
       // Step 4: Find the refresh token in database
@@ -837,7 +835,7 @@ export class AuthService {
         this.logger.warn(
           `Refresh token not found for account: ${this.maskEmail(decoded.email)}`,
         );
-        throw new UnauthorizedException(AUTH_ERRORS.REFRESH_TOKEN_MISMATCH);
+        throw new UnauthorizedException(ERROR_MESSAGES.REFRESH_TOKEN_MISMATCH);
       }
 
       // Step 5: Check if token is revoked
@@ -854,12 +852,12 @@ export class AuthService {
             revokedReason: 'security_breach',
           },
         );
-        throw new UnauthorizedException(AUTH_ERRORS.TOKEN_REVOKED);
+        throw new UnauthorizedException(ERROR_MESSAGES.TOKEN_REVOKED);
       }
 
       // Step 6: Check if token is expired
       if (existingToken.expiresAt < new Date()) {
-        throw new UnauthorizedException(AUTH_ERRORS.TOKEN_EXPIRED);
+        throw new UnauthorizedException(ERROR_MESSAGES.TOKEN_EXPIRED);
       }
 
       // Step 7: Find account to get user data
@@ -869,7 +867,7 @@ export class AuthService {
       });
 
       if (!account) {
-        throw new UnauthorizedException(AUTH_ERRORS.ACCOUNT_NOT_FOUND);
+        throw new UnauthorizedException(ERROR_MESSAGES.ACCOUNT_NOT_FOUND);
       }
 
       // Lookup patientId and doctorId
@@ -950,7 +948,7 @@ export class AuthService {
         error.name === 'JsonWebTokenError' ||
         error.name === 'TokenExpiredError'
       ) {
-        throw new UnauthorizedException(AUTH_ERRORS.INVALID_TOKEN);
+        throw new UnauthorizedException(ERROR_MESSAGES.INVALID_TOKEN);
       }
       throw error;
     }
@@ -968,7 +966,7 @@ export class AuthService {
       });
 
       if (!account) {
-        throw new NotFoundException(AUTH_ERRORS.ACCOUNT_NOT_FOUND);
+        throw new NotFoundException(ERROR_MESSAGES.ACCOUNT_NOT_FOUND);
       }
 
       // Revoke all refresh tokens for this account
@@ -987,7 +985,7 @@ export class AuthService {
       if (error instanceof NotFoundException) {
         throw error;
       }
-      throw new UnauthorizedException(AUTH_ERRORS.LOGOUT_FAILED);
+      throw new UnauthorizedException(ERROR_MESSAGES.LOGOUT_FAILED);
     }
   }
 
@@ -1001,39 +999,40 @@ export class AuthService {
       return await this.dataSource.transaction(async (manager) => {
         const accountRepo = manager.getRepository(Account);
 
-        const account = await accountRepo.findOne({
-          where: { email: normalizedEmail },
-          relations: ['user'],
-        });
+          const account = await accountRepo.findOne({
+            where: { email: normalizedEmail },
+            relations: ['user'],
+          });
 
-        // Không lộ email tồn tại hay không => trả status để controller map message chung
-        if (!account) {
-          this.logger.debug(
-            `Resend verification attempted for non-existent email: ${normalizedEmail}`,
+          // Không lộ email tồn tại hay không => trả status để controller map message chung
+          if (!account) {
+            this.logger.debug(
+              `Resend verification attempted for non-existent email: ${normalizedEmail}`,
+            );
+            return { status: 'EMAIL_NOT_FOUND' };
+          }
+
+          if (account.isVerified) return { status: 'ALREADY_VERIFIED' };
+
+          // Generate new token
+          const verificationToken = crypto.randomBytes(32).toString('hex');
+          const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+          account.verificationToken = verificationToken;
+          account.verificationExpiry = verificationExpiry;
+
+          await accountRepo.save(account);
+
+          await this.emailService.resendVerificationEmail(
+            normalizedEmail,
+            verificationToken,
+            account.user?.fullName ?? '',
           );
-          return { status: 'EMAIL_NOT_FOUND' };
-        }
 
-        if (account.isVerified) return { status: 'ALREADY_VERIFIED' };
-
-        // Generate new token
-        const verificationToken = crypto.randomBytes(32).toString('hex');
-        const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-        account.verificationToken = verificationToken;
-        account.verificationExpiry = verificationExpiry;
-
-        await accountRepo.save(account);
-
-        await this.emailService.resendVerificationEmail(
-          normalizedEmail,
-          verificationToken,
-          account.user?.fullName ?? '',
-        );
-
-        this.logger.log(`Verification email resent to: ${normalizedEmail}`);
-        return { status: 'SUCCESS' };
-      });
+          this.logger.log(`Verification email resent to: ${normalizedEmail}`);
+          return { status: 'SUCCESS' };
+        },
+      );
     } catch (err) {
       this.logger.error('Resend verification error', err);
       return { status: 'SERVER_ERROR' };
@@ -1066,57 +1065,59 @@ export class AuthService {
     try {
       const normalizedEmail = email.toLowerCase().trim();
 
-      return await this.dataSource.transaction(async (manager) => {
-        const accountRepo = manager.getRepository(Account);
+      return await this.dataSource.transaction(
+        async (manager: EntityManager) => {
+          const accountRepo = manager.getRepository(Account);
 
-        const account = await accountRepo
-          .createQueryBuilder('acc')
-          .leftJoinAndSelect('acc.user', 'user')
-          .addSelect('acc.verificationOtp')
-          .where('acc.email = :email', { email: normalizedEmail })
-          .getOne();
+          const account = await accountRepo
+            .createQueryBuilder('acc')
+            .leftJoinAndSelect('acc.user', 'user')
+            .addSelect('acc.verificationOtp')
+            .where('acc.email = :email', { email: normalizedEmail })
+            .getOne();
 
-        if (!account) {
-          return { status: 'INVALID_OTP' };
-        }
+          if (!account) {
+            return { status: 'INVALID_OTP' };
+          }
 
-        if (account.isVerified) {
-          return { status: 'ALREADY_VERIFIED' };
-        }
+          if (account.isVerified) {
+            return { status: 'ALREADY_VERIFIED' };
+          }
 
-        if (!account.verificationOtp) {
-          return { status: 'INVALID_OTP' };
-        }
+          if (!account.verificationOtp) {
+            return { status: 'INVALID_OTP' };
+          }
 
-        // Check OTP expiry
-        if (
-          account.verificationOtpExpiry &&
-          account.verificationOtpExpiry < new Date()
-        ) {
-          return { status: 'EXPIRED_OTP', email: account.email };
-        }
+          // Check OTP expiry
+          if (
+            account.verificationOtpExpiry &&
+            account.verificationOtpExpiry < new Date()
+          ) {
+            return { status: 'EXPIRED_OTP', email: account.email };
+          }
 
-        // Verify OTP match
-        if (account.verificationOtp !== otp) {
-          return { status: 'INVALID_OTP' };
-        }
+          // Verify OTP match
+          if (account.verificationOtp !== otp) {
+            return { status: 'INVALID_OTP' };
+          }
 
-        // Mark as verified
-        account.isVerified = true;
-        account.verificationOtp = null;
-        account.verificationOtpExpiry = null;
-        account.verifiedAt = new Date();
-        await accountRepo.save(account);
+          // Mark as verified
+          account.isVerified = true;
+          account.verificationOtp = null;
+          account.verificationOtpExpiry = null;
+          account.verifiedAt = new Date();
+          await accountRepo.save(account);
 
-        // Send welcome email
-        this.emailService
-          .sendWelcomeEmail(account.email, account.user?.fullName ?? '')
-          .catch((err) =>
-            this.logger.error('Failed to send welcome email', err),
-          );
+          // Send welcome email
+          this.emailService
+            .sendWelcomeEmail(account.email, account.user?.fullName ?? '')
+            .catch((err) =>
+              this.logger.error('Failed to send welcome email', err),
+            );
 
-        return { status: 'SUCCESS' };
-      });
+          return { status: 'SUCCESS' };
+        },
+      );
     } catch (err) {
       this.logger.error('Email verification error', err);
       return { status: 'SERVER_ERROR' };
@@ -1132,56 +1133,58 @@ export class AuthService {
     const normalizedEmail = email.toLowerCase().trim();
 
     try {
-      return await this.dataSource.transaction(async (manager) => {
-        const accountRepo = manager.getRepository(Account);
+      return await this.dataSource.transaction(
+        async (manager: EntityManager) => {
+          const accountRepo = manager.getRepository(Account);
 
-        const account = await accountRepo.findOne({
-          where: { email: normalizedEmail },
-          relations: ['user'],
-        });
+          const account = await accountRepo.findOne({
+            where: { email: normalizedEmail },
+            relations: ['user'],
+          });
 
-        if (!account) {
-          this.logger.debug(
-            `Resend OTP attempted for non-existent email: ${normalizedEmail}`,
-          );
-          return { status: 'EMAIL_NOT_FOUND' };
-        }
-
-        if (account.isVerified) {
-          return { status: 'ALREADY_VERIFIED' };
-        }
-
-        // Rate limiting: Check if OTP was sent recently (within 1 minute)
-        if (account.verificationOtpExpiry) {
-          const timeSinceLastOtp =
-            this.getOtpExpiry().getTime() -
-            account.verificationOtpExpiry.getTime();
-          const oneMinute = 60 * 1000;
-
-          if (timeSinceLastOtp < 9 * oneMinute) {
-            // OTP was sent less than 1 min ago
-            return { status: 'RATE_LIMITED' };
+          if (!account) {
+            this.logger.debug(
+              `Resend OTP attempted for non-existent email: ${normalizedEmail}`,
+            );
+            return { status: 'EMAIL_NOT_FOUND' };
           }
-        }
 
-        // Generate new OTP
-        const verificationOtp = this.generateOtp();
-        const verificationOtpExpiry = this.getOtpExpiry();
+          if (account.isVerified) {
+            return { status: 'ALREADY_VERIFIED' };
+          }
 
-        account.verificationOtp = verificationOtp;
-        account.verificationOtpExpiry = verificationOtpExpiry;
+          // Rate limiting: Check if OTP was sent recently (within 1 minute)
+          if (account.verificationOtpExpiry) {
+            const timeSinceLastOtp =
+              this.getOtpExpiry().getTime() -
+              account.verificationOtpExpiry.getTime();
+            const oneMinute = 60 * 1000;
 
-        await accountRepo.save(account);
+            if (timeSinceLastOtp < 9 * oneMinute) {
+              // OTP was sent less than 1 min ago
+              return { status: 'RATE_LIMITED' };
+            }
+          }
 
-        await this.emailService.sendVerificationEmailByOTP(
-          normalizedEmail,
-          verificationOtp,
-          account.user?.fullName ?? '',
-        );
+          // Generate new OTP
+          const verificationOtp = this.generateOtp();
+          const verificationOtpExpiry = this.getOtpExpiry();
 
-        this.logger.log(`Verification OTP resent to: ${normalizedEmail}`);
-        return { status: 'SUCCESS' };
-      });
+          account.verificationOtp = verificationOtp;
+          account.verificationOtpExpiry = verificationOtpExpiry;
+
+          await accountRepo.save(account);
+
+          await this.emailService.sendVerificationEmailByOTP(
+            normalizedEmail,
+            verificationOtp,
+            account.user?.fullName ?? '',
+          );
+
+          this.logger.log(`Verification OTP resent to: ${normalizedEmail}`);
+          return { status: 'SUCCESS' };
+        },
+      );
     } catch (err) {
       this.logger.error('Resend verification OTP error', err);
       return { status: 'SERVER_ERROR' };
@@ -1194,32 +1197,33 @@ export class AuthService {
     const normalizedEmail = email.toLowerCase().trim();
 
     try {
-      return await this.dataSource.transaction(async (manager) => {
-        const accountRepo = manager.getRepository(Account);
+      return await this.dataSource.transaction(
+        async (manager: EntityManager) => {
+          const accountRepo = manager.getRepository(Account);
 
-        const account = await accountRepo.findOne({
-          where: { email: normalizedEmail },
-          relations: ['user'],
-        });
+          const account = await accountRepo.findOne({
+            where: { email: normalizedEmail },
+            relations: ['user'],
+          });
 
-        // Không lộ email tồn tại hay không
-        if (!account) {
-          this.logger.debug(
-            `Reset password OTP requested for non-existent email: ${normalizedEmail}`,
-          );
-          return new ResponseCommon(200, 'SUCCESS', {
-            message: 'Email not found',
+          // Không lộ email tồn tại hay không
+          if (!account) {
+            this.logger.debug(
+              `Reset password OTP requested for non-existent email: ${normalizedEmail}`,
+            );
+            return new ResponseCommon(200, 'SUCCESS', {
+              message: 'Email not found',
           });
         }
 
-        if (!account.user) {
-          this.logger.warn(
-            `Account ${account.id} has no associated user. Skipping email.`,
-          );
-          return new ResponseCommon(200, 'SUCCESS', {
-            message: 'Email not found',
-          });
-        }
+          if (!account.user) {
+            this.logger.warn(
+              `Account ${account.id} has no associated user. Skipping email.`,
+            );
+            return new ResponseCommon(200, 'SUCCESS', {
+              message: 'Email not found',
+            });
+          }
 
         // Rate limiting: Check if OTP was sent recently (within 1 minute)
         if (account.resetPasswordOtpExpiry) {
@@ -1239,20 +1243,20 @@ export class AuthService {
           }
         }
 
-        // Generate new OTP
-        const resetPasswordOtp = this.generateOtp();
-        const resetPasswordOtpExpiry = this.getOtpExpiry();
+          // Generate new OTP
+          const resetPasswordOtp = this.generateOtp();
+          const resetPasswordOtpExpiry = this.getOtpExpiry();
 
-        account.resetPasswordOtp = resetPasswordOtp;
-        account.resetPasswordOtpExpiry = resetPasswordOtpExpiry;
+          account.resetPasswordOtp = resetPasswordOtp;
+          account.resetPasswordOtpExpiry = resetPasswordOtpExpiry;
 
-        await accountRepo.save(account);
+          await accountRepo.save(account);
 
-        await this.emailService.sendResetPasswordOtpEmail(
-          normalizedEmail,
-          resetPasswordOtp,
-          account.user.fullName,
-        );
+          await this.emailService.sendResetPasswordOtpEmail(
+            normalizedEmail,
+            resetPasswordOtp,
+            account.user.fullName,
+          );
 
         this.logger.log(`Reset password OTP sent to: ${normalizedEmail}`);
         return new ResponseCommon(200, 'SUCCESS', {
@@ -1279,43 +1283,51 @@ export class AuthService {
     try {
       const normalizedEmail = email.toLowerCase().trim();
 
-      return await this.dataSource.transaction(async (manager) => {
-        const accountRepo = manager.getRepository(Account);
+      return await this.dataSource.transaction(
+        async (manager: EntityManager) => {
+          const accountRepo = manager.getRepository(Account);
 
-        const account = await accountRepo
-          .createQueryBuilder('acc')
-          .leftJoinAndSelect('acc.user', 'user')
-          .addSelect('acc.resetPasswordOtp')
-          .where('acc.email = :email', { email: normalizedEmail })
-          .getOne();
+          const account = await accountRepo
+            .createQueryBuilder('acc')
+            .leftJoinAndSelect('acc.user', 'user')
+            .addSelect('acc.resetPasswordOtp')
+            .where('acc.email = :email', { email: normalizedEmail })
+            .getOne();
 
-        if (!account) {
+          if (!account) {
+            return new ResponseCommon(200, 'SUCCESS', {
+              message: 'Email not found',
+            });
+          }
+
+          if (!account.resetPasswordOtp) {
+            return new ResponseCommon(200, 'SUCCESS', {
+              message: 'Invalid OTP',
+            });
+          }
+
+          // Check OTP expiry
+          if (
+            account.resetPasswordOtpExpiry &&
+            account.resetPasswordOtpExpiry < new Date()
+          ) {
+            return new ResponseCommon(200, 'SUCCESS', {
+              message: 'Expired OTP',
+            });
+          }
+
+          // Verify OTP match
+          if (account.resetPasswordOtp !== otp) {
+            return new ResponseCommon(200, 'SUCCESS', {
+              message: 'Invalid OTP',
+            });
+          }
+
           return new ResponseCommon(200, 'SUCCESS', {
-            message: 'Email not found',
+            message: 'OTP verified successfully',
           });
-        }
-
-        if (!account.resetPasswordOtp) {
-          return new ResponseCommon(200, 'SUCCESS', { message: 'Invalid OTP' });
-        }
-
-        // Check OTP expiry
-        if (
-          account.resetPasswordOtpExpiry &&
-          account.resetPasswordOtpExpiry < new Date()
-        ) {
-          return new ResponseCommon(200, 'SUCCESS', { message: 'Expired OTP' });
-        }
-
-        // Verify OTP match
-        if (account.resetPasswordOtp !== otp) {
-          return new ResponseCommon(200, 'SUCCESS', { message: 'Invalid OTP' });
-        }
-
-        return new ResponseCommon(200, 'SUCCESS', {
-          message: 'OTP verified successfully',
-        });
-      });
+        },
+      );
     } catch (err) {
       this.logger.error('Verify reset password OTP error', err);
       return new ResponseCommon(500, 'SERVER_ERROR', {
@@ -1335,68 +1347,67 @@ export class AuthService {
       const passwordRegex =
         /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
       if (!passwordRegex.test(newPassword)) {
-        throw new BadRequestException(
-          'Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt',
-        );
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
 
-      return await this.dataSource.transaction(async (manager) => {
-        const accountRepo = manager.getRepository(Account);
+      return await this.dataSource.transaction(
+        async (manager: EntityManager) => {
+          const accountRepo = manager.getRepository(Account);
 
-        const account = await accountRepo
-          .createQueryBuilder('acc')
-          .addSelect('acc.resetPasswordOtp')
-          .addSelect('acc.password')
-          .where('acc.email = :email', { email: normalizedEmail })
-          .getOne();
+          const account = await accountRepo
+            .createQueryBuilder('acc')
+            .addSelect('acc.resetPasswordOtp')
+            .addSelect('acc.password')
+            .where('acc.email = :email', { email: normalizedEmail })
+            .getOne();
 
-        if (!account) {
-          return new ResponseCommon(200, 'SUCCESS', {
-            message: 'Invalid OTP',
-          });
-        }
+          if (!account) {
+            return new ResponseCommon(200, 'SUCCESS', {
+              message: 'Invalid OTP',
+            });
+          }
 
-        if (!account.resetPasswordOtp) {
-          return new ResponseCommon(200, 'SUCCESS', {
-            message: 'Invalid OTP',
-          });
-        }
+          if (!account.resetPasswordOtp) {
+            return new ResponseCommon(200, 'SUCCESS', {
+              message: 'Invalid OTP',
+            });
+          }
 
-        if (
-          account.resetPasswordOtpExpiry &&
-          account.resetPasswordOtpExpiry < new Date()
-        ) {
-          return new ResponseCommon(200, 'SUCCESS', {
-            message: 'OTP expired',
-          });
-        }
+          if (
+            account.resetPasswordOtpExpiry &&
+            account.resetPasswordOtpExpiry < new Date()
+          ) {
+            return new ResponseCommon(200, 'SUCCESS', {
+              message: 'OTP expired',
+            });
+          }
 
-        if (account.resetPasswordOtp !== otp) {
-          return new ResponseCommon(200, 'SUCCESS', {
-            message: 'Invalid OTP',
-          });
-        }
+          if (account.resetPasswordOtp !== otp) {
+            return new ResponseCommon(200, 'SUCCESS', {
+              message: 'Invalid OTP',
+            });
+          }
 
-        const hashedPassword = await bcrypt.hash(newPassword, 12);
+          const hashedPassword = await bcrypt.hash(newPassword, 12);
 
-        account.password = hashedPassword;
-        account.resetPasswordOtp = null;
-        account.resetPasswordOtpExpiry = null;
+          account.password = hashedPassword;
+          account.resetPasswordOtp = null;
+          account.resetPasswordOtpExpiry = null;
 
-        await accountRepo.save(account);
+          await accountRepo.save(account);
 
-        await this.refreshTokenRepo.update(
-          { accountId: account.id, isRevoked: false },
-          {
-            isRevoked: true,
-            revokedAt: new Date(),
-            revokedReason: 'password_reset',
-          },
-        );
+          await this.refreshTokenRepo.update(
+            { accountId: account.id, isRevoked: false },
+            {
+              isRevoked: true,
+              revokedAt: new Date(),
+              revokedReason: 'password_reset',
+            },
+          );
 
-        this.logger.log(
-          `Password reset successful via OTP for: ${this.maskEmail(account.email)}`,
-        );
+          this.logger.log(
+            `Password reset successful via OTP for: ${this.maskEmail(account.email)}`,
+          );
 
         return new ResponseCommon(200, 'SUCCESS', {
           message: 'Đặt lại mật khẩu thành công!',

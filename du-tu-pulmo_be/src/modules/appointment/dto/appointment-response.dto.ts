@@ -132,8 +132,10 @@ export class AppointmentResponseDto {
       : (null as unknown as DoctorResponseDto);
     dto.hospitalId = entity.hospitalId || undefined;
     dto.timeSlotId = entity.timeSlotId || undefined;
-    // @ts-ignore
-    dto.medicalRecordId = entity.medicalRecordId || undefined;
+    const entityWithMedicalRecord = entity as Appointment & {
+      medicalRecordId?: string | null;
+    };
+    dto.medicalRecordId = entityWithMedicalRecord.medicalRecordId || undefined;
     dto.scheduledAt = entity.scheduledAt;
     dto.durationMinutes = entity.durationMinutes;
     dto.timezone = entity.timezone;

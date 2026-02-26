@@ -13,7 +13,7 @@ import {
   UpdateHospitalDto,
   HospitalQueryDto,
 } from '@/modules/hospital/dto/hospital.dto';
-import { HOSPITAL_ERRORS } from '@/common/constants/error-messages.constant';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { PaginatedResponseDto } from '@/common/dto/pagination.dto';
 
@@ -81,7 +81,7 @@ export class HospitalService {
     });
 
     if (!hospital) {
-      throw new NotFoundException(HOSPITAL_ERRORS.HOSPITAL_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.HOSPITAL_NOT_FOUND);
     }
 
     return new ResponseCommon(200, 'SUCCESS', hospital);
@@ -96,9 +96,7 @@ export class HospitalService {
     });
 
     if (!hospital) {
-      throw new NotFoundException(
-        `Không tìm thấy bệnh viện với mã ${hospitalCode}`,
-      );
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
     return new ResponseCommon(200, 'SUCCESS', hospital);
@@ -122,7 +120,7 @@ export class HospitalService {
     const existing = await queryBuilder.getOne();
 
     if (existing) {
-      throw new ConflictException(HOSPITAL_ERRORS.HOSPITAL_CODE_EXISTS);
+      throw new ConflictException(ERROR_MESSAGES.HOSPITAL_CODE_EXISTS);
     }
   }
 
@@ -134,17 +132,15 @@ export class HospitalService {
       (latitude !== undefined && longitude === undefined) ||
       (latitude === undefined && longitude !== undefined)
     ) {
-      throw new BadRequestException(
-        'Vĩ độ và kinh độ phải được cung cấp cùng nhau',
-      );
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     if (latitude !== undefined && (latitude < -90 || latitude > 90)) {
-      throw new BadRequestException(HOSPITAL_ERRORS.INVALID_COORDINATES);
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_COORDINATES);
     }
 
     if (longitude !== undefined && (longitude < -180 || longitude > 180)) {
-      throw new BadRequestException(HOSPITAL_ERRORS.INVALID_COORDINATES);
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_COORDINATES);
     }
   }
 
@@ -200,14 +196,6 @@ export class HospitalService {
   async delete(id: string): Promise<ResponseCommon<null>> {
     await this.findById(id);
 
-    // TODO: Check if hospital has active schedules/appointments
-    // const hasActiveSchedules = await this.scheduleRepository.count({
-    //   where: { hospitalId: id }
-    // });
-    // if (hasActiveSchedules > 0) {
-    //   throw new ConflictException('Không thể xóa bệnh viện đang có lịch làm việc');
-    // }
-
     await this.hospitalRepository.softDelete(id);
     return new ResponseCommon(200, 'Xóa bệnh viện thành công', null);
   }
@@ -222,11 +210,11 @@ export class HospitalService {
     });
 
     if (!hospital) {
-      throw new NotFoundException(HOSPITAL_ERRORS.HOSPITAL_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.HOSPITAL_NOT_FOUND);
     }
 
     if (!hospital.deletedAt) {
-      throw new BadRequestException(HOSPITAL_ERRORS.HOSPITAL_ALREADY_DELETED);
+      throw new BadRequestException(ERROR_MESSAGES.HOSPITAL_ALREADY_DELETED);
     }
 
     await this.hospitalRepository.restore(id);

@@ -1,3 +1,4 @@
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import {
   Controller,
   Get,
@@ -83,7 +84,7 @@ export class AppointmentReadController {
     @Query() query: PatientAppointmentQueryDto,
   ): Promise<ResponseCommon<PaginatedAppointmentResponseDto>> {
     if (!user.patientId) {
-      throw new ForbiddenException('Không tìm thấy thông tin bệnh nhân');
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
     const response = await this.appointmentService.findByPatient(
       user.patientId,
@@ -104,7 +105,7 @@ export class AppointmentReadController {
     @Query() query: PatientAppointmentQueryDto,
   ): Promise<ResponseCommon<PaginatedAppointmentResponseDto>> {
     if (!user.doctorId) {
-      throw new ForbiddenException('Không tìm thấy thông tin bác sĩ');
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
     const response = await this.appointmentService.findByDoctor(
       user.doctorId,
@@ -135,7 +136,7 @@ export class AppointmentReadController {
       !user.roles?.includes(RoleEnum.RECEPTIONIST)
     ) {
       if (user.patientId !== patientId) {
-        throw new ForbiddenException('Bạn chỉ có thể xem lịch hẹn của mình');
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
       }
     }
     const response = await this.appointmentService.findByPatient(
@@ -164,10 +165,10 @@ export class AppointmentReadController {
     if (!user.roles?.includes(RoleEnum.ADMIN)) {
       if (user.roles?.includes(RoleEnum.DOCTOR)) {
         if (user.doctorId !== doctorId) {
-          throw new ForbiddenException('Bạn chỉ có thể xem lịch hẹn của mình');
+          throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
         }
       } else {
-        throw new ForbiddenException('Không có quyền truy cập');
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
       }
     }
     const response = await this.appointmentService.findByDoctor(
@@ -201,15 +202,13 @@ export class AppointmentReadController {
         user.roles?.includes(RoleEnum.PATIENT) &&
         appointment.patient.id !== user.patientId
       ) {
-        throw new ForbiddenException('Bạn chỉ có thể xem lịch hẹn của mình');
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
       }
       if (
         user.roles?.includes(RoleEnum.DOCTOR) &&
         appointment.doctor.id !== user.doctorId
       ) {
-        throw new ForbiddenException(
-          'Bạn chỉ có thể xem lịch hẹn của bệnh nhân bạn khám',
-        );
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
       }
     }
 
@@ -227,7 +226,7 @@ export class AppointmentReadController {
   ) {
     // Permission check
     const appt = await this.appointmentService.findOne(id);
-    if (!appt) throw new NotFoundException('Appointment not found');
+    if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
     this.accessService.checkViewAccess(user, appt);
 
@@ -235,7 +234,7 @@ export class AppointmentReadController {
       const response = await this.medicalService.getEncounterByAppointment(id);
       const record = response.data;
       if (!record) {
-        throw new NotFoundException('Không tìm thấy hồ sơ bệnh án');
+        throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
       }
       return new ResponseCommon(
         response.code,
@@ -269,7 +268,7 @@ export class AppointmentReadController {
     @CurrentUser() user: JwtUser,
   ) {
     const appt = await this.appointmentService.findOne(id);
-    if (!appt) throw new NotFoundException('Không tìm thấy lịch hẹn');
+    if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
     this.accessService.checkViewAccess(user, appt);
 
@@ -300,7 +299,7 @@ export class AppointmentReadController {
     @CurrentUser() user: JwtUser,
   ) {
     const appt = await this.appointmentService.findOne(id);
-    if (!appt) throw new NotFoundException('Không tìm thấy lịch hẹn');
+    if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
     this.accessService.checkViewAccess(user, appt);
 

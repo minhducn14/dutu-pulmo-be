@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -9,9 +10,11 @@ import { DoctorSchedule } from '@/modules/doctor/entities/doctor-schedule.entity
 import { CreateDoctorScheduleDto } from '@/modules/doctor/dto/create-doctor-schedule.dto';
 import { UpdateDoctorScheduleDto } from '@/modules/doctor/dto/update-doctor-schedule.dto';
 import { SCHEDULE_TYPE_PRIORITY } from '@/modules/common/enums/schedule-type.enum';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 
 @Injectable()
 export class DoctorScheduleHelperService {
+  private readonly logger = new Logger(DoctorScheduleHelperService.name);
   constructor(
     @InjectRepository(DoctorSchedule)
     private readonly scheduleRepository: Repository<DoctorSchedule>,
@@ -22,21 +25,23 @@ export class DoctorScheduleHelperService {
   ): void {
     if (dto.slotDuration !== undefined) {
       if (dto.slotDuration <= 0) {
-        throw new BadRequestException('Thời lượng slot phải lớn hơn 0 phút');
+        this.logger.error('Invalid slot duration. Slot duration must be greater than 0');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
       if (dto.slotDuration < 5) {
-        throw new BadRequestException('Thời lượng slot tối thiểu 5 phút');
+        this.logger.error('Invalid slot duration. Slot duration must be at least 5 minutes');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
       if (dto.slotDuration > 480) {
-        throw new BadRequestException(
-          'Thời lượng slot tối đa 480 phút (8 giờ)',
-        );
+        this.logger.error('Invalid slot duration. Slot duration must be at most 480 minutes');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
     }
 
     if (dto.startTime && dto.endTime) {
       if (dto.startTime >= dto.endTime) {
-        throw new BadRequestException('Giờ bắt đầu phải trước giờ kết thúc');
+        this.logger.error('Invalid start time or end time. Start time must be less than end time');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
 
       if (dto.slotDuration) {
@@ -45,9 +50,8 @@ export class DoctorScheduleHelperService {
         const workingMinutes = endH * 60 + endM - (startH * 60 + startM);
 
         if (workingMinutes < dto.slotDuration) {
-          throw new BadRequestException(
-            `Khoảng thời gian làm việc (${workingMinutes} phút) không đủ cho 1 slot (${dto.slotDuration} phút)`,
-          );
+          this.logger.error('Invalid start time or end time. Working minutes must be greater than or equal to slot duration');
+          throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
         }
       }
     }
@@ -57,7 +61,8 @@ export class DoctorScheduleHelperService {
       const until = new Date(dto.effectiveUntil);
 
       if (from >= until) {
-        throw new BadRequestException('Ngày bắt đầu phải trước ngày kết thúc');
+        this.logger.error('Invalid effective date. Effective from must be less than effective until');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
     }
   }
@@ -67,17 +72,13 @@ export class DoctorScheduleHelperService {
     maxAdvanceBookingDays: number,
   ): void {
     if (minimumBookingDays < 0 || maxAdvanceBookingDays < 0) {
-      throw new BadRequestException(
-        'Số ngày phải đặt trước và số ngày xa nhất phải lớn hơn hoặc bằng 0',
-      );
+      this.logger.error('Invalid booking days constraints. Minimum booking days and maximum advance booking days must be greater than or equal to 0');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     if (minimumBookingDays >= maxAdvanceBookingDays) {
-      throw new BadRequestException(
-        `Cấu hình không hợp lệ: Số ngày phải đặt trước (${minimumBookingDays} ngày) ` +
-          `không thể lớn hơn hoặc bằng số ngày xa nhất (${maxAdvanceBookingDays} ngày). ` +
-          'Không có khoảng thời gian nào hợp lệ để đặt lịch.',
-      );
+      this.logger.error('Invalid booking days constraints. Minimum booking days must be less than maximum advance booking days');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
   }
 

@@ -9,6 +9,7 @@ import { Account } from '@/modules/account/entities/account.entity';
 import { AdminUpdateAccountDto } from '@/modules/account/dto/update-account.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { RoleEnum } from '@/modules/common/enums/role.enum';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 
 @Injectable()
 export class AccountService {
@@ -46,7 +47,7 @@ export class AccountService {
   ): Promise<ResponseCommon<Account | null>> {
     const account = await this.accountRepo.findOne({ where: { id } });
     if (!account) {
-      throw new NotFoundException(`Account with ID ${id} not found`);
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
     // Log admin action for audit
@@ -75,7 +76,7 @@ export class AccountService {
     });
 
     if (!account) {
-      throw new NotFoundException(`Account with ID ${id} not found`);
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
     account.deletedBy = deletedBy;
@@ -93,7 +94,7 @@ export class AccountService {
    */
   async hardDelete(id: string): Promise<ResponseCommon<null>> {
     if (process.env.NODE_ENV === 'production') {
-      throw new ForbiddenException('Hard delete not allowed in production');
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
 
     await this.accountRepo.delete(id);

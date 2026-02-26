@@ -18,10 +18,7 @@ import { UpdateDoctorDto } from '@/modules/doctor/dto/update-doctor.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { RoleEnum } from '@/modules/common/enums/role.enum';
 import { VerificationStatus } from '@/modules/common/enums/doctor-verification-status.enum';
-import {
-  AUTH_ERRORS,
-  DOCTOR_ERRORS,
-} from '@/common/constants/error-messages.constant';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { applyPaginationAndSort } from '@/common/utils/pagination.util';
 
 @Injectable()
@@ -118,7 +115,7 @@ export class DoctorService {
     if (dto.phone) {
       const vietnamesePhoneRegex = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/;
       if (!vietnamesePhoneRegex.test(dto.phone)) {
-        throw new BadRequestException(AUTH_ERRORS.INVALID_PHONE_FORMAT);
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_PHONE_FORMAT);
       }
     }
 
@@ -133,7 +130,7 @@ export class DoctorService {
         .getOne();
 
       if (existingAccount) {
-        throw new ConflictException(AUTH_ERRORS.EMAIL_ALREADY_REGISTERED);
+        throw new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_REGISTERED);
       }
 
       // Check phone existence
@@ -146,7 +143,7 @@ export class DoctorService {
           .getOne();
 
         if (existingPhone) {
-          throw new ConflictException(AUTH_ERRORS.PHONE_ALREADY_USED);
+          throw new ConflictException(ERROR_MESSAGES.PHONE_ALREADY_USED);
         }
       }
 
@@ -156,9 +153,7 @@ export class DoctorService {
           where: { licenseNumber: dto.licenseNumber },
         });
         if (existingByLicense) {
-          throw new ConflictException(
-            DOCTOR_ERRORS.LICENSE_ALREADY_EXISTS(dto.licenseNumber),
-          );
+          throw new ConflictException(ERROR_MESSAGES.LICENSE_ALREADY_EXISTS);
         }
       }
 
@@ -219,7 +214,7 @@ export class DoctorService {
       relations: ['user'],
     });
     if (!doctor) {
-      throw new NotFoundException(DOCTOR_ERRORS.DOCTOR_NOT_FOUND_ID(id));
+      throw new NotFoundException(ERROR_MESSAGES.DOCTOR_NOT_FOUND_ID);
     }
 
     const {
@@ -278,7 +273,7 @@ export class DoctorService {
     });
 
     if (!doctor) {
-      throw new NotFoundException(DOCTOR_ERRORS.DOCTOR_NOT_FOUND_ID(id));
+      throw new NotFoundException(ERROR_MESSAGES.DOCTOR_NOT_FOUND_ID);
     }
 
     this.logger.log(

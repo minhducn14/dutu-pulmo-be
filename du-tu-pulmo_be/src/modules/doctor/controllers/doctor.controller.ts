@@ -1,3 +1,4 @@
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import {
   Controller,
   Get,
@@ -94,14 +95,12 @@ export class DoctorController {
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<DoctorResponseDto>> {
     if (!user.roles?.includes(RoleEnum.ADMIN) && user.doctorId !== id) {
-      throw new ForbiddenException(
-        'Bạn chỉ có thể cập nhật thông tin của mình',
-      );
+      throw new ForbiddenException(ERROR_MESSAGES.OPERATION_FAILED);
     }
     const response = await this.doctorService.findOne(id);
     const doc = response.data;
     if (!doc) {
-      throw new NotFoundException('Không tìm thấy bác sĩ');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
     return new ResponseCommon(
       response.code,
@@ -185,9 +184,7 @@ export class DoctorController {
   ): Promise<ResponseCommon<DoctorResponseDto>> {
     // Validate license images are provided
     if (!licenseImages || licenseImages.length === 0) {
-      throw new BadRequestException(
-        'Vui lòng tải lên ít nhất 1 ảnh giấy phép hành nghề',
-      );
+      throw new BadRequestException(ERROR_MESSAGES.OPERATION_FAILED);
     }
 
     // Upload license images to Cloudinary
@@ -205,7 +202,7 @@ export class DoctorController {
     const response = await this.doctorService.create(dto);
     const doc = response.data;
     if (!doc) {
-      throw new NotFoundException('KhÃ´ng tÃ¬m tháº¥y bÃ¡c sÄ©');
+      throw new NotFoundException(ERROR_MESSAGES.OPERATION_FAILED);
     }
     return new ResponseCommon(
       response.code,
@@ -233,14 +230,12 @@ export class DoctorController {
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<DoctorResponseDto>> {
     if (!user.roles?.includes(RoleEnum.ADMIN) && user.doctorId !== id) {
-      throw new ForbiddenException(
-        'Bạn chỉ có thể cập nhật thông tin của mình',
-      );
+      throw new ForbiddenException(ERROR_MESSAGES.OPERATION_FAILED);
     }
     const response = await this.doctorService.update(id, dto);
     const doc = response.data;
     if (!doc) {
-      throw new NotFoundException('Không tìm thấy bác sĩ');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
     return new ResponseCommon(
       response.code,
@@ -287,7 +282,7 @@ export class DoctorController {
     const response = await this.doctorService.restore(id);
     const doc = response.data;
     if (!doc) {
-      throw new NotFoundException('Không tìm thấy bác sĩ');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
     return new ResponseCommon(
       response.code,

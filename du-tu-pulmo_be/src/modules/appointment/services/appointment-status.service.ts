@@ -15,6 +15,7 @@ import { DailyService } from '@/modules/video_call/daily.service';
 import { CallStateService } from '@/modules/video_call/call-state.service';
 import { AppointmentReadService } from '@/modules/appointment/services/appointment-read.service';
 import { AppointmentEntityService } from '@/modules/appointment/services/appointment-entity.service';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 
 @Injectable()
 export class AppointmentStatusService {
@@ -36,7 +37,8 @@ export class AppointmentStatusService {
     const appointment = await this.appointmentEntityService.findOne(id);
 
     if (!appointment) {
-      throw new NotFoundException('Appointment not found');
+      this.logger.error('Appointment not found');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
     const validTransitions: Record<
@@ -75,9 +77,8 @@ export class AppointmentStatusService {
 
     const allowedNextStates = validTransitions[appointment.status] || [];
     if (!allowedNextStates.includes(status)) {
-      throw new BadRequestException(
-        `Không thể chuyển từ trạng thái ${appointment.status} sang ${status}`,
-      );
+      this.logger.error('Invalid status transition');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const updateData: Partial<Appointment> = { status };
@@ -96,7 +97,7 @@ export class AppointmentStatusService {
           );
         } catch (error) {
           this.logger.error(`Failed to generate meeting URL: ${error}`);
-          throw new BadRequestException('Không thể tạo phòng họp video');
+          throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
         }
       }
     } else if (status === AppointmentStatusEnum.IN_PROGRESS) {
@@ -133,13 +134,13 @@ export class AppointmentStatusService {
       await this.appointmentEntityService.findOne(appointmentId);
 
     if (!appointment) {
-      throw new NotFoundException('Appointment not found');
+      this.logger.error('Appointment not found');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
     if (appointment.status !== AppointmentStatusEnum.PENDING_PAYMENT) {
-      throw new BadRequestException(
-        `Không thể xác nhận thanh toán cho lịch hẹn ở trạng thái ${appointment.status}`,
-      );
+      this.logger.error('Invalid status transition');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const updateData: Partial<Appointment> = {
@@ -158,7 +159,7 @@ export class AppointmentStatusService {
         );
       } catch (error) {
         this.logger.error(`Failed to generate meeting URL: ${error}`);
-        throw new BadRequestException('Không thể tạo phòng họp video');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
     }
 
@@ -184,7 +185,8 @@ export class AppointmentStatusService {
       await this.appointmentEntityService.findOne(appointmentId);
 
     if (!appointment) {
-      throw new NotFoundException('Appointment not found');
+      this.logger.error('Appointment not found');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
     const terminalStates = [
@@ -193,9 +195,8 @@ export class AppointmentStatusService {
     ];
 
     if (terminalStates.includes(appointment.status)) {
-      throw new BadRequestException(
-        `Không thể cập nhật thông tin lâm sàng cho lịch hẹn ở trạng thái ${appointment.status}`,
-      );
+      this.logger.error('Invalid status transition');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     await this.appointmentRepository.update(appointmentId, data);

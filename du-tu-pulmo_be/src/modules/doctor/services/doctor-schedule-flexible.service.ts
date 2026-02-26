@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -27,9 +28,11 @@ import { DoctorScheduleQueryService } from '@/modules/doctor/services/doctor-sch
 import { DoctorScheduleUpdateService } from '@/modules/doctor/services/doctor-schedule-update.service';
 import { DoctorScheduleRestoreService } from '@/modules/doctor/services/doctor-schedule-restore.service';
 import { endOfDayVN, startOfDayVN, vnNow } from '@/common/datetime';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 
 @Injectable()
 export class DoctorScheduleFlexibleService {
+  private readonly logger = new Logger(DoctorScheduleFlexibleService.name);
   constructor(
     @InjectRepository(Doctor)
     private readonly doctorRepository: Repository<Doctor>,
@@ -59,14 +62,14 @@ export class DoctorScheduleFlexibleService {
     const priority = SCHEDULE_TYPE_PRIORITY[ScheduleType.FLEXIBLE];
 
     if (dto.startTime >= dto.endTime) {
-      throw new BadRequestException('Giờ bắt đầu phải trước giờ kết thúc');
+      this.logger.error('Invalid start time or end time');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const today = startOfDayVN(vnNow());
     if (specificDate < today) {
-      throw new BadRequestException(
-        'Không thể tạo lịch cho ngày trong quá khứ',
-      );
+      this.logger.error('Specific date is in the past');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const doctor = await this.doctorRepository.findOne({
@@ -74,14 +77,14 @@ export class DoctorScheduleFlexibleService {
       select: ['id', 'primaryHospitalId'],
     });
     if (!doctor) {
-      throw new NotFoundException(`Không tìm thấy bác sĩ với ID ${doctorId}`);
+      this.logger.error('Doctor not found');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
     if (dto.appointmentType === AppointmentTypeEnum.IN_CLINIC) {
       if (!doctor.primaryHospitalId) {
-        throw new BadRequestException(
-          'Khám tại phòng khám yêu cầu bác sĩ có bệnh viện/phòng khám chính (primaryHospitalId)',
-        );
+        this.logger.error('Doctor does not have a primary hospital');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
     }
 
@@ -97,11 +100,6 @@ export class DoctorScheduleFlexibleService {
 
     const [startH, startM] = dto.startTime.split(':').map(Number);
     const [endH, endM] = dto.endTime.split(':').map(Number);
-
-    // specificDate usually is 00:00 VN if it came from normalized source or simple YYYY-MM-DD
-    // But safely: derive base from it.
-    // If specificDate is already a valid Date object?
-    // Let's assume specificDate IS the base.
 
     const baseDate = startOfDayVN(specificDate);
 
@@ -275,7 +273,8 @@ export class DoctorScheduleFlexibleService {
     const existing = existingResult.data!;
 
     if (existing.scheduleType !== ScheduleType.FLEXIBLE) {
-      throw new BadRequestException('Lịch này không phải là lịch linh hoạt');
+      this.logger.error('Schedule is not flexible');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const timeChanged =
@@ -304,7 +303,8 @@ export class DoctorScheduleFlexibleService {
     existing: DoctorSchedule,
   ): Promise<ResponseCommon<DoctorSchedule>> {
     if (!existing.specificDate) {
-      throw new BadRequestException('Lịch linh hoạt phải có specificDate');
+      this.logger.error('Schedule does not have a specific date');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const specificDate = new Date(existing.specificDate);
@@ -312,7 +312,8 @@ export class DoctorScheduleFlexibleService {
     const newEndTime = dto.endTime ?? existing.endTime;
 
     if (newStartTime >= newEndTime) {
-      throw new BadRequestException('Giờ bắt đầu phải trước giờ kết thúc');
+      this.logger.error('Invalid start time or end time');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const [startH, startM] = newStartTime.split(':').map(Number);
@@ -488,13 +489,13 @@ export class DoctorScheduleFlexibleService {
     const schedule = existingResult.data!;
 
     if (schedule.scheduleType !== ScheduleType.FLEXIBLE) {
-      throw new BadRequestException(
-        `Lịch này không phải là lịch linh hoạt (FLEXIBLE). Sử dụng API phù hợp để xóa loại lịch ${schedule.scheduleType}`,
-      );
+      this.logger.error('Schedule is not flexible');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     if (!schedule.specificDate) {
-      throw new BadRequestException('Lịch linh hoạt phải có specificDate');
+      this.logger.error('Schedule does not have a specific date');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const specificDate = new Date(schedule.specificDate);
@@ -560,8 +561,6 @@ export class DoctorScheduleFlexibleService {
           const [regStartH, regStartM] = reg.startTime.split(':').map(Number);
           const [regEndH, regEndM] = reg.endTime.split(':').map(Number);
 
-          // Construct regStart and regEnd based on specificDate (which acts as base here for day)
-          // We assume specificDate is the target day.
           const base = startOfDayVN(specificDate);
 
           const regStart = new Date(
@@ -610,8 +609,6 @@ export class DoctorScheduleFlexibleService {
         restoredSlots,
       };
     });
-
-    // Notifications removed since we don't auto-cancel anymore
 
     let message = 'Xóa lịch linh hoạt thành công.';
     if (result.appointmentsCount > 0) {

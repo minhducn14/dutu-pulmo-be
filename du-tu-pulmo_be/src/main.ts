@@ -1,7 +1,26 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '@/app.module';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import {
+  DocumentBuilder,
+  SwaggerModule,
+  type OpenAPIObject,
+} from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
+import { HttpAdapterHost } from '@nestjs/core';
+import { AllExceptionsFilter } from '@/common/filters/all-exceptions.filter';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function getRolesFromOperation(operation: unknown): string[] | undefined {
+  if (!isRecord(operation)) return undefined;
+
+  const roles = operation['x-roles'];
+  if (!Array.isArray(roles)) return undefined;
+
+  return roles.filter((role): role is string => typeof role === 'string');
+}
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -17,6 +36,9 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
+
+  const httpAdapterHost = app.get(HttpAdapterHost);
+  app.useGlobalFilters(new AllExceptionsFilter(httpAdapterHost));
 
   const port = process.env.PORT ?? 3000;
   const serverUrl = process.env.PUBLIC_URL || `http://localhost:${port}`;
@@ -47,27 +69,30 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, config);
 
-  function filterDocumentByRole(doc: any, role: string) {
-    const clonedDoc = JSON.parse(JSON.stringify(doc));
-    const newPaths: Record<string, any> = {};
+  function filterDocumentByRole(
+    doc: OpenAPIObject,
+    role: string,
+  ): OpenAPIObject {
+    const clonedDoc = structuredClone(doc);
+    const sourcePaths = clonedDoc.paths ?? {};
+    const newPaths: NonNullable<OpenAPIObject['paths']> = {};
 
-    for (const [path, methods] of Object.entries(clonedDoc.paths)) {
-      const newMethods: Record<string, any> = {};
-      let hasMethods = false;
+    for (const [path, methods] of Object.entries(sourcePaths)) {
+      if (!isRecord(methods)) continue;
 
-      for (const [method, operation] of Object.entries(methods as any)) {
-        const op = operation as any;
-        const roles = op['x-roles'] as string[];
+      const newMethods: Record<string, unknown> = {};
 
-        // Keep if no roles defined (public) OR matches role
+      for (const [method, operation] of Object.entries(methods)) {
+        const roles = getRolesFromOperation(operation);
         if (!roles || roles.length === 0 || roles.includes(role)) {
-          newMethods[method] = op;
-          hasMethods = true;
+          newMethods[method] = operation;
         }
       }
 
-      if (hasMethods) {
-        newPaths[path] = newMethods;
+      if (Object.keys(newMethods).length > 0) {
+        newPaths[path] = newMethods as NonNullable<
+          OpenAPIObject['paths']
+        >[string];
       }
     }
 
@@ -125,4 +150,4 @@ async function bootstrap() {
     `📚 Swagger Patient API Docs: http://localhost:${port}/docs/patient`,
   );
 }
-bootstrap();
+void bootstrap();

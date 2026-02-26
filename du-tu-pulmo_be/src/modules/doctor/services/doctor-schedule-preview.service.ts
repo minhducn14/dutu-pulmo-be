@@ -5,6 +5,7 @@ import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
 import { DoctorSchedule } from '@/modules/doctor/entities/doctor-schedule.entity';
 import { ScheduleType } from '@/modules/common/enums/schedule-type.enum';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import {
   PreviewFlexibleScheduleConflictsDto,
   PreviewTimeOffConflictsDto,
@@ -34,13 +35,11 @@ export class DoctorSchedulePreviewService {
 
     const today = startOfDayVN(vnNow());
     if (specificDate < today) {
-      throw new BadRequestException(
-        'Không thể xem trước cho ngày trong quá khứ',
-      );
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     if (dto.startTime >= dto.endTime) {
-      throw new BadRequestException('Giờ bắt đầu phải trước giờ kết thúc');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const [startH, startM] = dto.startTime.split(':').map(Number);
@@ -126,13 +125,11 @@ export class DoctorSchedulePreviewService {
 
     const today = startOfDayVN(vnNow());
     if (specificDate < today) {
-      throw new BadRequestException(
-        'Không thể xem trước cho ngày trong quá khứ',
-      );
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     if (dto.startTime >= dto.endTime) {
-      throw new BadRequestException('Giờ bắt đầu phải trước giờ kết thúc');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const [startH, startM] = dto.startTime.split(':').map(Number);
@@ -210,11 +207,11 @@ export class DoctorSchedulePreviewService {
       where: { id: scheduleId },
     });
     if (!schedule || schedule.scheduleType !== ScheduleType.REGULAR) {
-      throw new BadRequestException('Schedule not found or not REGULAR');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     if (newStartTime >= newEndTime) {
-      throw new BadRequestException('Start time must be before end time');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const [newStartH, newStartM] = newStartTime.split(':').map(Number);
@@ -292,7 +289,7 @@ export class DoctorSchedulePreviewService {
       where: { id: scheduleId },
     });
     if (!schedule || schedule.scheduleType !== ScheduleType.REGULAR) {
-      throw new BadRequestException('Schedule not found or not REGULAR');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     const futureAppointments = await this.appointmentRepository.find({

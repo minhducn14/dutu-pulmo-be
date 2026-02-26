@@ -33,7 +33,7 @@ import type { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
 import { ChatRoomService } from '@/modules/chatroom/chatroom.service';
 import { ChatGateway } from '@/modules/chat/chat.gateway';
 import { ResponseCommon } from '@/common/dto/response.dto';
-import { CHAT_ERRORS } from '@/common/constants/error-messages.constant';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 
 @ApiTags('Chat')
 @Controller('chatmessages')
@@ -63,10 +63,9 @@ export class ChatMessageController {
       user.id,
     );
     if (!isMember) {
-      throw new ForbiddenException(CHAT_ERRORS.NOT_MEMBER);
+      throw new ForbiddenException(ERROR_MESSAGES.NOT_MEMBER);
     }
 
-    // Inject senderId từ JWT — không tin tưởng body
     const response = await this.chatMessageService.create({
       ...createChatMessageDto,
       senderId: user.id,
@@ -115,7 +114,7 @@ export class ChatMessageController {
         user.id,
       );
       if (!isMember) {
-        throw new ForbiddenException(CHAT_ERRORS.NOT_MEMBER);
+        throw new ForbiddenException(ERROR_MESSAGES.NOT_MEMBER);
       }
     }
 
@@ -146,7 +145,7 @@ export class ChatMessageController {
     const response = await this.chatMessageService.findOne(id);
 
     if (!response.data) {
-      throw new NotFoundException(CHAT_ERRORS.MESSAGE_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.MESSAGE_NOT_FOUND);
     }
 
     if (!user.roles?.includes('ADMIN')) {
@@ -157,7 +156,7 @@ export class ChatMessageController {
           user.id,
         );
         if (!isMember) {
-          throw new ForbiddenException(CHAT_ERRORS.NOT_MEMBER);
+          throw new ForbiddenException(ERROR_MESSAGES.NOT_MEMBER);
         }
       }
     }
@@ -184,11 +183,11 @@ export class ChatMessageController {
     const message = await this.chatMessageService.findOne(id);
 
     if (!message.data) {
-      throw new NotFoundException(CHAT_ERRORS.MESSAGE_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.MESSAGE_NOT_FOUND);
     }
 
     if (!user.roles?.includes('ADMIN') && message.data.sender?.id !== user.id) {
-      throw new ForbiddenException(CHAT_ERRORS.NOT_SENDER);
+      throw new ForbiddenException(ERROR_MESSAGES.NOT_SENDER);
     }
 
     const response = await this.chatMessageService.update(
@@ -220,11 +219,11 @@ export class ChatMessageController {
     const message = await this.chatMessageService.findOne(id);
 
     if (!message.data) {
-      throw new NotFoundException(CHAT_ERRORS.MESSAGE_NOT_FOUND);
+      throw new NotFoundException(ERROR_MESSAGES.MESSAGE_NOT_FOUND);
     }
 
     if (!user.roles?.includes('ADMIN') && message.data.sender?.id !== user.id) {
-      throw new ForbiddenException(CHAT_ERRORS.NOT_SENDER);
+      throw new ForbiddenException(ERROR_MESSAGES.NOT_SENDER);
     }
 
     return this.chatMessageService.remove(id);

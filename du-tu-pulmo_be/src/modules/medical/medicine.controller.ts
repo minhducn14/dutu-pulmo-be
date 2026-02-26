@@ -21,6 +21,7 @@ import {
 } from '@/modules/medical/dto/medical-response.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { PaginatedResponseDto } from '@/common/dto/pagination.dto';
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 
 @ApiTags('Medicines')
 @Controller('medicines')
@@ -99,7 +100,8 @@ export class MedicineController {
     @Param('id') id: string,
   ): Promise<ResponseCommon<MedicineResponseDto>> {
     const result = await this.medicineService.findOne(id);
-    if (!result.data) throw new NotFoundException('Medicine not found');
+    if (!result.data)
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     const dto = this.toDto(result.data);
     return new ResponseCommon(result.code, result.message, dto);
   }
