@@ -24,7 +24,7 @@ import { PdfModule } from '@/modules/pdf/pdf.module';
       ScreeningRequest,
     ]),
     forwardRef(() => AppointmentModule),
-    PdfModule,
+    forwardRef(() => PdfModule),
   ],
   controllers: [MedicalController, MedicineController],
   providers: [MedicalService, MedicineService],

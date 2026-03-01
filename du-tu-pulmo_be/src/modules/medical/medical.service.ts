@@ -4,6 +4,8 @@ import {
   BadRequestException,
   ForbiddenException,
   HttpStatus,
+  forwardRef,
+  Inject,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager, In, DataSource } from 'typeorm';
@@ -29,6 +31,7 @@ import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status
 import { PrescriptionStatusEnum } from '@/modules/common/enums/prescription-status.enum';
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { MedicalRecordExaminationDto } from '@/modules/medical/dto/medical-record-examination.dto';
+import { PdfService } from '@/modules/pdf/pdf.service';
 
 @Injectable()
 export class MedicalService {
@@ -44,9 +47,14 @@ export class MedicalService {
     @InjectRepository(Medicine)
     private readonly medicineRepository: Repository<Medicine>,
     private readonly dataSource: DataSource,
+    @Inject(forwardRef(() => PdfService))
+    private readonly pdfService: PdfService,
   ) {}
 
-  // Medical Records
+  // ============================================================================
+  // MEDICAL RECORDS
+  // ============================================================================
+
   /**
    * Find records by patient, optionally filtered by doctor
    */
@@ -107,7 +115,7 @@ export class MedicalService {
         'vitalSigns',
       ],
       order: { createdAt: 'DESC' },
-      take: 50, // Limit to recent 50 records
+      take: 50,
     });
     return new ResponseCommon(HttpStatus.OK, 'Thành công', records);
   }
@@ -143,7 +151,10 @@ export class MedicalService {
     return new ResponseCommon(HttpStatus.OK, 'Cập nhật thành công', result);
   }
 
-  // Vital Signs
+  // ============================================================================
+  // VITAL SIGNS
+  // ============================================================================
+
   async addVitalSign(
     data: Partial<VitalSign>,
   ): Promise<ResponseCommon<VitalSign>> {
@@ -168,7 +179,6 @@ export class MedicalService {
     qb.where('vs.patientId = :patientId', { patientId });
 
     if (doctorId) {
-      // Strict filtering: Only vital signs linked to records created by this doctor
       qb.andWhere('mr.doctorId = :doctorId', { doctorId });
     }
 
@@ -179,7 +189,6 @@ export class MedicalService {
     return new ResponseCommon(HttpStatus.OK, 'Thành công', data);
   }
 
-  // Internal for PatientService
   async findVitalSignsByPatientRaw(patientId: string): Promise<VitalSign[]> {
     return this.vitalSignRepository.find({
       where: { patientId },
@@ -188,7 +197,10 @@ export class MedicalService {
     });
   }
 
-  // Prescriptions
+  // ============================================================================
+  // PRESCRIPTIONS
+  // ============================================================================
+
   async createPrescription(
     data: Partial<Prescription>,
   ): Promise<ResponseCommon<Prescription>> {
@@ -232,7 +244,7 @@ export class MedicalService {
         'items',
         'doctor',
         'doctor.user',
-        'patient', // Needed for response dto
+        'patient',
         'patient.user',
         'medicalRecord',
         'appointment',
@@ -242,7 +254,6 @@ export class MedicalService {
     return new ResponseCommon(HttpStatus.OK, 'Thành công', data);
   }
 
-  // Internal for PatientService
   async findPrescriptionsByPatientRaw(
     patientId: string,
   ): Promise<Prescription[]> {
@@ -268,7 +279,7 @@ export class MedicalService {
         'appointment',
       ],
       order: { createdAt: 'DESC' },
-      take: 50, // Limit to recent 50
+      take: 50,
     });
     return new ResponseCommon(HttpStatus.OK, 'Thành công', data);
   }
@@ -294,7 +305,6 @@ export class MedicalService {
       throw new NotFoundException(ERROR_MESSAGES.PRESCRIPTION_NOT_FOUND);
     }
 
-    // Check if user has access to this prescription
     if (user.roles?.includes(RoleEnum.PATIENT)) {
       if (prescription.patient.user.id !== user.id) {
         throw new ForbiddenException(ERROR_MESSAGES.PRESCRIPTION_NOT_FOUND);
@@ -381,7 +391,6 @@ export class MedicalService {
       followUpNotes?: string;
     },
   ): Promise<ResponseCommon<MedicalRecord>> {
-    // Wrap in transaction to ensure atomicity between medical record and appointment updates
     return this.dataSource.transaction(async (manager) => {
       const appointment = await manager.findOne(Appointment, {
         where: { id: appointmentId },
@@ -394,12 +403,11 @@ export class MedicalService {
         where: { appointmentId },
       });
 
-      // Valid statuses for editing
       const canEdit = [
         AppointmentStatusEnum.IN_PROGRESS,
         AppointmentStatusEnum.COMPLETED,
-        AppointmentStatusEnum.CHECKED_IN, // Allow prepping before start
-        AppointmentStatusEnum.CONFIRMED, // Allow prepping before start
+        AppointmentStatusEnum.CHECKED_IN,
+        AppointmentStatusEnum.CONFIRMED,
       ].includes(appointment.status);
 
       if (!canEdit && !record) {
@@ -409,7 +417,6 @@ export class MedicalService {
       }
 
       if (!record) {
-        // Create new if missing (Upsert)
         record = manager.create(MedicalRecord, {
           appointmentId: appointment.id,
           patientId: appointment.patientId,
@@ -440,14 +447,10 @@ export class MedicalService {
         record = await manager.save(record);
       }
 
-      // Update fields
       Object.assign(record, data);
 
-      // Only update sensitive fields if provided (don't overwrite with undefined if Partial)
-      // Note: Object.assign handles this well for defined keys in data.
-
       const result = await manager.save(record);
-      // Update appointment fields
+
       let apptChanged = false;
       if (
         data.chiefComplaint &&
@@ -612,7 +615,6 @@ export class MedicalService {
       throw new NotFoundException(ERROR_MESSAGES.PRESCRIPTION_NOT_FOUND);
     }
 
-    // Permission Check
     if (!user.roles?.includes(RoleEnum.ADMIN)) {
       if (user.roles?.includes(RoleEnum.DOCTOR)) {
         if (prescription.doctor?.id !== user.doctorId) {
@@ -666,7 +668,6 @@ export class MedicalService {
       throw new NotFoundException(ERROR_MESSAGES.PRESCRIPTION_NOT_FOUND);
     }
 
-    // Permission Check
     if (!user.roles?.includes(RoleEnum.ADMIN)) {
       if (user.roles?.includes(RoleEnum.DOCTOR)) {
         if (prescription.doctor?.id !== user.doctorId) {
@@ -683,17 +684,13 @@ export class MedicalService {
       throw new BadRequestException(ERROR_MESSAGES.INVALID_PRESCRIPTION_STATUS);
     }
 
-    // Prepare Update
     prescription.notes = dto.notes || '';
 
-    // Transaction: Save Prescription -> Delete Items -> Create Items
     await this.prescriptionRepository.manager.transaction(async (manager) => {
       await manager.save(prescription);
 
-      // Delete old items
       await manager.delete(PrescriptionItem, { prescriptionId });
 
-      // Prepare new items
       const medicineIds = dto.items
         .map((i) => i.medicineId)
         .filter(Boolean) as string[];
@@ -749,7 +746,6 @@ export class MedicalService {
     );
   }
 
-  // KEEP RAW (Internal usage)
   async getLatestVitalSign(patientId: string): Promise<VitalSign | null> {
     return this.vitalSignRepository.findOne({
       where: { patientId },
@@ -801,14 +797,12 @@ export class MedicalService {
       throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_MEDICAL);
     }
 
-    // Get latest vital sign
     const latestVitalSign = record.vitalSigns?.length
       ? record.vitalSigns
           .slice()
           .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0]
       : null;
 
-    // Build response
     const response: MedicalRecordDetailResponseDto = {
       id: record.id,
       recordNumber: record.recordNumber,
@@ -836,7 +830,6 @@ export class MedicalService {
       digitalSignature: record.digitalSignature || undefined,
       recordType: record.recordType || 'Bệnh án Ngoại trú chung',
       diagnosis: record.diagnosis || undefined,
-
       chiefComplaint: record.chiefComplaint || undefined,
       vitalSigns: {
         temperature: latestVitalSign?.temperature
@@ -855,7 +848,6 @@ export class MedicalService {
       familyHistory: record.familyHistory || undefined,
       physicalExamNotes: record.physicalExamNotes || undefined,
       systemsReview: record.systemsReview || undefined,
-
       treatmentGiven: record.treatmentGiven || undefined,
       dischargeDiagnosis: record.dischargeDiagnosis || undefined,
       treatmentStartDate: record.treatmentStartDate || undefined,
@@ -914,10 +906,7 @@ export class MedicalService {
   }
 
   // ============================================================================
-  // DIGITAL SIGNATURE & PDF
-  // ============================================================================
-  // ============================================================================
-  // DIGITAL SIGNATURE & PDF
+  // DIGITAL SIGNATURE
   // ============================================================================
 
   async signMedicalRecord(
@@ -934,7 +923,6 @@ export class MedicalService {
       throw new NotFoundException(ERROR_MESSAGES.MEDICAL_RECORD_NOT_FOUND);
     }
 
-    // Check permission
     if (
       !user.roles?.includes(RoleEnum.ADMIN) &&
       user.doctorId !== record.doctorId
@@ -942,7 +930,6 @@ export class MedicalService {
       throw new ForbiddenException(ERROR_MESSAGES.SIGN_FORBIDDEN);
     }
 
-    // Check status
     if (record.appointment?.status !== AppointmentStatusEnum.COMPLETED) {
       throw new BadRequestException(ERROR_MESSAGES.SIGN_COMPLETED_ONLY);
     }
@@ -958,57 +945,10 @@ export class MedicalService {
 
     await this.recordRepository.save(record);
 
-    await this.generatePdfInternal(recordId);
+    // Dùng PdfService thật thay vì stub nội bộ
+    await this.pdfService.generateAndSaveMedicalRecordPdf(recordId);
 
     return this.getMedicalRecordDetail(recordId, user);
-  }
-
-  async generatePdf(
-    recordId: string,
-    user: JwtUser,
-  ): Promise<ResponseCommon<{ url: string }>> {
-    const record = await this.recordRepository.findOne({
-      where: { id: recordId },
-    });
-
-    if (!record) {
-      throw new NotFoundException(ERROR_MESSAGES.MEDICAL_RECORD_NOT_FOUND);
-    }
-
-    if (user.roles?.includes(RoleEnum.PATIENT)) {
-      if (user.patientId !== record.patientId) {
-        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_MEDICAL);
-      }
-    } else if (user.roles?.includes(RoleEnum.DOCTOR)) {
-      if (user.doctorId !== record.doctorId) {
-        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_MEDICAL);
-      }
-    } else if (!user.roles?.includes(RoleEnum.ADMIN)) {
-      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
-    }
-
-    if (record.signedStatus !== 'SIGNED') {
-      throw new BadRequestException(ERROR_MESSAGES.NOT_SIGNED);
-    }
-
-    if (record.pdfUrl) {
-      return new ResponseCommon(HttpStatus.OK, 'Thành công', {
-        url: record.pdfUrl,
-      });
-    }
-
-    const pdfUrl = await this.generatePdfInternal(recordId);
-    return new ResponseCommon(HttpStatus.OK, 'Thành công', { url: pdfUrl });
-  }
-
-  private async generatePdfInternal(recordId: string): Promise<string> {
-    // TODO: Implement PDF generation logic
-    // This would use a library like puppeteer, PDFKit, or call external service
-    // For now, return placeholder URL
-    const pdfUrl = `https://storage.example.com/medical-records/${recordId}.pdf`;
-
-    await this.recordRepository.update(recordId, { pdfUrl });
-    return pdfUrl;
   }
 
   // ============================================================================
@@ -1027,16 +967,12 @@ export class MedicalService {
       throw new NotFoundException(ERROR_MESSAGES.MEDICAL_RECORD_NOT_FOUND);
     }
 
-    // Permission: DOCTOR only (checked in controller)
+    const latestVitalSign = record.vitalSigns?.[0];
 
-    // Get latest vital sign
-    const latestVitalSign = record.vitalSigns?.[0]; // Assuming order DESC
-
-    // Get 3 recent records
     const recentRecords = await this.recordRepository.find({
       where: { patientId: record.patientId },
       order: { createdAt: 'DESC' },
-      take: 4, // Take 4 to skip current if matches, or just take 3 recent
+      take: 4,
       relations: ['doctor', 'doctor.user'],
       select: {
         id: true,
@@ -1052,7 +988,6 @@ export class MedicalService {
       },
     });
 
-    // map recent records excluding current
     const recent = recentRecords
       .filter((r) => r.id !== recordId)
       .slice(0, 3)
@@ -1101,7 +1036,7 @@ export class MedicalService {
       diagnosis: record.diagnosis || undefined,
       treatmentPlan: record.treatmentPlan || undefined,
       recentRecords: recent,
-      status: record.appointment?.status || 'UNKNOWN', // Or record status
+      status: record.appointment?.status || 'UNKNOWN',
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
     };
@@ -1127,8 +1062,6 @@ export class MedicalService {
       throw new NotFoundException(ERROR_MESSAGES.MEDICAL_RECORD_NOT_FOUND);
     }
 
-    // Permission check done in controller or here if needed
-
     const response: MedicalRecordSummaryDto = {
       id: record.id,
       recordNumber: record.recordNumber,
@@ -1143,13 +1076,11 @@ export class MedicalService {
       },
       treatmentStartDate: record.treatmentStartDate || undefined,
       treatmentEndDate: record.treatmentEndDate || undefined,
-
       primaryDiagnosis: record.primaryDiagnosis || undefined,
       secondaryDiagnosis: record.secondaryDiagnosis || undefined,
       dischargeDiagnosis: record.dischargeDiagnosis || undefined,
       progressNotes: record.progressNotes || undefined,
       treatmentGiven: record.treatmentGiven || undefined,
-
       dischargeCondition: record.dischargeCondition || undefined,
       followUpInstructions: record.followUpInstructions || undefined,
       prescriptions:
