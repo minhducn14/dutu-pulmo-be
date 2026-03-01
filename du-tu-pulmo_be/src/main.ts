@@ -41,7 +41,10 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter(httpAdapterHost));
 
   const port = process.env.PORT ?? 3000;
-  const serverUrl = process.env.PUBLIC_URL || `http://localhost:${port}`;
+  const isProd = process.env.NODE_ENV === 'production';
+  const host = isProd ? '0.0.0.0' : 'localhost';
+
+  const serverUrl = process.env.PUBLIC_URL || `http://${host}:${port}`;
 
   /**
    * Swagger configuration
@@ -138,16 +141,16 @@ async function bootstrap() {
     customSiteTitle: 'DuTu Pulmo API Docs',
   });
 
-  await app.listen(port);
+  await app.listen(port, host);
 
-  console.log(`🚀 Application running on: http://localhost:${port}`);
-  console.log(`📚 Swagger API Docs: http://localhost:${port}/docs`);
-  console.log(`📚 Swagger Admin API Docs: http://localhost:${port}/docs/admin`);
+  console.log(`🚀 Application running on: http://${host}:${port}`);
+  console.log(`📚 Swagger API Docs: http://${host}:${port}/docs`);
+  console.log(`📚 Swagger Admin API Docs: http://${host}:${port}/docs/admin`);
   console.log(
-    `📚 Swagger Doctor API Docs: http://localhost:${port}/docs/doctor`,
+    `📚 Swagger Doctor API Docs: http://${host}:${port}/docs/doctor`,
   );
   console.log(
-    `📚 Swagger Patient API Docs: http://localhost:${port}/docs/patient`,
+    `📚 Swagger Patient API Docs: http://${host}:${port}/docs/patient`,
   );
 }
 void bootstrap();
