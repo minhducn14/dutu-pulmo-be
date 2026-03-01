@@ -172,7 +172,11 @@ export class AppointmentService {
     userId: string,
     userName: string,
     isDoctor: boolean,
-  ): Promise<{ token: string; url: string }> {
+  ): Promise<{
+    token: string | null;
+    url: string;
+    appointment: ResponseCommon<AppointmentResponseDto>;
+  }> {
     return this.appointmentVideoService.generateMeetingToken(
       appointmentId,
       userId,

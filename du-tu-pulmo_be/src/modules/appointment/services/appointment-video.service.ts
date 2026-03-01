@@ -38,7 +38,7 @@ export class AppointmentVideoService {
     userName: string,
     isDoctor: boolean,
   ): Promise<{
-    token: string;
+    token: string | null;
     url: string;
     appointment: ResponseCommon<AppointmentResponseDto>;
   }> {

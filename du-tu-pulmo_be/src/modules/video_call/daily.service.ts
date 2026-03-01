@@ -14,7 +14,7 @@ export interface DailyRoom {
 }
 
 export interface DailyMeetingToken {
-  token: string;
+  token: string | null;
 }
 
 @Injectable()
@@ -160,6 +160,10 @@ export class DailyService {
     userName: string,
     isOwner: boolean = false,
   ): Promise<DailyMeetingToken> {
+    if (!isOwner) {
+      return { token: null };
+    }
+
     const response = await firstValueFrom(
       this.httpService.post<DailyMeetingToken>(
         `${this.apiUrl}/meeting-tokens`,
@@ -168,7 +172,7 @@ export class DailyService {
             room_name: roomName,
             user_id: userId,
             user_name: userName,
-            is_owner: isOwner,
+            is_owner: true,
             exp: Math.floor(Date.now() / 1000) + 3600,
           },
         },
@@ -176,9 +180,8 @@ export class DailyService {
       ),
     );
 
-    this.logger.log(
-      `Created meeting token for user ${userId} in room ${roomName}`,
-    );
+    this.logger.log(`Created meeting token for user ${userId} in room ${roomName}`);
     return response.data;
   }
+
 }
