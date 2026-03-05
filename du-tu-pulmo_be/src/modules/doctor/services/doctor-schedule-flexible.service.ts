@@ -164,12 +164,12 @@ export class DoctorScheduleFlexibleService {
 
       await manager
         .createQueryBuilder()
-        .delete()
+        .softDelete()
         .from(TimeSlot)
         .where('doctorId = :doctorId', { doctorId })
-        .andWhere('startTime < :endOfDay AND endTime > :startOfDay', {
-          endOfDay,
-          startOfDay,
+        .andWhere('startTime < :scheduleEnd AND endTime > :scheduleStart', {
+          scheduleEnd,
+          scheduleStart,
         })
         .andWhere('bookedCount = 0')
         .execute();
@@ -331,7 +331,7 @@ export class DoctorScheduleFlexibleService {
     const result = await this.dataSource.transaction(async (manager) => {
       await manager
         .createQueryBuilder()
-        .delete()
+        .softDelete()
         .from(TimeSlot)
         .where('scheduleId = :scheduleId', { scheduleId: id })
         .andWhere('bookedCount = 0')
@@ -383,12 +383,12 @@ export class DoctorScheduleFlexibleService {
 
       await manager
         .createQueryBuilder()
-        .delete()
+        .softDelete()
         .from(TimeSlot)
         .where('doctorId = :doctorId', { doctorId: existing.doctorId })
-        .andWhere('startTime < :endOfDay AND endTime > :startOfDay', {
-          endOfDay,
-          startOfDay,
+        .andWhere('startTime < :scheduleEnd AND endTime > :scheduleStart', {
+          scheduleEnd,
+          scheduleStart,
         })
         .andWhere('bookedCount = 0')
         .execute();
@@ -586,7 +586,7 @@ export class DoctorScheduleFlexibleService {
 
       const deleteResult = await manager
         .createQueryBuilder()
-        .delete()
+        .softDelete()
         .from(TimeSlot)
         .where('scheduleId = :scheduleId', { scheduleId: id })
         .andWhere('bookedCount = 0')

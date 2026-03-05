@@ -156,10 +156,11 @@ export class DoctorSchedulePreviewService {
           AppointmentStatusEnum.PENDING_PAYMENT,
         ]),
       },
-      relations: ['patient', 'patient.user'],
+      relations: ['patient', 'patient.user', 'timeSlot', 'timeSlot.schedule'],
     });
 
     const conflicting = appointments.filter((apt) => {
+      if (!apt.timeSlot?.schedule?.slotDuration) return false;
       const aptEnd = new Date(
         apt.scheduledAt.getTime() +
           apt.timeSlot.schedule.slotDuration * 60 * 1000,

@@ -16,6 +16,7 @@ import {
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { DoctorSchedule } from '@/modules/doctor/entities/doctor-schedule.entity';
 import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
+import { vnNow, startOfDayVN, endOfDayVN } from '@/common/datetime';
 
 const MAX_SLOTS_PER_REQUEST = 100;
 const MAX_SLOTS_PER_DAY = 50;
@@ -61,15 +62,20 @@ export class TimeSlotService {
   }
 
   async findByDoctorId(doctorId: string): Promise<ResponseCommon<TimeSlot[]>> {
-    const now = new Date();
+    const now = vnNow();
     const slots = await this.timeSlotRepository.find({
       where: {
         doctorId,
         startTime: MoreThanOrEqual(now),
+        isAvailable: true,
       },
       order: { startTime: 'ASC' },
     });
-    return new ResponseCommon(200, 'SUCCESS', slots);
+    return new ResponseCommon(
+      200,
+      'SUCCESS',
+      slots.filter((s) => s.bookedCount < s.capacity),
+    );
   }
 
   async findAvailableSlots(
@@ -77,8 +83,7 @@ export class TimeSlotService {
     startDate: Date,
     endDate: Date,
   ): Promise<TimeSlot[]> {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
+    const now = vnNow();
     const effectiveStart = startDate > now ? startDate : now;
     const slots = await this.timeSlotRepository.find({
       where: {
@@ -86,10 +91,30 @@ export class TimeSlotService {
         isAvailable: true,
         startTime: Between(effectiveStart, endDate),
       },
+      relations: ['schedule'],
       order: { startTime: 'ASC' },
     });
 
-    return slots.filter((slot) => slot.bookedCount < slot.capacity);
+    return slots.filter((slot) => {
+      if (slot.bookedCount >= slot.capacity) return false;
+
+      if (slot.schedule) {
+        const minBookingMs =
+          (slot.schedule.minimumBookingTime ?? 0) * 60 * 1000;
+        if (minBookingMs > 0) {
+          const earliestAllowed = new Date(now.getTime() + minBookingMs);
+          if (slot.startTime < earliestAllowed) return false;
+        }
+
+        const maxDays = slot.schedule.maxAdvanceBookingDays ?? 90;
+        const latestAllowed = new Date(
+          now.getTime() + maxDays * 24 * 60 * 60 * 1000,
+        );
+        if (slot.startTime > latestAllowed) return false;
+      }
+
+      return true;
+    });
   }
 
   async findSlotsInRange(
@@ -115,21 +140,18 @@ export class TimeSlotService {
       throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
-    const now = new Date();
-    const queryDate = new Date(date);
-    queryDate.setHours(0, 0, 0, 0);
+    const now = vnNow();
+    const todayStart = startOfDayVN(now);
+    const queryDate = startOfDayVN(date);
 
-    if (queryDate < new Date(now.setHours(0, 0, 0, 0))) {
+    if (queryDate < todayStart) {
       return new ResponseCommon(200, 'Ngày đã qua', []);
     }
 
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
+    const dayStart = startOfDayVN(date);
+    const dayEnd = endOfDayVN(date);
 
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
-
-    const slots = await this.findAvailableSlots(doctorId, startOfDay, endOfDay);
+    const slots = await this.findAvailableSlots(doctorId, dayStart, dayEnd);
     return new ResponseCommon(200, 'SUCCESS', slots);
   }
 
@@ -162,15 +184,16 @@ export class TimeSlotService {
   ): void {
     const startTime = new Date(dto.startTime);
     const endTime = new Date(dto.endTime);
-    const now = new Date();
+    const now = vnNow();
 
     if (startTime >= endTime) {
       this.logger.error('Invalid time range');
       throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
-    const minBookingHours = doctorSchedule?.minimumBookingTime || 1;
-    const minBookingBufferMs = minBookingHours * 60 * 60 * 1000;
+    // minimumBookingTime is stored in MINUTES in the DB
+    const minBookingMinutes = doctorSchedule?.minimumBookingTime || 60;
+    const minBookingBufferMs = minBookingMinutes * 60 * 1000;
     const earliestAllowed = new Date(now.getTime() + minBookingBufferMs);
 
     if (startTime < earliestAllowed) {
@@ -635,25 +658,36 @@ export class TimeSlotService {
     fromDate: Date,
     toDate: Date,
   ): Promise<ResponseCommon<any[]>> {
-    const startOfDay = new Date(fromDate);
-    startOfDay.setHours(0, 0, 0, 0);
+    const now = vnNow();
+    const todayStart = startOfDayVN(now);
+    const fromDateStart = startOfDayVN(fromDate);
 
-    const endOfDay = new Date(toDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    // If fromDate is today, use current time to exclude past slots
+    const effectiveStart =
+      fromDateStart.getTime() === todayStart.getTime() ? now : fromDateStart;
+    const effectiveEnd = endOfDayVN(toDate);
 
     const result = await this.timeSlotRepository
       .createQueryBuilder('slot')
-      .select("TO_CHAR(slot.startTime, 'YYYY-MM-DD')", 'date')
+      .select(
+        "TO_CHAR(slot.startTime AT TIME ZONE 'Asia/Ho_Chi_Minh', 'YYYY-MM-DD')",
+        'date',
+      )
       .addSelect('COUNT(slot.id)', 'count')
       .where('slot.doctorId = :doctorId', { doctorId })
       .andWhere('slot.startTime BETWEEN :start AND :end', {
-        start: startOfDay,
-        end: endOfDay,
+        start: effectiveStart,
+        end: effectiveEnd,
       })
       .andWhere('slot.isAvailable = :isAvailable', { isAvailable: true })
       .andWhere('slot.bookedCount < slot.capacity')
-      .groupBy("TO_CHAR(slot.startTime, 'YYYY-MM-DD')")
-      .orderBy("TO_CHAR(slot.startTime, 'YYYY-MM-DD')", 'ASC')
+      .groupBy(
+        "TO_CHAR(slot.startTime AT TIME ZONE 'Asia/Ho_Chi_Minh', 'YYYY-MM-DD')",
+      )
+      .orderBy(
+        "TO_CHAR(slot.startTime AT TIME ZONE 'Asia/Ho_Chi_Minh', 'YYYY-MM-DD')",
+        'ASC',
+      )
       .getRawMany<AvailabilitySummaryRaw>();
 
     const summary = result.map((item) => ({

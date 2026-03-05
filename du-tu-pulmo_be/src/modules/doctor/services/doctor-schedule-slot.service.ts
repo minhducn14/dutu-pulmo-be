@@ -14,6 +14,13 @@ import {
   SCHEDULE_TYPE_PRIORITY,
 } from '@/modules/common/enums/schedule-type.enum';
 import { DoctorScheduleHelperService } from '@/modules/doctor/services/doctor-schedule-helper.service';
+import {
+  vnNow,
+  startOfDayVN,
+  endOfDayVN,
+  addDaysVN,
+  getDayVN,
+} from '@/common/datetime';
 
 @Injectable()
 export class DoctorScheduleSlotService {
@@ -121,7 +128,7 @@ export class DoctorScheduleSlotService {
   }
 
   async disableOldSlots(): Promise<number> {
-    const now = new Date();
+    const now = vnNow();
 
     const result = await this.dataSource
       .createQueryBuilder()
@@ -138,14 +145,11 @@ export class DoctorScheduleSlotService {
     doctorsProcessed: number;
     slotsGenerated: number;
   }> {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0);
+    const now = vnNow();
+    const tomorrow = addDaysVN(startOfDayVN(now), 1);
+    const dayAfterTomorrow = endOfDayVN(tomorrow);
 
-    const dayAfterTomorrow = new Date(tomorrow);
-    dayAfterTomorrow.setHours(23, 59, 59, 999);
-
-    const tomorrowDayOfWeek = tomorrow.getDay();
+    const tomorrowDayOfWeek = getDayVN(tomorrow);
 
     const activeSchedules = await this.scheduleRepository
       .createQueryBuilder('s')

@@ -11,6 +11,7 @@ import { CreateDoctorScheduleDto } from '@/modules/doctor/dto/create-doctor-sche
 import { UpdateDoctorScheduleDto } from '@/modules/doctor/dto/update-doctor-schedule.dto';
 import { SCHEDULE_TYPE_PRIORITY } from '@/modules/common/enums/schedule-type.enum';
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
+import { isSameDayVN } from '@/common/datetime';
 
 @Injectable()
 export class DoctorScheduleHelperService {
@@ -151,12 +152,8 @@ export class DoctorScheduleHelperService {
         const exSpecific = existing.specificDate;
 
         if (newSpecific && exSpecific) {
-          const d1 = new Date(newSpecific).toISOString().split('T')[0];
-          const d2 = new Date(exSpecific).toISOString().split('T')[0];
-
-          if (d1 === d2) {
+          if (isSameDayVN(new Date(newSpecific), new Date(exSpecific))) {
             // Same Date -> Check Time Overlap [start, end)
-            // Allow Split Shifts: Multiple non-overlapping records for the same day are valid.
             if (
               existing.startTime >= endTime ||
               existing.endTime <= startTime
