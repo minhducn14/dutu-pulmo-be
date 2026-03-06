@@ -71,7 +71,7 @@ export class DoctorScheduleUpdateService {
       minimumBookingTime:
         dto.minimumBookingDays !== undefined
           ? dto.minimumBookingDays * 24 * 60
-          : undefined,
+          : 0,
       consultationFee:
         dto.consultationFee !== undefined
           ? (dto.consultationFee?.toString() ?? null)
