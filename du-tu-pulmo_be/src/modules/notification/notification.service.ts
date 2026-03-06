@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { EmailService } from '@/modules/email/email.service';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -17,6 +18,7 @@ export class NotificationService {
 
   constructor(
     private readonly emailService: EmailService,
+    private readonly eventEmitter: EventEmitter2,
     @InjectRepository(Notification)
     private readonly notificationRepository: Repository<Notification>,
   ) {}
@@ -80,6 +82,10 @@ export class NotificationService {
     // Save to DB
     const saved = await this.notificationRepository.save(notification);
     this.logger.log(`Created notification ${saved.id} for user ${dto.userId}`);
+    
+    // Emit event logic for push notifications
+    this.eventEmitter.emit('notification.created', saved);
+    
     return saved;
   }
 
