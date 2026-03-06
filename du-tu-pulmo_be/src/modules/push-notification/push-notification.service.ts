@@ -14,7 +14,7 @@ export interface NotificationPayload {
 @Injectable()
 export class PushNotificationService {
   private readonly logger = new Logger(PushNotificationService.name);
-  private isInitialized = false; // ← track init state
+  private isInitialized = false;
 
   constructor(
     private readonly configService: ConfigService,
@@ -56,7 +56,6 @@ export class PushNotificationService {
     }
   }
 
-  // ← call this at the top of every method that uses Firebase
   private assertInitialized(): void {
     if (!this.isInitialized) {
       throw new Error(

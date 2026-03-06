@@ -1,9 +1,11 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
   Param,
   Query,
+  Body,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -13,6 +15,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiBody,
 } from '@nestjs/swagger';
 import { NotificationService } from './notification.service';
 import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
@@ -21,10 +24,11 @@ import type { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
 import { PaginationDto } from '@/common/dto/pagination.dto';
 import { NotificationResponseDto } from './dto/notification-response.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
+import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.enum';
 
 @ApiTags('Notifications')
-@ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
+@ApiBearerAuth('JWT-auth')
 @Controller('notifications')
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
@@ -87,5 +91,37 @@ export class NotificationController {
         ? 'Đã đánh dấu đọc thành công'
         : 'Không tìm thấy thông báo hoặc đã được đọc',
     };
+  }
+
+  @Post('test-push')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Test end-to-end lưu thông báo vào DB & Push Notifications' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', example: 'Test Push Từ Notification' },
+        content: { type: 'string', example: 'Nội dung test gửi Push đa luồng' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Tạo thông báo thành công và sẽ gửi Push ngầm',
+  })
+  async testPushNotification(
+    @CurrentUser() user: JwtUser,
+    @Body('title') title: string,
+    @Body('content') content: string,
+  ) {
+    console.log(user);
+    const notification = await this.notificationService.createNotification({
+      userId: user.userId,
+      title: title || 'Test Push E2E',
+      content: content || 'Thông báo lưu BD & Bắn Event notification.created',
+      type: NotificationTypeEnum.SYSTEM,
+    });
+    
+    return new ResponseCommon(200, 'SUCCESS', notification);
   }
 }
