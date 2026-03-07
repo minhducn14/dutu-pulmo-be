@@ -50,7 +50,7 @@ export class FavoriteController {
   ): Promise<ResponseCommon<FavoriteResponseDto>> {
     const response = await this.favoriteService.create(
       createFavoriteDto,
-      user.id,
+      user.userId,
     );
     return new ResponseCommon(
       response.code,
@@ -65,7 +65,7 @@ export class FavoriteController {
   async findAll(
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<FavoriteResponseDto[]>> {
-    const response = await this.favoriteService.findAll(user.id);
+    const response = await this.favoriteService.findAll(user.userId);
     const data = (response.data ?? []).map((favorite) =>
       FavoriteResponseDto.fromEntity(favorite),
     );
@@ -81,7 +81,7 @@ export class FavoriteController {
     @Param('doctorId') doctorId: string,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<FavoriteResponseDto | null>> {
-    const response = await this.favoriteService.findByDoctor(user.id, doctorId);
+    const response = await this.favoriteService.findByDoctor(user.userId, doctorId);
     return new ResponseCommon(
       response.code,
       response.message,
@@ -99,7 +99,7 @@ export class FavoriteController {
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<FavoriteResponseDto | null>> {
     const response = await this.favoriteService.findByHospital(
-      user.id,
+      user.userId,
       hospitalId,
     );
     return new ResponseCommon(
@@ -126,7 +126,7 @@ export class FavoriteController {
   ): Promise<ResponseCommon<FavoriteResponseDto | null>> {
     const response = await this.favoriteService.findOne(id);
 
-    if (!user.roles?.includes('ADMIN') && response.data?.userId !== user.id) {
+    if (!user.roles?.includes('ADMIN') && response.data?.userId !== user.userId) {
       throw new ForbiddenException(ERROR_MESSAGES.FAVORITE_PERMISSION_DENIED);
     }
 
@@ -150,6 +150,6 @@ export class FavoriteController {
     @Param('id') id: string,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<null>> {
-    return this.favoriteService.remove(id, user.id);
+    return this.favoriteService.remove(id, user.userId);
   }
 }

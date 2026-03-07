@@ -48,7 +48,7 @@ export class ReviewController {
     @Body() createReviewDto: CreateReviewDto,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<ReviewResponseDto>> {
-    const response = await this.reviewService.create(createReviewDto, user.id);
+    const response = await this.reviewService.create(createReviewDto, user.userId);
     return new ResponseCommon(
       response.code,
       response.message,
@@ -86,7 +86,7 @@ export class ReviewController {
   async findMyReviews(
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<ReviewResponseDto[]>> {
-    const response = await this.reviewService.findByReviewer(user.id);
+    const response = await this.reviewService.findByReviewer(user.userId);
     const data = (response.data ?? []).map((review) =>
       ReviewResponseDto.fromEntity(review),
     );
@@ -122,7 +122,7 @@ export class ReviewController {
     const response = await this.reviewService.update(
       id,
       updateReviewDto,
-      user.id,
+      user.userId,
     );
     return new ResponseCommon(
       response.code,
@@ -142,7 +142,7 @@ export class ReviewController {
     const response = await this.reviewService.update(
       id,
       updateReviewDto,
-      user.id,
+      user.userId,
       true,
     );
     return new ResponseCommon(
@@ -163,6 +163,6 @@ export class ReviewController {
     @Param('id') id: string,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<null>> {
-    return this.reviewService.remove(id, user.id);
+    return this.reviewService.remove(id, user.userId);
   }
 }
