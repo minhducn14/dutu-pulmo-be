@@ -108,7 +108,7 @@ export class AppointmentActionController {
 
     const response = await this.appointmentService.create({
       ...dto,
-      bookedByUserId: user.id,
+      bookedByUserId: user.userId,
     });
     return this.wrapAppointment(response);
   }
