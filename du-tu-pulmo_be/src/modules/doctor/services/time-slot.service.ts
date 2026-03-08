@@ -17,6 +17,7 @@ import { ResponseCommon } from '@/common/dto/response.dto';
 import { DoctorSchedule } from '@/modules/doctor/entities/doctor-schedule.entity';
 import { AppointmentTypeEnum } from 'src/modules/common/enums/appointment-type.enum';
 import { vnNow, startOfDayVN, endOfDayVN } from '@/common/datetime';
+import { ConsultationPricingService } from '@/modules/doctor/services/consultation-pricing.service';
 
 const MAX_SLOTS_PER_REQUEST = 100;
 const MAX_SLOTS_PER_DAY = 50;
@@ -35,6 +36,7 @@ export class TimeSlotService {
     @InjectRepository(DoctorSchedule)
     private readonly scheduleRepository: Repository<DoctorSchedule>,
     private readonly dataSource: DataSource,
+    private readonly pricingService: ConsultationPricingService,
   ) {}
 
   async findById(id: string): Promise<ResponseCommon<TimeSlot>> {
@@ -46,7 +48,8 @@ export class TimeSlotService {
       this.logger.error('Slot not found');
       throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
-    return new ResponseCommon(200, 'SUCCESS', slot);
+    const [enriched] = await this.enrichSlotsWithPricing([slot]);
+    return new ResponseCommon(200, 'SUCCESS', enriched);
   }
 
   async findByIdWithRelations(id: string): Promise<ResponseCommon<TimeSlot>> {
@@ -58,7 +61,8 @@ export class TimeSlotService {
       this.logger.error('Slot not found');
       throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
-    return new ResponseCommon(200, 'SUCCESS', slot);
+    const [enriched] = await this.enrichSlotsWithPricing([slot]);
+    return new ResponseCommon(200, 'SUCCESS', enriched);
   }
 
   async findByDoctorId(doctorId: string): Promise<ResponseCommon<TimeSlot[]>> {
@@ -71,10 +75,12 @@ export class TimeSlotService {
       },
       order: { startTime: 'ASC' },
     });
+    const filteredSlots = slots.filter((s) => s.bookedCount < s.capacity);
+    const enrichedSlots = await this.enrichSlotsWithPricing(filteredSlots);
     return new ResponseCommon(
       200,
       'SUCCESS',
-      slots.filter((s) => s.bookedCount < s.capacity),
+      enrichedSlots,
     );
   }
   
@@ -115,7 +121,8 @@ export class TimeSlotService {
 
     return this.buildAvailableSlotQuery(doctorId, effectiveStart, endDate, now)
       .orderBy('slot.startTime', 'ASC')
-      .getMany();
+      .getMany()
+      .then((slots) => this.enrichSlotsWithPricing(slots));
   }
 
   async findSlotsInRange(
@@ -154,6 +161,66 @@ export class TimeSlotService {
 
     const slots = await this.findAvailableSlots(doctorId, dayStart, dayEnd);
     return new ResponseCommon(200, 'SUCCESS', slots);
+  }
+
+  private async enrichSlotsWithPricing(slots: TimeSlot[]): Promise<TimeSlot[]> {
+    if (slots.length === 0) return slots;
+    const ids = slots.map((slot) => slot.id);
+
+    // Query only 1-1 relations (slot->schedule, slot->doctor), so each slot remains unique.
+    // We intentionally do not join appointments (1-N) to avoid duplicate slot rows.
+    const rawRows = await this.timeSlotRepository
+      .createQueryBuilder('slot')
+      .leftJoin('slot.schedule', 'schedule')
+      .leftJoin('slot.doctor', 'doctor')
+      .select('slot.id', 'slot_id')
+      .addSelect('schedule.consultationFee', 'schedule_consultation_fee')
+      .addSelect('schedule.discountPercent', 'schedule_discount_percent')
+      .addSelect('doctor.defaultConsultationFee', 'doctor_default_fee')
+      .where('slot.id IN (:...ids)', { ids })
+      .getRawMany<{
+        slot_id: string;
+        schedule_consultation_fee: string | null;
+        schedule_discount_percent: number | null;
+        doctor_default_fee: string | null;
+      }>();
+
+    const feeMap = new Map(
+      rawRows.map((row) => {
+        // schedule can be null; fallback to doctor default fee.
+        const baseFee = this.pricingService.resolveBaseFee(
+          row.schedule_consultation_fee,
+          row.doctor_default_fee,
+        );
+        const pricing = this.pricingService.calculateFinalFee(
+          baseFee,
+          row.schedule_discount_percent,
+        );
+        return [
+          row.slot_id,
+          {
+            baseConsultationFee:
+              pricing.baseFee > 0
+                ? this.pricingService.toVndString(pricing.baseFee)
+                : null,
+            discountPercent: pricing.discountPercent,
+            finalConsultationFee: this.pricingService.toVndString(
+              pricing.finalFee,
+            ),
+            currency: 'VND' as const,
+          },
+        ];
+      }),
+    );
+
+    return slots.map((slot) =>
+      Object.assign(slot, feeMap.get(slot.id) ?? {
+        baseConsultationFee: null,
+        discountPercent: 0,
+        finalConsultationFee: '0',
+        currency: 'VND' as const,
+      }),
+    );
   }
 
   private async checkOverlap(

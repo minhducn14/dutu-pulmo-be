@@ -257,6 +257,30 @@ export class TimeSlotResponseDto {
   })
   isAvailable: boolean;
 
+  @ApiPropertyOptional({
+    example: '500000',
+    description: 'Phí gốc của slot trước giảm giá (VND)',
+  })
+  baseConsultationFee?: string | null;
+
+  @ApiProperty({
+    example: 10,
+    description: 'Phần trăm giảm giá áp dụng cho slot',
+  })
+  discountPercent: number;
+
+  @ApiProperty({
+    example: '450000',
+    description: 'Phí cuối cùng của slot sau giảm giá (VND)',
+  })
+  finalConsultationFee: string;
+
+  @ApiProperty({
+    example: 'VND',
+    description: 'Đơn vị tiền tệ',
+  })
+  currency: 'VND';
+
   @ApiProperty({
     example: '2026-01-01T00:00:00.000Z',
     description: 'Thời gian tạo',
@@ -278,6 +302,10 @@ export class TimeSlotResponseDto {
     capacity: number;
     bookedCount: number;
     isAvailable: boolean;
+    baseConsultationFee?: string | null;
+    discountPercent?: number;
+    finalConsultationFee?: string;
+    currency?: 'VND';
     createdAt: Date;
     updatedAt: Date;
   }): TimeSlotResponseDto {
@@ -290,6 +318,10 @@ export class TimeSlotResponseDto {
     dto.capacity = slot.capacity;
     dto.bookedCount = slot.bookedCount;
     dto.isAvailable = slot.isAvailable;
+    dto.baseConsultationFee = slot.baseConsultationFee ?? null;
+    dto.discountPercent = slot.discountPercent ?? 0;
+    dto.finalConsultationFee = slot.finalConsultationFee ?? '0';
+    dto.currency = slot.currency ?? 'VND';
     dto.createdAt = slot.createdAt;
     dto.updatedAt = slot.updatedAt;
     return dto;
