@@ -122,7 +122,8 @@ export class PaymentService {
     // Create payment link via PayOS
     const paymentLink = await this.payosService.createPaymentLink({
       orderCode,
-      amount: Number(appointment.feeAmount),
+      // amount: Number(appointment.feeAmount),
+      amount: 2001,
       description: description.substring(0, 25),
       buyerName,
       buyerEmail,
