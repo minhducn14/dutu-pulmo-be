@@ -48,6 +48,8 @@ export interface PaymentResponseDto {
 @Injectable()
 export class PaymentService {
   private readonly logger = new Logger(PaymentService.name);
+  private static readonly INVALIDATED_BY_RESCHEDULE =
+    'INVALIDATED_BY_RESCHEDULE';
 
   constructor(
     @InjectRepository(Payment)
@@ -120,8 +122,7 @@ export class PaymentService {
     // Create payment link via PayOS
     const paymentLink = await this.payosService.createPaymentLink({
       orderCode,
-      // amount: Number(appointment.feeAmount),
-      amount: 2001,
+      amount: Number(appointment.feeAmount),
       description: description.substring(0, 25),
       buyerName,
       buyerEmail,
@@ -304,6 +305,13 @@ export class PaymentService {
       return;
     }
 
+    if (this.isInvalidatedByReschedule(payment)) {
+      this.logger.warn(
+        `Ignored stale webhook for invalidated payment ${payment.id}`,
+      );
+      return;
+    }
+
     payment.webhookReceivedAt = new Date();
     payment.webhookMetadata = {
       code: webhookData.code,
@@ -354,6 +362,26 @@ export class PaymentService {
     webhookData: WebhookData,
   ): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
+      if (payment.appointmentId) {
+        const appointmentForStaleCheck = await manager.findOne(Appointment, {
+          where: { id: payment.appointmentId },
+          select: ['id', 'paymentId'],
+        });
+        if (
+          appointmentForStaleCheck &&
+          appointmentForStaleCheck.paymentId !== payment.id
+        ) {
+          payment.lastErrorAt = new Date();
+          payment.errorCode = ERROR_MESSAGES.PAYMENT_STALE_FOR_APPOINTMENT_STATE;
+          payment.errorMessage = 'Stale payment callback ignored';
+          await manager.save(payment);
+          this.logger.warn(
+            `Ignored stale payment callback for payment ${payment.id}`,
+          );
+          return;
+        }
+      }
+
       payment.status = PaymentStatus.PAID;
       payment.paidAt = new Date(webhookData.data.transactionDateTime);
       payment.transactionReference = webhookData.data.reference;
@@ -457,6 +485,11 @@ export class PaymentService {
   private async syncPaymentStatusInternal(
     payment: Payment,
   ): Promise<PaymentResponseDto> {
+    if (this.isInvalidatedByReschedule(payment)) {
+      this.logger.warn(`Skip sync for invalidated payment ${payment.id}`);
+      return this.toDto(payment);
+    }
+
     // Get latest status from PayOS
     const payosInfo = await this.payosService.getPaymentInfo(
       Number(payment.orderCode),
@@ -558,6 +591,12 @@ export class PaymentService {
           payosInfo.status === 'PAID' &&
           payment.status !== PaymentStatus.PAID
         ) {
+          if (this.isInvalidatedByReschedule(payment)) {
+            this.logger.warn(
+              `Ignored stale paid sync for invalidated payment ${payment.id}`,
+            );
+            continue;
+          }
           payment.status = PaymentStatus.PAID;
           payment.paidAt = new Date();
           statusChanged = true;
@@ -659,14 +698,19 @@ export class PaymentService {
     let count = 0;
 
     for (const payment of oldPayments) {
-      // TODO: Move to archive table when implemented
-      // await this.archivedPaymentRepository.save(payment);
-      // await this.paymentRepository.remove(payment);
 
       this.logger.debug(`Would archive payment ${payment.id}`);
       count++;
     }
 
     return count;
+  }
+
+  private isInvalidatedByReschedule(payment: Payment): boolean {
+    return (
+      payment.cancellationReason?.includes(
+        PaymentService.INVALIDATED_BY_RESCHEDULE,
+      ) ?? false
+    );
   }
 }
