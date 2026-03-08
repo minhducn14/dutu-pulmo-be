@@ -13,10 +13,15 @@ import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status
 import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { AppointmentResponseDto } from '@/modules/appointment/dto/appointment-response.dto';
+import { Payment, PaymentStatus } from '@/modules/payment/entities/payment.entity';
+import { PayosService } from '@/modules/payment/payos.service';
+import { DoctorSchedule } from '@/modules/doctor/entities/doctor-schedule.entity';
+import { Doctor } from '@/modules/doctor/entities/doctor.entity';
 
 import { DailyService } from '@/modules/video_call/daily.service';
 import { CallStateService } from '@/modules/video_call/call-state.service';
 import { AppointmentMapperService } from '@/modules/appointment/services/appointment-mapper.service';
+import { ConsultationPricingService } from '@/modules/doctor/services/consultation-pricing.service';
 
 @Injectable()
 export class AppointmentSchedulingService {
@@ -27,6 +32,8 @@ export class AppointmentSchedulingService {
     private readonly dailyService: DailyService,
     private readonly callStateService: CallStateService,
     private readonly mapper: AppointmentMapperService,
+    private readonly payosService: PayosService,
+    private readonly pricingService: ConsultationPricingService,
   ) {}
 
   async cancel(
@@ -134,6 +141,23 @@ export class AppointmentSchedulingService {
         throw new BadRequestException(ERROR_MESSAGES.CANNOT_RESCHEDULE_STATUS);
       }
 
+      const hasPaidPayment = await manager.exists(Payment, {
+        where: [
+          { appointmentId: appointment.id, status: PaymentStatus.PAID },
+          ...(appointment.paymentId
+            ? [{ id: appointment.paymentId, status: PaymentStatus.PAID }]
+            : []),
+        ],
+      });
+      const paidAmount = Number(appointment.paidAmount || 0);
+      const isPaidAppointment = paidAmount > 0 && hasPaidPayment;
+      if (isPaidAppointment) {
+        this.logger.error('Paid appointment cannot be rescheduled');
+        throw new BadRequestException(
+          ERROR_MESSAGES.CANNOT_RESCHEDULE_PAID_APPOINTMENT,
+        );
+      }
+
       const oldSlot = appointment.timeSlotId
         ? await manager.findOne(TimeSlot, {
             where: { id: appointment.timeSlotId },
@@ -199,10 +223,16 @@ export class AppointmentSchedulingService {
 
       if (oldSlot) {
         await manager.decrement(TimeSlot, { id: oldSlot.id }, 'bookedCount', 1);
-        if (oldSlot.bookedCount - 1 < oldSlot.capacity) {
+        const refreshedOldSlot = await manager.findOne(TimeSlot, {
+          where: { id: oldSlot.id },
+        });
+        if (
+          refreshedOldSlot &&
+          refreshedOldSlot.bookedCount < refreshedOldSlot.capacity
+        ) {
           await manager.update(
             TimeSlot,
-            { id: oldSlot.id },
+            { id: refreshedOldSlot.id },
             { isAvailable: true },
           );
         }
@@ -222,6 +252,62 @@ export class AppointmentSchedulingService {
       appointment.durationMinutes = Math.floor(
         (newSlot.endTime.getTime() - newSlot.startTime.getTime()) / 60000,
       );
+      const schedule = newSlot.scheduleId
+        ? await manager.findOne(DoctorSchedule, {
+            where: { id: newSlot.scheduleId },
+            select: ['id', 'consultationFee', 'discountPercent'],
+          })
+        : null;
+      const doctor = await manager.findOne(Doctor, {
+        where: { id: newSlot.doctorId },
+        select: ['id', 'defaultConsultationFee'],
+      });
+      const baseFee = this.pricingService.resolveBaseFee(
+        schedule?.consultationFee,
+        doctor?.defaultConsultationFee,
+      );
+      const { finalFee } = this.pricingService.calculateFinalFee(
+        baseFee,
+        schedule?.discountPercent,
+      );
+
+      const pendingPayments = await manager.find(Payment, {
+        where: {
+          appointmentId: appointment.id,
+          status: In([PaymentStatus.PENDING, PaymentStatus.PROCESSING]),
+        },
+      });
+
+      for (const payment of pendingPayments) {
+        try {
+          await this.payosService.cancelPaymentLink(
+            Number(payment.orderCode),
+            'INVALIDATED_BY_RESCHEDULE',
+          );
+        } catch (error) {
+          this.logger.warn(
+            `Gateway cancel failed for payment ${payment.id}, continue reschedule: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+
+        payment.status = PaymentStatus.CANCELLED;
+        payment.cancelledAt = new Date();
+        payment.cancellationReason = payment.cancellationReason
+          ? `${payment.cancellationReason};INVALIDATED_BY_RESCHEDULE`
+          : 'INVALIDATED_BY_RESCHEDULE';
+        payment.errorCode = 'INVALIDATED_BY_RESCHEDULE';
+        payment.errorMessage = 'Payment invalidated due to appointment reschedule';
+        payment.lastErrorAt = new Date();
+        await manager.save(payment);
+      }
+
+      appointment.feeAmount = this.pricingService.toVndString(finalFee);
+      appointment.paidAmount = '0';
+      appointment.paymentId = null;
+      appointment.status =
+        finalFee === 0
+          ? AppointmentStatusEnum.CONFIRMED
+          : AppointmentStatusEnum.PENDING_PAYMENT;
 
       return manager.save(appointment);
     });
