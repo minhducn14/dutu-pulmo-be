@@ -8,6 +8,7 @@ import {
 import { ValidationPipe } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { AllExceptionsFilter } from '@/common/filters/all-exceptions.filter';
+import * as express from 'express';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -24,6 +25,11 @@ function getRolesFromOperation(operation: unknown): string[] | undefined {
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Set request body limit
+  app.use(express.json({ limit: '20mb' }));
+  app.use(express.urlencoded({ limit: '20mb', extended: true }));
+
 
   // Enable CORS
   app.enableCors();

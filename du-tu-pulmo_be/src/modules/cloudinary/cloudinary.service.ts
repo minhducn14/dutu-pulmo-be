@@ -107,6 +107,44 @@ export class CloudinaryService {
   }
 
   /**
+   * Upload rich-text image without resizing/compression to preserve content fidelity.
+   */
+  async uploadRichTextImage(
+    file: Express.Multer.File,
+    folder: string = 'appointment-notes',
+  ): Promise<CloudinaryUploadResult> {
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder,
+          allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+          resource_type: 'image',
+          unique_filename: true,
+          quality: 100,
+          flags: 'preserve_transparency',
+        },
+        (error, result: UploadApiResponse | undefined) => {
+          if (error) {
+            reject(new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST));
+          } else if (result) {
+            resolve({
+              url: result.secure_url,
+              publicId: result.public_id,
+              width: result.width,
+              height: result.height,
+              format: result.format,
+              bytes: result.bytes,
+            });
+          } else {
+            reject(new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST));
+          }
+        },
+      );
+      uploadStream.end(file.buffer);
+    });
+  }
+
+  /**
    * Upload multiple images to Cloudinary
    */
   async uploadImages(

@@ -33,6 +33,7 @@ import { MedicalRecordStatusEnum } from '@/modules/common/enums/medical-record-s
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { MedicalRecordExaminationDto } from '@/modules/medical/dto/medical-record-examination.dto';
 import { PdfService } from '@/modules/pdf/pdf.service';
+import { validateTextFieldsPolicy as applyTextFieldsPolicy } from '@/common/utils/text-fields-policy.util';
 
 const VALID_TRANSITIONS: Record<MedicalRecordStatusEnum, MedicalRecordStatusEnum[]> = {
   [MedicalRecordStatusEnum.DRAFT]: [
@@ -294,6 +295,27 @@ export class MedicalService {
     });
   }
 
+  private validateTextFieldsPolicy(data: Partial<MedicalRecord>): void {
+    applyTextFieldsPolicy({
+      chiefComplaint: data.chiefComplaint,
+      textFields: [
+        data.presentIllness,
+        data.physicalExamNotes,
+        data.assessment,
+        data.diagnosis,
+        data.treatmentPlan,
+        data.medicalHistory,
+        data.surgicalHistory,
+        data.familyHistory,
+        data.followUpInstructions,
+        data.progressNotes,
+      ],
+      base64ErrorCode: ERROR_MESSAGES.MEDICAL_RECORD_BASE64_NOT_ALLOWED_IN_TEXT_FIELDS,
+      chiefComplaintErrorCode:
+        ERROR_MESSAGES.MEDICAL_RECORD_CHIEF_COMPLAINT_PLAIN_TEXT_ONLY,
+    });
+  }
+
   // ============================================================================
   // PRESCRIPTIONS
   // ============================================================================
@@ -513,6 +535,8 @@ export class MedicalService {
         );
       }
 
+      this.validateTextFieldsPolicy(data);
+
       if (!record) {
         record = manager.create(MedicalRecord, {
           appointmentId: appointment.id,
@@ -556,13 +580,7 @@ export class MedicalService {
         appointment.chiefComplaint = data.chiefComplaint;
         apptChanged = true;
       }
-      if (
-        data.presentIllness &&
-        data.presentIllness !== appointment.patientNotes
-      ) {
-        appointment.patientNotes = data.presentIllness;
-        apptChanged = true;
-      }
+
       if (
         data.followUpRequired !== undefined &&
         data.followUpRequired !== appointment.followUpRequired

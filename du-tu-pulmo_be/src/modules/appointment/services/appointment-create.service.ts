@@ -21,6 +21,8 @@ import { AppointmentMapperService } from '@/modules/appointment/services/appoint
 import { diffMinutes, isBeforeVN, vnNow } from '@/common/datetime';
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { ConsultationPricingService } from '@/modules/doctor/services/consultation-pricing.service';
+import { RichTextService } from '@/modules/appointment/services/rich-text.service';
+import { validateTextFieldsPolicy } from '@/common/utils/text-fields-policy.util';
 
 @Injectable()
 export class AppointmentCreateService {
@@ -31,6 +33,7 @@ export class AppointmentCreateService {
     private readonly dailyService: DailyService,
     private readonly mapper: AppointmentMapperService,
     private readonly pricingService: ConsultationPricingService,
+    private readonly richTextService: RichTextService,
   ) {}
 
   private generateAppointmentNumber(): string {
@@ -42,6 +45,18 @@ export class AppointmentCreateService {
   async create(
     data: Partial<Appointment>,
   ): Promise<ResponseCommon<AppointmentResponseDto>> {
+    validateTextFieldsPolicy({
+      chiefComplaint: data.chiefComplaint,
+      chiefComplaintErrorCode:
+        ERROR_MESSAGES.APPOINTMENT_NOTES_CHIEF_COMPLAINT_PLAIN_TEXT_ONLY,
+    });
+
+    if (data.patientNotes) {
+      data.patientNotes = await this.richTextService.processPatientNotes(
+        data.patientNotes,
+      );
+    }
+
     if (!data.timeSlotId || !data.patientId) {
       this.logger.error('Time slot ID or patient ID is missing');
       throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);

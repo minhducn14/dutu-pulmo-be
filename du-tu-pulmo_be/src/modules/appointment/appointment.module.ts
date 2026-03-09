@@ -26,12 +26,15 @@ import { Patient } from '@/modules/patient/entities/patient.entity';
 import { Payment } from '@/modules/payment/entities/payment.entity';
 import { DoctorModule } from '@/modules/doctor/doctor.module';
 import { PaymentModule } from '@/modules/payment/payment.module';
+import { CloudinaryModule } from '@/modules/cloudinary';
+import { RichTextService } from '@/modules/appointment/services/rich-text.service';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Appointment, TimeSlot, Doctor, Patient, Payment]),
     DoctorModule,
     PaymentModule,
+    CloudinaryModule,
     forwardRef(() => VideoCallModule),
     forwardRef(() => MedicalModule),
   ],
@@ -50,6 +53,7 @@ import { PaymentModule } from '@/modules/payment/payment.module';
     AppointmentEntityService,
     AppointmentCheckinService,
     AppointmentCreateService,
+    RichTextService,
     AppointmentSchedulingService,
     AppointmentStatusService,
     AppointmentVideoService,
