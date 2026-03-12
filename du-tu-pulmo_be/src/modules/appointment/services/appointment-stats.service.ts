@@ -70,8 +70,9 @@ export class AppointmentStatsService {
           ? CHECKIN_TIME_THRESHOLDS.VIDEO.LATE_MINUTES
           : CHECKIN_TIME_THRESHOLDS.IN_CLINIC.LATE_MINUTES;
 
-
-      return timeDiffMinutes >= -lateThreshold;
+      // skip late threshold validation
+      // return timeDiffMinutes >= -lateThreshold;
+      return true;
     });
 
     const totalInQueue =
