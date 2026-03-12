@@ -229,9 +229,9 @@ export class HospitalService {
   async getCities(): Promise<ResponseCommon<string[]>> {
     const cities = await this.hospitalRepository
       .createQueryBuilder('hospital')
-      .select('DISTINCT hospital.city', 'city')
+      .select('DISTINCT hospital.province', 'city')
       .where('hospital.deletedAt IS NULL')
-      .orderBy('hospital.city', 'ASC')
+      .orderBy('hospital.province', 'ASC')
       .getRawMany<{ city: string | null }>();
 
     return new ResponseCommon(

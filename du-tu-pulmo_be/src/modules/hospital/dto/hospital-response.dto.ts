@@ -37,6 +37,9 @@ export class HospitalResponseDto {
   @ApiProperty()
   updatedAt: Date;
 
+  @ApiProperty()
+  logoUrl: string;
+
   @ApiPropertyOptional({
     description: 'Số lượng bác sĩ làm việc tại bệnh viện',
   })
@@ -55,6 +58,7 @@ export class HospitalResponseDto {
     longitude?: number | null;
     createdAt: Date;
     updatedAt: Date;
+    logoUrl?: string;
     doctorCount?: number;
   }): HospitalResponseDto {
     const dto = new HospitalResponseDto();
@@ -70,6 +74,7 @@ export class HospitalResponseDto {
     dto.longitude = hospital.longitude ?? undefined;
     dto.createdAt = hospital.createdAt;
     dto.updatedAt = hospital.updatedAt;
+    dto.logoUrl = hospital.logoUrl ?? 'https://picsum.photos/800/600';
     dto.doctorCount = hospital.doctorCount;
     return dto;
   }
