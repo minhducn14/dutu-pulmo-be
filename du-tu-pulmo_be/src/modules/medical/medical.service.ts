@@ -425,13 +425,13 @@ export class MedicalService {
     }
 
     if (user.roles?.includes(RoleEnum.PATIENT)) {
-      if (prescription.patient.user.id !== user.id) {
+      if (prescription.patient.user.id !== user.userId) {
         throw new ForbiddenException(ERROR_MESSAGES.PRESCRIPTION_NOT_FOUND);
       }
     }
 
     if (user.roles?.includes(RoleEnum.DOCTOR)) {
-      if (prescription.doctor.user.id !== user.id) {
+      if (prescription.doctor.user.id !== user.userId) {
         throw new ForbiddenException(ERROR_MESSAGES.PRESCRIPTION_NOT_FOUND);
       }
     }
@@ -467,6 +467,7 @@ export class MedicalService {
     });
 
     if (!record) {
+      // Prefill only once from appointment data. Do not overwrite once a record exists.
       record = manager.create(MedicalRecord, {
         appointmentId: appointment.id,
         patientId: appointment.patientId,
@@ -580,7 +581,6 @@ export class MedicalService {
         appointment.chiefComplaint = data.chiefComplaint;
         apptChanged = true;
       }
-
       if (
         data.followUpRequired !== undefined &&
         data.followUpRequired !== appointment.followUpRequired

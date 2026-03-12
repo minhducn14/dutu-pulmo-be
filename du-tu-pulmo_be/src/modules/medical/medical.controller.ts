@@ -469,6 +469,7 @@ export class MedicalController {
     @Param('patientId') patientId: string,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<PrescriptionResponseDto[]>> {
+
     await this.validatePatientAccess(user, patientId);
 
     // Strict Mode for Doctors: Only return their own prescriptions
@@ -476,11 +477,27 @@ export class MedicalController {
       ? user.doctorId
       : undefined;
 
+    // Strict Mode for Patients: Only return their own prescriptions
+    const patientIdLogin = user.roles?.includes(RoleEnum.PATIENT)
+      ? user.userId
+      : undefined;
+
+    // Nếu login bằng patient nhưng cố xem patient khác
+    if (patientIdLogin && patientIdLogin !== patientId) {
+      throw new ForbiddenException(
+        'Patients can only view their own prescriptions',
+      );
+    }
+
     const result = await this.medicalService.findPrescriptionsByPatient(
       patientId,
       doctorId,
     );
-    const dtos = (result.data || []).map((p) => this.toPrescriptionDto(p));
+
+    const dtos = (result.data || []).map((p) =>
+      this.toPrescriptionDto(p),
+    );
+
     return new ResponseCommon(result.code, result.message, dtos);
   }
 

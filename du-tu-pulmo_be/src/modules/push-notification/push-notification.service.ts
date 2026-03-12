@@ -173,12 +173,17 @@ export class PushNotificationService {
         data: {
           title: notification.title,
           body: notification.content,
+          id: String(notification.id),
+          userId: String(notification.userId),
+          type: String(notification.type),
+          refId: notification.refId ? String(notification.refId) : "",
         } 
       };
 
       // Send multicast push
       const failedTokens = await this.sendMulticast(user.fcmTokens, payload);
       
+      // Cleanup tokens that failed (e.g. token_not_registered)
       if (failedTokens.length > 0) {
         this.logger.log(`Cleaning up ${failedTokens.length} failed FCM tokens for user ${user.id}`);
         for (const token of failedTokens) {
