@@ -1,6 +1,59 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PaginationMeta } from '@/common/dto/pagination.dto';
 
+export class PatientUserSummaryDto {
+  @ApiPropertyOptional()
+  id?: string;
+
+  @ApiPropertyOptional()
+  fullName?: string;
+
+  @ApiPropertyOptional()
+  phone?: string;
+
+  @ApiPropertyOptional()
+  gender?: string;
+
+  @ApiPropertyOptional()
+  dateOfBirth?: Date;
+
+  @ApiPropertyOptional()
+  avatarUrl?: string;
+
+  @ApiPropertyOptional()
+  status?: string;
+
+  @ApiPropertyOptional()
+  provinceCode?: string;
+
+  @ApiPropertyOptional()
+  province?: string;
+
+  @ApiPropertyOptional()
+  wardCode?: string;
+
+  @ApiPropertyOptional()
+  ward?: string;
+
+  @ApiPropertyOptional()
+  address?: string;
+
+  @ApiPropertyOptional()
+  CCCD?: string;
+
+  @ApiPropertyOptional()
+  nationality?: string;
+
+  @ApiPropertyOptional()
+  ethnicity?: string;
+
+  @ApiPropertyOptional()
+  occupation?: string;
+
+  @ApiPropertyOptional()
+  email?: string;
+}
+
 /**
  * Response DTO for Patient
  */
@@ -43,8 +96,11 @@ export class PatientResponseDto {
   @ApiProperty({ description: 'Ngày cập nhật' })
   updatedAt: Date;
 
-  @ApiPropertyOptional({ description: 'Thông tin user (nếu có relation)' })
-  user?: any;
+  @ApiPropertyOptional({
+    description: 'Thông tin user (nếu có relation)',
+    type: PatientUserSummaryDto,
+  })
+  user?: PatientUserSummaryDto;
 
   static fromEntity(patient: {
     id: string;
@@ -67,6 +123,17 @@ export class PatientResponseDto {
       dateOfBirth?: Date;
       avatarUrl?: string;
       status?: string;
+      provinceCode?: string;
+      province?: string;
+      wardCode?: string;
+      ward?: string;
+      address?: string;
+      CCCD?: string;
+      nationality?: string;
+      ethnicity?: string;
+      occupation?: string;
+      email?: string;
+      account?: { email?: string };
     };
   }): PatientResponseDto {
     const dto = new PatientResponseDto();
@@ -91,6 +158,16 @@ export class PatientResponseDto {
         dateOfBirth: patient.user.dateOfBirth,
         avatarUrl: patient.user.avatarUrl,
         status: patient.user.status,
+        provinceCode: patient.user.provinceCode,
+        province: patient.user.province,
+        wardCode: patient.user.wardCode,
+        ward: patient.user.ward,
+        address: patient.user.address,
+        CCCD: patient.user.CCCD,
+        nationality: patient.user.nationality,
+        ethnicity: patient.user.ethnicity,
+        occupation: patient.user.occupation,
+        email: patient.user.email || patient.user.account?.email,
       };
     }
     return dto;
