@@ -52,6 +52,15 @@ export class PaymentResponseDto {
   })
   appointmentId: string;
 
+  @ApiPropertyOptional({ description: 'Mã ngân hàng (BIN)', example: '970418' })
+  bin?: string;
+
+  @ApiPropertyOptional({ description: 'Số tài khoản nhận', example: '19038765321011' })
+  accountNumber?: string;
+
+  @ApiPropertyOptional({ description: 'Tên chủ tài khoản', example: 'VU NGUYEN MINH DUC' })
+  accountName?: string;
+
   @ApiProperty({
     description: 'Thời gian tạo',
     example: '2026-01-08T14:30:00.000Z',
@@ -67,6 +76,9 @@ export class PaymentResponseDto {
     checkoutUrl: string;
     qrCode: string;
     appointmentId: string;
+    bin?: string;
+    accountNumber?: string;
+    accountName?: string;
     createdAt: Date;
   }): PaymentResponseDto {
     const dto = new PaymentResponseDto();
@@ -78,6 +90,9 @@ export class PaymentResponseDto {
     dto.checkoutUrl = data.checkoutUrl;
     dto.qrCode = data.qrCode;
     dto.appointmentId = data.appointmentId;
+    dto.bin = data.bin;
+    dto.accountNumber = data.accountNumber;
+    dto.accountName = data.accountName;
     dto.createdAt = data.createdAt;
     return dto;
   }

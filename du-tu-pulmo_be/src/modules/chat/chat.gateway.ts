@@ -62,11 +62,7 @@ interface UserTypingInfo {
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.FRONTEND_URL?.split(',') || [
-      'http://localhost:3000',
-      'http://localhost:3001',
-    ],
-    credentials: true,
+    origin: '*',
   },
   namespace: '/chat',
 })

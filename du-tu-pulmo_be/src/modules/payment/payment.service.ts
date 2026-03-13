@@ -32,6 +32,9 @@ export interface PaymentResponseDto {
   purpose: PaymentPurpose;
   checkoutUrl: string;
   qrCode: string;
+  bin?: string;
+  accountNumber?: string;
+  accountName?: string;
   appointmentId: string;
   paidAt?: Date;
   expiredAt?: Date;
@@ -109,10 +112,10 @@ export class PaymentService {
     const description = `Thanh toán lịch hẹn ${appointment.appointmentNumber}`;
 
     // Get URLs from config
-    const frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
-    const returnUrl = dto.returnUrl || `${frontendUrl}/payment/success`;
-    const cancelUrl = dto.cancelUrl || `${frontendUrl}/payment/cancel`;
+    const backendUrl =
+      this.configService.get<string>('BACKEND_URL') || 'http://localhost:3000';
+    const returnUrl = dto.returnUrl || `${backendUrl}/payment/return`;
+    const cancelUrl = dto.cancelUrl || `${backendUrl}/payment/cancel-callback`;
 
     // Get buyer info
     const buyerName = appointment.patient?.user?.fullName;
@@ -123,7 +126,7 @@ export class PaymentService {
     const paymentLink = await this.payosService.createPaymentLink({
       orderCode,
       // amount: Number(appointment.feeAmount),
-      amount: 2001,
+      amount: 2000,
       description: description.substring(0, 25),
       buyerName,
       buyerEmail,
@@ -139,7 +142,7 @@ export class PaymentService {
       cancelUrl,
       expiredAt: Math.floor(Date.now() / 1000) + 15 * 60,
     });
-
+    console.log(paymentLink);
     // Create payment record with SECURITY: anonymized audit trail
     const { browserType, deviceType } = userAgent
       ? Payment.parseUserAgent(userAgent)
@@ -373,7 +376,8 @@ export class PaymentService {
           appointmentForStaleCheck.paymentId !== payment.id
         ) {
           payment.lastErrorAt = new Date();
-          payment.errorCode = ERROR_MESSAGES.PAYMENT_STALE_FOR_APPOINTMENT_STATE;
+          payment.errorCode =
+            ERROR_MESSAGES.PAYMENT_STALE_FOR_APPOINTMENT_STATE;
           payment.errorMessage = 'Stale payment callback ignored';
           await manager.save(payment);
           this.logger.warn(
@@ -543,6 +547,9 @@ export class PaymentService {
       purpose: payment.purpose,
       checkoutUrl: payment.checkoutUrl,
       qrCode: payment.qrCode,
+      bin: payment.bin,
+      accountNumber: payment.accountNumber,
+      accountName: payment.accountName,
       appointmentId: payment.appointmentId,
       paidAt: payment.paidAt,
       expiredAt: payment.expiredAt,
@@ -699,7 +706,6 @@ export class PaymentService {
     let count = 0;
 
     for (const payment of oldPayments) {
-
       this.logger.debug(`Would archive payment ${payment.id}`);
       count++;
     }

@@ -95,7 +95,7 @@ export class PatientService {
   async findOne(id: string): Promise<ResponseCommon<Patient>> {
     const patient = await this.patientRepository.findOne({
       where: { id },
-      relations: ['user'],
+      relations: ['user', 'user.account'],
     });
 
     if (!patient) {
@@ -228,7 +228,7 @@ export class PatientService {
   async getProfile(patientId: string): Promise<ResponseCommon> {
     const patient = await this.patientRepository.findOne({
       where: { id: patientId },
-      relations: ['user'],
+      relations: ['user', 'user.account'],
     });
 
     if (!patient) {
