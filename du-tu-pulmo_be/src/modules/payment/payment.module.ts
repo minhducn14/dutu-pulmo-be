@@ -1,8 +1,11 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PaymentController } from '@/modules/payment/payment.controller';
 import { PaymentService } from '@/modules/payment/payment.service';
 import { PayosService } from '@/modules/payment/payos.service';
+import { PaymentGateway } from '@/modules/payment/payment.gateway';
 import { Payment } from '@/modules/payment/entities/payment.entity';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { Patient } from '@/modules/patient/entities/patient.entity';
@@ -20,9 +23,16 @@ import { Account } from '@/modules/account/entities/account.entity';
       User,
       Account,
     ]),
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'),
+      }),
+      inject: [ConfigService],
+    }),
   ],
   controllers: [PaymentController],
-  providers: [PaymentService, PayosService],
-  exports: [PaymentService, PayosService],
+  providers: [PaymentService, PayosService, PaymentGateway],
+  exports: [PaymentService, PayosService, PaymentGateway],
 })
 export class PaymentModule {}

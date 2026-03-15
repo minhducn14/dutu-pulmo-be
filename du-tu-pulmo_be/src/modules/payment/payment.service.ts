@@ -16,6 +16,7 @@ import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { PaymentPurpose } from '@/modules/common/enums/payment-purpose.enum';
+import { PaymentGateway } from '@/modules/payment/payment.gateway';
 
 export interface CreatePaymentDto {
   appointmentId: string;
@@ -62,6 +63,7 @@ export class PaymentService {
     private readonly payosService: PayosService,
     private readonly configService: ConfigService,
     private readonly dataSource: DataSource,
+    private readonly paymentGateway: PaymentGateway,
   ) {}
 
   /**
@@ -279,6 +281,13 @@ export class PaymentService {
 
     this.logger.log(`Cancelled payment ${payment.id}`);
 
+    if (saved.appointmentId) {
+      this.paymentGateway.notifyPaymentStatus(
+        saved.appointmentId,
+        PaymentStatus.CANCELLED,
+      );
+    }
+
     return this.toDto(saved);
   }
 
@@ -335,6 +344,12 @@ export class PaymentService {
       // Update payment status based on webhook
       if (webhookData.success && webhookData.code === '00') {
         await this.handlePaymentSuccess(payment, webhookData);
+        if (payment.appointmentId) {
+          this.paymentGateway.notifyPaymentStatus(
+            payment.appointmentId,
+            PaymentStatus.PAID,
+          );
+        }
       } else {
         // Handle failed payment
         payment.status = PaymentStatus.FAILED;
@@ -342,7 +357,12 @@ export class PaymentService {
         payment.errorMessage = webhookData.desc;
         payment.lastErrorAt = new Date();
         await this.paymentRepository.save(payment);
-
+        if (payment.appointmentId) {
+          this.paymentGateway.notifyPaymentStatus(
+            payment.appointmentId,
+            PaymentStatus.FAILED,
+          );
+        }
         this.logger.log(
           `Webhook indicates payment failed: ${webhookData.code} - ${webhookData.desc}`,
         );
