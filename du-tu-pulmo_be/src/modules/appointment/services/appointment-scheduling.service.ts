@@ -13,7 +13,10 @@ import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status
 import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { AppointmentResponseDto } from '@/modules/appointment/dto/appointment-response.dto';
-import { Payment, PaymentStatus } from '@/modules/payment/entities/payment.entity';
+import {
+  Payment,
+  PaymentStatus,
+} from '@/modules/payment/entities/payment.entity';
 import { PayosService } from '@/modules/payment/payos.service';
 import { DoctorSchedule } from '@/modules/doctor/entities/doctor-schedule.entity';
 import { Doctor } from '@/modules/doctor/entities/doctor.entity';
@@ -132,12 +135,13 @@ export class AppointmentSchedulingService {
 
       if (
         ![
-          AppointmentStatusEnum.CONFIRMED,
           AppointmentStatusEnum.PENDING,
           AppointmentStatusEnum.PENDING_PAYMENT,
         ].includes(appointment.status)
       ) {
-        this.logger.error('Appointment is not in confirmed, pending, or pending payment status');
+        this.logger.error(
+          'Appointment is not in confirmed, pending, or pending payment status',
+        );
         throw new BadRequestException(ERROR_MESSAGES.CANNOT_RESCHEDULE_STATUS);
       }
 
@@ -296,7 +300,8 @@ export class AppointmentSchedulingService {
           ? `${payment.cancellationReason};INVALIDATED_BY_RESCHEDULE`
           : 'INVALIDATED_BY_RESCHEDULE';
         payment.errorCode = 'INVALIDATED_BY_RESCHEDULE';
-        payment.errorMessage = 'Payment invalidated due to appointment reschedule';
+        payment.errorMessage =
+          'Payment invalidated due to appointment reschedule';
         payment.lastErrorAt = new Date();
         await manager.save(payment);
       }
