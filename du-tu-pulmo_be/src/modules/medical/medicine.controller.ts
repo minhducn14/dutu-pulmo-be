@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { MedicineService } from '@/modules/medical/medicine.service';
 import { CreateMedicineDto } from '@/modules/medical/dto/create-medicine.dto';
-import { FilterMedicineDto } from '@/modules/medical/dto/filter-medicine.dto';
+import { FilterMedicineQueryDto } from '@/modules/medical/dto/filter-medicine.dto';
 import { UpdateMedicineDto } from '@/modules/medical/dto/update-medicine.dto';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Medicine } from '@/modules/medical/entities/medicine.entity';
@@ -70,7 +70,7 @@ export class MedicineController {
     type: PaginatedMedicineResponseDto,
   })
   async findAll(
-    @Query() filterDto: FilterMedicineDto,
+    @Query() filterDto: FilterMedicineQueryDto,
   ): Promise<ResponseCommon<PaginatedMedicineResponseDto>> {
     const result = await this.medicineService.findAll(filterDto);
     const fallback = new PaginatedResponseDto<Medicine>(
@@ -129,3 +129,4 @@ export class MedicineController {
     return this.medicineService.remove(id);
   }
 }
+

@@ -24,7 +24,7 @@ import { ScreeningStatusEnum } from '@/modules/common/enums/screening-status.enu
 import { AiDiagnosisStatusEnum } from '@/modules/common/enums/ai-diagnosis-status.enum';
 import { PulmoAiResponseDto } from '@/modules/screening/dto/ai-analysis-response.dto';
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
-import { GetScreeningRequestsDto } from '@/modules/screening/dto/get-screening-requests.dto';
+import { GetScreeningRequestsQueryDto } from '@/modules/screening/dto/get-screening-requests.dto';
 import { CreateConclusionDto } from '@/modules/screening/dto/create-conclusion.dto';
 
 @Injectable()
@@ -52,7 +52,7 @@ export class ScreeningService {
   }
 
   async findAll(
-    query: GetScreeningRequestsDto,
+    query: GetScreeningRequestsQueryDto,
   ): Promise<[ScreeningRequest[], number]> {
     const {
       page = 1,
@@ -285,7 +285,7 @@ export class ScreeningService {
 
   async findByUploaderDoctor(
     doctorId: string,
-    query: GetScreeningRequestsDto,
+    query: GetScreeningRequestsQueryDto,
   ): Promise<[ScreeningRequest[], number]> {
     const {
       page = 1,
@@ -629,3 +629,4 @@ export class ScreeningService {
     return `ai-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
   }
 }
+

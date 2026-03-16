@@ -10,7 +10,7 @@ import {
   CreateAdminActionDto,
   VoidAdminActionDto,
 } from '@/modules/admin-action/dto/create-admin-action.dto';
-import { QueryAdminActionDto } from '@/modules/admin-action/dto/update-admin-action.dto';
+import { AdminActionQueryDto } from '@/modules/admin-action/dto/update-admin-action.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
 
 /**
@@ -53,7 +53,7 @@ export class AdminActionService {
     return new ResponseCommon(201, 'SUCCESS', saved);
   }
 
-  async findAll(query: QueryAdminActionDto): Promise<
+  async findAll(query: AdminActionQueryDto): Promise<
     ResponseCommon<{
       items: AdminAction[];
       total: number;
@@ -179,3 +179,4 @@ export class AdminActionService {
     return new ResponseCommon(200, 'SUCCESS', original);
   }
 }
+

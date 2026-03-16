@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Medicine } from '@/modules/medical/entities/medicine.entity';
 import { CreateMedicineDto } from '@/modules/medical/dto/create-medicine.dto';
-import { FilterMedicineDto } from '@/modules/medical/dto/filter-medicine.dto';
+import { FilterMedicineQueryDto } from '@/modules/medical/dto/filter-medicine.dto';
 import { UpdateMedicineDto } from '@/modules/medical/dto/update-medicine.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
@@ -30,7 +30,7 @@ export class MedicineService {
   }
 
   async findAll(
-    filterDto: FilterMedicineDto,
+    filterDto: FilterMedicineQueryDto,
   ): Promise<ResponseCommon<PaginatedResponseDto<Medicine>>> {
     const queryBuilder = this.medicineRepository.createQueryBuilder('medicine');
 
@@ -125,3 +125,4 @@ export class MedicineService {
     return new ResponseCommon(HttpStatus.OK, 'Xóa thành công', true);
   }
 }
+

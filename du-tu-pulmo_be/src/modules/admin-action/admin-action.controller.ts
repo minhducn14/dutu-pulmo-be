@@ -26,7 +26,7 @@ import {
   CreateAdminActionDto,
   VoidAdminActionDto,
 } from '@/modules/admin-action/dto/create-admin-action.dto';
-import { QueryAdminActionDto } from '@/modules/admin-action/dto/update-admin-action.dto';
+import { AdminActionQueryDto } from '@/modules/admin-action/dto/update-admin-action.dto';
 import { AdminActionResponseDto } from '@/modules/admin-action/dto/admin-action-response.dto';
 import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
@@ -89,7 +89,7 @@ export class AdminActionController {
   @ApiOperation({ summary: 'Lấy lịch sử hành động admin (có phân trang)' })
   @ApiResponse({ status: HttpStatus.OK })
   async findAll(
-    @Query() query: QueryAdminActionDto,
+    @Query() query: AdminActionQueryDto,
   ): Promise<ResponseCommon<PaginatedResponseDto<AdminActionResponseDto>>> {
     const response = await this.adminActionService.findAll(query);
     const data = response.data ?? { items: [], total: 0, limit: 20, offset: 0 };
@@ -166,3 +166,4 @@ export class AdminActionController {
     return req.socket?.remoteAddress || 'unknown';
   }
 }
+

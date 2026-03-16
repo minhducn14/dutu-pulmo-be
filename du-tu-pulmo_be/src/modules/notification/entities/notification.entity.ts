@@ -10,7 +10,7 @@ import {
 } from 'typeorm';
 import { User } from '@/modules/user/entities/user.entity';
 import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.enum';
-import { StatusEnum } from '@/modules/common/enums/status.enum';
+import { NotificationStatusEnum } from '@/modules/common/enums/notification-status.enum';
 
 @Entity('notifications')
 @Unique('uk_notification_idempotency', ['userId', 'type', 'refId'])
@@ -36,8 +36,12 @@ export class Notification {
   @Column('text')
   content: string;
 
-  @Column({ type: 'enum', enum: StatusEnum, default: StatusEnum.PENDING })
-  status: StatusEnum;
+  @Column({
+    type: 'enum',
+    enum: NotificationStatusEnum,
+    default: NotificationStatusEnum.UNREAD,
+  })
+  status: NotificationStatusEnum;
 
   @Column({ name: 'ref_id', type: 'uuid', nullable: true })
   refId: string | null;

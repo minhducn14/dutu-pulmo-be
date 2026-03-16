@@ -5,10 +5,12 @@ import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Notification } from '@/modules/notification/entities/notification.entity';
-import { StatusEnum } from '@/modules/common/enums/status.enum';
+import { NotificationStatusEnum } from '@/modules/common/enums/notification-status.enum';
 import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.enum';
 import { CreateNotificationDto } from './dto/create-notification.dto';
-import { PaginationDto } from '@/common/dto/pagination.dto';
+import { PaginatedResponseDto } from '@/common/dto/pagination.dto';
+import { ResponseCommon } from '@/common/dto/response.dto';
+import { NotificationQueryDto } from '@/modules/notification/dto/notification-query.dto';
 
 export type CancellationReason = 'SCHEDULE_CHANGE' | 'TIME_OFF';
 
@@ -26,7 +28,10 @@ export class NotificationService {
   /**
    * Lấy danh sách thông báo của 1 user có phân trang
    */
-  async findUserNotifications(userId: string, query: PaginationDto) {
+  async findUserNotifications(
+    userId: string,
+    query: NotificationQueryDto,
+  ): Promise<ResponseCommon<PaginatedResponseDto<Notification>>> {
     const { page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
 
@@ -37,20 +42,13 @@ export class NotificationService {
       take: limit,
     });
 
-    return {
-      items,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
+    const paginated = new PaginatedResponseDto(items, total, page, limit);
+    return new ResponseCommon(200, 'SUCCESS', paginated);
   }
 
   async getUnreadCount(userId: string): Promise<number> {
     return this.notificationRepository.count({
-      where: { userId, status: StatusEnum.PENDING },
+      where: { userId, status: NotificationStatusEnum.UNREAD },
     });
   }
 
@@ -60,7 +58,7 @@ export class NotificationService {
   async markAsRead(userId: string, notificationId: string): Promise<boolean> {
     const result = await this.notificationRepository.update(
       { id: notificationId, userId },
-      { status: StatusEnum.ACTIVE }, // ACTIVE = Đã đọc
+      { status: NotificationStatusEnum.READ },
     );
     return (result.affected ?? 0) > 0;
   }
@@ -74,7 +72,7 @@ export class NotificationService {
       type: dto.type,
       title: dto.title,
       content: dto.content,
-      status: dto.status ?? StatusEnum.PENDING,
+      status: dto.status ?? NotificationStatusEnum.UNREAD,
       refId: dto.refId ?? null,
       refType: dto.refType ?? null,
     });
@@ -82,10 +80,10 @@ export class NotificationService {
     // Save to DB
     const saved = await this.notificationRepository.save(notification);
     this.logger.log(`Created notification ${saved.id} for user ${dto.userId}`);
-    
+
     // Emit event logic for push notifications
     this.eventEmitter.emit('notification.created', saved);
-    
+
     return saved;
   }
 
@@ -94,8 +92,8 @@ export class NotificationService {
    */
   async markAllAsRead(userId: string): Promise<boolean> {
     const result = await this.notificationRepository.update(
-      { userId, status: StatusEnum.PENDING }, // PENDING = Chưa đọc
-      { status: StatusEnum.ACTIVE },
+      { userId, status: NotificationStatusEnum.UNREAD },
+      { status: NotificationStatusEnum.READ },
     );
     return (result.affected ?? 0) > 0;
   }

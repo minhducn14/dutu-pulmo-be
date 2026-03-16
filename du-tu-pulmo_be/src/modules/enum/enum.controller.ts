@@ -1,12 +1,10 @@
 import { Controller, Get, Query, HttpStatus } from '@nestjs/common';
 import { ApiOperation, ApiTags, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { EnumService } from '@/modules/enum/enum.service';
-import {
-  PaginationDto,
-  PaginatedResponseDto,
-} from '@/common/dto/pagination.dto';
+import { PaginatedResponseDto } from '@/common/dto/pagination.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { EnumItemDto } from '@/modules/enum/dto/enum-item.dto';
+import { EnumQueryDto } from '@/modules/enum/dto/enum-query.dto';
 
 @ApiTags('Enum - Danh mục')
 @Controller('enums')
@@ -23,10 +21,10 @@ export class EnumController {
     description: 'Danh sách quốc gia với phân trang',
     type: PaginatedResponseDto,
   })
-  getCountries(
-    @Query() paginationDto: PaginationDto,
-  ): ResponseCommon<PaginatedResponseDto<EnumItemDto>> {
-    return this.enumService.getCountries(paginationDto);
+  async getCountries(
+    @Query() query: EnumQueryDto,
+  ): Promise<ResponseCommon<PaginatedResponseDto<EnumItemDto>>> {
+    return this.enumService.getCountries(query);
   }
 
   @Get('ethnicities')
@@ -39,10 +37,10 @@ export class EnumController {
     description: 'Danh sách dân tộc với phân trang',
     type: PaginatedResponseDto,
   })
-  getEthnicities(
-    @Query() paginationDto: PaginationDto,
-  ): ResponseCommon<PaginatedResponseDto<EnumItemDto>> {
-    return this.enumService.getEthnicities(paginationDto);
+  async getEthnicities(
+    @Query() query: EnumQueryDto,
+  ): Promise<ResponseCommon<PaginatedResponseDto<EnumItemDto>>> {
+    return this.enumService.getEthnicities(query);
   }
 
   @Get('occupations')
@@ -55,9 +53,9 @@ export class EnumController {
     description: 'Danh sách nghề nghiệp với phân trang',
     type: PaginatedResponseDto,
   })
-  getOccupations(
-    @Query() paginationDto: PaginationDto,
-  ): ResponseCommon<PaginatedResponseDto<EnumItemDto>> {
-    return this.enumService.getOccupations(paginationDto);
+  async getOccupations(
+    @Query() query: EnumQueryDto,
+  ): Promise<ResponseCommon<PaginatedResponseDto<EnumItemDto>>> {
+    return this.enumService.getOccupations(query);
   }
 }

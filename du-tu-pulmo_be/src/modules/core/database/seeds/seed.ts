@@ -52,7 +52,7 @@ import { ScreeningTypeEnum } from '@/modules/common/enums/screening-type.enum';
 import { ScreeningPriorityEnum } from '@/modules/common/enums/screening-priority.enum';
 import { AiDiagnosisStatusEnum } from '@/modules/common/enums/ai-diagnosis-status.enum';
 import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.enum';
-import { StatusEnum } from '@/modules/common/enums/status.enum';
+import { NotificationStatusEnum } from '@/modules/common/enums/notification-status.enum';
 import { PaymentPurpose } from '@/modules/common/enums/payment-purpose.enum';
 import {
   GoodsType,
@@ -1400,7 +1400,7 @@ async function seed() {
           type: NotificationTypeEnum.PAYMENT,
           title: 'Thanh toán thành công',
           content: 'Bạn đã thanh toán thành công lịch hẹn khám bệnh.',
-          status: StatusEnum.COMPLETED,
+          status: NotificationStatusEnum.READ,
           refType: 'PAYMENT',
         }),
       );
@@ -1410,7 +1410,7 @@ async function seed() {
           type: NotificationTypeEnum.GENERAL,
           title: 'Nhắc lịch hẹn',
           content: 'Bạn có lịch hẹn khám sắp tới. Vui lòng đến đúng giờ.',
-          status: StatusEnum.PENDING,
+          status: NotificationStatusEnum.UNREAD,
           refType: 'APPOINTMENT',
         }),
       );
@@ -1425,7 +1425,7 @@ async function seed() {
           type: NotificationTypeEnum.SYSTEM,
           title: 'Bệnh nhân mới',
           content: 'Có bệnh nhân mới đặt lịch hẹn với bạn.',
-          status: StatusEnum.PENDING,
+          status: NotificationStatusEnum.UNREAD,
           refType: 'APPOINTMENT',
         }),
       );

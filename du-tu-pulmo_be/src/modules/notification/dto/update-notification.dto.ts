@@ -1,7 +1,7 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateNotificationDto } from '@/modules/notification/dto/create-notification.dto';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { StatusEnum } from '@/modules/common/enums/status.enum';
+import { NotificationStatusEnum } from '@/modules/common/enums/notification-status.enum';
 
 export class UpdateNotificationDto extends PartialType(CreateNotificationDto) {
   @ApiPropertyOptional({
@@ -10,6 +10,9 @@ export class UpdateNotificationDto extends PartialType(CreateNotificationDto) {
   })
   id?: string;
 
-  @ApiPropertyOptional({ example: StatusEnum.ACTIVE, enum: StatusEnum })
-  status?: StatusEnum;
+  @ApiPropertyOptional({
+    example: NotificationStatusEnum.UNREAD,
+    enum: NotificationStatusEnum,
+  })
+  status?: NotificationStatusEnum;
 }

@@ -1,13 +1,11 @@
 import { Injectable, HttpStatus } from '@nestjs/common';
-import {
-  PaginationDto,
-  PaginatedResponseDto,
-} from '@/common/dto/pagination.dto';
+import { PaginatedResponseDto } from '@/common/dto/pagination.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { CountryName } from '@/modules/common/enums/country.enum';
 import { EthnicityName } from '@/modules/common/enums/ethnicity.enum';
 import { OccupationName } from '@/modules/common/enums/job.enum';
 import { EnumItemDto } from '@/modules/enum/dto/enum-item.dto';
+import { EnumQueryDto } from '@/modules/enum/dto/enum-query.dto';
 
 @Injectable()
 export class EnumService {
@@ -16,7 +14,7 @@ export class EnumService {
    */
   private getPaginatedData(
     dataMap: Record<string, string>,
-    paginationDto: PaginationDto,
+    paginationDto: EnumQueryDto,
   ): PaginatedResponseDto<EnumItemDto> {
     const page = paginationDto.page ?? 1;
     const limit = paginationDto.limit ?? 10;
@@ -48,7 +46,7 @@ export class EnumService {
 
   private getPaginatedDataRandom(
     dataMap: Record<string, string>,
-    paginationDto: PaginationDto,
+    paginationDto: EnumQueryDto,
   ): PaginatedResponseDto<EnumItemDto> {
     const page = paginationDto.page ?? 1;
     const limit = paginationDto.limit ?? 10;
@@ -90,21 +88,21 @@ export class EnumService {
   }
 
   getCountries(
-    paginationDto: PaginationDto,
+    paginationDto: EnumQueryDto,
   ): ResponseCommon<PaginatedResponseDto<EnumItemDto>> {
     const data = this.getPaginatedData(CountryName, paginationDto);
     return new ResponseCommon(HttpStatus.OK, 'SUCCESS', data);
   }
 
   getEthnicities(
-    paginationDto: PaginationDto,
+    paginationDto: EnumQueryDto,
   ): ResponseCommon<PaginatedResponseDto<EnumItemDto>> {
     const data = this.getPaginatedData(EthnicityName, paginationDto);
     return new ResponseCommon(HttpStatus.OK, 'SUCCESS', data);
   }
 
   getOccupations(
-    paginationDto: PaginationDto,
+    paginationDto: EnumQueryDto,
   ): ResponseCommon<PaginatedResponseDto<EnumItemDto>> {
     const data = this.getPaginatedDataRandom(OccupationName, paginationDto);
     return new ResponseCommon(HttpStatus.OK, 'SUCCESS', data);

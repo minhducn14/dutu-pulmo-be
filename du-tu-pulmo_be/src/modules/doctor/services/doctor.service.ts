@@ -12,7 +12,7 @@ import { Doctor } from '@/modules/doctor/entities/doctor.entity';
 import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
 import { Account } from '@/modules/account/entities/account.entity';
 import { User } from '@/modules/user/entities/user.entity';
-import { FindDoctorsDto } from '@/modules/doctor/dto/find-doctors.dto';
+import { FindDoctorsQueryDto } from '@/modules/doctor/dto/find-doctors.dto';
 import { CreateDoctorDto } from '@/modules/doctor/dto/create-doctor.dto';
 import { PaginatedResponseDto } from '@/common/dto/pagination.dto';
 import { UpdateDoctorDto } from '@/modules/doctor/dto/update-doctor.dto';
@@ -47,7 +47,7 @@ export class DoctorService {
   }
 
   async findAllPaginated(
-    dto: FindDoctorsDto,
+    dto: FindDoctorsQueryDto,
   ): Promise<ResponseCommon<PaginatedResponseDto<Doctor>>> {
     const { search, specialty, hospitalId, appointmentType } = dto;
     const now = vnNow();
@@ -419,3 +419,4 @@ export class DoctorService {
     return new ResponseCommon(200, 'SUCCESS', doctor);
   }
 }
+

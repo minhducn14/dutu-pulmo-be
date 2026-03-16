@@ -9,6 +9,7 @@ import {
   PatientQueryDto,
   UpdatePatientDto,
 } from '@/modules/patient/dto/patient.dto';
+import { PatientAppointmentsQueryDto } from '@/modules/patient/dto/patient-appointments-query.dto';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { applyPaginationAndSort } from '@/common/utils/pagination.util';
@@ -202,7 +203,7 @@ export class PatientService {
    */
   async getAppointments(
     patientId: string,
-    query?: { page?: number; limit?: number; status?: AppointmentStatusEnum },
+    query?: PatientAppointmentsQueryDto,
   ): Promise<ResponseCommon> {
     const patient = await this.patientRepository.findOne({
       where: { id: patientId },

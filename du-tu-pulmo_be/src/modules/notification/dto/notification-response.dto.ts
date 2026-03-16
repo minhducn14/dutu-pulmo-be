@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.enum';
-import { StatusEnum } from '@/modules/common/enums/status.enum';
+import { NotificationStatusEnum } from '@/modules/common/enums/notification-status.enum';
 
 export class NotificationResponseDto {
   @ApiProperty({ example: 'fd2c7dbb-7031-4d6c-a548-123b12f6e5cd' })
@@ -21,8 +21,11 @@ export class NotificationResponseDto {
   @ApiProperty({ example: 'Bạn vừa thanh toán tiền thuê nhà tháng 7' })
   content: string;
 
-  @ApiProperty({ example: StatusEnum.PENDING, enum: StatusEnum })
-  status: StatusEnum;
+  @ApiProperty({
+    example: NotificationStatusEnum.UNREAD,
+    enum: NotificationStatusEnum,
+  })
+  status: NotificationStatusEnum;
 
   @ApiProperty({
     example: '2024-07-17T09:12:23.000Z',

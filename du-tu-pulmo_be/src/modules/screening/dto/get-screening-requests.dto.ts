@@ -4,7 +4,7 @@ import { PaginationDto } from '@/common/dto/pagination.dto';
 import { ScreeningStatusEnum } from '@/modules/common/enums/screening-status.enum';
 import { ScreeningTypeEnum } from '@/modules/common/enums/screening-type.enum';
 
-export class GetScreeningRequestsDto extends PaginationDto {
+export class GetScreeningRequestsQueryDto extends PaginationDto {
   @ApiPropertyOptional({
     description: 'Filter by screening status',
     enum: ScreeningStatusEnum,
@@ -28,3 +28,4 @@ export class GetScreeningRequestsDto extends PaginationDto {
   @IsUUID()
   patientId?: string;
 }
+

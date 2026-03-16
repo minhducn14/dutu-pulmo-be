@@ -11,7 +11,7 @@ import {
 import { AdminActionType } from '@/modules/admin-action/entities/admin-action.entity';
 import { Type } from 'class-transformer';
 
-export class QueryAdminActionDto {
+export class AdminActionQueryDto {
   @IsOptional()
   @IsInt()
   @Min(1)
@@ -62,3 +62,4 @@ export class QueryAdminActionDto {
   @ApiPropertyOptional({ description: 'Bao gồm cả các action đã void' })
   includeVoided?: boolean = false;
 }
+

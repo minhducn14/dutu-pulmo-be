@@ -223,7 +223,7 @@ export class AppointmentReadController {
   async getMedicalRecord(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtUser,
-  ) {
+  ): Promise<ResponseCommon<MedicalRecordResponseDto | null>> {
     // Permission check
     const appt = await this.appointmentService.findOne(id);
     if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
@@ -266,7 +266,7 @@ export class AppointmentReadController {
   async getVitalSigns(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtUser,
-  ) {
+  ): Promise<ResponseCommon<VitalSignResponseDto[]>> {
     const appt = await this.appointmentService.findOne(id);
     if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
@@ -297,7 +297,7 @@ export class AppointmentReadController {
   async getPrescriptions(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtUser,
-  ) {
+  ): Promise<ResponseCommon<PrescriptionResponseDto[]>> {
     const appt = await this.appointmentService.findOne(id);
     if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 

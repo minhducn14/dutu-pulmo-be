@@ -4,7 +4,7 @@ import { PaginationDto } from '@/common/dto/pagination.dto';
 import { SpecialtyEnum } from '@/modules/common/enums/specialty.enum';
 import { AppointmentTypeFilterEnum } from '@/modules/doctor/dto/appointment-type-filter.enum';
 
-export class FindDoctorsDto extends PaginationDto {
+export class FindDoctorsQueryDto extends PaginationDto {
   @ApiPropertyOptional({
     description: 'Lọc theo chuyên khoa',
     enum: SpecialtyEnum,
@@ -30,3 +30,4 @@ export class FindDoctorsDto extends PaginationDto {
   @IsEnum(AppointmentTypeFilterEnum)
   appointmentType?: AppointmentTypeFilterEnum;
 }
+

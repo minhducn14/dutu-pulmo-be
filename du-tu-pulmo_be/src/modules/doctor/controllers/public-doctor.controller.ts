@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { DoctorService } from '@/modules/doctor/services/doctor.service';
-import { FindDoctorsDto } from '@/modules/doctor/dto/find-doctors.dto';
+import { FindDoctorsQueryDto } from '@/modules/doctor/dto/find-doctors.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { DoctorResponseDto } from '@/modules/doctor/dto/doctor-response.dto';
 import { PaginatedResponseDto } from '@/common/dto/pagination.dto';
@@ -26,7 +26,7 @@ export class PublicDoctorController {
   @ApiOperation({ summary: 'Lấy danh sách bác sĩ công khai (có phân trang)' })
   @ApiResponse({ status: HttpStatus.OK, type: PaginatedResponseDto })
   async findAll(
-    @Query() dto: FindDoctorsDto,
+    @Query() dto: FindDoctorsQueryDto,
   ): Promise<ResponseCommon<PaginatedResponseDto<DoctorResponseDto>>> {
     const response = await this.doctorService.findAllPaginated(dto);
     const fallback = new PaginatedResponseDto<Doctor>(
@@ -93,3 +93,4 @@ export class PublicDoctorController {
     return dto;
   }
 }
+

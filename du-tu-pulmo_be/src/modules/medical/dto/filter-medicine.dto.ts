@@ -14,7 +14,7 @@ const toStringArray = (value: unknown): string[] | undefined => {
   return undefined;
 };
 
-export class FilterMedicineDto extends PaginationDto {
+export class FilterMedicineQueryDto extends PaginationDto {
   @ApiPropertyOptional({ required: false })
   @IsOptional()
   @IsString()
@@ -59,3 +59,4 @@ export class FilterMedicineDto extends PaginationDto {
   @IsBoolean()
   isActive?: boolean;
 }
+

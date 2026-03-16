@@ -31,7 +31,7 @@ import { DoctorService } from '@/modules/doctor/services/doctor.service';
 import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
 import { Roles } from '@/common/decorators/roles.decorator';
-import { FindDoctorsDto } from '@/modules/doctor/dto/find-doctors.dto';
+import { FindDoctorsQueryDto } from '@/modules/doctor/dto/find-doctors.dto';
 import { CreateDoctorDto } from '@/modules/doctor/dto/create-doctor.dto';
 import { UpdateDoctorDto } from '@/modules/doctor/dto/update-doctor.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
@@ -63,7 +63,7 @@ export class DoctorController {
   @ApiOperation({ summary: 'Lấy danh sách bác sĩ (có phân trang)' })
   @ApiResponse({ status: HttpStatus.OK, type: PaginatedResponseDto })
   async findAll(
-    @Query() dto: FindDoctorsDto,
+    @Query() dto: FindDoctorsQueryDto,
   ): Promise<ResponseCommon<PaginatedResponseDto<DoctorResponseDto>>> {
     const response = await this.doctorService.findAllPaginated(dto);
     const fallback = new PaginatedResponseDto<Doctor>(
@@ -291,3 +291,4 @@ export class DoctorController {
     );
   }
 }
+

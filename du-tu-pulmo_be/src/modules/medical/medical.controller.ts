@@ -337,8 +337,13 @@ export class MedicalController {
   async completeMedicalRecord(
     @Param('id') id: string,
     @CurrentUser() user: JwtUser,
-  ): Promise<ResponseCommon<MedicalRecord>> {
-    return this.medicalService.completeMedicalRecord(id, user);
+  ): Promise<ResponseCommon<MedicalRecordResponseDto>> {
+    const result = await this.medicalService.completeMedicalRecord(id, user);
+    return new ResponseCommon(
+      result.code,
+      result.message,
+      this.toRecordDto(result.data as MedicalRecord),
+    );
   }
 
   @Post('records/:id/reopen')
@@ -352,8 +357,13 @@ export class MedicalController {
   async reopenMedicalRecord(
     @Param('id') id: string,
     @CurrentUser() user: JwtUser,
-  ): Promise<ResponseCommon<MedicalRecord>> {
-    return this.medicalService.reopenMedicalRecord(id, user);
+  ): Promise<ResponseCommon<MedicalRecordResponseDto>> {
+    const result = await this.medicalService.reopenMedicalRecord(id, user);
+    return new ResponseCommon(
+      result.code,
+      result.message,
+      this.toRecordDto(result.data as MedicalRecord),
+    );
   }
 
   // ==================== Specialized Views ====================

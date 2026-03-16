@@ -44,6 +44,7 @@ import { MedicalService } from '@/modules/medical/medical.service';
 import { AppointmentMedicalAccessService } from '@/modules/appointment/services/appointment-medical-access.service';
 import { CreateVitalSignDto } from '@/modules/medical/dto/create-vital-sign.dto';
 import { CreatePrescriptionDto } from '@/modules/medical/dto/create-prescription.dto';
+import { AppointmentActionMessageResponseDto } from '@/modules/appointment/dto/appointment-action-message-response.dto';
 import {
   MedicalRecordResponseDto,
   VitalSignResponseDto,
@@ -418,15 +419,20 @@ export class AppointmentActionController {
   async joinVideoCall(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtUser,
-  ) {
+  ): Promise<ResponseCommon<JoinVideoCallResponseDto>> {
     const isDoctor = user.roles?.includes(RoleEnum.DOCTOR) ?? false;
     const userName = user.fullName || user.email || 'User';
-    return this.appointmentService.generateMeetingToken(
+    const result = await this.appointmentService.generateMeetingToken(
       id,
       user.userId,
       userName,
       isDoctor,
     );
+    return new ResponseCommon(HttpStatus.OK, 'SUCCESS', {
+      token: result.token ?? '',
+      url: result.url,
+      appointment: result.appointment.data,
+    });
   }
 
   @Post(':id/video/leave')
@@ -434,12 +440,14 @@ export class AppointmentActionController {
   @ApiOperation({ summary: 'Rời khỏi video call' })
   @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
   @ApiResponse({ status: HttpStatus.OK })
-  leaveVideoCall(
+  async leaveVideoCall(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtUser,
-  ) {
-    void this.appointmentService.leaveCall(user.userId, id);
-    return { message: 'Left call successfully' };
+  ): Promise<ResponseCommon<AppointmentActionMessageResponseDto>> {
+    await this.appointmentService.leaveCall(user.userId, id);
+    return new ResponseCommon(HttpStatus.OK, 'SUCCESS', {
+      message: 'Left call successfully',
+    });
   }
 
   @Post(':id/payment/confirm')
@@ -511,7 +519,7 @@ export class AppointmentActionController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateMedicalRecordDtoForEncounter,
     @CurrentUser() user: JwtUser,
-  ) {
+  ): Promise<ResponseCommon<MedicalRecordResponseDto>> {
     const appt = await this.appointmentService.findOne(id);
     if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
@@ -547,7 +555,7 @@ export class AppointmentActionController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateVitalSignDto,
     @CurrentUser() user: JwtUser,
-  ) {
+  ): Promise<ResponseCommon<VitalSignResponseDto>> {
     const appt = await this.appointmentService.findOne(id);
     if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
@@ -588,7 +596,7 @@ export class AppointmentActionController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreatePrescriptionDto,
     @CurrentUser() user: JwtUser,
-  ) {
+  ): Promise<ResponseCommon<PrescriptionResponseDto>> {
     const appt = await this.appointmentService.findOne(id);
     if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
@@ -636,7 +644,7 @@ export class AppointmentActionController {
     @Param('id', ParseUUIDPipe) id: string,
     @Param('prescriptionId', ParseUUIDPipe) prescriptionId: string,
     @CurrentUser() user: JwtUser,
-  ) {
+  ): Promise<ResponseCommon<PrescriptionResponseDto>> {
     const appt = await this.appointmentService.findOne(id);
     if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
@@ -663,7 +671,7 @@ export class AppointmentActionController {
     @Param('id', ParseUUIDPipe) id: string,
     @Param('prescriptionId', ParseUUIDPipe) prescriptionId: string,
     @CurrentUser() user: JwtUser,
-  ) {
+  ): Promise<ResponseCommon<PrescriptionResponseDto>> {
     return this.cancelPrescription(id, prescriptionId, user);
   }
 
@@ -680,7 +688,7 @@ export class AppointmentActionController {
     @Param('prescriptionId', ParseUUIDPipe) prescriptionId: string,
     @Body() dto: CreatePrescriptionDto,
     @CurrentUser() user: JwtUser,
-  ) {
+  ): Promise<ResponseCommon<PrescriptionResponseDto>> {
     const appt = await this.appointmentService.findOne(id);
     if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 

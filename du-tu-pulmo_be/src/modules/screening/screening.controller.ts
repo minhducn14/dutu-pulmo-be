@@ -42,7 +42,7 @@ import { PatientService } from '@/modules/patient/patient.service';
 import { ScreeningRequestResponseDto } from '@/modules/screening/dto/screening-request-response.dto';
 import { MedicalImageResponseDto } from '@/modules/screening/dto/medical-image-response.dto';
 import { AiAnalysisResponseDto } from '@/modules/screening/dto/ai-analysis-entity-response.dto';
-import { GetScreeningRequestsDto } from '@/modules/screening/dto/get-screening-requests.dto';
+import { GetScreeningRequestsQueryDto } from '@/modules/screening/dto/get-screening-requests.dto';
 import { PaginatedResponseDto } from '@/common/dto/pagination.dto';
 import { CreateConclusionDto } from '@/modules/screening/dto/create-conclusion.dto';
 import { ScreeningConclusionResponseDto } from '@/modules/screening/dto/screening-conclusion-response.dto';
@@ -70,7 +70,7 @@ export class ScreeningController {
     type: [ScreeningRequestResponseDto],
   })
   async findAll(
-    @Query() query: GetScreeningRequestsDto,
+    @Query() query: GetScreeningRequestsQueryDto,
   ): Promise<
     ResponseCommon<PaginatedResponseDto<ScreeningRequestResponseDto>>
   > {
@@ -91,7 +91,7 @@ export class ScreeningController {
   @Roles('DOCTOR')
   @ApiOperation({ summary: 'Lấy danh sách screening do bác sĩ tạo/upload' })
   async findUploadedByMe(
-    @Query() query: GetScreeningRequestsDto,
+    @Query() query: GetScreeningRequestsQueryDto,
     @CurrentUser() user: JwtUser,
   ): Promise<
     ResponseCommon<PaginatedResponseDto<ScreeningRequestResponseDto>>
@@ -709,3 +709,4 @@ export class ScreeningController {
     );
   }
 }
+

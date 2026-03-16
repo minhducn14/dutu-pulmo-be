@@ -23,6 +23,7 @@ import {
   PatientQueryDto,
   UpdatePatientDto,
 } from '@/modules/patient/dto/patient.dto';
+import { PatientAppointmentsQueryDto } from '@/modules/patient/dto/patient-appointments-query.dto';
 import {
   PatientResponseDto,
   PaginatedPatientResponseDto,
@@ -424,7 +425,7 @@ export class PatientController {
   })
   async getAppointments(
     @Param('id', ParseUUIDPipe) id: string,
-    @Query() query: { page?: number; limit?: number; status?: string },
+    @Query() query: PatientAppointmentsQueryDto,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<PaginatedAppointmentResponseDto>> {
     this.checkPatientAccess(id, user);
