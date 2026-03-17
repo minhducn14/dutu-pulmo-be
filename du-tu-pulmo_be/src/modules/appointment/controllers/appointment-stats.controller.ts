@@ -19,7 +19,6 @@ import {
 } from '@nestjs/swagger';
 import { AppointmentService } from '@/modules/appointment/services/appointment.service';
 import { DashboardStatsService } from '@/modules/appointment/services/dashboard-stats.service';
-import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
 import { RoleEnum } from '@/modules/common/enums/role.enum';
 import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
@@ -295,40 +294,15 @@ export class AppointmentStatsController {
       throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
 
-    const now = new Date();
-    const scheduledTime = new Date(appointment.scheduledAt);
-    const minutesUntilStart = Math.round(
-      (scheduledTime.getTime() - now.getTime()) / (1000 * 60),
-    );
-
+    const joinInfo = this.appointmentService.getVideoJoinInfo(appointment);
     const participantsInCall: string[] = [];
 
-    const validStates = [
-      AppointmentStatusEnum.CONFIRMED,
-      AppointmentStatusEnum.CHECKED_IN,
-      AppointmentStatusEnum.IN_PROGRESS,
-    ];
-    const canJoin =
-      validStates.includes(appointment.status) &&
-      minutesUntilStart <= 60 &&
-      minutesUntilStart >= -30;
-
     return {
-      canJoin,
+      ...joinInfo,
       appointmentStatus: appointment.status,
       meetingUrl: appointment.meetingUrl,
       scheduledAt: appointment.scheduledAt,
-      minutesUntilStart,
-      isEarly: minutesUntilStart > 60,
-      isLate: minutesUntilStart < -30,
       participantsInCall,
-      message: canJoin
-        ? 'Bạn có thể join video call'
-        : minutesUntilStart > 60
-          ? `Chưa đến giờ join. Vui lòng quay lại sau ${minutesUntilStart - 60} phút`
-          : minutesUntilStart < -30
-            ? 'Cuộc gọi đã kết thúc'
-            : 'Không thể join ở trạng thái hiện tại',
     };
   }
 

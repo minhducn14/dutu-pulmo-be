@@ -17,6 +17,26 @@ import { AppointmentReadService } from '@/modules/appointment/services/appointme
 import { AppointmentResponseDto } from '@/modules/appointment/dto/appointment-response.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
+import { CHECKIN_TIME_THRESHOLDS } from '@/modules/appointment/appointment.constants';
+
+type VideoJoinWindowInput = {
+  status: AppointmentStatusEnum;
+  scheduledAt: Date;
+};
+
+export type VideoJoinInfo = {
+  canJoin: boolean;
+  minutesUntilStart: number;
+  isEarly: boolean;
+  isLate: boolean;
+  message: string;
+};
+
+const VIDEO_JOIN_VALID_STATES: AppointmentStatusEnum[] = [
+  AppointmentStatusEnum.CONFIRMED,
+  AppointmentStatusEnum.CHECKED_IN,
+  AppointmentStatusEnum.IN_PROGRESS,
+];
 
 @Injectable()
 export class AppointmentVideoService {
@@ -31,6 +51,56 @@ export class AppointmentVideoService {
     private readonly medicalService: MedicalService,
     private readonly appointmentReadService: AppointmentReadService,
   ) {}
+
+  getVideoJoinInfo(appointment: VideoJoinWindowInput): VideoJoinInfo {
+    const now = new Date();
+    const scheduledTime = new Date(appointment.scheduledAt);
+    const minutesUntilStart = Math.round(
+      (scheduledTime.getTime() - now.getTime()) / (1000 * 60),
+    );
+
+    const isEarly =
+      minutesUntilStart > CHECKIN_TIME_THRESHOLDS.VIDEO.EARLY_MINUTES;
+    const isLate =
+      minutesUntilStart < -CHECKIN_TIME_THRESHOLDS.VIDEO.LATE_MINUTES;
+    const isInProgress =
+      appointment.status === AppointmentStatusEnum.IN_PROGRESS;
+    const isValidState = VIDEO_JOIN_VALID_STATES.includes(appointment.status);
+
+    const canJoin = isValidState && (isInProgress || (!isEarly && !isLate));
+
+    const message = canJoin
+      ? 'Bạn có thể join video call'
+      : !isValidState
+        ? 'Không thể join ở trạng thái hiện tại'
+        : isEarly
+          ? `Chưa đến giờ join. Vui lòng quay lại sau ${
+              minutesUntilStart - CHECKIN_TIME_THRESHOLDS.VIDEO.EARLY_MINUTES
+            } phút`
+          : isLate
+            ? 'Cuộc gọi đã kết thúc'
+            : 'Không thể join ở trạng thái hiện tại';
+
+    return { canJoin, minutesUntilStart, isEarly, isLate, message };
+  }
+
+  private validateVideoJoinWindowOrThrow(
+    appointment: VideoJoinWindowInput,
+  ): void {
+    const isInProgress =
+      appointment.status === AppointmentStatusEnum.IN_PROGRESS;
+    if (isInProgress) {
+      return;
+    }
+
+    const joinInfo = this.getVideoJoinInfo(appointment);
+    if (joinInfo.isEarly || joinInfo.isLate) {
+      this.logger.error(
+        `Appointment outside video join window: status=${appointment.status}, minutesUntilStart=${joinInfo.minutesUntilStart}`,
+      );
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+    }
+  }
 
   async generateMeetingToken(
     appointmentId: string,
@@ -86,16 +156,12 @@ export class AppointmentVideoService {
         throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
 
-      const validStates = [
-        AppointmentStatusEnum.CONFIRMED,
-        AppointmentStatusEnum.CHECKED_IN,
-        AppointmentStatusEnum.IN_PROGRESS,
-      ];
-
-      if (!validStates.includes(aptWithRelations.status)) {
+      if (!VIDEO_JOIN_VALID_STATES.includes(aptWithRelations.status)) {
         this.logger.error('Invalid status transition');
         throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
+
+      this.validateVideoJoinWindowOrThrow(aptWithRelations);
 
       return aptWithRelations;
     });
@@ -136,7 +202,7 @@ export class AppointmentVideoService {
       });
 
       if (!apt) {
-        this.logger.error('Appointment not found'); 
+        this.logger.error('Appointment not found');
         throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
       }
 

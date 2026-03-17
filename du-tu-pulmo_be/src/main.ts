@@ -48,8 +48,7 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter(httpAdapterHost));
 
   const port = process.env.PORT ?? 3000;
-  const isProd = process.env.NODE_ENV === 'production';
-  const host = isProd ? '0.0.0.0' : 'localhost';
+  const host = '0.0.0.0';
 
   const serverUrl = process.env.PUBLIC_URL || `http://${host}:${port}`;
 
@@ -74,7 +73,8 @@ async function bootstrap() {
       },
       'JWT-auth',
     )
-    .addServer(serverUrl, 'Current Server')
+    .addServer('http://localhost:3000', 'Local Server')
+    .addServer(serverUrl, 'Public Server')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

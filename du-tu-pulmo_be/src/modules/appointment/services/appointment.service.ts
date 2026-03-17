@@ -22,6 +22,7 @@ import { AppointmentSchedulingService } from '@/modules/appointment/services/app
 import { AppointmentStatusService } from '@/modules/appointment/services/appointment-status.service';
 import { AppointmentVideoService } from '@/modules/appointment/services/appointment-video.service';
 import { CompleteExaminationDto } from '@/modules/appointment/dto/complete-examination.dto';
+import type { VideoJoinInfo } from '@/modules/appointment/services/appointment-video.service';
 
 @Injectable()
 export class AppointmentService {
@@ -183,6 +184,13 @@ export class AppointmentService {
       userName,
       isDoctor,
     );
+  }
+
+  getVideoJoinInfo(appointment: {
+    status: AppointmentStatusEnum;
+    scheduledAt: Date;
+  }): VideoJoinInfo {
+    return this.appointmentVideoService.getVideoJoinInfo(appointment);
   }
 
   getUserCallStatus(userId: string): Promise<{

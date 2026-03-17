@@ -10,6 +10,7 @@ import {
   IsArray,
   ArrayMinSize,
   ValidateNested,
+  ArrayMaxSize,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -40,6 +41,7 @@ export class CreateTimeSlotDto {
   })
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(1)
   @IsEnum(AppointmentTypeEnum, { each: true })
   allowedAppointmentTypes: AppointmentTypeEnum[];
 
