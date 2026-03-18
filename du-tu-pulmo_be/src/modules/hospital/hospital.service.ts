@@ -55,7 +55,7 @@ export class HospitalService {
 
     // Filter by city
     if (query.city) {
-      queryBuilder.andWhere('hospital.city = :city', { city: query.city });
+      queryBuilder.andWhere('hospital.province = :city', { city: query.city });
     }
 
     const [data, total] = await queryBuilder

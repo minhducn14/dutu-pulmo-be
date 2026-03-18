@@ -59,50 +59,26 @@ export class ReviewService {
 
   async findAll(): Promise<ResponseCommon<Review[]>> {
     const reviews = await this.reviewRepository.find({
-      relations: ['reviewer', 'doctor', 'appointment'],
+      relations: ['reviewer', 'doctor', 'doctor.user', 'appointment'],
       order: { createdAt: 'DESC' },
     });
     return new ResponseCommon(200, 'SUCCESS', reviews);
   }
 
-  async findAllByDoctorId(
-    doctorId: string,
-  ): Promise<
-    ResponseCommon<Parameters<typeof ReviewResponseDto.fromEntity>[0][]>
-  > {
+  async findAllByDoctorId(doctorId: string): Promise<ResponseCommon<Review[]>> {
     const reviews = await this.reviewRepository.find({
       where: { doctorId },
-      relations: ['reviewer', 'appointment'],
+      relations: ['reviewer', 'doctor.user', 'doctor', 'appointment'],
       order: { createdAt: 'DESC' },
     });
 
-    // Hide reviewer info for anonymous reviews
-    const processedReviews = reviews.map((review) => {
-      if (!review.isAnonymous) {
-        return review;
-      }
-
-      return {
-        id: review.id,
-        reviewerId: null,
-        doctorId: review.doctorId,
-        appointmentId: review.appointmentId ?? null,
-        comment: review.comment,
-        rating: review.rating,
-        doctorResponse: review.doctorResponse ?? null,
-        responseAt: review.responseAt ?? null,
-        isAnonymous: review.isAnonymous,
-        createdAt: review.createdAt,
-      };
-    });
-
-    return new ResponseCommon(200, 'SUCCESS', processedReviews);
+    return new ResponseCommon(200, 'SUCCESS', reviews);
   }
 
   async findOne(id: string): Promise<ResponseCommon<Review>> {
     const review = await this.reviewRepository.findOne({
       where: { id },
-      relations: ['reviewer', 'doctor', 'appointment'],
+      relations: ['reviewer', 'doctor', 'doctor.user', 'appointment'],
     });
     if (!review) {
       throw new NotFoundException(ERROR_MESSAGES.REVIEW_NOT_FOUND);
@@ -113,7 +89,7 @@ export class ReviewService {
   async findByReviewer(reviewerId: string): Promise<ResponseCommon<Review[]>> {
     const reviews = await this.reviewRepository.find({
       where: { reviewerId },
-      relations: ['doctor', 'appointment'],
+      relations: ['doctor', 'doctor.user', 'appointment', 'reviewer'],
       order: { createdAt: 'DESC' },
     });
     return new ResponseCommon(200, 'SUCCESS', reviews);
@@ -127,7 +103,7 @@ export class ReviewService {
   ): Promise<ResponseCommon<Review>> {
     const review = await this.reviewRepository.findOne({
       where: { id },
-      relations: ['doctor'],
+      relations: ['doctor', 'doctor.user', 'appointment', 'reviewer'],
     });
 
     if (!review) {

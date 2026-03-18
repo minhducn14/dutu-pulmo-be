@@ -1,3 +1,5 @@
+import { DoctorResponseDto } from '@/modules/doctor/dto/doctor-response.dto';
+import { HospitalResponseDto } from '@/modules/hospital/dto/hospital-response.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class FavoriteResponseDto {
@@ -10,8 +12,14 @@ export class FavoriteResponseDto {
   @ApiPropertyOptional({ example: 'e320aa67-b53b-4c4a-bd50-31e8b312defa' })
   doctorId?: string;
 
+  @ApiPropertyOptional({ example: 'e320aa67-b53b-4c4a-bd50-31e8b312defa' })
+  doctor?: DoctorResponseDto;
+
   @ApiPropertyOptional({ example: 'f430bb78-c64c-5d5b-ce61-42f9c423efgb' })
   hospitalId?: string;
+
+  @ApiPropertyOptional({ example: 'f430bb78-c64c-5d5b-ce61-42f9c423efgb' })
+  hospital?: HospitalResponseDto;
 
   @ApiProperty({
     example: '2024-07-16T10:30:15.000Z',
@@ -19,28 +27,27 @@ export class FavoriteResponseDto {
   })
   createdAt: Date;
 
-  static fromEntity(favorite: {
-    id: string;
-    userId: string;
-    doctorId?: string | null;
-    hospitalId?: string | null;
-    createdAt: Date;
-  }): FavoriteResponseDto {
+  static fromEntity(favorite: any): FavoriteResponseDto {
+    if (!favorite) return null as any;
     const dto = new FavoriteResponseDto();
     dto.id = favorite.id;
     dto.userId = favorite.userId;
     dto.doctorId = favorite.doctorId ?? undefined;
     dto.hospitalId = favorite.hospitalId ?? undefined;
+    
+    if (favorite.doctor) {
+      dto.doctor = DoctorResponseDto.fromEntity(favorite.doctor);
+    }
+    
+    if (favorite.hospital) {
+      dto.hospital = HospitalResponseDto.fromEntity(favorite.hospital);
+    }
+    
     dto.createdAt = favorite.createdAt;
     return dto;
   }
 
-  static fromNullable(
-    favorite:
-      | Parameters<typeof FavoriteResponseDto.fromEntity>[0]
-      | null
-      | undefined,
-  ): FavoriteResponseDto | null {
+  static fromNullable(favorite: any): FavoriteResponseDto | null {
     return favorite ? FavoriteResponseDto.fromEntity(favorite) : null;
   }
 }

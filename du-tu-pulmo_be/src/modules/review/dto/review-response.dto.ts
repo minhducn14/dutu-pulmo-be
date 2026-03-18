@@ -34,29 +34,41 @@ export class ReviewResponseDto {
   })
   createdAt: Date;
 
-  static fromEntity(review: {
-    id: string;
-    reviewerId?: string | null;
-    doctorId?: string | null;
-    appointmentId?: string | null;
-    comment: string;
-    rating: number;
-    doctorResponse?: string | null;
-    responseAt?: Date | null;
-    isAnonymous: boolean;
-    createdAt: Date;
-  }): ReviewResponseDto {
+  @ApiPropertyOptional({ example: 'Nguyễn Văn A' })
+  reviewerName?: string;
+
+  @ApiPropertyOptional({ example: 'BS. Trần Văn B' })
+  doctorName?: string;
+
+  @ApiPropertyOptional({ example: 'Nguyễn Văn A' })
+  reviewerAvatar?: string;
+
+  @ApiPropertyOptional({ example: 'Nguyễn Văn A' })
+  doctorAvatar?: string;
+
+  static fromEntity(review: any): ReviewResponseDto {
     const dto = new ReviewResponseDto();
     dto.id = review.id;
     dto.reviewerId = review.reviewerId ?? '';
     dto.doctorId = review.doctorId ?? '';
     dto.appointmentId = review.appointmentId ?? undefined;
     dto.comment = review.comment;
-    dto.rating = review.rating;
+    dto.rating = review.rating ? Number(review.rating) : 0;
     dto.doctorResponse = review.doctorResponse ?? undefined;
     dto.responseAt = review.responseAt ?? undefined;
     dto.isAnonymous = review.isAnonymous;
     dto.createdAt = review.createdAt;
+
+    if (!review.isAnonymous && review.reviewer?.fullName) {
+      dto.reviewerName = review.reviewer.fullName;
+      dto.reviewerAvatar = review.reviewer.avatarUrl;
+    }
+
+    if (review.doctor?.user?.fullName) {
+      dto.doctorName = review.doctor.user.fullName;
+      dto.doctorAvatar = review.doctor.user.avatarUrl;
+    }
+
     return dto;
   }
 

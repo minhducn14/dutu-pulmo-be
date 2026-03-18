@@ -9,12 +9,18 @@ import { Favorite } from '@/modules/favorite/entities/favorite.entity';
 import { CreateFavoriteDto } from '@/modules/favorite/dto/create-favorite.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
+import { Doctor } from '@/modules/doctor/entities/doctor.entity';
+import { Hospital } from '@/modules/hospital/entities/hospital.entity';
 
 @Injectable()
 export class FavoriteService {
   constructor(
     @InjectRepository(Favorite)
     private favoriteRepository: Repository<Favorite>,
+    @InjectRepository(Doctor)
+    private doctorRepository: Repository<Doctor>,
+    @InjectRepository(Hospital)
+    private hospitalRepository: Repository<Hospital>,
   ) {}
 
   async create(
@@ -54,13 +60,24 @@ export class FavoriteService {
     });
 
     const saved = await this.favoriteRepository.save(favorite);
-    return new ResponseCommon(201, 'Thêm vào yêu thích thành công', saved);
+    
+    // Re-fetch with relations to return full data
+    const fullFavorite = await this.favoriteRepository.findOne({
+      where: { id: saved.id },
+      relations: ['doctor', 'doctor.user', 'doctor.user.account', 'hospital'],
+    });
+
+    return new ResponseCommon(
+      201,
+      'Thêm vào yêu thích thành công',
+      fullFavorite!,
+    );
   }
 
   async findAll(userId: string): Promise<ResponseCommon<Favorite[]>> {
     const favorites = await this.favoriteRepository.find({
       where: { userId },
-      relations: ['doctor', 'hospital'],
+      relations: ['doctor', 'doctor.user', 'doctor.user.account', 'hospital'],
       order: { createdAt: 'DESC' },
     });
     return new ResponseCommon(200, 'SUCCESS', favorites);
@@ -69,7 +86,7 @@ export class FavoriteService {
   async findOne(id: string): Promise<ResponseCommon<Favorite | null>> {
     const favorite = await this.favoriteRepository.findOne({
       where: { id },
-      relations: ['user', 'doctor', 'hospital'],
+      relations: ['user', 'doctor', 'doctor.user', 'doctor.user.account', 'hospital'],
     });
     return new ResponseCommon(200, 'SUCCESS', favorite);
   }
@@ -104,6 +121,7 @@ export class FavoriteService {
   ): Promise<ResponseCommon<Favorite | null>> {
     const favorite = await this.favoriteRepository.findOne({
       where: { userId, doctorId },
+      relations: ['doctor', 'doctor.user', 'doctor.user.account'],
     });
     return new ResponseCommon(200, 'SUCCESS', favorite);
   }
@@ -114,6 +132,7 @@ export class FavoriteService {
   ): Promise<ResponseCommon<Favorite | null>> {
     const favorite = await this.favoriteRepository.findOne({
       where: { userId, hospitalId },
+      relations: ['hospital'],
     });
     return new ResponseCommon(200, 'SUCCESS', favorite);
   }
