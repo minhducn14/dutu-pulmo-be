@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -14,12 +15,15 @@ import { CreateReportDto } from '@/modules/report/dto/create-report.dto';
 import { UpdateReportDto } from '@/modules/report/dto/update-report.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
+import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 
 @Injectable()
 export class ReportService {
   constructor(
     @InjectRepository(Report)
     private reportRepository: Repository<Report>,
+    @InjectRepository(Appointment)
+    private appointmentRepository: Repository<Appointment>,
   ) {}
 
   async create(
@@ -31,6 +35,29 @@ export class ReportService {
     // Validate: phải có ít nhất 1 trong 2 (trừ khi là system report)
     if (!doctorId && !appointmentId && reportType !== ReportType.SYSTEM) {
       throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+    }
+
+    if (!content) {
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+    }
+
+    // Check reporter is doctor or patient of appointment
+    if (appointmentId) {
+      const appointment = await this.appointmentRepository.findOne({
+        where: { id: appointmentId },
+        relations: ['doctor', 'patient', 'doctor.user', 'patient.user'],
+      });
+
+      if (!appointment) {
+        throw new NotFoundException(ERROR_MESSAGES.APPOINTMENT_NOT_FOUND);
+      }
+
+      const isPatient = appointment.patient.user.id === reporterId;
+      const isDoctor = appointment.doctor.user.id === reporterId;
+
+      if (!isPatient && !isDoctor) {
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
+      }
     }
 
     // Check duplicate report
