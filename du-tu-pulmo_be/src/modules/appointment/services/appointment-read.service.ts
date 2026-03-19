@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
-import { Repository } from 'typeorm';
+import { Brackets, Repository } from 'typeorm';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import { ResponseCommon } from '@/common/dto/response.dto';
@@ -129,22 +129,48 @@ export class AppointmentReadService {
       .leftJoinAndSelect('doctor.user', 'doctorUser')
       .where('appointment.patientId = :patientId', { patientId });
 
+    if (query?.search) {
+      qb.andWhere(
+        new Brackets((subQuery) => {
+          subQuery
+            .where('UPPER(patientUser.fullName) LIKE :search', {
+              search: `%${query.search?.toUpperCase()}%`,
+            })
+            .orWhere('UPPER(doctorUser.fullName) LIKE :search', {
+              search: `%${query.search?.toUpperCase()}%`,
+            })
+            .orWhere('UPPER(appointment.appointmentNumber) LIKE :search', {
+              search: `%${query.search?.toUpperCase()}%`,
+            });
+        }),
+      );
+    }
+
     if (query?.status) {
       qb.andWhere('appointment.status = :status', { status: query.status });
     }
 
-    if (query?.startDate && query?.endDate) {
+    const startDate = query?.startDate ? new Date(query.startDate) : null;
+    const endDate = query?.endDate ? new Date(query.endDate) : null;
+
+    if (startDate) {
+      startDate.setHours(0, 0, 0, 0);
+    }
+    if (endDate) {
+      endDate.setHours(23, 59, 59, 999);
+    }
+    if (startDate && endDate) {
       qb.andWhere('appointment.scheduledAt BETWEEN :startDate AND :endDate', {
-        startDate: new Date(query.startDate),
-        endDate: new Date(query.endDate),
+        startDate,
+        endDate,
       });
-    } else if (query?.startDate) {
+    } else if (startDate) {
       qb.andWhere('appointment.scheduledAt >= :startDate', {
-        startDate: new Date(query.startDate),
+        startDate,
       });
-    } else if (query?.endDate) {
+    } else if (endDate) {
       qb.andWhere('appointment.scheduledAt <= :endDate', {
-        endDate: new Date(query.endDate),
+        endDate,
       });
     }
 
@@ -152,7 +178,7 @@ export class AppointmentReadService {
     applyPaginationAndSort(
       qb,
       query || {},
-      ['scheduledAt', 'createdAt', 'status'],
+      ['scheduledAt', 'createdAt', 'updatedAt', 'status'],
       'scheduledAt',
       'DESC',
     );
