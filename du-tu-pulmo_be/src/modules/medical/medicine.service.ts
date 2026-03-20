@@ -125,4 +125,3 @@ export class MedicineService {
     return new ResponseCommon(HttpStatus.OK, 'Xóa thành công', true);
   }
 }
-

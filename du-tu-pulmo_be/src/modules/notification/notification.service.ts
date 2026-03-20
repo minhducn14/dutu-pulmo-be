@@ -32,11 +32,15 @@ export class NotificationService {
     userId: string,
     query: NotificationQueryDto,
   ): Promise<ResponseCommon<PaginatedResponseDto<Notification>>> {
-    const { page = 1, limit = 10 } = query;
+    const { page = 1, limit = 10, status, type } = query;
     const skip = (page - 1) * limit;
 
     const [items, total] = await this.notificationRepository.findAndCount({
-      where: { userId },
+      where: { 
+        userId,
+        ...(status && { status }),
+        ...(type && { type }),
+      },
       order: { createdAt: 'DESC' },
       skip,
       take: limit,

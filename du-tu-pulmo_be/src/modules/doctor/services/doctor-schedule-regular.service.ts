@@ -31,7 +31,13 @@ import {
 import { NotificationService } from '@/modules/notification/notification.service';
 import { DoctorScheduleHelperService } from '@/modules/doctor/services/doctor-schedule-helper.service';
 import { DoctorScheduleSlotService } from '@/modules/doctor/services/doctor-schedule-slot.service';
-import { addDaysVN, endOfDayVN, startOfDayVN, vnNow, getDayVN } from '@/common/datetime';
+import {
+  addDaysVN,
+  endOfDayVN,
+  startOfDayVN,
+  vnNow,
+  getDayVN,
+} from '@/common/datetime';
 
 @Injectable()
 export class DoctorScheduleRegularService {
@@ -67,7 +73,9 @@ export class DoctorScheduleRegularService {
     const priority = SCHEDULE_TYPE_PRIORITY[scheduleType];
 
     if (dto.dayOfWeek < 0 || dto.dayOfWeek > 6) {
-      this.logger.error('Invalid day of week. Day of week must be between 0 and 6');
+      this.logger.error(
+        'Invalid day of week. Day of week must be between 0 and 6',
+      );
       throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
@@ -98,7 +106,7 @@ export class DoctorScheduleRegularService {
 
     if (dto.appointmentType === AppointmentTypeEnum.IN_CLINIC) {
       if (!doctor?.primaryHospitalId) {
-        this.logger.error('Doctor does not have a primary hospital'); 
+        this.logger.error('Doctor does not have a primary hospital');
         throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
     }
@@ -700,10 +708,8 @@ export class DoctorScheduleRegularService {
             //   checkDate.getTime() + 7 * 60 * 60 * 1000,
             // );
             // const checkDayOfWeek = checkDateVN.getUTCDay();
-            const matchesOldDay =
-              getDayVN(checkDate) === existing.dayOfWeek;
-            const matchesNewDay =
-              getDayVN(checkDate) === newDayOfWeek;
+            const matchesOldDay = getDayVN(checkDate) === existing.dayOfWeek;
+            const matchesNewDay = getDayVN(checkDate) === newDayOfWeek;
 
             if (!matchesOldDay && !matchesNewDay) {
               checkDate.setDate(checkDate.getDate() + 1);

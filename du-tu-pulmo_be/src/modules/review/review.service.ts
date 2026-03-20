@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not, IsNull } from 'typeorm';
 import { Review } from '@/modules/review/entities/review.entity';
 import { CreateReviewDto } from '@/modules/review/dto/create-review.dto';
 import { UpdateReviewDto } from '@/modules/review/dto/update-review.dto';
@@ -13,6 +13,8 @@ import { ResponseCommon } from '@/common/dto/response.dto';
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { Doctor } from '@/modules/doctor/entities/doctor.entity';
 import { ReviewResponseDto } from '@/modules/review/dto/review-response.dto';
+import { Appointment } from '@/modules/appointment/entities/appointment.entity';
+import { AppointmentStatusEnum } from '../common/enums/appointment-status.enum';
 
 @Injectable()
 export class ReviewService {
@@ -21,6 +23,8 @@ export class ReviewService {
     private reviewRepository: Repository<Review>,
     @InjectRepository(Doctor)
     private doctorRepository: Repository<Doctor>,
+    @InjectRepository(Appointment)
+    private appointmentRepository: Repository<Appointment>,
   ) {}
 
   async create(
@@ -32,6 +36,29 @@ export class ReviewService {
 
     // Check if already reviewed this appointment
     if (appointmentId) {
+      const appointment = await this.appointmentRepository.findOne({
+        where: { id: appointmentId },
+        relations: ['patient', 'patient.user'],
+      });
+
+      if (!appointment) {
+        throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
+      }
+
+      if (appointment.patient?.userId !== reviewerId) {
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
+      }
+
+      if (appointment.status !== AppointmentStatusEnum.COMPLETED) {
+        throw new BadRequestException(
+          'Chỉ có thể đánh giá sau khi hoàn thành khám',
+        );
+      }
+
+      if (appointment.doctorId !== doctorId) {
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+      }
+
       const existingReview = await this.reviewRepository.findOne({
         where: { reviewerId, appointmentId },
       });
@@ -54,55 +81,38 @@ export class ReviewService {
     // Update doctor's average rating
     await this.updateDoctorRating(doctorId);
 
+    // Sync rating to Appointment
+    if (appointmentId) {
+      await this.appointmentRepository.update(appointmentId, {
+        patientRating: rating,
+      });
+    }
+
     return new ResponseCommon(201, 'Đánh giá thành công', saved);
   }
 
   async findAll(): Promise<ResponseCommon<Review[]>> {
     const reviews = await this.reviewRepository.find({
-      relations: ['reviewer', 'doctor', 'appointment'],
+      relations: ['reviewer', 'doctor', 'doctor.user', 'appointment'],
       order: { createdAt: 'DESC' },
     });
     return new ResponseCommon(200, 'SUCCESS', reviews);
   }
 
-  async findAllByDoctorId(
-    doctorId: string,
-  ): Promise<
-    ResponseCommon<Parameters<typeof ReviewResponseDto.fromEntity>[0][]>
-  > {
+  async findAllByDoctorId(doctorId: string): Promise<ResponseCommon<Review[]>> {
     const reviews = await this.reviewRepository.find({
       where: { doctorId },
-      relations: ['reviewer', 'appointment'],
+      relations: ['reviewer', 'doctor.user', 'doctor', 'appointment'],
       order: { createdAt: 'DESC' },
     });
 
-    // Hide reviewer info for anonymous reviews
-    const processedReviews = reviews.map((review) => {
-      if (!review.isAnonymous) {
-        return review;
-      }
-
-      return {
-        id: review.id,
-        reviewerId: null,
-        doctorId: review.doctorId,
-        appointmentId: review.appointmentId ?? null,
-        comment: review.comment,
-        rating: review.rating,
-        doctorResponse: review.doctorResponse ?? null,
-        responseAt: review.responseAt ?? null,
-        isAnonymous: review.isAnonymous,
-        createdAt: review.createdAt,
-      };
-    });
-
-    return new ResponseCommon(200, 'SUCCESS', processedReviews);
+    return new ResponseCommon(200, 'SUCCESS', reviews);
   }
 
   async findOne(id: string): Promise<ResponseCommon<Review>> {
     const review = await this.reviewRepository.findOne({
       where: { id },
-      relations: ['reviewer', 'doctor', 'appointment'],
+      relations: ['reviewer', 'doctor', 'doctor.user', 'appointment'],
     });
     if (!review) {
       throw new NotFoundException(ERROR_MESSAGES.REVIEW_NOT_FOUND);
@@ -113,7 +123,7 @@ export class ReviewService {
   async findByReviewer(reviewerId: string): Promise<ResponseCommon<Review[]>> {
     const reviews = await this.reviewRepository.find({
       where: { reviewerId },
-      relations: ['doctor', 'appointment'],
+      relations: ['doctor', 'doctor.user', 'appointment', 'reviewer'],
       order: { createdAt: 'DESC' },
     });
     return new ResponseCommon(200, 'SUCCESS', reviews);
@@ -127,7 +137,7 @@ export class ReviewService {
   ): Promise<ResponseCommon<Review>> {
     const review = await this.reviewRepository.findOne({
       where: { id },
-      relations: ['doctor'],
+      relations: ['doctor', 'doctor.user', 'appointment', 'reviewer'],
     });
 
     if (!review) {
@@ -155,6 +165,11 @@ export class ReviewService {
       // Update doctor rating if rating changed
       if (updateReviewDto.rating) {
         await this.updateDoctorRating(review.doctorId);
+        if (review.appointmentId) {
+          await this.appointmentRepository.update(review.appointmentId, {
+            patientRating: updateReviewDto.rating,
+          });
+        }
       }
     }
 
@@ -177,7 +192,36 @@ export class ReviewService {
     // Update doctor rating after deletion
     await this.updateDoctorRating(doctorId);
 
+    // Clear rating from Appointment
+    if (review.appointmentId) {
+      await this.appointmentRepository.update(review.appointmentId, {
+        patientRating: null,
+      });
+    }
+
     return new ResponseCommon(200, 'Xóa đánh giá thành công', null);
+  }
+
+  /**
+   * One-time sync function to update patientRating in Appointment table
+   * from existing records in Reviews table.
+   */
+  async syncExistingReviewsToAppointments(): Promise<ResponseCommon<any>> {
+    const reviews = await this.reviewRepository.find({
+      where: { appointmentId: Not(IsNull()) },
+    });
+
+    let updatedCount = 0;
+    for (const review of reviews) {
+      await this.appointmentRepository.update(review.appointmentId, {
+        patientRating: review.rating,
+      });
+      updatedCount++;
+    }
+
+    return new ResponseCommon(200, `Đã đồng bộ ${updatedCount} bản ghi`, {
+      updatedCount,
+    });
   }
 
   private async updateDoctorRating(doctorId: string): Promise<void> {

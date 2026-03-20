@@ -294,8 +294,12 @@ export class AppointmentStatsController {
       throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
 
-    const joinInfo = this.appointmentService.getVideoJoinInfo(appointment);
-    const participantsInCall: string[] = [];
+    const joinInfo = this.appointmentService.getVideoJoinInfo(
+      appointment,
+      isDoctor,
+    );
+    const participantsInCall =
+      await this.appointmentService.getParticipantsInCall(id);
 
     return {
       ...joinInfo,

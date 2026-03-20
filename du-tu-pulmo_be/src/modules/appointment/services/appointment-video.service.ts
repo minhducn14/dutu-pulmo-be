@@ -22,6 +22,7 @@ import { CHECKIN_TIME_THRESHOLDS } from '@/modules/appointment/appointment.const
 type VideoJoinWindowInput = {
   status: AppointmentStatusEnum;
   scheduledAt: Date;
+  meetingUrl?: string;
 };
 
 export type VideoJoinInfo = {
@@ -52,7 +53,10 @@ export class AppointmentVideoService {
     private readonly appointmentReadService: AppointmentReadService,
   ) {}
 
-  getVideoJoinInfo(appointment: VideoJoinWindowInput): VideoJoinInfo {
+  getVideoJoinInfo(
+    appointment: VideoJoinWindowInput,
+    isDoctor: boolean = false,
+  ): VideoJoinInfo {
     const now = new Date();
     const scheduledTime = new Date(appointment.scheduledAt);
     const minutesUntilStart = Math.round(
@@ -67,19 +71,27 @@ export class AppointmentVideoService {
       appointment.status === AppointmentStatusEnum.IN_PROGRESS;
     const isValidState = VIDEO_JOIN_VALID_STATES.includes(appointment.status);
 
-    const canJoin = isValidState && (isInProgress || (!isEarly && !isLate));
+    // Bác sĩ luôn vào được nếu đúng trạng thái (bác sĩ tạo phòng)
+    // Bệnh nhân chỉ vào được nếu đã có phòng (bác sĩ đã vào trước)
+    const hasRoom = !!appointment.meetingUrl;
+    const canJoinTimeWindow = isInProgress || (!isEarly && !isLate);
 
-    const message = canJoin
-      ? 'Bạn có thể join video call'
-      : !isValidState
-        ? 'Không thể join ở trạng thái hiện tại'
-        : isEarly
-          ? `Chưa đến giờ join. Vui lòng quay lại sau ${
-              minutesUntilStart - CHECKIN_TIME_THRESHOLDS.VIDEO.EARLY_MINUTES
-            } phút`
-          : isLate
-            ? 'Cuộc gọi đã kết thúc'
-            : 'Không thể join ở trạng thái hiện tại';
+    let canJoin = isValidState && canJoinTimeWindow;
+    let message = 'Bạn có thể join video call';
+
+    if (!isDoctor && canJoin && !hasRoom) {
+      // Nếu là bệnh nhân, đúng giờ nhưng bác sĩ chưa vào tạo phòng
+      canJoin = false;
+      message = 'Bác sĩ đang chuẩn bị phòng. Vui lòng quay lại sau ít phút.';
+    } else if (!isValidState) {
+      message = 'Không thể join ở trạng thái hiện tại';
+    } else if (isEarly) {
+      message = `Chưa đến giờ join. Vui lòng quay lại sau ${
+        minutesUntilStart - CHECKIN_TIME_THRESHOLDS.VIDEO.EARLY_MINUTES
+      } phút`;
+    } else if (isLate) {
+      message = 'Cuộc gọi đã kết thúc';
+    }
 
     return { canJoin, minutesUntilStart, isEarly, isLate, message };
   }
@@ -312,5 +324,9 @@ export class AppointmentVideoService {
     this.logger.log(
       `User ${userId} left call for appointment ${appointmentId}`,
     );
+  }
+
+  getParticipantsInCall(appointmentId: string): Promise<string[]> {
+    return this.callStateService.getUsersInCall(appointmentId);
   }
 }

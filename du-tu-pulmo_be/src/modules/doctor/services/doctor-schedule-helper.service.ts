@@ -26,22 +26,30 @@ export class DoctorScheduleHelperService {
   ): void {
     if (dto.slotDuration !== undefined) {
       if (dto.slotDuration <= 0) {
-        this.logger.error('Invalid slot duration. Slot duration must be greater than 0');
+        this.logger.error(
+          'Invalid slot duration. Slot duration must be greater than 0',
+        );
         throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
       if (dto.slotDuration < 5) {
-        this.logger.error('Invalid slot duration. Slot duration must be at least 5 minutes');
+        this.logger.error(
+          'Invalid slot duration. Slot duration must be at least 5 minutes',
+        );
         throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
       if (dto.slotDuration > 480) {
-        this.logger.error('Invalid slot duration. Slot duration must be at most 480 minutes');
+        this.logger.error(
+          'Invalid slot duration. Slot duration must be at most 480 minutes',
+        );
         throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
     }
 
     if (dto.startTime && dto.endTime) {
       if (dto.startTime >= dto.endTime) {
-        this.logger.error('Invalid start time or end time. Start time must be less than end time');
+        this.logger.error(
+          'Invalid start time or end time. Start time must be less than end time',
+        );
         throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
 
@@ -51,7 +59,9 @@ export class DoctorScheduleHelperService {
         const workingMinutes = endH * 60 + endM - (startH * 60 + startM);
 
         if (workingMinutes < dto.slotDuration) {
-          this.logger.error('Invalid start time or end time. Working minutes must be greater than or equal to slot duration');
+          this.logger.error(
+            'Invalid start time or end time. Working minutes must be greater than or equal to slot duration',
+          );
           throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
         }
       }
@@ -62,7 +72,9 @@ export class DoctorScheduleHelperService {
       const until = new Date(dto.effectiveUntil);
 
       if (from >= until) {
-        this.logger.error('Invalid effective date. Effective from must be less than effective until');
+        this.logger.error(
+          'Invalid effective date. Effective from must be less than effective until',
+        );
         throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
     }
@@ -73,12 +85,16 @@ export class DoctorScheduleHelperService {
     maxAdvanceBookingDays: number,
   ): void {
     if (minimumBookingDays < 0 || maxAdvanceBookingDays < 0) {
-      this.logger.error('Invalid booking days constraints. Minimum booking days and maximum advance booking days must be greater than or equal to 0');
+      this.logger.error(
+        'Invalid booking days constraints. Minimum booking days and maximum advance booking days must be greater than or equal to 0',
+      );
       throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     if (minimumBookingDays >= maxAdvanceBookingDays) {
-      this.logger.error('Invalid booking days constraints. Minimum booking days must be less than maximum advance booking days');
+      this.logger.error(
+        'Invalid booking days constraints. Minimum booking days must be less than maximum advance booking days',
+      );
       throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
   }

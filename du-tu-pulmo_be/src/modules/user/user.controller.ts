@@ -32,7 +32,9 @@ import {
 } from '@/modules/user/dto/user-response.dto';
 import { UserQueryDto } from '@/modules/user/dto/user-query.dto';
 import { FcmTokenDto } from '@/modules/user/dto/fcm-token.dto';
+import { ChangePasswordDto } from '@/modules/user/dto/change-password.dto';
 import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
+
 import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
 import { Roles } from '@/common/decorators/roles.decorator';
 import { CurrentUser } from '@/common/decorators/user.decorator';
@@ -150,6 +152,21 @@ export class UserController {
       UserResponseDto.fromEntity(response.data!),
     );
   }
+
+  @Patch('me/change-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Đổi mật khẩu cho user hiện tại' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Đổi mật khẩu thành công',
+  })
+  async changePassword(
+    @CurrentUser() user: JwtUser,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ): Promise<ResponseCommon> {
+    return this.userService.changePassword(user.userId, changePasswordDto);
+  }
+
 
   @Post('me/avatar')
   @ApiOperation({ summary: 'Upload avatar cho user hiện tại' })

@@ -10,55 +10,69 @@ export class SlotSchedulerService {
 
   /**
    * Cron job chạy lúc 00:05 mỗi ngày
-   * 1. Disable TẤT CẢ slots đã qua (có booking hoặc không)
-   * 2. Generate slots mới cho ngày tiếp theo (rolling 7-day window)
+   * Disable TẤT CẢ slots đã qua thời gian hiện tại
    */
   @Cron('0 5 0 * * *', {
-    name: 'daily-slot-maintenance',
+    name: 'daily-slot-cleanup',
     timeZone: 'Asia/Ho_Chi_Minh',
   })
-  async handleDailySlotMaintenance(): Promise<void> {
-    this.logger.log('🕐 Starting daily slot maintenance...');
+  async handleDailySlotCleanup(): Promise<void> {
+    this.logger.log('🕐 Starting daily slot cleanup...');
     const startTime = Date.now();
 
     try {
-      // 1. Disable TẤT CẢ slots đã qua (dù có booking hay không)
       const disabledCount = await this.doctorScheduleService.disableOldSlots();
-      this.logger.log(`✅ Disabled ${disabledCount} old slots (past time)`);
-
-      // 2. Generate slots cho ngày tiếp theo
-      const result = await this.doctorScheduleService.generateSlotsForNextDay();
-      this.logger.log(
-        `✅ Generated ${result.slotsGenerated} slots for ${result.doctorsProcessed} doctors`,
-      );
-
       const duration = Date.now() - startTime;
       this.logger.log(
-        `🎉 Daily slot maintenance completed in ${duration}ms. ` +
-          `Disabled: ${disabledCount}, Generated: ${result.slotsGenerated}`,
+        `✅ Disabled ${disabledCount} old slots (past time) in ${duration}ms`,
       );
     } catch (error) {
-      this.logger.error('❌ Daily slot maintenance failed:', error);
+      this.logger.error('❌ Daily slot cleanup failed:', error);
     }
   }
 
   /**
-   * Manual trigger for slot maintenance (for testing/debugging)
+   * Cron job chạy lúc 00:05 ngày 1 hàng tháng
+   * Generate slots cho TOÀN BỘ tháng sau
+   */
+  @Cron('0 5 0 1 * *', {
+    name: 'monthly-slot-generation',
+    timeZone: 'Asia/Ho_Chi_Minh',
+  })
+  async handleMonthlySlotGeneration(): Promise<void> {
+    this.logger.log('📅 Starting monthly slot generation for next month...');
+    const startTime = Date.now();
+
+    try {
+      const result =
+        await this.doctorScheduleService.generateSlotsForNextMonth();
+      const duration = Date.now() - startTime;
+      this.logger.log(
+        `✅ Generated ${result.slotsGenerated} slots for ${result.doctorsProcessed} doctors for next month in ${duration}ms`,
+      );
+    } catch (error) {
+      this.logger.error('❌ Monthly slot generation failed:', error);
+    }
+  }
+
+  /**
+   * Manual trigger for full slot maintenance (cleanup + next month generation)
    */
   async runManualMaintenance(): Promise<{
     disabledSlots: number;
     doctorsProcessed: number;
-    slotsGenerated: number;
+    slotsGeneratedMonthly: number;
   }> {
     this.logger.log('🔧 Running manual slot maintenance...');
 
     const disabledSlots = await this.doctorScheduleService.disableOldSlots();
-    const result = await this.doctorScheduleService.generateSlotsForNextDay();
+    const monthlyResult =
+      await this.doctorScheduleService.generateSlotsForNextMonth();
 
     return {
       disabledSlots,
-      doctorsProcessed: result.doctorsProcessed,
-      slotsGenerated: result.slotsGenerated,
+      doctorsProcessed: monthlyResult.doctorsProcessed,
+      slotsGeneratedMonthly: monthlyResult.slotsGenerated,
     };
   }
 }

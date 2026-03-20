@@ -267,8 +267,14 @@ export class Appointment {
   // ========================================
   // RATING
   // ========================================
-  @Column({ name: 'patient_rating', type: 'integer', nullable: true })
-  patientRating: number;
+  @Column({
+    name: 'patient_rating',
+    type: 'decimal',
+    precision: 2,
+    scale: 1,
+    nullable: true,
+  })
+  patientRating: number | null;
 
   @CreateDateColumn({
     name: 'created_at',

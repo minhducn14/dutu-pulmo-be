@@ -1,4 +1,4 @@
-import { Controller, Get, Query, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Query, HttpStatus, Param } from '@nestjs/common';
 import { ApiOperation, ApiTags, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { EnumService } from '@/modules/enum/enum.service';
 import { PaginatedResponseDto } from '@/common/dto/pagination.dto';
@@ -57,5 +57,31 @@ export class EnumController {
     @Query() query: EnumQueryDto,
   ): Promise<ResponseCommon<PaginatedResponseDto<EnumItemDto>>> {
     return this.enumService.getOccupations(query);
+  }
+
+  @Get('ethnicities/:code')
+  @ApiOperation({ summary: 'Lấy thông tin dân tộc theo mã' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Thông tin dân tộc',
+    type: EnumItemDto,
+  })
+  async getEthnicityByCode(
+    @Param('code') code: string,
+  ): Promise<ResponseCommon<EnumItemDto>> {
+    return this.enumService.getEthnicityByCode(code);
+  }
+
+  @Get('occupations/:code')
+  @ApiOperation({ summary: 'Lấy thông tin nghề nghiệp theo mã' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Thông tin nghề nghiệp',
+    type: EnumItemDto,
+  })
+  async getOccupationByCode(
+    @Param('code') code: string,
+  ): Promise<ResponseCommon<EnumItemDto>> {
+    return this.enumService.getOccupationByCode(code);
   }
 }

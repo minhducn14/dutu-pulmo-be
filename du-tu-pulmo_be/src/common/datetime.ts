@@ -91,3 +91,25 @@ export function isSameDayVN(date1: Date, date2: Date): boolean {
 export function formatDateVN(date: Date): string {
   return formatInTimeZone(date, VN_TZ, 'yyyy-MM-dd');
 }
+/**
+ * Returns the start of the 1st day of the next month in VN timezone.
+ */
+export function startOfNextMonthVN(base: Date = vnNow()): Date {
+  const vn = toZonedTime(base, VN_TZ);
+  vn.setMonth(vn.getMonth() + 1);
+  vn.setDate(1);
+  vn.setHours(0, 0, 0, 0);
+  return fromZonedTime(vn, VN_TZ);
+}
+
+/**
+ * Returns the end of the last day of the next month in VN timezone.
+ */
+export function endOfNextMonthVN(base: Date = vnNow()): Date {
+  const startNext = toZonedTime(startOfNextMonthVN(base), VN_TZ);
+  // Last day of next month: go to 2nd month from now, then back 1 day
+  const startAfterNext = new Date(startNext);
+  startAfterNext.setMonth(startAfterNext.getMonth() + 1);
+  const endNext = new Date(startAfterNext.getTime() - 1);
+  return fromZonedTime(endNext, VN_TZ);
+}

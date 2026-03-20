@@ -7,22 +7,32 @@ import {
   MinLength,
 } from 'class-validator';
 
-export class ResetPasswordWithTokenDto {
+export class ChangePasswordDto {
   @ApiProperty({
-    description: 'Reset password token từ email',
+    description: 'Mật khẩu hiện tại',
+    example: 'OldPassword123!',
   })
   @IsString()
-  @IsNotEmpty({ message: 'Token không được để trống' })
-  token: string;
+  @IsNotEmpty()
+  oldPassword: string;
 
   @ApiProperty({
     description: 'Mật khẩu mới',
+    example: 'NewPassword123!',
   })
+  @IsString()
+  @IsNotEmpty()
   @MinLength(8, { message: 'Mật khẩu phải có ít nhất 8 ký tự' })
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/, {
     message: 'Mật khẩu phải chứa chữ hoa, chữ thường, số và ký tự đặc biệt',
   })
-  @IsString()
-  @IsNotEmpty({ message: 'Mật khẩu mới không được để trống' })
   newPassword: string;
+
+  @ApiProperty({
+    description: 'Xác nhận mật khẩu mới',
+    example: 'NewPassword123!',
+  })
+  @IsString()
+  @IsNotEmpty()
+  confirmPassword: string;
 }

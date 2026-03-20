@@ -28,4 +28,3 @@ export class GetScreeningRequestsQueryDto extends PaginationDto {
   @IsUUID()
   patientId?: string;
 }
-

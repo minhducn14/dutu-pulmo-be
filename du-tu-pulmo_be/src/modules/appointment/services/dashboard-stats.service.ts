@@ -290,10 +290,7 @@ export class DashboardStatsService {
   ): Promise<PatientFirstVisit[]> {
     const results = await this.appointmentRepository
       .createQueryBuilder('a')
-      .select([
-        'a.patientId as patientId',
-        'MIN(a.scheduledAt) as firstVisit',
-      ])
+      .select(['a.patientId as patientId', 'MIN(a.scheduledAt) as firstVisit'])
       .where('a.doctorId = :doctorId', { doctorId })
       .andWhere('a.status = :status', {
         status: AppointmentStatusEnum.COMPLETED,

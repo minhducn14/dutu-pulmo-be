@@ -102,7 +102,14 @@ export class DoctorService {
     applyPaginationAndSort(
       queryBuilder,
       dto,
-      ['createdAt', 'specialty', 'practiceStartYear', 'defaultConsultationFee'],
+      [
+        'createdAt',
+        'updatedAt',
+        'specialty',
+        'practiceStartYear',
+        'defaultConsultationFee',
+        'averageRating',
+      ],
       'createdAt',
       'DESC',
     );
@@ -419,4 +426,3 @@ export class DoctorService {
     return new ResponseCommon(200, 'SUCCESS', doctor);
   }
 }
-

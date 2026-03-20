@@ -62,4 +62,3 @@ export class AdminActionQueryDto {
   @ApiPropertyOptional({ description: 'Bao gồm cả các action đã void' })
   includeVoided?: boolean = false;
 }
-

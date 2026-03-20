@@ -17,5 +17,4 @@ export class CreateChatMessageDto {
     description: 'Nội dung tin nhắn',
   })
   content: string;
-
 }

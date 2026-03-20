@@ -431,10 +431,8 @@ export class PatientController {
     this.checkPatientAccess(id, user);
     const status =
       query.status &&
-      Object.values(AppointmentStatusEnum).includes(
-        query.status as AppointmentStatusEnum,
-      )
-        ? (query.status as AppointmentStatusEnum)
+      Object.values(AppointmentStatusEnum).includes(query.status)
+        ? query.status
         : undefined;
     const result = await this.patientService.getAppointments(id, {
       page: query.page,

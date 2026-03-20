@@ -479,7 +479,6 @@ export class MedicalController {
     @Param('patientId') patientId: string,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<PrescriptionResponseDto[]>> {
-
     await this.validatePatientAccess(user, patientId);
 
     // Strict Mode for Doctors: Only return their own prescriptions
@@ -504,9 +503,7 @@ export class MedicalController {
       doctorId,
     );
 
-    const dtos = (result.data || []).map((p) =>
-      this.toPrescriptionDto(p),
-    );
+    const dtos = (result.data || []).map((p) => this.toPrescriptionDto(p));
 
     return new ResponseCommon(result.code, result.message, dtos);
   }

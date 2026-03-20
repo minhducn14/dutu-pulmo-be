@@ -7,7 +7,15 @@ class UpdateDoctorUserFieldsDto extends OmitType(UpdateUserDto, [
 ] as const) {}
 
 class UpdateDoctorFieldsDto extends PartialType(
-  OmitType(CreateDoctorDto, ['email', 'password', 'phone','primaryHospitalId', 'title', 'specialty', 'specialty'] as const),
+  OmitType(CreateDoctorDto, [
+    'email',
+    'password',
+    'phone',
+    'primaryHospitalId',
+    'title',
+    'specialty',
+    'specialty',
+  ] as const),
 ) {}
 
 export class UpdateDoctorDto extends IntersectionType(

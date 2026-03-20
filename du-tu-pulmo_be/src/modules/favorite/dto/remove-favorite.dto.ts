@@ -5,14 +5,14 @@ export class RemoveFavoriteDto {
   @IsOptional()
   @ApiPropertyOptional({
     example: 'e320aa67-b53b-4c4a-bd50-31e8b312defa',
-    description: 'ID property',
+    description: 'ID bác sĩ',
   })
-  propertyId?: string;
+  doctorId?: string;
 
   @IsOptional()
   @ApiPropertyOptional({
     example: 'a120bb78-c64c-5d5b-ce61-42f9c423efgb',
-    description: 'ID room type',
+    description: 'ID bệnh viện',
   })
-  roomTypeId?: string;
+  hospitalId?: string;
 }

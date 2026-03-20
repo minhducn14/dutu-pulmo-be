@@ -30,4 +30,3 @@ export class FindDoctorsQueryDto extends PaginationDto {
   @IsEnum(AppointmentTypeFilterEnum)
   appointmentType?: AppointmentTypeFilterEnum;
 }
-

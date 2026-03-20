@@ -35,7 +35,10 @@ import { MedicalRecordExaminationDto } from '@/modules/medical/dto/medical-recor
 import { PdfService } from '@/modules/pdf/pdf.service';
 import { validateTextFieldsPolicy as applyTextFieldsPolicy } from '@/common/utils/text-fields-policy.util';
 
-const VALID_TRANSITIONS: Record<MedicalRecordStatusEnum, MedicalRecordStatusEnum[]> = {
+const VALID_TRANSITIONS: Record<
+  MedicalRecordStatusEnum,
+  MedicalRecordStatusEnum[]
+> = {
   [MedicalRecordStatusEnum.DRAFT]: [
     MedicalRecordStatusEnum.IN_PROGRESS,
     MedicalRecordStatusEnum.COMPLETED,
@@ -190,7 +193,11 @@ export class MedicalService {
     record.completedAt = new Date();
 
     const result = await this.recordRepository.save(record);
-    return new ResponseCommon(HttpStatus.OK, 'Bệnh án đã được hoàn tất', result);
+    return new ResponseCommon(
+      HttpStatus.OK,
+      'Bệnh án đã được hoàn tất',
+      result,
+    );
   }
 
   async reopenMedicalRecord(
@@ -310,7 +317,8 @@ export class MedicalService {
         data.followUpInstructions,
         data.progressNotes,
       ],
-      base64ErrorCode: ERROR_MESSAGES.MEDICAL_RECORD_BASE64_NOT_ALLOWED_IN_TEXT_FIELDS,
+      base64ErrorCode:
+        ERROR_MESSAGES.MEDICAL_RECORD_BASE64_NOT_ALLOWED_IN_TEXT_FIELDS,
       chiefComplaintErrorCode:
         ERROR_MESSAGES.MEDICAL_RECORD_CHIEF_COMPLAINT_PLAIN_TEXT_ONLY,
     });

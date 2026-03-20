@@ -140,7 +140,7 @@ export class MedicalRecordDetailResponseDto {
     instructions?: string;
   }>;
 
-    // TAB 3: TỔNG KẾT
+  // TAB 3: TỔNG KẾT
   @ApiPropertyOptional({ description: 'Quá trình bệnh lý và diễn biến' })
   @Transform(toOptionalString)
   progressNotes?: string;

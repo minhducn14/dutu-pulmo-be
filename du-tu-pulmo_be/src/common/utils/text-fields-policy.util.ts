@@ -14,7 +14,8 @@ export function validateTextFieldsPolicy(input: TextFieldPolicyInput): void {
   const chiefComplaint = input.chiefComplaint?.trim();
   if (
     chiefComplaint &&
-    (HTML_TAG_REGEX.test(chiefComplaint) || BASE64_IMAGE_REGEX.test(chiefComplaint))
+    (HTML_TAG_REGEX.test(chiefComplaint) ||
+      BASE64_IMAGE_REGEX.test(chiefComplaint))
   ) {
     throw new BadRequestException(input.chiefComplaintErrorCode);
   }

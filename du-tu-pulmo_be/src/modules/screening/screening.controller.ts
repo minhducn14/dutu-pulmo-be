@@ -642,7 +642,8 @@ export class ScreeningController {
       }
     }
 
-    const patientResponse = await this.patientService.findOne(resolvedPatientId);
+    const patientResponse =
+      await this.patientService.findOne(resolvedPatientId);
     const patient = patientResponse?.data;
     if (!patient) {
       throw new NotFoundException(ERROR_MESSAGES.PATIENT_NOT_FOUND);
@@ -709,4 +710,3 @@ export class ScreeningController {
     );
   }
 }
-
