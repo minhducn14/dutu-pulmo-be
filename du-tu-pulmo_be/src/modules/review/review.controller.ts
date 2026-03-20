@@ -21,13 +21,16 @@ import {
 } from '@nestjs/swagger';
 import { ReviewResponseDto } from '@/modules/review/dto/review-response.dto';
 import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
+import { Roles } from '@/common/decorators/roles.decorator';
 import { CurrentUser } from '@/common/decorators/user.decorator';
 import type { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
+import { RoleEnum } from '@/modules/common/enums/role.enum';
 import { ResponseCommon } from '@/common/dto/response.dto';
 
 @ApiTags('Reviews')
 @Controller('reviews')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class ReviewController {
   constructor(private readonly reviewService: ReviewService) {}
 
@@ -137,6 +140,7 @@ export class ReviewController {
 
   @ApiBearerAuth('JWT-auth')
   @Patch(':id/response')
+  @Roles(RoleEnum.DOCTOR)
   @ApiOperation({ summary: 'Bác sĩ phản hồi đánh giá' })
   @ApiResponse({ status: HttpStatus.OK, type: ReviewResponseDto })
   async respondToReview(
@@ -170,5 +174,15 @@ export class ReviewController {
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<null>> {
     return this.reviewService.remove(id, user.userId);
+  }
+
+  @ApiBearerAuth('JWT-auth')
+  @Post('sync-to-appointments')
+  // @Roles(RoleEnum.ADMIN)
+  @ApiOperation({
+    summary: 'Đồng bộ rating từ Review sang Appointment (Dành cho dữ liệu cũ)',
+  })
+  async syncToAppointments() {
+    return this.reviewService.syncExistingReviewsToAppointments();
   }
 }
