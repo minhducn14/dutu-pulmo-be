@@ -247,8 +247,8 @@ export class DashboardStatsService {
     const result = await this.appointmentRepository
       .createQueryBuilder('a')
       .select([
-        `COUNT(CASE WHEN a.appointmentType = '${AppointmentTypeEnum.IN_CLINIC}' THEN 1 END) as inClinic`,
-        `COUNT(CASE WHEN a.appointmentType = '${AppointmentTypeEnum.VIDEO}' THEN 1 END) as video`,
+        `COUNT(CASE WHEN a.appointmentType = '${AppointmentTypeEnum.IN_CLINIC}' THEN 1 END) as "inClinic"`,
+        `COUNT(CASE WHEN a.appointmentType = '${AppointmentTypeEnum.VIDEO}' THEN 1 END) as "video"`,
       ])
       .where('a.doctorId = :doctorId', { doctorId })
       .andWhere('a.scheduledAt BETWEEN :startDate AND :endDate', {

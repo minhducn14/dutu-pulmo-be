@@ -216,19 +216,26 @@ export class AppointmentReadService {
     if (query?.status) {
       qb.andWhere('appointment.status = :status', { status: query.status });
     }
-
-    if (query?.startDate && query?.endDate) {
+    const startDate = query?.startDate ? new Date(query.startDate) : null;
+    const endDate = query?.endDate ? new Date(query.endDate) : null;
+    if (startDate) {
+      startDate.setHours(0, 0, 0, 0);
+    }
+    if (endDate) {
+      endDate.setHours(23, 59, 59, 999);
+    }
+    if (startDate && endDate) {
       qb.andWhere('appointment.scheduledAt BETWEEN :startDate AND :endDate', {
-        startDate: new Date(query.startDate),
-        endDate: new Date(query.endDate),
+        startDate,
+        endDate,
       });
-    } else if (query?.startDate) {
+    } else if (startDate) {
       qb.andWhere('appointment.scheduledAt >= :startDate', {
-        startDate: new Date(query.startDate),
+        startDate,
       });
-    } else if (query?.endDate) {
+    } else if (endDate) {
       qb.andWhere('appointment.scheduledAt <= :endDate', {
-        endDate: new Date(query.endDate),
+        endDate,
       });
     }
 
