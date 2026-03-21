@@ -59,6 +59,14 @@ export class AppointmentSchedulingService {
         throw new NotFoundException(ERROR_MESSAGES.APPOINTMENT_NOT_FOUND);
       }
 
+      // ── Kiểm tra quá hạn ──────────────────────────────────────────
+      if (new Date(appointment.scheduledAt) < new Date()) {
+        this.logger.error('Cannot cancel expired appointment');
+        throw new BadRequestException(
+          ERROR_MESSAGES.CANNOT_EDIT_EXPIRED_APPOINTMENT,
+        );
+      }
+
       if (appointment.status === AppointmentStatusEnum.COMPLETED) {
         this.logger.error('Appointment is completed');
         throw new BadRequestException(ERROR_MESSAGES.CANNOT_CANCEL_COMPLETED);
@@ -241,6 +249,14 @@ export class AppointmentSchedulingService {
       if (!appointment) {
         this.logger.error('Appointment not found');
         throw new NotFoundException(ERROR_MESSAGES.APPOINTMENT_NOT_FOUND);
+      }
+
+      // ── Kiểm tra quá hạn ──────────────────────────────────────────
+      if (new Date(appointment.scheduledAt) < new Date()) {
+        this.logger.error('Cannot reschedule expired appointment');
+        throw new BadRequestException(
+          ERROR_MESSAGES.CANNOT_EDIT_EXPIRED_APPOINTMENT,
+        );
       }
 
       if (
