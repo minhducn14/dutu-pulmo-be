@@ -264,6 +264,9 @@ export class Appointment {
   @Column({ name: 'cancelled_by', length: 20, nullable: true })
   cancelledBy: string;
 
+  @Column({ name: 'cancelled_minutes_before_start', type: 'integer', nullable: true })
+  cancelledMinutesBeforeStart: number;
+
   // ========================================
   // RATING
   // ========================================

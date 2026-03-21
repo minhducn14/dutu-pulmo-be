@@ -28,3 +28,8 @@ export const CHECKIN_TIME_THRESHOLDS = {
     LATE_MINUTES: 30,
   },
 };
+
+export const CANCELLATION_POLICY = {
+  PATIENT_CANCEL_BEFORE_MINUTES: 4 * 60, // 4 tiếng
+  DOCTOR_CANCEL_BEFORE_MINUTES: 2 * 60, // 2 tiếng
+} as const;

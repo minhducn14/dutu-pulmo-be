@@ -353,7 +353,8 @@ export class AppointmentActionController {
     if (user.roles?.includes(RoleEnum.PATIENT)) cancelledBy = 'PATIENT';
     else if (user.roles?.includes(RoleEnum.DOCTOR)) cancelledBy = 'DOCTOR';
     else if (user.roles?.includes(RoleEnum.ADMIN)) cancelledBy = 'ADMIN';
-
+    else if (user.roles?.includes(RoleEnum.RECEPTIONIST))
+      cancelledBy = 'RECEPTIONIST';
     const response = await this.appointmentService.cancel(
       id,
       dto.reason,

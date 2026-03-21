@@ -1,4 +1,5 @@
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
+import { CANCELLATION_POLICY } from '@/modules/appointment/appointment.constants';
 import {
   BadRequestException,
   ConflictException,
@@ -65,6 +66,52 @@ export class AppointmentSchedulingService {
         throw new BadRequestException(ERROR_MESSAGES.ALREADY_CANCELLED);
       }
 
+      // ── Kiểm tra trạng thái ──────────────────────────────────────
+      if (appointment.status === AppointmentStatusEnum.IN_PROGRESS) {
+        // Chỉ ADMIN mới được hủy khi đang khám
+        if (cancelledBy !== 'ADMIN') {
+          throw new BadRequestException(
+            ERROR_MESSAGES.CANNOT_CANCEL_IN_PROGRESS,
+          );
+        }
+      }
+
+      if (appointment.status === AppointmentStatusEnum.CHECKED_IN) {
+        // Bệnh nhân không được hủy khi đã check-in
+        if (cancelledBy === 'PATIENT') {
+          throw new BadRequestException(
+            ERROR_MESSAGES.CANNOT_CANCEL_CHECKED_IN,
+          );
+        }
+      }
+
+      // ── Kiểm tra thời gian (chỉ khi CONFIRMED) ───────────────────
+      if (appointment.status === AppointmentStatusEnum.CONFIRMED) {
+        const now = new Date();
+        const scheduledTime = new Date(appointment.scheduledAt);
+        const minutesUntilStart =
+          (scheduledTime.getTime() - now.getTime()) / (1000 * 60);
+
+        if (cancelledBy === 'PATIENT') {
+          if (
+            minutesUntilStart <
+            CANCELLATION_POLICY.PATIENT_CANCEL_BEFORE_MINUTES
+          ) {
+            throw new BadRequestException(
+              ERROR_MESSAGES.CANCEL_TOO_LATE_PATIENT,
+            );
+          }
+        } else if (cancelledBy === 'DOCTOR') {
+          if (
+            minutesUntilStart < CANCELLATION_POLICY.DOCTOR_CANCEL_BEFORE_MINUTES
+          ) {
+            throw new BadRequestException(
+              ERROR_MESSAGES.CANCEL_TOO_LATE_DOCTOR,
+            );
+          }
+        }
+      }
+
       if (appointment.timeSlotId) {
         await manager.decrement(
           TimeSlot,
@@ -86,10 +133,18 @@ export class AppointmentSchedulingService {
         }
       }
 
-      appointment.status = AppointmentStatusEnum.CANCELLED;
       appointment.cancelledAt = new Date();
       appointment.cancellationReason = reason;
       appointment.cancelledBy = cancelledBy;
+
+      const scheduledTimeForAudit = new Date(appointment.scheduledAt);
+      const minutesUntilStartForAudit =
+        (scheduledTimeForAudit.getTime() - appointment.cancelledAt.getTime()) /
+        (1000 * 60);
+      appointment.cancelledMinutesBeforeStart = Math.floor(
+        minutesUntilStartForAudit,
+      );
+      appointment.status = AppointmentStatusEnum.CANCELLED;
 
       const saved = await manager.save(appointment);
 

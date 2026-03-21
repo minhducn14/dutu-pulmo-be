@@ -32,10 +32,34 @@ export class SlotSchedulerService {
   }
 
   /**
-   * Cron job chạy lúc 00:05 ngày 1 hàng tháng
+   * Cron job chạy lúc 00:10 mỗi ngày
+   * Generate slots cho NGÀY MAI
+   */
+  @Cron('0 10 0 * * *', {
+    name: 'daily-slot-generation',
+    timeZone: 'Asia/Ho_Chi_Minh',
+  })
+  async handleDailySlotGeneration(): Promise<void> {
+    this.logger.log('📅 Starting daily slot generation...');
+    const startTime = Date.now();
+
+    try {
+      const result = await this.doctorScheduleService.generateSlotsForNextDay();
+      const duration = Date.now() - startTime;
+      this.logger.log(
+        `✅ Generated ${result.slotsGenerated} slots for ` +
+          `${result.doctorsProcessed} doctors in ${duration}ms`,
+      );
+    } catch (error) {
+      this.logger.error('❌ Daily slot generation failed:', error);
+    }
+  }
+
+  /**
+   * Cron job chạy lúc 01:05 ngày 1 hàng tháng
    * Generate slots cho TOÀN BỘ tháng sau
    */
-  @Cron('0 5 0 1 * *', {
+  @Cron('0 5 1 * * *', {
     name: 'monthly-slot-generation',
     timeZone: 'Asia/Ho_Chi_Minh',
   })
