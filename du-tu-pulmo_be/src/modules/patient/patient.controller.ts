@@ -18,7 +18,10 @@ import {
   ApiBearerAuth,
   ApiQuery,
 } from '@nestjs/swagger';
-import { PatientService } from '@/modules/patient/patient.service';
+import {
+  PatientService,
+  PaginatedPatientInternalResponse,
+} from '@/modules/patient/patient.service';
 import {
   PatientQueryDto,
   UpdatePatientDto,
@@ -207,8 +210,44 @@ export class PatientController {
     };
     const data = (result.data ?? fallback) as {
       items: Patient[];
-      meta: PaginatedPatientResponseDto['meta'];
+      meta: PaginatedPatientInternalResponse['meta'];
     };
+    const items = (data.items || []).map((p) => this.toPatientDto(p));
+
+    return new ResponseCommon(result.code, result.message, {
+      items,
+      meta: data.meta,
+    });
+  }
+
+  @Get('doctor/my-patients')
+  @Roles(RoleEnum.DOCTOR)
+  @ApiOperation({
+    summary: 'Lấy danh sách bệnh nhân của bác sĩ hiện tại',
+    description: 'Bác sĩ lấy danh sách bệnh nhân mà mình có lịch hẹn',
+  })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Danh sách bệnh nhân của bác sĩ',
+    type: PaginatedPatientResponseDto,
+  })
+  async getMyPatients(
+    @CurrentUser() user: JwtUser,
+    @Query() query: PatientQueryDto,
+  ): Promise<ResponseCommon<PaginatedPatientResponseDto>> {
+    if (!user.doctorId) {
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
+    }
+
+    const result = await this.patientService.findPatientsByDoctor(
+      user.doctorId,
+      query,
+    );
+
+    const data = result.data as PaginatedPatientInternalResponse;
     const items = (data.items || []).map((p) => this.toPatientDto(p));
 
     return new ResponseCommon(result.code, result.message, {

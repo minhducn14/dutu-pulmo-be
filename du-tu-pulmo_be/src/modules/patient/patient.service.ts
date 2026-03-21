@@ -14,7 +14,7 @@ import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { applyPaginationAndSort } from '@/common/utils/pagination.util';
 
-export interface PaginatedPatientResponseDto {
+export interface PaginatedPatientInternalResponse {
   items: Patient[];
   meta: {
     currentPage: number;
@@ -44,7 +44,7 @@ export class PatientService {
    */
   async findAll(
     query?: PatientQueryDto,
-  ): Promise<ResponseCommon<PaginatedPatientResponseDto>> {
+  ): Promise<ResponseCommon<PaginatedPatientInternalResponse>> {
     let queryBuilder = this.patientRepository
       .createQueryBuilder('patient')
       .leftJoinAndSelect('patient.user', 'user');
@@ -68,6 +68,55 @@ export class PatientService {
       queryBuilder,
       query || {},
       ['createdAt', 'bloodType', 'profileCode'],
+      'createdAt',
+      'DESC',
+    );
+
+    const [patients, totalItems] = await queryBuilder.getManyAndCount();
+    const limit = query?.limit || 10;
+    const page = query?.page || 1;
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return new ResponseCommon(200, 'SUCCESS', {
+      items: patients,
+      meta: {
+        currentPage: page,
+        itemsPerPage: limit,
+        totalItems,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    });
+  }
+
+  /**
+   * Get patients who have appointments with a specific doctor
+   */
+  async findPatientsByDoctor(
+    doctorId: string,
+    query?: PatientQueryDto,
+  ): Promise<ResponseCommon<PaginatedPatientInternalResponse>> {
+    const queryBuilder = this.patientRepository
+      .createQueryBuilder('patient')
+      .innerJoin('patient.appointments', 'appointment')
+      .leftJoinAndSelect('patient.user', 'user')
+      .where('appointment.doctorId = :doctorId', { doctorId });
+
+    if (query?.search) {
+      queryBuilder.andWhere(
+        '(user.fullName ILIKE :search OR user.phone ILIKE :search OR patient.profileCode ILIKE :search)',
+        { search: `%${query.search}%` },
+      );
+    }
+
+    // Ensure we only get unique patients
+    queryBuilder.groupBy('patient.id').addGroupBy('user.id');
+
+    applyPaginationAndSort(
+      queryBuilder,
+      query || {},
+      ['createdAt', 'profileCode'],
       'createdAt',
       'DESC',
     );
