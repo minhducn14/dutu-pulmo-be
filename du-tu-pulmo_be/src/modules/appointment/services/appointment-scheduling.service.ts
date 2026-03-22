@@ -208,7 +208,9 @@ export class AppointmentSchedulingService {
             `Cleaned up video room for cancelled appointment ${appointment.id}`,
           );
         } catch (error) {
-          this.logger.warn(`Failed to cleanup video room: ${error instanceof Error ? error.message : String(error)}`);
+          this.logger.warn(
+            `Failed to cleanup video room: ${error instanceof Error ? error.message : String(error)}`,
+          );
         }
       }
 
