@@ -161,10 +161,10 @@ export class Payment {
   // ERROR TRACKING
   // ========================================
   @Column({ name: 'error_code', length: 50, nullable: true })
-  errorCode: string;
+  errorCode: string | null;
 
   @Column({ name: 'error_message', type: 'text', nullable: true })
-  errorMessage: string;
+  errorMessage: string | null;
 
   @Column({ name: 'last_error_at', type: 'timestamptz', nullable: true })
   lastErrorAt: Date;

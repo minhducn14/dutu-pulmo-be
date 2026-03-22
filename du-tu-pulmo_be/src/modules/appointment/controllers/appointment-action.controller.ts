@@ -413,9 +413,17 @@ export class AppointmentActionController {
       }
     }
 
+    let rescheduledBy = 'SYSTEM';
+    if (user.roles?.includes(RoleEnum.PATIENT)) rescheduledBy = 'PATIENT';
+    else if (user.roles?.includes(RoleEnum.DOCTOR)) rescheduledBy = 'DOCTOR';
+    else if (user.roles?.includes(RoleEnum.ADMIN)) rescheduledBy = 'ADMIN';
+    else if (user.roles?.includes(RoleEnum.RECEPTIONIST))
+      rescheduledBy = 'RECEPTIONIST';
+
     const response = await this.appointmentService.reschedule(
       id,
       dto.newTimeSlotId,
+      rescheduledBy,
     );
     return this.wrapAppointment(response);
   }

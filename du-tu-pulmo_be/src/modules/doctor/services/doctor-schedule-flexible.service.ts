@@ -441,7 +441,6 @@ export class DoctorScheduleFlexibleService {
             ? (dto.consultationFee?.toString() ?? null)
             : existing.consultationFee,
         discountPercent: dto.discountPercent ?? existing.discountPercent,
-        // ✅ Fix BUG-01: fallback về existing.minimumBookingTime
         minimumBookingTime:
           dto.minimumBookingDays !== undefined
             ? dto.minimumBookingDays * 24 * 60

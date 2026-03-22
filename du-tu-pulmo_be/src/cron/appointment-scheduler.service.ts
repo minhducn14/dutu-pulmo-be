@@ -121,8 +121,38 @@ export class AppointmentSchedulerService {
               AppointmentStatusEnum.PENDING_PAYMENT,
             ].includes(appointment.status)
           ) {
-            await this.appointmentRepository.update(appointment.id, {
-              status: AppointmentStatusEnum.CANCELLED,
+            await this.dataSource.transaction(async (manager) => {
+              await manager.update(Appointment, appointment.id, {
+                status: AppointmentStatusEnum.CANCELLED,
+                cancelledAt: new Date(),
+                cancelledBy: 'SYSTEM',
+                cancellationReason:
+                  'Auto-cancelled by scheduler (past appointment)',
+              });
+
+              // Giải phóng slot (đảm bảo bookedCount chính xác cho thống kê)
+              if (appointment.timeSlotId) {
+                await manager.decrement(
+                  TimeSlot,
+                  { id: appointment.timeSlotId },
+                  'bookedCount',
+                  1,
+                );
+
+                // Mở lại slot nếu còn chỗ
+                // (Thực tế slot đã qua ngày nên isAvailable không ảnh hưởng booking
+                //  nhưng đảm bảo data consistency)
+                const slot = await manager.findOne(TimeSlot, {
+                  where: { id: appointment.timeSlotId },
+                });
+                if (slot && slot.bookedCount < slot.capacity) {
+                  await manager.update(
+                    TimeSlot,
+                    { id: slot.id },
+                    { isAvailable: true },
+                  );
+                }
+              }
             });
             this.logger.log(`✅ Auto-cancelled appointment ${appointment.id}`);
           } else if (appointment.status === AppointmentStatusEnum.CONFIRMED) {

@@ -143,9 +143,20 @@ export class AppointmentCreateService {
         where: { id: slot.doctorId },
       });
 
+      if (!doctor) {
+        this.logger.error(`Doctor not found for slot ${slot.id}`);
+        throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
+      }
+
       let hospitalId = data.hospitalId;
       if (appointmentType === AppointmentTypeEnum.IN_CLINIC && !hospitalId) {
-        hospitalId = doctor?.primaryHospitalId || undefined;
+        if (!doctor.primaryHospitalId) {
+          this.logger.error(
+            `Doctor ${doctor.id} does not have a primary hospital for IN_CLINIC appointment`,
+          );
+          throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+        }
+        hospitalId = doctor.primaryHospitalId;
       }
 
       const baseFee = this.pricingService.resolveBaseFee(

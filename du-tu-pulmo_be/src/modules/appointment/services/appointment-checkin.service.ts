@@ -141,52 +141,85 @@ export class AppointmentCheckinService {
       throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
+    // Validate appointment type for check-in by number
+    if (appointment.appointmentType !== AppointmentTypeEnum.IN_CLINIC) {
+      this.logger.error(
+        `Appointment ${appointment.id} is not IN_CLINIC type, cannot check-in by number.`,
+      );
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+    }
+
     return this.checkIn(appointment.id);
   }
 
   async checkInVideo(
     id: string,
   ): Promise<ResponseCommon<AppointmentResponseDto>> {
-    const appointment = await this.appointmentEntityService.findOne(id);
+    return await this.dataSource.transaction(async (manager) => {
+      // Dùng pessimistic_write để lock appointment, tránh race condition số thứ tự
+      const appointment = await manager.findOne(Appointment, {
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+        relations: ['timeSlot'],
+      });
 
-    if (!appointment) {
-      this.logger.error('Appointment not found');
-      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
-    }
+      if (!appointment) {
+        throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
+      }
 
-    if (appointment.status !== AppointmentStatusEnum.CONFIRMED) {
-      this.logger.error('Appointment is not confirmed');
-      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-    }
+      if (appointment.status !== AppointmentStatusEnum.CONFIRMED) {
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+      }
 
-    if (appointment.appointmentType !== AppointmentTypeEnum.VIDEO) {
-      this.logger.error('Appointment is not video');
-      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-    }
+      if (appointment.appointmentType !== AppointmentTypeEnum.VIDEO) {
+        this.logger.error('Appointment is not video');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+      }
 
-    const now = new Date();
-    const scheduledTime = new Date(appointment.scheduledAt);
-    const timeDiffMinutes =
-      (scheduledTime.getTime() - now.getTime()) / (1000 * 60);
+      const now = new Date();
+      const scheduledTime = new Date(appointment.scheduledAt);
+      const timeDiffMinutes =
+        (scheduledTime.getTime() - now.getTime()) / (1000 * 60);
 
-    if (timeDiffMinutes > 60) {
-      this.logger.error('Appointment is too early in video');
-      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-    }
+      if (timeDiffMinutes > 60) {
+        this.logger.error('Appointment is too early in video');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+      }
 
-    if (timeDiffMinutes < -30) {
-      this.logger.error('Appointment is too late in video');
-      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-    }
+      if (timeDiffMinutes < -30) {
+        this.logger.error('Appointment is too late in video');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+      }
 
-    await this.appointmentRepository.update(id, {
-      status: AppointmentStatusEnum.CHECKED_IN,
-      checkInTime: new Date(),
+      // Calculate queueNumber (tương tự logic checkIn chung)
+      const maxQueueResult = await manager
+        .createQueryBuilder(Appointment, 'apt')
+        .select('MAX(apt.queueNumber)', 'maxQueue')
+        .where('apt.doctorId = :doctorId', {
+          doctorId: appointment.doctorId,
+        })
+        .andWhere('apt.scheduledAt BETWEEN :start AND :end', {
+          start: startOfDayVN(vnNow()),
+          end: endOfDayVN(vnNow()),
+        })
+        .andWhere('apt.queueNumber IS NOT NULL')
+        .setLock('pessimistic_write')
+        .getRawOne<{ maxQueue: string | null }>();
+
+      const newQueueNumber = Number(maxQueueResult?.maxQueue ?? 0) + 1;
+
+      appointment.status = AppointmentStatusEnum.CHECKED_IN;
+      appointment.checkInTime = new Date();
+      appointment.queueNumber = newQueueNumber;
+
+      await manager.save(appointment);
+
+      this.logger.log(
+        `VIDEO appointment ${id} checked in, queue #${newQueueNumber}`,
+      );
+
+      return this.appointmentReadService.findById(id);
     });
-
-    this.logger.log(`VIDEO appointment ${id} checked in`);
-
-    return this.appointmentReadService.findById(id);
   }
 
   async startExamination(
@@ -303,21 +336,12 @@ export class AppointmentCheckinService {
       }
     }
 
-    // Fire-and-forget PDF generation — don't block the response
-    setImmediate(async () => {
-      try {
-        // // 1. Medical record PDF
-        // await this.pdfService.generateAndSaveMedicalRecordPdf(result.recordId);
-
-        // 2. Prescription PDFs
-        const record = await this.medicalService.findById(result.recordId); // hoặc repo
-
-        for (const p of record.prescriptions ?? []) {
-          await this.pdfService.generateAndSavePrescriptionPdf(p.id);
-        }
-      } catch (err) {
-        this.logger.error('PDF generation failed', err);
-      }
+    // Gửi ngầm việc generate PDF, không block response
+    // BUG-09: Thêm cơ chế retry vì PDF generation có thể fail do network/puppeteer
+    void this.generatePdfWithRetry(result.recordId).catch((err) => {
+      this.logger.error(
+        `Final PDF generation failed after retries for record ${result.recordId}: ${err.message}`,
+      );
     });
 
     const appt = await this.appointmentReadService.findById(id);
@@ -335,5 +359,41 @@ export class AppointmentCheckinService {
     }
 
     return appt;
+  }
+
+  private async generatePdfWithRetry(
+    recordId: string,
+    retries = 3,
+    delay = 1000, // 1 second
+  ): Promise<void> {
+    for (let i = 0; i < retries; i++) {
+      try {
+        this.logger.log(
+          `Attempt ${i + 1} to generate PDFs for record ${recordId}`,
+        );
+
+        // 1. Medical record PDF
+        await this.pdfService.generateAndSaveMedicalRecordPdf(recordId);
+
+        // 2. Prescription PDFs
+        const record = await this.medicalService.findById(recordId);
+
+        for (const p of record.prescriptions ?? []) {
+          await this.pdfService.generateAndSavePrescriptionPdf(p.id);
+        }
+
+        this.logger.log(`Successfully generated PDFs for record ${recordId}`);
+        return;
+      } catch (error: any) {
+        const isLastRetry = i === retries - 1;
+        this.logger.warn(
+          `PDF generation attempt ${i + 1} failed for ${recordId}: ${error.message}. ` +
+            (isLastRetry ? 'Giving up.' : `Retrying in ${delay}ms...`),
+        );
+        if (isLastRetry) throw error;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        delay *= 2; // Exponential backoff
+      }
+    }
   }
 }

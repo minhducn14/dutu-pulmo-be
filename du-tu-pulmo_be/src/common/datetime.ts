@@ -93,6 +93,10 @@ export function formatDateVN(date: Date): string {
 }
 /**
  * Trả về số phút kể từ 00:00 theo giờ Việt Nam.
+ *
+ * Dùng thay thế cho date.getHours() / date.getMinutes() trên server chạy UTC,
+ * vì getHours() trả giờ UTC không phải giờ VN.
+ *
  * Ví dụ: 08:30 VN (01:30 UTC) → 510
  * Ví dụ: 00:30 VN (17:30 UTC hôm trước) → 30
  */
