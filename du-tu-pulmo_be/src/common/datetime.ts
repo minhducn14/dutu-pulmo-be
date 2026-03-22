@@ -92,6 +92,16 @@ export function formatDateVN(date: Date): string {
   return formatInTimeZone(date, VN_TZ, 'yyyy-MM-dd');
 }
 /**
+ * Trả về số phút kể từ 00:00 theo giờ Việt Nam.
+ * Ví dụ: 08:30 VN (01:30 UTC) → 510
+ * Ví dụ: 00:30 VN (17:30 UTC hôm trước) → 30
+ */
+export function getTimeMinutesVN(date: Date): number {
+  const vn = toZonedTime(date, VN_TZ);
+  return vn.getHours() * 60 + vn.getMinutes();
+}
+
+/**
  * Returns the start of the 1st day of the next month in VN timezone.
  */
 export function startOfNextMonthVN(base: Date = vnNow()): Date {

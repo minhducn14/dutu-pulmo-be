@@ -130,6 +130,7 @@ export class DoctorScheduleTimeOffService {
       });
 
       const conflicting = appointments.filter((apt) => {
+        if (!apt.timeSlot?.schedule?.slotDuration) return false;
         const aptEnd = new Date(
           apt.scheduledAt.getTime() +
             apt.timeSlot.schedule.slotDuration * 60 * 1000,
@@ -195,7 +196,9 @@ export class DoctorScheduleTimeOffService {
     if (result.cancelledAppointments.length > 0) {
       this.notificationService
         .notifyCancelledAppointments(result.cancelledAppointments, 'TIME_OFF')
-        .catch((err) => this.logger.error('Failed to send notifications:', err));
+        .catch((err) =>
+          this.logger.error('Failed to send notifications:', err),
+        );
     }
 
     const message =
@@ -464,7 +467,9 @@ export class DoctorScheduleTimeOffService {
     if (result.cancelledAppointments.length > 0) {
       this.notificationService
         .notifyCancelledAppointments(result.cancelledAppointments, 'TIME_OFF')
-        .catch((err) => this.logger.error('Failed to send notifications:', err));
+        .catch((err) =>
+          this.logger.error('Failed to send notifications:', err),
+        );
     }
 
     let message = `Cập nhật lịch nghỉ thành công.`;

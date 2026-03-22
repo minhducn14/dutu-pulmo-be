@@ -306,7 +306,7 @@ export class AppointmentVideoService {
 
     try {
       const tokenData = await this.dailyService.createMeetingToken(
-        roomName!,
+        roomName,
         userId,
         userName,
         isDoctor,

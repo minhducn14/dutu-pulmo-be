@@ -37,6 +37,8 @@ import {
   startOfDayVN,
   vnNow,
   getDayVN,
+  formatDateVN,
+  getTimeMinutesVN,
 } from '@/common/datetime';
 
 @Injectable()
@@ -346,12 +348,15 @@ export class DoctorScheduleRegularService {
   // ==================== UPDATE ====================
 
   async updateRegular(
+    doctorId: string,
     id: string,
     dto: UpdateDoctorScheduleDto,
   ): Promise<ResponseCommon<DoctorSchedule>> {
-    const existing = await this.scheduleRepository.findOne({ where: { id } });
+    const existing = await this.scheduleRepository.findOne({
+      where: { id, doctorId },
+    });
     if (!existing) {
-      this.logger.error('Schedule not found');
+      this.logger.error('Schedule not found or unauthorized');
       throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
@@ -416,7 +421,8 @@ export class DoctorScheduleRegularService {
       dto.startTime !== undefined ||
       dto.endTime !== undefined ||
       dto.slotDuration !== undefined ||
-      dto.slotCapacity !== undefined;
+      dto.slotCapacity !== undefined ||
+      dto.appointmentType !== undefined;
 
     if (timeChanged) {
       return this.updateRegularWithSlotSync(id, dto, existing);
@@ -424,38 +430,45 @@ export class DoctorScheduleRegularService {
 
     const updateData: Partial<DoctorSchedule> = {
       ...dto,
-      scheduleType: undefined,
       priority,
       isAvailable: newIsAvailable,
       minimumBookingTime:
         dto.minimumBookingDays !== undefined
           ? dto.minimumBookingDays * 24 * 60
-          : 0,
+          : existing.minimumBookingTime,
       consultationFee:
         dto.consultationFee !== undefined
           ? (dto.consultationFee?.toString() ?? null)
-          : undefined,
+          : existing.consultationFee,
       effectiveFrom:
         dto.effectiveFrom !== undefined
           ? dto.effectiveFrom
             ? new Date(dto.effectiveFrom)
             : null
-          : undefined,
+          : existing.effectiveFrom,
       effectiveUntil:
         dto.effectiveUntil !== undefined
           ? dto.effectiveUntil
             ? new Date(dto.effectiveUntil)
             : null
-          : undefined,
+          : existing.effectiveUntil,
     };
 
-    if ('minimumBookingDays' in updateData) {
-      delete (updateData as any).minimumBookingDays;
-    }
+    // Xóa các trường không nên update trực tiếp hoặc đã handle ở trên
+    const dataToUpdate = updateData as Record<string, unknown>;
+    delete dataToUpdate.id;
+    delete dataToUpdate.minimumBookingDays;
+    delete dataToUpdate.dayOfWeek;
+    delete dataToUpdate.startTime;
+    delete dataToUpdate.endTime;
+    delete dataToUpdate.slotDuration;
+    delete dataToUpdate.slotCapacity;
+    delete dataToUpdate.appointmentType;
 
-    Object.keys(updateData).forEach((key) => {
-      if (updateData[key as keyof typeof updateData] === undefined) {
-        delete updateData[key as keyof typeof updateData];
+    // Xóa undefined để không ghi đè bằng null không cần thiết
+    (Object.keys(updateData) as (keyof typeof updateData)[]).forEach((key) => {
+      if (updateData[key] === undefined) {
+        delete updateData[key];
       }
     });
 
@@ -608,7 +621,7 @@ export class DoctorScheduleRegularService {
             minimumBookingTime:
               updateData.minimumBookingDays !== undefined
                 ? updateData.minimumBookingDays * 24 * 60
-                : undefined,
+                : existing.minimumBookingTime,
             maxAdvanceBookingDays: updateData.maxAdvanceBookingDays,
             isAvailable: updateData.isAvailable,
             effectiveFrom:
@@ -810,7 +823,7 @@ export class DoctorScheduleRegularService {
 
         const deleteQuery = manager
           .createQueryBuilder()
-          .delete()
+          .softDelete()
           .from(TimeSlot)
           .where('scheduleId = :scheduleId', { scheduleId: id })
           .andWhere('startTime >= :tomorrow', { tomorrow })
@@ -821,9 +834,10 @@ export class DoctorScheduleRegularService {
           dto.dayOfWeek !== undefined &&
           dto.dayOfWeek !== existing.dayOfWeek
         ) {
-          deleteQuery.andWhere('EXTRACT(DOW FROM "startTime") = :dow', {
-            dow: existing.dayOfWeek,
-          });
+          deleteQuery.andWhere(
+            `EXTRACT(DOW FROM "startTime" AT TIME ZONE 'Asia/Ho_Chi_Minh') = :dow`,
+            { dow: existing.dayOfWeek },
+          );
         }
 
         await deleteQuery.execute();
@@ -838,26 +852,27 @@ export class DoctorScheduleRegularService {
           consultationFee:
             dto.consultationFee !== undefined
               ? (dto.consultationFee?.toString() ?? null)
-              : undefined,
-          discountPercent: dto.discountPercent,
+              : existing.consultationFee,
+          discountPercent: dto.discountPercent ?? existing.discountPercent,
           minimumBookingTime:
             dto.minimumBookingDays !== undefined
               ? dto.minimumBookingDays * 24 * 60
-              : undefined,
-          maxAdvanceBookingDays: dto.maxAdvanceBookingDays,
-          isAvailable: dto.isAvailable,
+              : existing.minimumBookingTime,
+          maxAdvanceBookingDays:
+            dto.maxAdvanceBookingDays ?? existing.maxAdvanceBookingDays,
+          isAvailable: dto.isAvailable ?? existing.isAvailable,
           effectiveFrom:
             dto.effectiveFrom !== undefined
               ? dto.effectiveFrom
                 ? new Date(dto.effectiveFrom)
                 : null
-              : undefined,
+              : existing.effectiveFrom,
           effectiveUntil:
             dto.effectiveUntil !== undefined
               ? dto.effectiveUntil
                 ? new Date(dto.effectiveUntil)
                 : null
-              : undefined,
+              : existing.effectiveUntil,
         });
 
         const updatedSchedule = await manager.findOne(DoctorSchedule, {
@@ -966,7 +981,9 @@ export class DoctorScheduleRegularService {
           result.cancelledAppointments,
           'SCHEDULE_CHANGE',
         )
-        .catch((err) => this.logger.error('Failed to send notifications:', err));
+        .catch((err) =>
+          this.logger.error('Failed to send notifications:', err),
+        );
     }
 
     let message = `Cập nhật lịch cố định thành công. Thay đổi áp dụng từ ngày ${tomorrow.toLocaleDateString(
@@ -988,15 +1005,20 @@ export class DoctorScheduleRegularService {
 
   // ==================== DELETE ====================
 
-  async deleteRegular(id: string): Promise<
+  async deleteRegular(
+    doctorId: string,
+    id: string,
+  ): Promise<
     ResponseCommon<{
       cancelledAppointments: number;
       deletedSlots: number;
     }>
   > {
-    const schedule = await this.scheduleRepository.findOne({ where: { id } });
+    const schedule = await this.scheduleRepository.findOne({
+      where: { id, doctorId },
+    });
     if (!schedule) {
-      this.logger.error('Schedule not found');
+      this.logger.error('Schedule not found or unauthorized');
       throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
@@ -1052,19 +1074,17 @@ export class DoctorScheduleRegularService {
         );
 
         const appointmentsToCancel = futureAppointments.filter((apt) => {
-          const aptDate = new Date(apt.scheduledAt);
+          const aptDate = apt.scheduledAt;
+          // BỎ QUA nếu ngày đó có FLEXIBLE
+          if (flexibleDateSet.has(formatDateVN(aptDate))) return false;
+          if (getDayVN(aptDate) !== schedule.dayOfWeek) return false;
 
-          // ✅ BỎ QUA nếu ngày đó có FLEXIBLE
-          const aptDateStr = aptDate.toISOString().split('T')[0];
-          if (flexibleDateSet.has(aptDateStr)) return false;
-
-          if (aptDate.getDay() !== schedule.dayOfWeek) return false;
           if (schedule.effectiveFrom && aptDate < schedule.effectiveFrom)
             return false;
           if (schedule.effectiveUntil && aptDate > schedule.effectiveUntil)
             return false;
 
-          const aptTime = aptDate.getHours() * 60 + aptDate.getMinutes();
+          const aptTime = getTimeMinutesVN(aptDate);
           const scheduleStartTime = scheduleStartH * 60 + scheduleStartM;
           const scheduleEndTime = scheduleEndH * 60 + scheduleEndM;
 
@@ -1108,7 +1128,9 @@ export class DoctorScheduleRegularService {
     if (result.appointmentsList.length > 0) {
       this.notificationService
         .notifyCancelledAppointments(result.appointmentsList, 'SCHEDULE_CHANGE')
-        .catch((err) => this.logger.error('Failed to send notifications:', err));
+        .catch((err) =>
+          this.logger.error('Failed to send notifications:', err),
+        );
     }
 
     let message = 'Xóa lịch làm việc cố định thành công.';

@@ -114,19 +114,23 @@ export class DoctorScheduleService {
   }
 
   updateRegular(
+    doctorId: string,
     id: string,
     dto: UpdateDoctorScheduleDto,
   ): Promise<ResponseCommon<DoctorSchedule>> {
-    return this.regularService.updateRegular(id, dto);
+    return this.regularService.updateRegular(doctorId, id, dto);
   }
 
-  deleteRegular(id: string): Promise<
+  deleteRegular(
+    doctorId: string,
+    id: string,
+  ): Promise<
     ResponseCommon<{
       cancelledAppointments: number;
       deletedSlots: number;
     }>
   > {
-    return this.regularService.deleteRegular(id);
+    return this.regularService.deleteRegular(doctorId, id);
   }
 
   findAvailableByDoctor(

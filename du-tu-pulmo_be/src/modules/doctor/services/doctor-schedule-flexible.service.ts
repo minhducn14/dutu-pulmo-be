@@ -138,7 +138,12 @@ export class DoctorScheduleFlexibleService {
       });
 
       const conflicting = appointments.filter((apt) => {
-        if (!apt.timeSlot?.schedule?.slotDuration) return false;
+        if (!apt.timeSlot?.schedule?.slotDuration) {
+          this.logger.warn(
+            `Appointment ${apt.id} has no slotDuration — treating as conflicting to be safe`,
+          );
+          return true;
+        }
         const aptEnd = new Date(
           apt.scheduledAt.getTime() +
             apt.timeSlot.schedule.slotDuration * 60 * 1000,
@@ -281,7 +286,11 @@ export class DoctorScheduleFlexibleService {
 
     const timeChanged =
       (dto.startTime && dto.startTime !== existing.startTime) ||
-      (dto.endTime && dto.endTime !== existing.endTime);
+      (dto.endTime && dto.endTime !== existing.endTime) ||
+      (dto.slotDuration !== undefined &&
+        dto.slotDuration !== existing.slotDuration) ||
+      (dto.slotCapacity !== undefined &&
+        dto.slotCapacity !== existing.slotCapacity);
 
     if (timeChanged) {
       return this.updateFlexibleScheduleWithSlotSync(id, dto, existing);
@@ -334,6 +343,7 @@ export class DoctorScheduleFlexibleService {
     );
 
     const result = await this.dataSource.transaction(async (manager) => {
+      // Xóa slot chưa có booking thuộc lịch này
       await manager
         .createQueryBuilder()
         .softDelete()
@@ -365,9 +375,14 @@ export class DoctorScheduleFlexibleService {
         ],
       });
 
-      // count appointments outside new range and MARK as conflict
+      // Tìm appointment nằm ngoài khung giờ mới
       const appointmentsOutsideNewRange = appointments.filter((apt) => {
-        if (!apt.timeSlot?.schedule?.slotDuration) return false;
+        if (!apt.timeSlot?.schedule?.slotDuration) {
+          this.logger.warn(
+            `Appointment ${apt.id} has no slotDuration — treating as outside range to be safe`,
+          );
+          return true;
+        }
         const aptEnd = new Date(
           apt.scheduledAt.getTime() +
             apt.timeSlot.schedule.slotDuration * 60 * 1000,
@@ -379,13 +394,26 @@ export class DoctorScheduleFlexibleService {
         return !isCompletelyInside;
       });
 
-      // DO NOT cancel appointments automatically. Mark them as conflicted.
       for (const apt of appointmentsOutsideNewRange) {
-        apt.conflict = true;
-        apt.conflictReason = 'OUTSIDE_FLEXIBLE_SCHEDULE';
+        apt.status = AppointmentStatusEnum.CANCELLED;
+        apt.cancelledAt = new Date();
+        apt.cancellationReason = 'SCHEDULE_CHANGE';
+        apt.cancelledBy = 'SYSTEM';
+        apt.conflict = false;
+        apt.conflictReason = null;
         await manager.save(apt);
+
+        if (apt.timeSlotId) {
+          await manager
+            .createQueryBuilder()
+            .softDelete()
+            .from(TimeSlot)
+            .where('id = :id', { id: apt.timeSlotId })
+            .execute();
+        }
       }
 
+      // Xóa slot không có booking trong khoảng mới
       await manager
         .createQueryBuilder()
         .softDelete()
@@ -413,6 +441,7 @@ export class DoctorScheduleFlexibleService {
             ? (dto.consultationFee?.toString() ?? null)
             : existing.consultationFee,
         discountPercent: dto.discountPercent ?? existing.discountPercent,
+        // ✅ Fix BUG-01: fallback về existing.minimumBookingTime
         minimumBookingTime:
           dto.minimumBookingDays !== undefined
             ? dto.minimumBookingDays * 24 * 60
@@ -473,14 +502,25 @@ export class DoctorScheduleFlexibleService {
 
       return {
         schedule: updated!,
-        appointmentsOutsideCount: appointmentsOutsideNewRange.length,
+        cancelledAppointments: appointmentsOutsideNewRange,
         generatedSlots: slotEntities.length,
       };
     });
 
+    if (result.cancelledAppointments.length > 0) {
+      this.notificationService
+        .notifyCancelledAppointments(
+          result.cancelledAppointments,
+          'SCHEDULE_CHANGE',
+        )
+        .catch((err) =>
+          this.logger.error('Failed to send notifications:', err),
+        );
+    }
+
     let message = `Cập nhật lịch thành công.`;
-    if (result.appointmentsOutsideCount > 0) {
-      message += ` ⚠️ CÓ ${result.appointmentsOutsideCount} lịch hẹn nằm NGOÀI khung giờ mới. Vui lòng kiểm tra và xử lý.`;
+    if (result.cancelledAppointments.length > 0) {
+      message += ` ${result.cancelledAppointments.length} lịch hẹn nằm ngoài khung giờ mới đã bị hủy và bệnh nhân đã được thông báo.`;
     }
     message += ` Đã tạo ${result.generatedSlots} time slots mới.`;
 
@@ -549,7 +589,6 @@ export class DoctorScheduleFlexibleService {
         ],
       });
 
-      // 1. Find REGULAR schedules for this day for coverage check
       const regularSchedules = await manager.find(DoctorSchedule, {
         where: {
           doctorId: schedule.doctorId,
@@ -559,10 +598,14 @@ export class DoctorScheduleFlexibleService {
         },
       });
 
-      // 2. Count appointments that will be outside REGULAR range
       let appointmentsOutsideRegular = 0;
       for (const apt of dayAppointments) {
-        if (!apt.timeSlot?.schedule?.slotDuration) continue;
+        if (!apt.timeSlot?.schedule?.slotDuration) {
+          this.logger.warn(
+            `Appointment ${apt.id} has no slotDuration — skipping regular coverage check`,
+          );
+          continue;
+        }
         const aptEnd = new Date(
           apt.scheduledAt.getTime() +
             apt.timeSlot.schedule.slotDuration * 60 * 1000,

@@ -290,10 +290,11 @@ export class DoctorScheduleController {
     description: 'Lịch này không phải là lịch cố định (REGULAR)',
   })
   async updateRegularSchedule(
+    @Param('doctorId', ParseUUIDPipe) doctorId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateDoctorScheduleDto,
   ): Promise<ResponseCommon<DoctorScheduleResponseDto>> {
-    const result = await this.scheduleService.updateRegular(id, dto);
+    const result = await this.scheduleService.updateRegular(doctorId, id, dto);
     return new ResponseCommon(
       result.code,
       result.message,
@@ -319,8 +320,11 @@ export class DoctorScheduleController {
     status: HttpStatus.BAD_REQUEST,
     description: 'Lịch này không phải là lịch cố định (REGULAR)',
   })
-  deleteRegularSchedule(@Param('id', ParseUUIDPipe) id: string) {
-    return this.scheduleService.deleteRegular(id);
+  async deleteRegularSchedule(
+    @Param('doctorId', ParseUUIDPipe) doctorId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.scheduleService.deleteRegular(doctorId, id);
   }
 
   @Post('generate-slots')
