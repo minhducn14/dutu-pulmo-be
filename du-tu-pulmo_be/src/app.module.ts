@@ -46,9 +46,11 @@ import * as Joi from 'joi';
 import { LoggerMiddleware } from '@/common/middleware/logger.middleware';
 import { PushNotificationModule } from '@/modules/push-notification/push-notification.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRootAsync({
       useFactory: async () => (await AppDataSourcePromise).options,
     }),
