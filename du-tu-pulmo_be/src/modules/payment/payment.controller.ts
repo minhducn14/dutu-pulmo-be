@@ -165,26 +165,33 @@ export class PaymentController {
   }
 
   @Get('return')
-  @ApiOperation({ summary: 'Return URL sau khi thanh toán thành công' })
   async handleReturn(
+    @Query('code') code: string,
+    @Query('id') paymentLinkId: string,
+    @Query('cancel') cancel: string,
+    @Query('status') status: string,
     @Query('orderCode') orderCode: string,
     @Res() res: Response,
   ): Promise<void> {
     const frontendUrl =
       this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
 
-    // Sync payment status by orderCode (from PayOS callback)
     try {
       await this.paymentService.syncPaymentStatusByorderCode(orderCode);
     } catch {
       // Ignore errors, redirect anyway
     }
 
-    // Get appointmentId for the redirect
     const payment = await this.paymentService.getPaymentByorderCode(orderCode);
-    res.redirect(
-      `${frontendUrl}/payment/success?appointmentId=${payment.appointmentId}`,
-    );
+
+    const redirectUrl = new URL(`${frontendUrl}/payment/return`);
+    redirectUrl.searchParams.set('code', code ?? '');
+    redirectUrl.searchParams.set('id', paymentLinkId ?? '');
+    redirectUrl.searchParams.set('cancel', cancel ?? 'false');
+    redirectUrl.searchParams.set('status', status ?? '');
+    redirectUrl.searchParams.set('appointmentId', payment.appointmentId);
+
+    res.redirect(redirectUrl.toString());
   }
 
   @Get('cancel-callback')

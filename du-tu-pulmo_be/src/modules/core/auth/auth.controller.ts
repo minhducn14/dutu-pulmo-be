@@ -369,20 +369,17 @@ export class AuthController {
     const result = await this.authService.verifyEmailByOtp(dto.email, dto.otp);
 
     switch (result.status) {
-      case 'INVALID_OTP':
-      {
+      case 'INVALID_OTP': {
         this.logger.error('Invalid OTP');
         throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
 
-      case 'ALREADY_VERIFIED':
-      {
+      case 'ALREADY_VERIFIED': {
         this.logger.error('Email already verified');
         throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
 
-      case 'EXPIRED_OTP':
-      {
+      case 'EXPIRED_OTP': {
         this.logger.error('Expired OTP');
         throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
@@ -392,11 +389,10 @@ export class AuthController {
           message: 'Xác thực tài khoản thành công!',
         });
 
-      default:
-      {
+      default: {
         this.logger.error('Invalid OTP');
         throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-      }  
+      }
     }
   }
 
@@ -417,14 +413,12 @@ export class AuthController {
     const result = await this.authService.resendVerificationOtp(dto.email);
 
     switch (result.status) {
-      case 'ALREADY_VERIFIED':
-      {
+      case 'ALREADY_VERIFIED': {
         this.logger.error('Email already verified');
         throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
 
-      case 'RATE_LIMITED':
-      {
+      case 'RATE_LIMITED': {
         this.logger.error('Rate limited');
         throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }

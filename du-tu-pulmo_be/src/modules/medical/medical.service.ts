@@ -34,8 +34,13 @@ import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { MedicalRecordExaminationDto } from '@/modules/medical/dto/medical-record-examination.dto';
 import { PdfService } from '@/modules/pdf/pdf.service';
 import { validateTextFieldsPolicy as applyTextFieldsPolicy } from '@/common/utils/text-fields-policy.util';
+import { NotificationService } from '@/modules/notification/notification.service';
+import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.enum';
 
-const VALID_TRANSITIONS: Record<MedicalRecordStatusEnum, MedicalRecordStatusEnum[]> = {
+const VALID_TRANSITIONS: Record<
+  MedicalRecordStatusEnum,
+  MedicalRecordStatusEnum[]
+> = {
   [MedicalRecordStatusEnum.DRAFT]: [
     MedicalRecordStatusEnum.IN_PROGRESS,
     MedicalRecordStatusEnum.COMPLETED,
@@ -62,11 +67,34 @@ export class MedicalService {
     private readonly dataSource: DataSource,
     @Inject(forwardRef(() => PdfService))
     private readonly pdfService: PdfService,
+
+    private readonly notificationService: NotificationService,
   ) {}
 
   // ============================================================================
   // MEDICAL RECORDS
   // ============================================================================
+
+  async findById(id: string): Promise<MedicalRecord> {
+    const record = await this.recordRepository.findOne({
+      where: { id },
+      relations: [
+        'patient',
+        'patient.user',
+        'doctor',
+        'doctor.user',
+        'appointment',
+        'vitalSigns',
+        'prescriptions',
+        'prescriptions.items',
+        'prescriptions.items.medicine',
+      ],
+    });
+    if (!record) {
+      throw new NotFoundException(ERROR_MESSAGES.MEDICAL_RECORD_NOT_FOUND);
+    }
+    return record;
+  }
 
   /**
    * Find records by patient, optionally filtered by doctor
@@ -190,7 +218,11 @@ export class MedicalService {
     record.completedAt = new Date();
 
     const result = await this.recordRepository.save(record);
-    return new ResponseCommon(HttpStatus.OK, 'Bệnh án đã được hoàn tất', result);
+    return new ResponseCommon(
+      HttpStatus.OK,
+      'Bệnh án đã được hoàn tất',
+      result,
+    );
   }
 
   async reopenMedicalRecord(
@@ -310,7 +342,8 @@ export class MedicalService {
         data.followUpInstructions,
         data.progressNotes,
       ],
-      base64ErrorCode: ERROR_MESSAGES.MEDICAL_RECORD_BASE64_NOT_ALLOWED_IN_TEXT_FIELDS,
+      base64ErrorCode:
+        ERROR_MESSAGES.MEDICAL_RECORD_BASE64_NOT_ALLOWED_IN_TEXT_FIELDS,
       chiefComplaintErrorCode:
         ERROR_MESSAGES.MEDICAL_RECORD_CHIEF_COMPLAINT_PLAIN_TEXT_ONLY,
     });
@@ -1076,8 +1109,23 @@ export class MedicalService {
 
     await this.recordRepository.save(record);
 
-    // Dùng PdfService thật thay vì stub nội bộ
     await this.pdfService.generateAndSaveMedicalRecordPdf(recordId);
+
+    const recordWithPatient = await this.recordRepository.findOne({
+      where: { id: recordId },
+      relations: ['patient', 'patient.user'],
+    });
+    if (recordWithPatient?.patient?.user?.id) {
+      void this.notificationService.createNotification({
+        userId: recordWithPatient.patient.user.id,
+        type: NotificationTypeEnum.MEDICAL,
+        title: 'Bệnh án đã được ký số',
+        content:
+          'Hồ sơ bệnh án của bạn đã được bác sĩ ký số. PDF đã sẵn sàng để tải xuống.',
+        refId: recordId,
+        refType: 'MEDICAL_RECORD',
+      });
+    }
 
     return this.getMedicalRecordDetail(recordId, user);
   }

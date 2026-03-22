@@ -270,6 +270,13 @@ export class DoctorScheduleService {
     return this.slotService.generateSlotsForNextDay();
   }
 
+  generateSlotsForNextMonth(): Promise<{
+    doctorsProcessed: number;
+    slotsGenerated: number;
+  }> {
+    return this.slotService.generateSlotsForNextMonth();
+  }
+
   private async resolveEffectiveFee(
     scheduleId: string,
   ): Promise<ResponseCommon<{ scheduleId: string; fee: string | null }>> {

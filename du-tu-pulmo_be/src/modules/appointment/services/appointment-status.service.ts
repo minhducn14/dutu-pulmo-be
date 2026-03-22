@@ -16,6 +16,8 @@ import { CallStateService } from '@/modules/video_call/call-state.service';
 import { AppointmentReadService } from '@/modules/appointment/services/appointment-read.service';
 import { AppointmentEntityService } from '@/modules/appointment/services/appointment-entity.service';
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
+import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.enum';
+import { NotificationService } from '@/modules/notification/notification.service';
 
 @Injectable()
 export class AppointmentStatusService {
@@ -28,6 +30,7 @@ export class AppointmentStatusService {
     private readonly callStateService: CallStateService,
     private readonly appointmentReadService: AppointmentReadService,
     private readonly appointmentEntityService: AppointmentEntityService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async updateStatus(
@@ -168,6 +171,19 @@ export class AppointmentStatusService {
     this.logger.log(
       `Payment confirmed for appointment ${appointmentId}, paymentId: ${paymentId}`,
     );
+
+    const apptWithRelations =
+      await this.appointmentEntityService.findOne(appointmentId);
+    if (apptWithRelations?.patient?.user?.id) {
+      void this.notificationService.createNotification({
+        userId: apptWithRelations.patient.user.id,
+        type: NotificationTypeEnum.PAYMENT,
+        title: 'Thanh toán thành công',
+        content: `Lịch hẹn ${apptWithRelations.appointmentNumber} đã được xác nhận. Hẹn gặp bạn vào ${apptWithRelations.scheduledAt.toLocaleDateString('vi-VN')}.`,
+        refId: appointmentId,
+        refType: 'APPOINTMENT',
+      });
+    }
 
     return this.appointmentReadService.findById(appointmentId);
   }

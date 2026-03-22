@@ -13,7 +13,6 @@ import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.e
 import { NotificationStatusEnum } from '@/modules/common/enums/notification-status.enum';
 
 @Entity('notifications')
-@Unique('uk_notification_idempotency', ['userId', 'type', 'refId'])
 @Index('idx_notifications_user_status', ['userId', 'status'])
 @Index('idx_notifications_unread', ['userId', 'status'])
 export class Notification {

@@ -7,6 +7,11 @@ import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status
 import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
 import { DailyService } from '@/modules/video_call/daily.service';
 import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
+import { MedicalRecord } from '@/modules/medical/entities/medical-record.entity';
+import { MedicalRecordStatusEnum } from '@/modules/common/enums/medical-record-status.enum';
+import { startOfDayVN, vnNow } from '@/common/datetime';
+import { DataSource } from 'typeorm';
+import { AppointmentCheckinService } from '@/modules/appointment/services/appointment-checkin.service';
 
 @Injectable()
 export class AppointmentSchedulerService {
@@ -15,9 +20,10 @@ export class AppointmentSchedulerService {
   constructor(
     @InjectRepository(Appointment)
     private readonly appointmentRepository: Repository<Appointment>,
-    @InjectRepository(TimeSlot)
-    private readonly timeSlotRepository: Repository<TimeSlot>,
+    @InjectRepository(MedicalRecord)
     private readonly dailyService: DailyService,
+
+    private readonly appointmentCheckinService: AppointmentCheckinService,
   ) {}
 
   /**
@@ -54,10 +60,12 @@ export class AppointmentSchedulerService {
 
       for (const appointment of oldAppointments) {
         try {
-          await this.dailyService.deleteRoom(appointment.dailyCoChannel);
+          await this.dailyService.deleteRoom(appointment.dailyCoChannel!);
 
           await this.appointmentRepository.update(appointment.id, {
-            dailyCoChannel: undefined,
+            dailyCoChannel: null,
+            meetingUrl: null,
+            meetingRoomId: null,
           });
 
           this.logger.log(
@@ -191,4 +199,56 @@ export class AppointmentSchedulerService {
   //     this.logger.error(`❌ Error in sendReminders1h: ${error}`);
   //   }
   // }
+
+  /**
+   * Auto-complete appointments from previous days
+   * Runs every day at 00:00 VN time
+   */
+  @Cron('0 0 * * *', {
+    name: 'auto-complete-past-appointments',
+    timeZone: 'Asia/Ho_Chi_Minh',
+  })
+  async autoCompletePastAppointments() {
+    const startOfToday = startOfDayVN(vnNow());
+
+    try {
+      const pastAppointments = await this.appointmentRepository.find({
+        where: {
+          scheduledAt: LessThan(startOfToday),
+          status: In([
+            AppointmentStatusEnum.PENDING,
+            AppointmentStatusEnum.PENDING_PAYMENT,
+            AppointmentStatusEnum.CONFIRMED,
+            AppointmentStatusEnum.CHECKED_IN,
+            AppointmentStatusEnum.IN_PROGRESS,
+          ]),
+        },
+      });
+
+      if (pastAppointments.length === 0) {
+        return;
+      }
+
+      this.logger.log(
+        `🤖 Found ${pastAppointments.length} past appointments to auto-complete`,
+      );
+
+      for (const appointment of pastAppointments) {
+        try {
+          await this.appointmentCheckinService.completeExamination(
+            appointment.id,
+            {},
+          );
+
+          this.logger.log(`✅ Auto-completed appointment ${appointment.id}`);
+        } catch (error) {
+          this.logger.error(
+            `❌ Failed to auto-complete appointment ${appointment.id}: ${error}`,
+          );
+        }
+      }
+    } catch (error) {
+      this.logger.error(`❌ Error in autoCompletePastAppointments: ${error}`);
+    }
+  }
 }

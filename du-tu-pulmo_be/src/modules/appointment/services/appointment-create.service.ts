@@ -23,6 +23,8 @@ import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { ConsultationPricingService } from '@/modules/doctor/services/consultation-pricing.service';
 import { RichTextService } from '@/modules/appointment/services/rich-text.service';
 import { validateTextFieldsPolicy } from '@/common/utils/text-fields-policy.util';
+import { NotificationService } from '@/modules/notification/notification.service';
+import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.enum';
 
 @Injectable()
 export class AppointmentCreateService {
@@ -34,6 +36,7 @@ export class AppointmentCreateService {
     private readonly mapper: AppointmentMapperService,
     private readonly pricingService: ConsultationPricingService,
     private readonly richTextService: RichTextService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   private generateAppointmentNumber(): string {
@@ -190,6 +193,32 @@ export class AppointmentCreateService {
       });
 
       const saved = await manager.save(appointment);
+
+      // Thông báo cho Patient
+      void this.notificationService.createNotification({
+        userId: patient.userId,
+        type: NotificationTypeEnum.APPOINTMENT,
+        title: 'Đặt lịch thành công',
+        content: `Lịch hẹn ${saved.appointmentNumber} đã được đặt thành công. Vui lòng thanh toán để xác nhận.`,
+        refId: saved.id,
+        refType: 'APPOINTMENT',
+      });
+
+      // Thông báo cho Doctor — cần query doctor.userId
+      const doctorForNotification = await manager.findOne(Doctor, {
+        where: { id: saved.doctorId },
+        relations: ['user'],
+      });
+      if (doctorForNotification?.userId) {
+        void this.notificationService.createNotification({
+          userId: doctorForNotification.userId,
+          type: NotificationTypeEnum.APPOINTMENT,
+          title: 'Lịch hẹn mới',
+          content: `Có lịch hẹn mới ${saved.appointmentNumber} được đặt vào ${saved.scheduledAt.toLocaleDateString('vi-VN')}.`,
+          refId: saved.id,
+          refType: 'APPOINTMENT',
+        });
+      }
 
       await manager.increment(TimeSlot, { id: slot.id }, 'bookedCount', 1);
 

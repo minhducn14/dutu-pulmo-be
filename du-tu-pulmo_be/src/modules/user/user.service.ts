@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '@/modules/user/entities/user.entity';
@@ -12,6 +16,9 @@ import { UserQueryDto } from '@/modules/user/dto/user-query.dto';
 import { UserResponseDto } from '@/modules/user/dto/user-response.dto';
 import { CloudinaryService } from '@/modules/cloudinary';
 import { applyPaginationAndSort } from '@/common/utils/pagination.util';
+import { Account } from '@/modules/account/entities/account.entity';
+import { ChangePasswordDto } from '@/modules/user/dto/change-password.dto';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class UserService {
@@ -191,7 +198,9 @@ export class UserService {
       await this.userRepository.save(user);
     }
 
-    return new ResponseCommon(200, 'SUCCESS', { message: 'FCM Token added successfully' });
+    return new ResponseCommon(200, 'SUCCESS', {
+      message: 'FCM Token added successfully',
+    });
   }
 
   async removeFcmToken(userId: string, token: string): Promise<ResponseCommon> {
@@ -201,10 +210,54 @@ export class UserService {
     }
 
     if (user.fcmTokens && user.fcmTokens.includes(token)) {
-      user.fcmTokens = user.fcmTokens.filter(t => t !== token);
+      user.fcmTokens = user.fcmTokens.filter((t) => t !== token);
       await this.userRepository.save(user);
     }
 
-    return new ResponseCommon(200, 'SUCCESS', { message: 'FCM Token removed successfully' });
+    return new ResponseCommon(200, 'SUCCESS', {
+      message: 'FCM Token removed successfully',
+    });
+  }
+
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+  ): Promise<ResponseCommon> {
+    const account = await this.userRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.account', 'account')
+      .addSelect('account.password')
+      .where('user.id = :userId', { userId })
+      .getOne()
+      .then((u) => u?.account);
+
+    if (!account) {
+      throw new NotFoundException(ERROR_MESSAGES.ACCOUNT_NOT_FOUND);
+    }
+
+    const isPasswordMatching = await bcrypt.compare(
+      dto.oldPassword,
+      account.password,
+    );
+
+    if (!isPasswordMatching) {
+      throw new BadRequestException(
+        ERROR_MESSAGES.INVALID_OLD_PASSWORD ||
+          'Mật khẩu hiện tại không chính xác',
+      );
+    }
+
+    if (dto.newPassword !== dto.confirmPassword) {
+      throw new BadRequestException('Mật khẩu xác nhận không khớp');
+    }
+
+    const hashedPassword = await bcrypt.hash(dto.newPassword, 12);
+    await this.userRepository.manager.update(Account, account.id, {
+      password: hashedPassword,
+    });
+
+    return new ResponseCommon(200, 'SUCCESS', {
+      message: 'Đổi mật khẩu thành công',
+    });
   }
 }

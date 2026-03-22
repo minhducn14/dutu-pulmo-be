@@ -129,4 +129,3 @@ export class MedicineController {
     return this.medicineService.remove(id);
   }
 }
-

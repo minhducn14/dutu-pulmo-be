@@ -33,34 +33,32 @@ export class RevenueStatsDto {
   @ApiProperty({ description: 'Tổng doanh thu (VND)' })
   total: number;
 
-  @ApiProperty({ description: 'Số lượt khám hoàn thành' })
+  @ApiProperty({ description: 'Số lượt khám đã có payment' })
   visitCount: number;
 
   @ApiProperty({ description: 'Số đơn thuốc đã thanh toán' })
   prescriptions: number;
 
-  @ApiProperty({ description: 'Số chỉ định xét nghiệm đã thanh toán' })
+  @ApiProperty({ description: 'Số chỉ định xét nghiệm' })
   labTests: number;
 }
 
 export class AppointmentStatsDto {
-  @ApiProperty({ description: 'Số lượt khám tại phòng khám' })
+  @ApiProperty({ description: 'Lượt khám tại phòng khám' })
   inClinic: number;
 
-  @ApiProperty({ description: 'Số lượt khám trực tuyến (video)' })
+  @ApiProperty({ description: 'Lượt khám trực tuyến' })
   video: number;
 }
 
 export class PatientStatsDto {
-  @ApiProperty({ description: 'Tổng số bệnh nhân unique' })
+  @ApiProperty({ description: 'Tổng số bệnh nhân DISTINCT đã đến' })
   total: number;
 
-  @ApiProperty({
-    description: 'Số bệnh nhân mới (lần đầu khám với bác sĩ này)',
-  })
+  @ApiProperty({ description: 'Bệnh nhân mới (chưa từng COMPLETED trước kỳ)' })
   new: number;
 
-  @ApiProperty({ description: 'Số bệnh nhân cũ (đã từng khám trước đó)' })
+  @ApiProperty({ description: 'Bệnh nhân cũ (đã từng COMPLETED trước kỳ)' })
   returning: number;
 }
 
@@ -68,18 +66,26 @@ export class DailyBreakdownDto {
   @ApiProperty({ description: 'Ngày (YYYY-MM-DD)' })
   date: string;
 
-  @ApiProperty({ description: 'Số bệnh nhân mới' })
-  newPatients: number;
+  @ApiProperty({ description: 'Lượt khám của bệnh nhân MỚI' })
+  newVisits: number;
 
-  @ApiProperty({ description: 'Số bệnh nhân cũ' })
-  returningPatients: number;
+  @ApiProperty({ description: 'Lượt khám của bệnh nhân CŨ' })
+  returningVisits: number;
 
   @ApiProperty({ description: 'Tổng lượt khám trong ngày' })
-  visits: number;
+  totalVisits: number;
+
+  @ApiPropertyOptional({ description: '[Deprecated] Dùng newVisits thay thế' })
+  newPatients: number;
+
+  @ApiPropertyOptional({
+    description: '[Deprecated] Dùng returningVisits thay thế',
+  })
+  returningPatients: number;
 }
 
 export class ComparisonStatsDto {
-  @ApiProperty({ description: 'Thống kê kỳ trước' })
+  @ApiProperty({ description: 'Số liệu kỳ trước' })
   previousPeriod: {
     revenue: number;
     visitCount: number;

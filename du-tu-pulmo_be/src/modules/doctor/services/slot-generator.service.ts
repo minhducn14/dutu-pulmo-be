@@ -25,7 +25,7 @@ import {
 @Injectable()
 export class SlotGeneratorService {
   private readonly logger = new Logger(SlotGeneratorService.name);
-   constructor(
+  constructor(
     @Inject(forwardRef(() => DoctorScheduleService))
     private readonly scheduleService: DoctorScheduleService,
     @Inject(forwardRef(() => TimeSlotService))

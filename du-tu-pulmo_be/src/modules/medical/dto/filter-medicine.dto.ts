@@ -59,4 +59,3 @@ export class FilterMedicineQueryDto extends PaginationDto {
   @IsBoolean()
   isActive?: boolean;
 }
-

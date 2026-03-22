@@ -55,10 +55,16 @@ export class PaymentResponseDto {
   @ApiPropertyOptional({ description: 'Mã ngân hàng (BIN)', example: '970418' })
   bin?: string;
 
-  @ApiPropertyOptional({ description: 'Số tài khoản nhận', example: '19038765321011' })
+  @ApiPropertyOptional({
+    description: 'Số tài khoản nhận',
+    example: '19038765321011',
+  })
   accountNumber?: string;
 
-  @ApiPropertyOptional({ description: 'Tên chủ tài khoản', example: 'VU NGUYEN MINH DUC' })
+  @ApiPropertyOptional({
+    description: 'Tên chủ tài khoản',
+    example: 'VU NGUYEN MINH DUC',
+  })
   accountName?: string;
 
   @ApiProperty({

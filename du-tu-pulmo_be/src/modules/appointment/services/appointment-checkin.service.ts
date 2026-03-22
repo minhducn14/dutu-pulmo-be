@@ -21,6 +21,9 @@ import { AppointmentEntityService } from '@/modules/appointment/services/appoint
 import { CompleteExaminationDto } from '@/modules/appointment/dto/complete-examination.dto';
 import { endOfDayVN, startOfDayVN, vnNow } from '@/common/datetime';
 import { MedicalRecordStatusEnum } from '@/modules/common/enums/medical-record-status.enum';
+import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.enum';
+import { NotificationService } from '@/modules/notification/notification.service';
+import { PdfService } from '@/modules/pdf/pdf.service';
 
 @Injectable()
 export class AppointmentCheckinService {
@@ -35,6 +38,8 @@ export class AppointmentCheckinService {
     private readonly callStateService: CallStateService,
     private readonly appointmentReadService: AppointmentReadService,
     private readonly appointmentEntityService: AppointmentEntityService,
+    private readonly notificationService: NotificationService,
+    private readonly pdfService: PdfService,
   ) {}
 
   async checkIn(id: string): Promise<ResponseCommon<AppointmentResponseDto>> {
@@ -87,16 +92,18 @@ export class AppointmentCheckinService {
       return endOfDayVN(now);
     };
 
-    const lastCheckedInAppointmentInDay =
-      await this.appointmentRepository.findOne({
-        where: {
-          doctorId: appointment.doctorId,
-          status: AppointmentStatusEnum.CHECKED_IN,
-          scheduledAt: Between(startOfToday(), endOfToday()),
-        },
-        order: { checkInTime: 'DESC' },
-      });
-    const queueNumber = lastCheckedInAppointmentInDay?.queueNumber || 0;
+    const maxQueueResult = await this.appointmentRepository
+      .createQueryBuilder('apt')
+      .select('MAX(apt.queueNumber)', 'maxQueue')
+      .where('apt.doctorId = :doctorId', { doctorId: appointment.doctorId })
+      .andWhere('apt.scheduledAt BETWEEN :start AND :end', {
+        start: startOfToday(),
+        end: endOfToday(),
+      })
+      .andWhere('apt.queueNumber IS NOT NULL')
+      .getRawOne<{ maxQueue: string | null }>();
+
+    const queueNumber = Number(maxQueueResult?.maxQueue ?? 0);
 
     await this.appointmentRepository.update(id, {
       status: AppointmentStatusEnum.CHECKED_IN,
@@ -108,7 +115,22 @@ export class AppointmentCheckinService {
       `${appointment.appointmentType} appointment ${id} checked in at ${new Date().toISOString()}`,
     );
 
-    return this.appointmentReadService.findById(id);
+    const appt = await this.appointmentReadService.findById(id);
+    const data = appt.data!;
+
+    // Notify patient
+    if (data.patient?.user?.id) {
+      void this.notificationService.createNotification({
+        userId: data.patient.user.id,
+        type: NotificationTypeEnum.APPOINTMENT,
+        title: 'Check-in thành công',
+        content: `Bạn đã check-in lịch hẹn ${data.appointmentNumber}. Số thứ tự: ${data.queueNumber}. Vui lòng chờ được gọi.`,
+        refId: id,
+        refType: 'APPOINTMENT',
+      });
+    }
+
+    return appt;
   }
 
   /**
@@ -201,7 +223,21 @@ export class AppointmentCheckinService {
 
       this.logger.log(`Examination started for appointment ${id}`);
 
-      return this.appointmentReadService.findById(id);
+      const appt = await this.appointmentReadService.findById(id);
+      const data = appt.data!;
+
+      if (data.patient?.user?.id) {
+        void this.notificationService.createNotification({
+          userId: data.patient.user.id,
+          type: NotificationTypeEnum.APPOINTMENT,
+          title: 'Bác sĩ đang khám',
+          content: `Bác sĩ ${data.doctor?.fullName || ''} đã bắt đầu khám lịch hẹn ${data.appointmentNumber}.`,
+          refId: id,
+          refType: 'APPOINTMENT',
+        });
+      }
+
+      return appt;
     });
   }
 
@@ -277,7 +313,36 @@ export class AppointmentCheckinService {
     }
 
     // Fire-and-forget PDF generation — don't block the response
+    setImmediate(async () => {
+      try {
+        // 1. Medical record PDF
+        await this.pdfService.generateAndSaveMedicalRecordPdf(result.recordId);
 
-    return this.appointmentReadService.findById(id);
+        // 2. Prescription PDFs
+        const record = await this.medicalService.findById(result.recordId); // hoặc repo
+
+        for (const p of record.prescriptions ?? []) {
+          await this.pdfService.generateAndSavePrescriptionPdf(p.id);
+        }
+      } catch (err) {
+        this.logger.error('PDF generation failed', err);
+      }
+    });
+
+    const appt = await this.appointmentReadService.findById(id);
+    const data = appt.data!;
+
+    if (data.patient?.user?.id) {
+      void this.notificationService.createNotification({
+        userId: data.patient.user.id,
+        type: NotificationTypeEnum.APPOINTMENT,
+        title: 'Khám hoàn tất',
+        content: `Lịch hẹn ${data.appointmentNumber} đã hoàn thành. Bác sĩ đã ghi kết quả khám.`,
+        refId: id,
+        refType: 'APPOINTMENT',
+      });
+    }
+
+    return appt;
   }
 }

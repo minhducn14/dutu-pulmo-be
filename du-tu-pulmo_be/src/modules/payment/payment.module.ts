@@ -12,6 +12,7 @@ import { Patient } from '@/modules/patient/entities/patient.entity';
 import { Doctor } from '@/modules/doctor/entities/doctor.entity';
 import { User } from '@/modules/user/entities/user.entity';
 import { Account } from '@/modules/account/entities/account.entity';
+import { NotificationModule } from '@/modules/notification/notification.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { Account } from '@/modules/account/entities/account.entity';
       }),
       inject: [ConfigService],
     }),
+    NotificationModule,
   ],
   controllers: [PaymentController],
   providers: [PaymentService, PayosService, PaymentGateway],

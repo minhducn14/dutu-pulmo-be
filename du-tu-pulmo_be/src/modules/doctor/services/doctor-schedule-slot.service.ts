@@ -20,6 +20,8 @@ import {
   endOfDayVN,
   addDaysVN,
   getDayVN,
+  startOfNextMonthVN,
+  endOfNextMonthVN,
 } from '@/common/datetime';
 
 @Injectable()
@@ -174,6 +176,45 @@ export class DoctorScheduleSlotService {
         schedule,
         tomorrow,
         dayAfterTomorrow,
+      );
+      totalSlotsGenerated += slotsGenerated;
+    }
+
+    return {
+      doctorsProcessed: doctorIds.size,
+      slotsGenerated: totalSlotsGenerated,
+    };
+  }
+
+  async generateSlotsForNextMonth(): Promise<{
+    doctorsProcessed: number;
+    slotsGenerated: number;
+  }> {
+    const nextMonthStart = startOfNextMonthVN();
+    const nextMonthEnd = endOfNextMonthVN();
+
+    const activeSchedules = await this.scheduleRepository
+      .createQueryBuilder('s')
+      .where('s.scheduleType = :type', { type: ScheduleType.REGULAR })
+      .andWhere('s.isAvailable = true')
+      .andWhere('(s.effectiveFrom IS NULL OR s.effectiveFrom <= :end)', {
+        end: nextMonthEnd,
+      })
+      .andWhere('(s.effectiveUntil IS NULL OR s.effectiveUntil >= :start)', {
+        start: nextMonthStart,
+      })
+      .getMany();
+
+    let totalSlotsGenerated = 0;
+    const doctorIds = new Set<string>();
+
+    for (const schedule of activeSchedules) {
+      doctorIds.add(schedule.doctorId);
+
+      const slotsGenerated = await this.generateSlotsForSchedule(
+        schedule,
+        nextMonthStart,
+        nextMonthEnd,
       );
       totalSlotsGenerated += slotsGenerated;
     }

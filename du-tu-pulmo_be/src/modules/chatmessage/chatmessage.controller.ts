@@ -35,6 +35,8 @@ import { ChatRoomService } from '@/modules/chatroom/chatroom.service';
 import { ChatGateway } from '@/modules/chat/chat.gateway';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
+import { NotificationService } from '@/modules/notification/notification.service';
+import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.enum';
 
 @ApiTags('Chat')
 @Controller('chatmessages')
@@ -45,6 +47,7 @@ export class ChatMessageController {
     private readonly chatMessageService: ChatMessageService,
     private readonly chatRoomService: ChatRoomService,
     private readonly chatGateway: ChatGateway,
+    private readonly notificationService: NotificationService,
   ) {}
 
   @Post()
@@ -79,6 +82,26 @@ export class ChatMessageController {
 
     if (response.data) {
       this.chatGateway.emitMessageToRoom(createChatMessageDto.chatroomId, dto);
+      const chatRoomResult = await this.chatRoomService.findOne(
+        createChatMessageDto.chatroomId,
+      );
+      const room = chatRoomResult.data;
+
+      if (room) {
+        const receiverUserId =
+          room.user1?.id === user.userId ? room.user2?.id : room.user1?.id;
+
+        if (receiverUserId && !this.chatGateway.isUserOnline(receiverUserId)) {
+          void this.notificationService.createNotification({
+            userId: receiverUserId,
+            type: NotificationTypeEnum.CHAT,
+            title: `Tin nhắn mới từ ${user.fullName || user.email}`,
+            content: createChatMessageDto.content.substring(0, 100),
+            refId: createChatMessageDto.chatroomId,
+            refType: 'CHATROOM',
+          });
+        }
+      }
     }
 
     return new ResponseCommon(response.code, response.message, dto);

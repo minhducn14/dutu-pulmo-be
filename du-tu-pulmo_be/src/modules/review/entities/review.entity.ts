@@ -6,12 +6,14 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   JoinColumn,
+  Unique,
 } from 'typeorm';
 import { User } from '@/modules/user/entities/user.entity';
 import { Doctor } from '@/modules/doctor/entities/doctor.entity';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 
 @Entity('reviews')
+@Unique('uq_review_appointment', ['appointmentId', 'reviewerId'])
 export class Review {
   @PrimaryGeneratedColumn('uuid')
   id: string;

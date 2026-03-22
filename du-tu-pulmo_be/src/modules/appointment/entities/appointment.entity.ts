@@ -153,23 +153,38 @@ export class Appointment {
   // ========================================
   // VIDEO CALL FIELDS
   // ========================================
-  @Column({ name: 'meeting_room_id', length: 100, nullable: true })
-  meetingRoomId: string;
+  @Column({
+    name: 'meeting_room_id',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  meetingRoomId: string | null;
 
   @Column({ name: 'meeting_url', type: 'text', nullable: true })
-  meetingUrl: string;
+  meetingUrl: string | null;
 
-  @Column({ name: 'meeting_password', length: 50, nullable: true })
-  meetingPassword: string;
+  @Column({
+    name: 'meeting_password',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
+  meetingPassword: string | null;
 
   @Column({ name: 'daily_co_token', type: 'text', nullable: true })
-  dailyCoToken: string;
+  dailyCoToken: string | null;
 
-  @Column({ name: 'daily_co_channel', length: 100, nullable: true })
-  dailyCoChannel: string;
+  @Column({
+    name: 'daily_co_channel',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  dailyCoChannel: string | null;
 
   @Column({ name: 'daily_co_uid', type: 'integer', nullable: true })
-  dailyCoUid: number;
+  dailyCoUid: number | null;
 
   // ========================================
   // IN_CLINIC FIELDS
@@ -264,11 +279,24 @@ export class Appointment {
   @Column({ name: 'cancelled_by', length: 20, nullable: true })
   cancelledBy: string;
 
+  @Column({
+    name: 'cancelled_minutes_before_start',
+    type: 'integer',
+    nullable: true,
+  })
+  cancelledMinutesBeforeStart: number;
+
   // ========================================
   // RATING
   // ========================================
-  @Column({ name: 'patient_rating', type: 'integer', nullable: true })
-  patientRating: number;
+  @Column({
+    name: 'patient_rating',
+    type: 'decimal',
+    precision: 2,
+    scale: 1,
+    nullable: true,
+  })
+  patientRating: number | null;
 
   @CreateDateColumn({
     name: 'created_at',

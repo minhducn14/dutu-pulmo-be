@@ -21,17 +21,20 @@ import {
 } from '@nestjs/swagger';
 import { ReviewResponseDto } from '@/modules/review/dto/review-response.dto';
 import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
+import { Roles } from '@/common/decorators/roles.decorator';
 import { CurrentUser } from '@/common/decorators/user.decorator';
 import type { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
+import { RoleEnum } from '@/modules/common/enums/role.enum';
 import { ResponseCommon } from '@/common/dto/response.dto';
 
 @ApiTags('Reviews')
 @Controller('reviews')
-@ApiBearerAuth('JWT-auth')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class ReviewController {
   constructor(private readonly reviewService: ReviewService) {}
 
+  @ApiBearerAuth('JWT-auth')
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Tạo đánh giá bác sĩ mới' })
@@ -48,7 +51,10 @@ export class ReviewController {
     @Body() createReviewDto: CreateReviewDto,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<ReviewResponseDto>> {
-    const response = await this.reviewService.create(createReviewDto, user.userId);
+    const response = await this.reviewService.create(
+      createReviewDto,
+      user.userId,
+    );
     return new ResponseCommon(
       response.code,
       response.message,
@@ -111,6 +117,7 @@ export class ReviewController {
     );
   }
 
+  @ApiBearerAuth('JWT-auth')
   @Patch(':id')
   @ApiOperation({ summary: 'Cập nhật đánh giá' })
   @ApiResponse({ status: HttpStatus.OK, type: ReviewResponseDto })
@@ -131,7 +138,9 @@ export class ReviewController {
     );
   }
 
+  @ApiBearerAuth('JWT-auth')
   @Patch(':id/response')
+  @Roles(RoleEnum.DOCTOR)
   @ApiOperation({ summary: 'Bác sĩ phản hồi đánh giá' })
   @ApiResponse({ status: HttpStatus.OK, type: ReviewResponseDto })
   async respondToReview(
@@ -152,6 +161,7 @@ export class ReviewController {
     );
   }
 
+  @ApiBearerAuth('JWT-auth')
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Xóa đánh giá' })
@@ -164,5 +174,15 @@ export class ReviewController {
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<null>> {
     return this.reviewService.remove(id, user.userId);
+  }
+
+  @ApiBearerAuth('JWT-auth')
+  @Post('sync-to-appointments')
+  // @Roles(RoleEnum.ADMIN)
+  @ApiOperation({
+    summary: 'Đồng bộ rating từ Review sang Appointment (Dành cho dữ liệu cũ)',
+  })
+  async syncToAppointments() {
+    return this.reviewService.syncExistingReviewsToAppointments();
   }
 }

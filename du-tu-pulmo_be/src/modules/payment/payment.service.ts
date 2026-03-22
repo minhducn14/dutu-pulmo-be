@@ -17,6 +17,8 @@ import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { PaymentPurpose } from '@/modules/common/enums/payment-purpose.enum';
 import { PaymentGateway } from '@/modules/payment/payment.gateway';
+import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.enum';
+import { NotificationService } from '@/modules/notification/notification.service';
 
 export interface CreatePaymentDto {
   appointmentId: string;
@@ -64,6 +66,7 @@ export class PaymentService {
     private readonly configService: ConfigService,
     private readonly dataSource: DataSource,
     private readonly paymentGateway: PaymentGateway,
+    private readonly notificationService: NotificationService,
   ) {}
 
   /**
@@ -429,6 +432,20 @@ export class PaymentService {
           appointment.status = AppointmentStatusEnum.CONFIRMED;
           appointment.paidAmount = payment.amount;
           await manager.save(appointment);
+          const apptFull = await manager.findOne(Appointment, {
+            where: { id: appointment.id },
+            relations: ['patient', 'patient.user'],
+          });
+          if (apptFull?.patient?.user?.id) {
+            void this.notificationService.createNotification({
+              userId: apptFull.patient.user.id,
+              type: NotificationTypeEnum.PAYMENT,
+              title: 'Thanh toán thành công',
+              content: `Lịch hẹn ${apptFull.appointmentNumber} đã được thanh toán và xác nhận.`,
+              refId: appointment.id,
+              refType: 'APPOINTMENT',
+            });
+          }
 
           this.logger.log(`Updated appointment ${appointment.id} to CONFIRMED`);
         }
@@ -456,6 +473,21 @@ export class PaymentService {
     for (const payment of expiredPayments) {
       payment.status = PaymentStatus.EXPIRED;
       await this.paymentRepository.save(payment);
+      const apptFull = await this.appointmentRepository.findOne({
+        where: { id: payment.appointmentId },
+        relations: ['patient', 'patient.user'],
+      });
+      if (apptFull?.patient?.user?.id) {
+        void this.notificationService.createNotification({
+          userId: apptFull.patient.user.id,
+          type: NotificationTypeEnum.PAYMENT,
+          title: 'Thanh toán đã hết hạn',
+          content: `Link thanh toán lịch hẹn ${apptFull.appointmentNumber} đã hết hạn. Vui lòng tạo link mới.`,
+          refId: payment.appointmentId,
+          refType: 'APPOINTMENT',
+        });
+      }
+
       count++;
 
       this.logger.log(`Expired payment ${payment.id}`);

@@ -55,6 +55,8 @@ import {
   mapPrescriptionToDto,
   mapVitalSignToDto,
 } from '@/modules/appointment/mappers/appointment-medical.mapper';
+import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.enum';
+import { NotificationService } from '@/modules/notification/notification.service';
 
 @ApiTags('Appointment Actions')
 @Controller('appointments')
@@ -65,6 +67,7 @@ export class AppointmentActionController {
     private readonly appointmentService: AppointmentService,
     private readonly medicalService: MedicalService,
     private readonly accessService: AppointmentMedicalAccessService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   @Post()
@@ -353,7 +356,8 @@ export class AppointmentActionController {
     if (user.roles?.includes(RoleEnum.PATIENT)) cancelledBy = 'PATIENT';
     else if (user.roles?.includes(RoleEnum.DOCTOR)) cancelledBy = 'DOCTOR';
     else if (user.roles?.includes(RoleEnum.ADMIN)) cancelledBy = 'ADMIN';
-
+    else if (user.roles?.includes(RoleEnum.RECEPTIONIST))
+      cancelledBy = 'RECEPTIONIST';
     const response = await this.appointmentService.cancel(
       id,
       dto.reason,
@@ -626,6 +630,20 @@ export class AppointmentActionController {
     if (!prescription) {
       throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
+
+    const apptFull = await this.appointmentService.findOne(id);
+    if (apptFull) {
+      void this.notificationService.createNotification({
+        userId: apptFull.patient?.user?.id,
+        type: NotificationTypeEnum.MEDICAL,
+        title: 'Bác sĩ vừa kê đơn thuốc',
+        content:
+          'Đơn thuốc mới đã được kê. Vui lòng xem chi tiết trong hồ sơ bệnh án.',
+        refId: id,
+        refType: 'APPOINTMENT',
+      });
+    }
+
     return new ResponseCommon(
       response.code,
       response.message,

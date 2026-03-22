@@ -12,6 +12,7 @@ import { MedicalController } from '@/modules/medical/medical.controller';
 import { MedicineController } from '@/modules/medical/medicine.controller';
 import { ScreeningRequest } from '@/modules/screening/entities/screening-request.entity';
 import { PdfModule } from '@/modules/pdf/pdf.module';
+import { NotificationModule } from '@/modules/notification/notification.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { PdfModule } from '@/modules/pdf/pdf.module';
     ]),
     forwardRef(() => AppointmentModule),
     forwardRef(() => PdfModule),
+    NotificationModule,
   ],
   controllers: [MedicalController, MedicineController],
   providers: [MedicalService, MedicineService],

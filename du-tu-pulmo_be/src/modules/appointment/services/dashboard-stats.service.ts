@@ -26,21 +26,24 @@ import {
   formatDateVN,
 } from '@/common/datetime';
 
-const PERIOD_DAYS = {
-  LAST_7_DAYS: 7,
-  LAST_30_DAYS: 30,
-} as const;
+// ============================================================
+// CONSTANTS — các status được coi là "đã đến khám"
+// ============================================================
+const VISITED_STATUSES = [
+  AppointmentStatusEnum.CHECKED_IN,
+  AppointmentStatusEnum.IN_PROGRESS,
+  AppointmentStatusEnum.COMPLETED,
+  AppointmentStatusEnum.CONFIRMED,
+];
 
+// ============================================================
+// Types nội bộ — chỉ dùng trong service này
+// ============================================================
 interface PeriodDates {
   currentStart: Date;
   currentEnd: Date;
   prevStart: Date;
   prevEnd: Date;
-}
-
-interface PatientFirstVisit {
-  patientId: string;
-  firstVisit: Date;
 }
 
 interface RevenueStatsRaw {
@@ -59,15 +62,16 @@ interface PatientIdRaw {
   patientId: string;
 }
 
-interface PatientFirstVisitRaw {
-  patientId: string;
-  firstVisit: string | Date;
-}
-
+// Raw row từ getDailyBreakdown query
 interface DailyAppointmentRaw {
   date: string;
   patientId: string;
 }
+
+const PERIOD_DAYS = {
+  LAST_7_DAYS: 7,
+  LAST_30_DAYS: 30,
+} as const;
 
 @Injectable()
 export class DashboardStatsService {
@@ -80,6 +84,9 @@ export class DashboardStatsService {
     private readonly paymentRepository: Repository<Payment>,
   ) {}
 
+  // ============================================================
+  // PUBLIC: Entry point duy nhất
+  // ============================================================
   async getStats(
     doctorId: string,
     period: DashboardPeriodEnum = DashboardPeriodEnum.TODAY,
@@ -132,9 +139,11 @@ export class DashboardStatsService {
     }
   }
 
+  // ============================================================
+  // PRIVATE: Tính khoảng thời gian kỳ hiện tại và kỳ trước
+  // ============================================================
   private calculatePeriodDates(period: DashboardPeriodEnum): PeriodDates {
     const now = vnNow();
-
     switch (period) {
       case DashboardPeriodEnum.TODAY:
         return this.calculateTodayPeriod(now);
@@ -148,15 +157,12 @@ export class DashboardStatsService {
   }
 
   private calculateTodayPeriod(now: Date): PeriodDates {
-    const currentStart = startOfDayVN(now);
-    const currentEnd = endOfDayVN(now);
-
     const yesterday = new Date(now);
     yesterday.setDate(yesterday.getDate() - 1);
 
     return {
-      currentStart,
-      currentEnd,
+      currentStart: startOfDayVN(now),
+      currentEnd: endOfDayVN(now),
       prevStart: startOfDayVN(yesterday),
       prevEnd: endOfDayVN(yesterday),
     };
@@ -176,6 +182,30 @@ export class DashboardStatsService {
     return { currentStart, currentEnd, prevStart, prevEnd };
   }
 
+  private async getReturningPatientIds(
+    doctorId: string,
+    patientIds: string[],
+    beforeDate: Date,
+  ): Promise<Set<string>> {
+    if (!patientIds.length) return new Set();
+
+    const rows = await this.appointmentRepository
+      .createQueryBuilder('a')
+      .select('DISTINCT a.patientId', 'patientId')
+      .where('a.doctorId = :doctorId', { doctorId })
+      .andWhere('a.status = :status', {
+        status: AppointmentStatusEnum.COMPLETED, // chỉ ca đã kết thúc
+      })
+      .andWhere('a.scheduledAt < :beforeDate', { beforeDate }) // TRƯỚC kỳ này
+      .andWhere('a.patientId IN (:...patientIds)', { patientIds })
+      .getRawMany<PatientIdRaw>();
+
+    return new Set(rows.map((r) => r.patientId));
+  }
+
+  // ============================================================
+  // PRIVATE: Thống kê doanh thu
+  // ============================================================
   private async getRevenueStats(
     doctorId: string,
     startDate: Date,
@@ -192,7 +222,7 @@ export class DashboardStatsService {
       ])
       .where('a.doctorId = :doctorId', { doctorId })
       .andWhere('p.status = :status', { status: PaymentStatus.PAID })
-      .andWhere('p.paidAt BETWEEN :startDate AND :endDate', {
+      .andWhere('a.scheduledAt BETWEEN :startDate AND :endDate', {
         startDate,
         endDate,
       })
@@ -206,6 +236,9 @@ export class DashboardStatsService {
     };
   }
 
+  // ============================================================
+  // PRIVATE: Thống kê lượt khám (IN_CLINIC vs VIDEO)
+  // ============================================================
   private async getAppointmentStats(
     doctorId: string,
     startDate: Date,
@@ -214,17 +247,15 @@ export class DashboardStatsService {
     const result = await this.appointmentRepository
       .createQueryBuilder('a')
       .select([
-        `COUNT(CASE WHEN a.appointmentType = '${AppointmentTypeEnum.IN_CLINIC}' THEN 1 END) as inClinic`,
-        `COUNT(CASE WHEN a.appointmentType = '${AppointmentTypeEnum.VIDEO}' THEN 1 END) as video`,
+        `COUNT(CASE WHEN a.appointmentType = '${AppointmentTypeEnum.IN_CLINIC}' THEN 1 END) as "inClinic"`,
+        `COUNT(CASE WHEN a.appointmentType = '${AppointmentTypeEnum.VIDEO}' THEN 1 END) as "video"`,
       ])
       .where('a.doctorId = :doctorId', { doctorId })
       .andWhere('a.scheduledAt BETWEEN :startDate AND :endDate', {
         startDate,
         endDate,
       })
-      .andWhere('a.status = :status', {
-        status: AppointmentStatusEnum.COMPLETED,
-      })
+      .andWhere('a.status IN (:...statuses)', { statuses: VISITED_STATUSES })
       .getRawOne<AppointmentStatsRaw>();
 
     return {
@@ -233,11 +264,15 @@ export class DashboardStatsService {
     };
   }
 
+  // ============================================================
+  // PRIVATE: Thống kê bệnh nhân mới / cũ
+  // ============================================================
   private async getPatientStats(
     doctorId: string,
     startDate: Date,
     endDate: Date,
   ): Promise<PatientStatsDto> {
+    // BƯỚC 1: Ai đã đến khám trong kỳ
     const patientsInPeriod = await this.appointmentRepository
       .createQueryBuilder('a')
       .select('DISTINCT a.patientId', 'patientId')
@@ -246,66 +281,31 @@ export class DashboardStatsService {
         startDate,
         endDate,
       })
-      .andWhere('a.status = :status', {
-        status: AppointmentStatusEnum.COMPLETED,
-      })
+      .andWhere('a.status IN (:...statuses)', { statuses: VISITED_STATUSES })
       .getRawMany<PatientIdRaw>();
 
-    if (patientsInPeriod.length === 0) {
+    if (!patientsInPeriod.length) {
       return { total: 0, new: 0, returning: 0 };
     }
 
     const patientIds = patientsInPeriod.map((p) => p.patientId);
-    const firstVisits = await this.getPatientFirstVisits(doctorId, patientIds);
 
-    const firstVisitMap = new Map(
-      firstVisits.map((fv) => [fv.patientId, fv.firstVisit]),
+    // BƯỚC 2: Ai trong số đó đã từng COMPLETED trước kỳ này?
+    const returningIds = await this.getReturningPatientIds(
+      doctorId,
+      patientIds,
+      startDate, // beforeDate = đầu kỳ
     );
 
-    let newCount = 0;
-    let returningCount = 0;
-
-    for (const patientId of patientIds) {
-      const firstVisit = firstVisitMap.get(patientId);
-
-      if (!firstVisit) {
-        newCount++;
-      } else if (firstVisit >= startDate && firstVisit <= endDate) {
-        newCount++;
-      } else {
-        returningCount++;
-      }
-    }
+    // BƯỚC 3: Tính
+    const returning = patientIds.filter((id) => returningIds.has(id)).length;
+    const newCount = patientIds.length - returning;
 
     return {
       total: patientIds.length,
       new: newCount,
-      returning: returningCount,
+      returning,
     };
-  }
-
-  private async getPatientFirstVisits(
-    doctorId: string,
-    patientIds: string[],
-  ): Promise<PatientFirstVisit[]> {
-    const results = await this.appointmentRepository
-      .createQueryBuilder('a')
-      .select([
-        'a.patientId as patientId',
-        'MIN(a.scheduledAt) as firstVisit',
-      ])
-      .where('a.doctorId = :doctorId', { doctorId })
-      .andWhere('a.status = :status', {
-        status: AppointmentStatusEnum.COMPLETED,
-      })
-      .andWhere('a.patientId IN (:...patientIds)', { patientIds })
-      .groupBy('a.patientId')
-      .getRawMany<PatientFirstVisitRaw>();
-
-    return results.map((r) => ({
-      patientId: r.patientId,
-      firstVisit: new Date(r.firstVisit),
-    }));
   }
 
   private async getDailyBreakdown(
@@ -313,7 +313,8 @@ export class DashboardStatsService {
     startDate: Date,
     endDate: Date,
   ): Promise<DailyBreakdownDto[]> {
-    const appointments = await this.appointmentRepository
+    // Lấy TẤT CẢ appointment đã đến trong kỳ
+    const rawAppointments = await this.appointmentRepository
       .createQueryBuilder('a')
       .select([
         "TO_CHAR(a.scheduledAt AT TIME ZONE 'Asia/Ho_Chi_Minh', 'YYYY-MM-DD') as date",
@@ -324,63 +325,68 @@ export class DashboardStatsService {
         startDate,
         endDate,
       })
-      .andWhere('a.status = :status', {
-        status: AppointmentStatusEnum.COMPLETED,
-      })
+      .andWhere('a.status IN (:...statuses)', { statuses: VISITED_STATUSES })
       .orderBy('date', 'ASC')
-      .getRawMany<DailyAppointmentRaw>();
+      .getRawMany<{ date: string; patientid: string }>();
 
-    if (appointments.length === 0) return [];
+    const appointments: DailyAppointmentRaw[] = rawAppointments.map((r) => ({
+      date: r.date,
+      patientId: r.patientid,
+    }));
 
-    const patientIds = [...new Set(appointments.map((a) => a.patientId))];
-    const firstVisits = await this.getPatientFirstVisits(doctorId, patientIds);
-    const firstVisitMap = new Map(
-      firstVisits.map((fv) => [fv.patientId, fv.firstVisit]),
+    if (!appointments.length) return [];
+
+    // Lấy tất cả patientId duy nhất trong kỳ
+    const allPatientIds = [...new Set(appointments.map((a) => a.patientId))];
+
+    // Ai trong số này đã từng COMPLETED trước kỳ? → returningIds
+    const returningIds = await this.getReturningPatientIds(
+      doctorId,
+      allPatientIds,
+      startDate,
     );
 
+    // Gom nhóm theo ngày — đếm lượt
     const dailyMap = new Map<
       string,
       {
-        visits: number;
-        newPatients: Set<string>;
-        returningPatients: Set<string>;
+        newVisits: number;
+        returningVisits: number;
       }
     >();
 
     for (const apt of appointments) {
-      const date = apt.date;
-      const patientId = apt.patientId;
+      const { date, patientId } = apt;
 
       if (!dailyMap.has(date)) {
-        dailyMap.set(date, {
-          visits: 0,
-          newPatients: new Set(),
-          returningPatients: new Set(),
-        });
+        dailyMap.set(date, { newVisits: 0, returningVisits: 0 });
       }
 
       const dayData = dailyMap.get(date)!;
-      dayData.visits++;
 
-      const firstVisit = firstVisitMap.get(patientId);
-
-      if (!firstVisit || formatDateVN(firstVisit) === date) {
-        dayData.newPatients.add(patientId);
+      // Phân loại từng lượt:
+      if (returningIds.has(patientId)) {
+        dayData.returningVisits += 1;
       } else {
-        dayData.returningPatients.add(patientId);
+        dayData.newVisits += 1;
       }
     }
 
     return Array.from(dailyMap.entries())
       .map(([date, data]) => ({
         date,
-        visits: data.visits,
-        newPatients: data.newPatients.size,
-        returningPatients: data.returningPatients.size,
+        newVisits: data.newVisits,
+        returningVisits: data.returningVisits,
+        totalVisits: data.newVisits + data.returningVisits,
+        newPatients: data.newVisits,
+        returningPatients: data.returningVisits,
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
   }
 
+  // ============================================================
+  // PRIVATE: Lấy số liệu kỳ trước để so sánh
+  // ============================================================
   private async getPreviousPeriodStats(
     doctorId: string,
     startDate: Date,
@@ -401,6 +407,9 @@ export class DashboardStatsService {
     };
   }
 
+  // ============================================================
+  // PRIVATE: Tính % thay đổi so với kỳ trước
+  // ============================================================
   private calculateComparison(
     current: {
       revenue: RevenueStatsDto;

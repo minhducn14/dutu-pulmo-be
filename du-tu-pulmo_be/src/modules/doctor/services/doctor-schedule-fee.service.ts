@@ -100,9 +100,10 @@ export class DoctorScheduleFeeService {
         baseFee,
         schedule.discountPercent,
       );
-      const finalFee = pricing.finalFee > 0
-        ? this.pricingService.toVndString(pricing.finalFee)
-        : null;
+      const finalFee =
+        pricing.finalFee > 0
+          ? this.pricingService.toVndString(pricing.finalFee)
+          : null;
       const savedAmount =
         pricing.baseFee > 0
           ? this.pricingService.toVndString(pricing.baseFee - pricing.finalFee)
@@ -139,6 +140,9 @@ export class DoctorScheduleFeeService {
       schedule.consultationFee,
       doctorDefaultFee,
     );
-    return this.pricingService.calculateFinalFee(baseFee, schedule.discountPercent);
+    return this.pricingService.calculateFinalFee(
+      baseFee,
+      schedule.discountPercent,
+    );
   }
 }

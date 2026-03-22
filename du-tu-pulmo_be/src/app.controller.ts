@@ -37,12 +37,12 @@ export class AppController {
           type: 'object',
           example: {
             screen: 'dashboard',
-            id: 123
-          }
-        }
+            id: 123,
+          },
+        },
       },
-      required: ['token']
-    }
+      required: ['token'],
+    },
   })
   @ApiResponse({
     status: 200,
@@ -50,9 +50,9 @@ export class AppController {
     schema: {
       example: {
         success: true,
-        message: 'Notification sent successfully'
-      }
-    }
+        message: 'Notification sent successfully',
+      },
+    },
   })
   async testNotification(
     @Body('token') token: string,
@@ -60,7 +60,6 @@ export class AppController {
     @Body('body') body: string,
     @Body('data') data?: any,
   ) {
-
     if (!token) {
       return { success: false, message: 'Token is required' };
     }
@@ -75,7 +74,7 @@ export class AppController {
       success: result,
       message: result
         ? 'Notification sent successfully'
-        : 'Failed to send notification'
+        : 'Failed to send notification',
     };
   }
 }

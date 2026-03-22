@@ -93,4 +93,3 @@ export class PublicDoctorController {
     return dto;
   }
 }
-

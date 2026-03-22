@@ -5,6 +5,6 @@ import { UserModule } from '@/modules/user/user.module';
 @Module({
   imports: [UserModule],
   providers: [PushNotificationService],
-  exports: [PushNotificationService]
+  exports: [PushNotificationService],
 })
 export class PushNotificationModule {}

@@ -6,9 +6,11 @@ import {
   UpdateDateColumn,
   JoinColumn,
   OneToOne,
+  OneToMany,
   BeforeInsert,
 } from 'typeorm';
 import { User } from '@/modules/user/entities/user.entity';
+import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 
 @Entity('patients')
 export class Patient {
@@ -71,6 +73,9 @@ export class Patient {
     default: () => 'CURRENT_TIMESTAMP',
   })
   updatedAt: Date;
+
+  @OneToMany(() => Appointment, (appointment) => appointment.patient)
+  appointments: Appointment[];
 
   @BeforeInsert()
   generateProfileCode() {

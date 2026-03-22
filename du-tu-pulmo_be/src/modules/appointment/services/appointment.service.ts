@@ -186,11 +186,15 @@ export class AppointmentService {
     );
   }
 
-  getVideoJoinInfo(appointment: {
-    status: AppointmentStatusEnum;
-    scheduledAt: Date;
-  }): VideoJoinInfo {
-    return this.appointmentVideoService.getVideoJoinInfo(appointment);
+  getVideoJoinInfo(
+    appointment: {
+      status: AppointmentStatusEnum;
+      scheduledAt: Date;
+      meetingUrl?: string;
+    },
+    isDoctor: boolean = false,
+  ): VideoJoinInfo {
+    return this.appointmentVideoService.getVideoJoinInfo(appointment, isDoctor);
   }
 
   getUserCallStatus(userId: string): Promise<{
@@ -202,6 +206,10 @@ export class AppointmentService {
     };
   }> {
     return this.appointmentVideoService.getUserCallStatus(userId);
+  }
+
+  getParticipantsInCall(appointmentId: string): Promise<string[]> {
+    return this.appointmentVideoService.getParticipantsInCall(appointmentId);
   }
 
   leaveCall(userId: string, appointmentId: string): Promise<void> {

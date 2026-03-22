@@ -219,30 +219,30 @@ export class AuthService {
       return await this.dataSource.transaction(async (manager) => {
         const accountRepo = manager.getRepository(Account);
 
-          const account = await accountRepo
-            .createQueryBuilder('acc')
-            .leftJoinAndSelect('acc.user', 'user')
-            .addSelect('acc.verificationToken')
-            .where('acc.verificationToken = :token', { token })
-            .getOne();
+        const account = await accountRepo
+          .createQueryBuilder('acc')
+          .leftJoinAndSelect('acc.user', 'user')
+          .addSelect('acc.verificationToken')
+          .where('acc.verificationToken = :token', { token })
+          .getOne();
 
-          if (!account) return { status: 'INVALID_TOKEN' };
+        if (!account) return { status: 'INVALID_TOKEN' };
 
-          if (account.isVerified) return { status: 'ALREADY_VERIFIED' };
+        if (account.isVerified) return { status: 'ALREADY_VERIFIED' };
 
-          if (
-            account.verificationExpiry &&
-            account.verificationExpiry < new Date()
-          ) {
-            return { status: 'EXPIRED_TOKEN', email: account.email };
-          }
+        if (
+          account.verificationExpiry &&
+          account.verificationExpiry < new Date()
+        ) {
+          return { status: 'EXPIRED_TOKEN', email: account.email };
+        }
 
-          // Update account
-          account.isVerified = true;
-          account.verificationToken = null;
-          account.verificationExpiry = null;
-          account.verifiedAt = new Date();
-          await accountRepo.save(account);
+        // Update account
+        account.isVerified = true;
+        account.verificationToken = null;
+        account.verificationExpiry = null;
+        account.verifiedAt = new Date();
+        await accountRepo.save(account);
 
         // Fire-and-forget welcome email (không làm fail transaction)
         this.emailService
@@ -251,9 +251,8 @@ export class AuthService {
             this.logger.error('Failed to send welcome email', err),
           );
 
-          return { status: 'SUCCESS' };
-        },
-      );
+        return { status: 'SUCCESS' };
+      });
     } catch (err) {
       this.logger.error('Email verification error', err);
       return { status: 'SERVER_ERROR' };
@@ -995,40 +994,39 @@ export class AuthService {
       return await this.dataSource.transaction(async (manager) => {
         const accountRepo = manager.getRepository(Account);
 
-          const account = await accountRepo.findOne({
-            where: { email: normalizedEmail },
-            relations: ['user'],
-          });
+        const account = await accountRepo.findOne({
+          where: { email: normalizedEmail },
+          relations: ['user'],
+        });
 
-          // Không lộ email tồn tại hay không => trả status để controller map message chung
-          if (!account) {
-            this.logger.debug(
-              `Resend verification attempted for non-existent email: ${normalizedEmail}`,
-            );
-            return { status: 'EMAIL_NOT_FOUND' };
-          }
-
-          if (account.isVerified) return { status: 'ALREADY_VERIFIED' };
-
-          // Generate new token
-          const verificationToken = crypto.randomBytes(32).toString('hex');
-          const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-          account.verificationToken = verificationToken;
-          account.verificationExpiry = verificationExpiry;
-
-          await accountRepo.save(account);
-
-          await this.emailService.resendVerificationEmail(
-            normalizedEmail,
-            verificationToken,
-            account.user?.fullName ?? '',
+        // Không lộ email tồn tại hay không => trả status để controller map message chung
+        if (!account) {
+          this.logger.debug(
+            `Resend verification attempted for non-existent email: ${normalizedEmail}`,
           );
+          return { status: 'EMAIL_NOT_FOUND' };
+        }
 
-          this.logger.log(`Verification email resent to: ${normalizedEmail}`);
-          return { status: 'SUCCESS' };
-        },
-      );
+        if (account.isVerified) return { status: 'ALREADY_VERIFIED' };
+
+        // Generate new token
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+        const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+        account.verificationToken = verificationToken;
+        account.verificationExpiry = verificationExpiry;
+
+        await accountRepo.save(account);
+
+        await this.emailService.resendVerificationEmail(
+          normalizedEmail,
+          verificationToken,
+          account.user?.fullName ?? '',
+        );
+
+        this.logger.log(`Verification email resent to: ${normalizedEmail}`);
+        return { status: 'SUCCESS' };
+      });
     } catch (err) {
       this.logger.error('Resend verification error', err);
       return { status: 'SERVER_ERROR' };
@@ -1209,8 +1207,8 @@ export class AuthService {
             );
             return new ResponseCommon(200, 'SUCCESS', {
               message: 'Email not found',
-          });
-        }
+            });
+          }
 
           if (!account.user) {
             this.logger.warn(
@@ -1221,23 +1219,23 @@ export class AuthService {
             });
           }
 
-        // Rate limiting: Check if OTP was sent recently (within 1 minute)
-        if (account.resetPasswordOtpExpiry) {
-          const now = new Date();
-          const timeSinceLastOtp =
-            now.getTime() - account.resetPasswordOtpExpiry.getTime();
-          const nineMinutes = 9 * 60 * 1000; // 9 phút
+          // Rate limiting: Check if OTP was sent recently (within 1 minute)
+          if (account.resetPasswordOtpExpiry) {
+            const now = new Date();
+            const timeSinceLastOtp =
+              now.getTime() - account.resetPasswordOtpExpiry.getTime();
+            const nineMinutes = 9 * 60 * 1000; // 9 phút
 
-          // Nếu OTP cũ còn hơn 1 phút (tức mới gửi trong vòng 1 phút)
-          if (timeSinceLastOtp < nineMinutes) {
-            this.logger.warn(
-              `Rate limit: Reset password OTP already sent recently for ${normalizedEmail}`,
-            );
-            return new ResponseCommon(200, 'SUCCESS', {
-              message: 'Rate limited',
-            });
+            // Nếu OTP cũ còn hơn 1 phút (tức mới gửi trong vòng 1 phút)
+            if (timeSinceLastOtp < nineMinutes) {
+              this.logger.warn(
+                `Rate limit: Reset password OTP already sent recently for ${normalizedEmail}`,
+              );
+              return new ResponseCommon(200, 'SUCCESS', {
+                message: 'Rate limited',
+              });
+            }
           }
-        }
 
           // Generate new OTP
           const resetPasswordOtp = this.generateOtp();
@@ -1254,12 +1252,13 @@ export class AuthService {
             account.user.fullName,
           );
 
-        this.logger.log(`Reset password OTP sent to: ${normalizedEmail}`);
-        return new ResponseCommon(200, 'SUCCESS', {
-          message:
-            'Nếu email tồn tại trong hệ thống, bạn sẽ nhận được link reset mật khẩu.',
-        });
-      });
+          this.logger.log(`Reset password OTP sent to: ${normalizedEmail}`);
+          return new ResponseCommon(200, 'SUCCESS', {
+            message:
+              'Nếu email tồn tại trong hệ thống, bạn sẽ nhận được link reset mật khẩu.',
+          });
+        },
+      );
     } catch (err) {
       this.logger.error('Send forgot password OTP error', err);
       return new ResponseCommon(500, 'SERVER_ERROR', {
@@ -1405,10 +1404,11 @@ export class AuthService {
             `Password reset successful via OTP for: ${this.maskEmail(account.email)}`,
           );
 
-        return new ResponseCommon(200, 'SUCCESS', {
-          message: 'Đặt lại mật khẩu thành công!',
-        });
-      });
+          return new ResponseCommon(200, 'SUCCESS', {
+            message: 'Đặt lại mật khẩu thành công!',
+          });
+        },
+      );
     } catch (err) {
       this.logger.error('Reset password with OTP error', err);
       if (err instanceof BadRequestException) {

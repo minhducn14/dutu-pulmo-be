@@ -28,6 +28,8 @@ import { DoctorModule } from '@/modules/doctor/doctor.module';
 import { PaymentModule } from '@/modules/payment/payment.module';
 import { CloudinaryModule } from '@/modules/cloudinary';
 import { RichTextService } from '@/modules/appointment/services/rich-text.service';
+import { NotificationModule } from '@/modules/notification/notification.module';
+import { PdfModule } from '../pdf/pdf.module';
 
 @Module({
   imports: [
@@ -35,6 +37,8 @@ import { RichTextService } from '@/modules/appointment/services/rich-text.servic
     DoctorModule,
     PaymentModule,
     CloudinaryModule,
+    NotificationModule,
+    PdfModule,
     forwardRef(() => VideoCallModule),
     forwardRef(() => MedicalModule),
   ],

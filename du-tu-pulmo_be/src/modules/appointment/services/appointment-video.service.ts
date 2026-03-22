@@ -18,10 +18,13 @@ import { AppointmentResponseDto } from '@/modules/appointment/dto/appointment-re
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { CHECKIN_TIME_THRESHOLDS } from '@/modules/appointment/appointment.constants';
+import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.enum';
+import { NotificationService } from '@/modules/notification/notification.service';
 
 type VideoJoinWindowInput = {
   status: AppointmentStatusEnum;
   scheduledAt: Date;
+  meetingUrl?: string | null;
 };
 
 export type VideoJoinInfo = {
@@ -50,9 +53,13 @@ export class AppointmentVideoService {
     private readonly callStateService: CallStateService,
     private readonly medicalService: MedicalService,
     private readonly appointmentReadService: AppointmentReadService,
+    private readonly notificationService: NotificationService,
   ) {}
 
-  getVideoJoinInfo(appointment: VideoJoinWindowInput): VideoJoinInfo {
+  getVideoJoinInfo(
+    appointment: VideoJoinWindowInput,
+    isDoctor: boolean = false,
+  ): VideoJoinInfo {
     const now = new Date();
     const scheduledTime = new Date(appointment.scheduledAt);
     const minutesUntilStart = Math.round(
@@ -67,19 +74,27 @@ export class AppointmentVideoService {
       appointment.status === AppointmentStatusEnum.IN_PROGRESS;
     const isValidState = VIDEO_JOIN_VALID_STATES.includes(appointment.status);
 
-    const canJoin = isValidState && (isInProgress || (!isEarly && !isLate));
+    // Bác sĩ luôn vào được nếu đúng trạng thái (bác sĩ tạo phòng)
+    // Bệnh nhân chỉ vào được nếu đã có phòng (bác sĩ đã vào trước)
+    const hasRoom = !!appointment.meetingUrl;
+    const canJoinTimeWindow = isInProgress || (!isEarly && !isLate);
 
-    const message = canJoin
-      ? 'Bạn có thể join video call'
-      : !isValidState
-        ? 'Không thể join ở trạng thái hiện tại'
-        : isEarly
-          ? `Chưa đến giờ join. Vui lòng quay lại sau ${
-              minutesUntilStart - CHECKIN_TIME_THRESHOLDS.VIDEO.EARLY_MINUTES
-            } phút`
-          : isLate
-            ? 'Cuộc gọi đã kết thúc'
-            : 'Không thể join ở trạng thái hiện tại';
+    let canJoin = isValidState && canJoinTimeWindow;
+    let message = 'Bạn có thể join video call';
+
+    if (!isDoctor && canJoin && !hasRoom) {
+      // Nếu là bệnh nhân, đúng giờ nhưng bác sĩ chưa vào tạo phòng
+      canJoin = false;
+      message = 'Bác sĩ đang chuẩn bị phòng. Vui lòng quay lại sau ít phút.';
+    } else if (!isValidState) {
+      message = 'Không thể join ở trạng thái hiện tại';
+    } else if (isEarly) {
+      message = `Chưa đến giờ join. Vui lòng quay lại sau ${
+        minutesUntilStart - CHECKIN_TIME_THRESHOLDS.VIDEO.EARLY_MINUTES
+      } phút`;
+    } else if (isLate) {
+      message = 'Cuộc gọi đã kết thúc';
+    }
 
     return { canJoin, minutesUntilStart, isEarly, isLate, message };
   }
@@ -195,6 +210,10 @@ export class AppointmentVideoService {
       }
     }
 
+    let patientUserIdToNotify: string | null = null;
+    let doctorUserIdToNotify: string | null = null;
+    let appointmentNumber: string | null = null;
+
     appointment = await this.dataSource.transaction(async (manager) => {
       const apt = await manager.findOne(Appointment, {
         where: { id: appointmentId },
@@ -205,6 +224,10 @@ export class AppointmentVideoService {
         this.logger.error('Appointment not found');
         throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
       }
+      const aptFull = await manager.findOne(Appointment, {
+        where: { id: appointmentId },
+        relations: ['patient', 'patient.user', 'doctor', 'doctor.user'],
+      });
 
       let statusChanged = false;
       let enteredInProgress = false;
@@ -240,6 +263,16 @@ export class AppointmentVideoService {
         await manager.save(apt);
       }
 
+      if (isDoctor && apt.status === AppointmentStatusEnum.IN_PROGRESS) {
+        patientUserIdToNotify = aptFull?.patient?.user?.id ?? null;
+        appointmentNumber = apt.appointmentNumber;
+      }
+
+      if (!isDoctor && apt.status === AppointmentStatusEnum.CHECKED_IN) {
+        doctorUserIdToNotify = aptFull?.doctor?.user?.id ?? null;
+        appointmentNumber = apt.appointmentNumber;
+      }
+
       if (enteredInProgress) {
         await this.medicalService.upsertEncounterInTx(manager, apt);
         this.logger.log(
@@ -249,9 +282,31 @@ export class AppointmentVideoService {
       return apt;
     });
 
+    if (patientUserIdToNotify && appointmentNumber) {
+      void this.notificationService.createNotification({
+        userId: patientUserIdToNotify,
+        type: NotificationTypeEnum.APPOINTMENT,
+        title: 'Bác sĩ đang chờ bạn trong phòng khám',
+        content: `Bác sĩ đã vào phòng. Vui lòng tham gia video call cho lịch hẹn ${appointmentNumber}.`,
+        refId: appointmentId,
+        refType: 'APPOINTMENT',
+      });
+    }
+
+    if (doctorUserIdToNotify && appointmentNumber) {
+      void this.notificationService.createNotification({
+        userId: doctorUserIdToNotify,
+        type: NotificationTypeEnum.APPOINTMENT,
+        title: 'Bệnh nhân đang chờ trong phòng khám',
+        content: `Bệnh nhân đã vào phòng. Vui lòng tham gia video call cho lịch hẹn ${appointmentNumber}.`,
+        refId: appointmentId,
+        refType: 'APPOINTMENT',
+      });
+    }
+
     try {
       const tokenData = await this.dailyService.createMeetingToken(
-        roomName,
+        roomName!,
         userId,
         userName,
         isDoctor,
@@ -268,7 +323,7 @@ export class AppointmentVideoService {
 
       return {
         token: tokenData.token,
-        url: roomUrl,
+        url: roomUrl!,
         appointment: appointmentData,
       };
     } catch (error) {
@@ -312,5 +367,9 @@ export class AppointmentVideoService {
     this.logger.log(
       `User ${userId} left call for appointment ${appointmentId}`,
     );
+  }
+
+  getParticipantsInCall(appointmentId: string): Promise<string[]> {
+    return this.callStateService.getUsersInCall(appointmentId);
   }
 }

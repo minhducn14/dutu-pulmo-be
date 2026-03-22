@@ -3,4 +3,6 @@ export enum NotificationTypeEnum {
   PAYMENT = 'PAYMENT',
   SYSTEM = 'SYSTEM',
   APPOINTMENT = 'APPOINTMENT',
+  CHAT = 'CHAT',
+  MEDICAL = 'MEDICAL',
 }

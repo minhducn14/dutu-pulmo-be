@@ -118,7 +118,7 @@ export class DailyService {
           name: roomName,
           privacy: 'private',
           properties: {
-            enable_chat: true,
+            enable_chat: false,
             enable_screenshare: true,
             start_video_off: false,
             start_audio_off: false,
@@ -180,8 +180,9 @@ export class DailyService {
       ),
     );
 
-    this.logger.log(`Created meeting token for user ${userId} in room ${roomName}`);
+    this.logger.log(
+      `Created meeting token for user ${userId} in room ${roomName}`,
+    );
     return response.data;
   }
-
 }

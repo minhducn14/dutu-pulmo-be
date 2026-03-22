@@ -1,4 +1,4 @@
-import { Injectable, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpStatus, NotFoundException } from '@nestjs/common';
 import { PaginatedResponseDto } from '@/common/dto/pagination.dto';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { CountryName } from '@/modules/common/enums/country.enum';
@@ -106,5 +106,24 @@ export class EnumService {
   ): ResponseCommon<PaginatedResponseDto<EnumItemDto>> {
     const data = this.getPaginatedDataRandom(OccupationName, paginationDto);
     return new ResponseCommon(HttpStatus.OK, 'SUCCESS', data);
+  }
+
+  getEthnicityByCode(code: string): ResponseCommon<EnumItemDto> {
+    const data = EthnicityName[code];
+    if (!data) {
+      throw new NotFoundException(`Ethnicity with code ${code} not found`);
+    }
+    return new ResponseCommon(HttpStatus.OK, 'SUCCESS', data);
+  }
+
+  getOccupationByCode(code: string): ResponseCommon<EnumItemDto> {
+    const data = OccupationName[code];
+    if (!data) {
+      throw new NotFoundException(`Occupation with code ${code} not found`);
+    }
+    return new ResponseCommon(HttpStatus.OK, 'SUCCESS', {
+      code,
+      name: data,
+    });
   }
 }

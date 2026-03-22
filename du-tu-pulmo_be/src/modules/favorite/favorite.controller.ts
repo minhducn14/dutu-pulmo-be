@@ -81,7 +81,10 @@ export class FavoriteController {
     @Param('doctorId') doctorId: string,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<FavoriteResponseDto | null>> {
-    const response = await this.favoriteService.findByDoctor(user.userId, doctorId);
+    const response = await this.favoriteService.findByDoctor(
+      user.userId,
+      doctorId,
+    );
     return new ResponseCommon(
       response.code,
       response.message,
@@ -126,7 +129,10 @@ export class FavoriteController {
   ): Promise<ResponseCommon<FavoriteResponseDto | null>> {
     const response = await this.favoriteService.findOne(id);
 
-    if (!user.roles?.includes('ADMIN') && response.data?.userId !== user.userId) {
+    if (
+      !user.roles?.includes('ADMIN') &&
+      response.data?.userId !== user.userId
+    ) {
       throw new ForbiddenException(ERROR_MESSAGES.FAVORITE_PERMISSION_DENIED);
     }
 
