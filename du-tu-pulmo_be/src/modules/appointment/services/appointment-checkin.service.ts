@@ -337,7 +337,6 @@ export class AppointmentCheckinService {
     }
 
     // Gửi ngầm việc generate PDF, không block response
-    // BUG-09: Thêm cơ chế retry vì PDF generation có thể fail do network/puppeteer
     void this.generatePdfWithRetry(result.recordId).catch((err) => {
       this.logger.error(
         `Final PDF generation failed after retries for record ${result.recordId}: ${err.message}`,

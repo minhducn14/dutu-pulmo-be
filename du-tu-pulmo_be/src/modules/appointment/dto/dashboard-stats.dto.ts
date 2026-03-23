@@ -55,10 +55,14 @@ export class PatientStatsDto {
   @ApiProperty({ description: 'Tổng số bệnh nhân DISTINCT đã đến' })
   total: number;
 
-  @ApiProperty({ description: 'Bệnh nhân mới (chưa từng COMPLETED trước kỳ)' })
+  @ApiProperty({
+    description: 'Bệnh nhân mới (chưa từng COMPLETED trước kỳ) — distinct',
+  })
   new: number;
 
-  @ApiProperty({ description: 'Bệnh nhân cũ (đã từng COMPLETED trước kỳ)' })
+  @ApiProperty({
+    description: 'Bệnh nhân cũ (đã từng COMPLETED trước kỳ) — distinct',
+  })
   returning: number;
 }
 
@@ -66,20 +70,31 @@ export class DailyBreakdownDto {
   @ApiProperty({ description: 'Ngày (YYYY-MM-DD)' })
   date: string;
 
-  @ApiProperty({ description: 'Lượt khám của bệnh nhân MỚI' })
+  @ApiProperty({ description: 'Số lượt khám của bệnh nhân MỚI trong ngày' })
   newVisits: number;
 
-  @ApiProperty({ description: 'Lượt khám của bệnh nhân CŨ' })
+  @ApiProperty({ description: 'Số lượt khám của bệnh nhân CŨ trong ngày' })
   returningVisits: number;
 
-  @ApiProperty({ description: 'Tổng lượt khám trong ngày' })
+  @ApiProperty({
+    description: 'Tổng lượt khám trong ngày (newVisits + returningVisits)',
+  })
   totalVisits: number;
 
-  @ApiPropertyOptional({ description: '[Deprecated] Dùng newVisits thay thế' })
+  @ApiProperty({
+    description: 'Alias của totalVisits — dành cho line chart FE',
+  })
+  visits: number;
+
+  @ApiProperty({
+    description:
+      'Số bệnh nhân MỚI DISTINCT trong ngày — nhất quán với PatientStatsDto.new',
+  })
   newPatients: number;
 
-  @ApiPropertyOptional({
-    description: '[Deprecated] Dùng returningVisits thay thế',
+  @ApiProperty({
+    description:
+      'Số bệnh nhân CŨ DISTINCT trong ngày — nhất quán với PatientStatsDto.returning',
   })
   returningPatients: number;
 }
