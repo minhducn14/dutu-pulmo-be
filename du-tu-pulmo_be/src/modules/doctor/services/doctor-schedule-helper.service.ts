@@ -11,7 +11,13 @@ import { CreateDoctorScheduleDto } from '@/modules/doctor/dto/create-doctor-sche
 import { UpdateDoctorScheduleDto } from '@/modules/doctor/dto/update-doctor-schedule.dto';
 import { SCHEDULE_TYPE_PRIORITY } from '@/modules/common/enums/schedule-type.enum';
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
-import { isSameDayVN } from '@/common/datetime';
+import {
+  isSameDayVN,
+  startOfDayVN,
+  vnNow,
+  getDayVN,
+  formatDateVN,
+} from '@/common/datetime';
 
 @Injectable()
 export class DoctorScheduleHelperService {
@@ -31,15 +37,15 @@ export class DoctorScheduleHelperService {
         );
         throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
-      if (dto.slotDuration < 5) {
+      if (dto.slotDuration < 10) {
         this.logger.error(
-          'Invalid slot duration. Slot duration must be at least 5 minutes',
+          'Invalid slot duration. Slot duration must be at least 10 minutes',
         );
         throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
-      if (dto.slotDuration > 480) {
+      if (dto.slotDuration > 120) {
         this.logger.error(
-          'Invalid slot duration. Slot duration must be at most 480 minutes',
+          'Invalid slot duration. Slot duration must be at most 120 minutes',
         );
         throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }

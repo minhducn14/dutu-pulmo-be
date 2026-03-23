@@ -30,6 +30,17 @@ export default tseslint.config(
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
       "prettier/prettier": ["error", { endOfLine: "auto" }],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "ThrowStatement > NewExpression[callee.name=/Exception$/] > Literal",
+          message: "Do not hardcode exception messages. Use constants from error-messages.constant.ts",
+        },
+        {
+          selector: "ThrowStatement > NewExpression[callee.name=/Exception$/] > TemplateLiteral",
+          message: "Do not hardcode exception messages. Use constants from error-messages.constant.ts",
+        }
+      ],
     },
   },
 );

@@ -99,10 +99,14 @@ export class ScreeningService {
       where: { id },
       relations: [
         'patient',
+        'patient.user',
         'uploadedByDoctor',
+        'uploadedByDoctor.user',
         'images',
         'aiAnalyses',
         'conclusions',
+        'conclusions.doctor',
+        'conclusions.doctor.user',
       ],
     });
     if (!screening)
@@ -219,9 +223,28 @@ export class ScreeningService {
     dto: CreateConclusionDto,
   ): Promise<ScreeningConclusion> {
     const screening = await this.findById(screeningId);
-
     const analyses = await this.findAiAnalysesByScreening(screeningId);
-    const latestAnalysis = analyses.length > 0 ? analyses[0] : null;
+    const latestAnalysis = analyses[0] ?? null;
+
+    // ── Business rules ──────────────────────────────────────────
+    // 1. AI_ONLY → bác sĩ không tự đọc, agreesWithAi phải là true
+    let agreesWithAi = dto.agreesWithAi;
+    if (dto.decisionSource === 'AI_ONLY') {
+      agreesWithAi = true;
+    }
+
+    // 2. DOCTOR_ONLY → không so với AI, agreesWithAi không có nghĩa
+    if (dto.decisionSource === 'DOCTOR_ONLY') {
+      agreesWithAi = undefined;
+    }
+
+    // 3. Nếu bác bỏ AI nhưng không có lý do → throw (double-check ngoài class-validator)
+    if (agreesWithAi === false && !dto.doctorOverrideReason?.trim()) {
+      throw new BadRequestException(
+        ERROR_MESSAGES.DOCTOR_OVERRIDE_REASON_REQUIRED,
+      );
+    }
+    // ────────────────────────────────────────────────────────────
 
     const conclusion = this.conclusionRepository.create({
       screeningId,
@@ -229,13 +252,15 @@ export class ScreeningService {
       patientId: screening.patientId,
       doctorId,
       medicalRecordId: screening.medicalRecordId,
-      agreesWithAi: dto.agreesWithAi,
+      agreesWithAi,
       decisionSource: dto.decisionSource,
       doctorOverrideReason: dto.doctorOverrideReason,
+      doctorNotes: dto.doctorNotes,
       reviewedAt: new Date(),
     });
 
     const saved = await this.conclusionRepository.save(conclusion);
+    saved.patient = screening.patient;
 
     if (
       screening.status !== ScreeningStatusEnum.DOCTOR_COMPLETED &&
@@ -254,7 +279,7 @@ export class ScreeningService {
     return this.conclusionRepository.find({
       where: { screeningId },
       order: { reviewedAt: 'DESC' },
-      relations: ['doctor'],
+      relations: ['doctor', 'patient', 'patient.user', 'doctor.user'],
     });
   }
 
@@ -302,6 +327,7 @@ export class ScreeningService {
     const qb = this.screeningRepository
       .createQueryBuilder('screening')
       .leftJoinAndSelect('screening.patient', 'patient')
+      .leftJoinAndSelect('patient.user', 'user')
       .leftJoinAndSelect('screening.images', 'images')
       .leftJoinAndSelect('screening.uploadedByDoctor', 'uploadedByDoctor')
       .where('screening.uploadedByDoctorId = :doctorId', { doctorId });

@@ -64,6 +64,11 @@ import { PdfModule } from '../pdf/pdf.module';
     AppointmentMapperService,
     DashboardStatsService,
   ],
-  exports: [AppointmentService, TypeOrmModule],
+  exports: [
+    AppointmentService,
+    AppointmentCheckinService,
+    AppointmentMedicalAccessService,
+    TypeOrmModule,
+  ],
 })
 export class AppointmentModule {}

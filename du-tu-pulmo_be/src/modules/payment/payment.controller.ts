@@ -159,7 +159,6 @@ export class PaymentController {
   async handleWebhook(
     @Body() webhookData: WebhookData,
   ): Promise<ResponseCommon<{ success: boolean }>> {
-    console.log('Webhook data:', webhookData);
     await this.paymentService.handleWebhook(webhookData);
     return new ResponseCommon(HttpStatus.OK, 'SUCCESS', { success: true });
   }

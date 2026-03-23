@@ -15,6 +15,8 @@ import {
 } from '@/modules/appointment/appointment.constants';
 import { AppointmentMapperService } from '@/modules/appointment/services/appointment-mapper.service';
 
+import { endOfDayVN, startOfDayVN, vnNow } from '@/common/datetime';
+
 @Injectable()
 export class AppointmentStatsService {
   constructor(
@@ -26,14 +28,9 @@ export class AppointmentStatsService {
   async getDoctorQueue(
     doctorId: string,
   ): Promise<ResponseCommon<DoctorQueueDto>> {
-    const now = new Date();
-    const startOfDay = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-    );
-    const endOfDay = new Date(startOfDay);
-    endOfDay.setDate(endOfDay.getDate() + 1);
+    const now = vnNow();
+    const startOfDay = startOfDayVN(now);
+    const endOfDay = endOfDayVN(now);
 
     const appointments = await this.appointmentRepository.find({
       where: {
@@ -47,9 +44,13 @@ export class AppointmentStatsService {
       },
       relations: APPOINTMENT_BASE_RELATIONS,
       order: {
+        status: 'ASC',
         queueNumber: 'ASC',
+        scheduledAt: 'ASC',
       },
     });
+
+    console.log(appointments.length);
 
     const inProgress = appointments.filter(
       (a) => a.status === AppointmentStatusEnum.IN_PROGRESS,
@@ -70,9 +71,8 @@ export class AppointmentStatsService {
           ? CHECKIN_TIME_THRESHOLDS.VIDEO.LATE_MINUTES
           : CHECKIN_TIME_THRESHOLDS.IN_CLINIC.LATE_MINUTES;
 
-      // skip late threshold validation
-      // return timeDiffMinutes >= -lateThreshold;
-      return true;
+      // restore late threshold validation
+      return timeDiffMinutes >= -lateThreshold;
     });
 
     const totalInQueue =
@@ -132,8 +132,8 @@ export class AppointmentStatsService {
       cancelled,
       pending,
       confirmed,
-      inProgress,
-      appointments,
+      inProgressCount,
+      [upcomingAppointments, upcomingCount],
     ] = await Promise.all([
       this.appointmentRepository.count({ where: whereConditions }),
       this.appointmentRepository.count({
@@ -160,10 +160,10 @@ export class AppointmentStatsService {
           status: AppointmentStatusEnum.IN_PROGRESS,
         },
       }),
-      this.appointmentRepository.find({
+      this.appointmentRepository.findAndCount({
         where: {
           doctorId,
-          scheduledAt: MoreThanOrEqual(new Date()),
+          scheduledAt: MoreThanOrEqual(vnNow()),
           status: In([
             AppointmentStatusEnum.CONFIRMED,
             AppointmentStatusEnum.PENDING,
@@ -176,14 +176,9 @@ export class AppointmentStatsService {
       }),
     ]);
 
-    const now = new Date();
-    const startOfToday = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-    );
-    const endOfToday = new Date(startOfToday);
-    endOfToday.setDate(endOfToday.getDate() + 1);
+    const now = vnNow();
+    const startOfToday = startOfDayVN(now);
+    const endOfToday = endOfDayVN(now);
 
     const todayTotal = await this.appointmentRepository.count({
       where: {
@@ -198,10 +193,12 @@ export class AppointmentStatsService {
       cancelledCount: cancelled,
       pendingCount: pending,
       confirmedCount: confirmed,
-      inProgressCount: inProgress,
-      upcomingCount: confirmed + pending,
+      inProgressCount: inProgressCount,
+      upcomingCount: upcomingCount,
       todayCount: todayTotal,
-      upcomingAppointments: appointments.map((a) => this.mapper.toDto(a)),
+      upcomingAppointments: upcomingAppointments.map((a) =>
+        this.mapper.toDto(a),
+      ),
     };
 
     return new ResponseCommon(200, 'SUCCESS', stats);

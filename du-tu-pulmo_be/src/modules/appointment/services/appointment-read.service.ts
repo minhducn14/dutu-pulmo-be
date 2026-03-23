@@ -18,6 +18,7 @@ import { AppointmentMapperService } from '@/modules/appointment/services/appoint
 
 import { MedicalRecord } from '@/modules/medical/entities/medical-record.entity';
 import { applyPaginationAndSort } from '@/common/utils/pagination.util';
+import { endOfDayVN, startOfDayVN } from '@/common/datetime';
 
 @Injectable()
 export class AppointmentReadService {
@@ -52,16 +53,16 @@ export class AppointmentReadService {
 
     if (query?.startDate && query?.endDate) {
       qb.andWhere('appointment.scheduledAt BETWEEN :startDate AND :endDate', {
-        startDate: new Date(query.startDate),
-        endDate: new Date(query.endDate),
+        startDate: startOfDayVN(new Date(query.startDate)),
+        endDate: endOfDayVN(new Date(query.endDate)),
       });
     } else if (query?.startDate) {
       qb.andWhere('appointment.scheduledAt >= :startDate', {
-        startDate: new Date(query.startDate),
+        startDate: startOfDayVN(new Date(query.startDate)),
       });
     } else if (query?.endDate) {
       qb.andWhere('appointment.scheduledAt <= :endDate', {
-        endDate: new Date(query.endDate),
+        endDate: endOfDayVN(new Date(query.endDate)),
       });
     }
 
@@ -150,15 +151,11 @@ export class AppointmentReadService {
       qb.andWhere('appointment.status = :status', { status: query.status });
     }
 
-    const startDate = query?.startDate ? new Date(query.startDate) : null;
-    const endDate = query?.endDate ? new Date(query.endDate) : null;
+    const startDate = query?.startDate
+      ? startOfDayVN(new Date(query.startDate))
+      : null;
+    const endDate = query?.endDate ? endOfDayVN(new Date(query.endDate)) : null;
 
-    if (startDate) {
-      startDate.setHours(0, 0, 0, 0);
-    }
-    if (endDate) {
-      endDate.setHours(23, 59, 59, 999);
-    }
     if (startDate && endDate) {
       qb.andWhere('appointment.scheduledAt BETWEEN :startDate AND :endDate', {
         startDate,
@@ -216,14 +213,11 @@ export class AppointmentReadService {
     if (query?.status) {
       qb.andWhere('appointment.status = :status', { status: query.status });
     }
-    const startDate = query?.startDate ? new Date(query.startDate) : null;
-    const endDate = query?.endDate ? new Date(query.endDate) : null;
-    if (startDate) {
-      startDate.setHours(0, 0, 0, 0);
-    }
-    if (endDate) {
-      endDate.setHours(23, 59, 59, 999);
-    }
+    const startDate = query?.startDate
+      ? startOfDayVN(new Date(query.startDate))
+      : null;
+    const endDate = query?.endDate ? endOfDayVN(new Date(query.endDate)) : null;
+
     if (startDate && endDate) {
       qb.andWhere('appointment.scheduledAt BETWEEN :startDate AND :endDate', {
         startDate,

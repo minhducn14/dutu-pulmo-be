@@ -1,4 +1,6 @@
-import { DataSource, MoreThan, Between } from 'typeorm';
+import { Between, DataSource, MoreThan } from 'typeorm';
+import { Logger } from '@nestjs/common';
+
 import * as bcrypt from 'bcryptjs';
 import { fakerVI as faker } from '@faker-js/faker';
 import * as path from 'path';
@@ -253,9 +255,10 @@ async function seed() {
     dropSchema: true, // Drop schema to ensure Enums are updated
   });
 
+  const logger = new Logger('Seed');
   try {
     await dataSource.initialize();
-    console.log('🔗 Kết nối database thành công');
+    logger.log('🔗 Kết nối database thành công');
 
     const doctorRepo = dataSource.getRepository(Doctor);
     const scheduleRepo = dataSource.getRepository(DoctorSchedule);
@@ -284,7 +287,7 @@ async function seed() {
     const reportRepo = dataSource.getRepository(Report);
 
     // ========== SEED HOSPITALS ==========
-    console.log('\n🏥 Seeding Hospitals...');
+    logger.log('\n🏥 Seeding Hospitals...');
     const hospitals = [
       {
         name: 'Bệnh viện Phổi Trung ương',
@@ -331,7 +334,7 @@ async function seed() {
       }
       createdHospitals.push(hospital);
     }
-    console.log(`   ✅ ${createdHospitals.length} Hospitals ready.`);
+    logger.log(`   ✅ ${createdHospitals.length} Hospitals ready.`);
 
     // ========== SEED ADMIN ==========
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@dutupulmo.vn';
@@ -357,9 +360,9 @@ async function seed() {
           userId: adminUser.id,
         }),
       );
-      console.log('   ✅ Admin account created.');
+      logger.log('   ✅ Admin account created.');
     } else {
-      console.log('   ℹ️ Admin account exists.');
+      logger.log('   ℹ️ Admin account exists.');
     }
 
     // ========== SEED RECEPTIONIST ==========
@@ -386,13 +389,13 @@ async function seed() {
           userId: receptionUser.id,
         }),
       );
-      console.log('   ✅ Reception account created.');
+      logger.log('   ✅ Reception account created.');
     } else {
-      console.log('   ℹ️ Reception account exists.');
+      logger.log('   ℹ️ Reception account exists.');
     }
 
     // ========== SEED MEDICINES ==========
-    console.log('\n💊 Seeding Medicines...');
+    logger.log('\n💊 Seeding Medicines...');
     const medicineData = [
       {
         name: 'Augmentin 1g',
@@ -672,10 +675,10 @@ async function seed() {
         createdMedicines.push(existing);
       }
     }
-    console.log(`   ✅ ${createdMedicines.length} Medicines ready.`);
+    logger.log(`   ✅ ${createdMedicines.length} Medicines ready.`);
 
     // ========== SEED DOCTORS (5 Specializations) ==========
-    console.log('\n👨‍⚕️ Seeding Doctors...');
+    logger.log('\n👨‍⚕️ Seeding Doctors...');
     const doctorSpecs = [
       {
         name: 'BS. Nguyễn Văn Minh',
@@ -779,10 +782,10 @@ async function seed() {
       }
       createdDoctors.push(doctor);
     }
-    console.log(`   ✅ ${createdDoctors.length} Doctors ready.`);
+    logger.log(`   ✅ ${createdDoctors.length} Doctors ready.`);
 
     // ========== SEED DOCTOR SCHEDULES (Recurring) ==========
-    console.log('\n📅 Seeding Schedules...');
+    logger.log('\n📅 Seeding Schedules...');
     for (const doctor of createdDoctors) {
       const existing = await scheduleRepo.count({
         where: { doctorId: doctor.id },
@@ -856,10 +859,10 @@ async function seed() {
         );
       }
     }
-    console.log('   ✅ Schedules & TimeOffs set.');
+    logger.log('   ✅ Schedules & TimeOffs set.');
 
     // ========== SEED PATIENTS (30) ==========
-    console.log('\n👤 Seeding Patients...');
+    logger.log('\n👤 Seeding Patients...');
     const createdPatients: Patient[] = [];
     const targetPatients = 30;
     const currentCount = await patientRepo.count();
@@ -921,10 +924,10 @@ async function seed() {
       createdPatients.push(patient);
     }
     const allPatients = await patientRepo.find();
-    console.log(`   ✅ ${allPatients.length} Patients ready.`);
+    logger.log(`   ✅ ${allPatients.length} Patients ready.`);
 
     // ========== SEED APPOINTMENTS (~100) ==========
-    console.log('\n📅 Seeding Appointments...');
+    logger.log('\n📅 Seeding Appointments...');
     const totalApps = 100;
     let appsCreated = 0;
     const completedRecords: {
@@ -1062,10 +1065,10 @@ async function seed() {
         }
       }
     }
-    console.log(`   ✅ ${appsCreated} Appointments & Medical Records created.`);
+    logger.log(`   ✅ ${appsCreated} Appointments & Medical Records created.`);
 
     // ========== GUARANTEED TEST DATA (For Queue Manager) ==========
-    console.log('\n🧪 Creating Guaranteed Test Appointment...');
+    logger.log('\n🧪 Creating Guaranteed Test Appointment...');
     if (createdDoctors.length > 0 && allPatients.length > 0) {
       const testDoctor = createdDoctors[0]; // Dr. Respiratory
       const testPatient = allPatients[0];
@@ -1086,7 +1089,7 @@ async function seed() {
           feeAmount: testDoctor.defaultConsultationFee || '0',
         }),
       );
-      console.log(
+      logger.log(
         `   ✅ Created TEST-QUEUE-01: CHECKED_IN for ${testDoctor.userId} (Dr. Respiratory)`,
       );
 
@@ -1106,7 +1109,7 @@ async function seed() {
           feeAmount: testDoctor.defaultConsultationFee || '0',
         }),
       );
-      console.log(
+      logger.log(
         `   ✅ Created TEST-VIDEO-01: CHECKED_IN (Video) for ${testDoctor.userId}`,
       );
 
@@ -1127,7 +1130,7 @@ async function seed() {
           feeAmount: testDoctor.defaultConsultationFee || '0',
         }),
       );
-      console.log(`   ✅ Created TEST-VIDEO-02: CONFIRMED (Video)`);
+      logger.log(`   ✅ Created TEST-VIDEO-02: CONFIRMED (Video)`);
 
       // TEST VIDEO 3: CHECKED_IN (Another ready one)
       const videoDate3 = new Date();
@@ -1146,11 +1149,11 @@ async function seed() {
           feeAmount: testDoctor.defaultConsultationFee || '0',
         }),
       );
-      console.log(`   ✅ Created TEST-VIDEO-03: CHECKED_IN (Video)`);
+      logger.log(`   ✅ Created TEST-VIDEO-03: CHECKED_IN (Video)`);
     }
 
     // ========== SEED VITAL SIGNS ==========
-    console.log('\n🩺 Seeding VitalSigns...');
+    logger.log('\n🩺 Seeding VitalSigns...');
     let vitalsCreated = 0;
     for (const { record, patient } of completedRecords) {
       await vitalSignRepo.save(
@@ -1172,10 +1175,10 @@ async function seed() {
       );
       vitalsCreated++;
     }
-    console.log(`   ✅ ${vitalsCreated} VitalSigns created.`);
+    logger.log(`   ✅ ${vitalsCreated} VitalSigns created.`);
 
     // ========== SEED SCREENING CHAIN (50% of completed records) ==========
-    console.log('\n🔬 Seeding Screening Requests + Images + AI Analysis...');
+    logger.log('\n🔬 Seeding Screening Requests + Images + AI Analysis...');
     let screeningsCreated = 0;
     const screeningRecords = completedRecords.filter(() => Math.random() < 0.5);
 
@@ -1259,10 +1262,10 @@ async function seed() {
 
       screeningsCreated++;
     }
-    console.log(`   ✅ ${screeningsCreated} Screening chains created.`);
+    logger.log(`   ✅ ${screeningsCreated} Screening chains created.`);
 
     // ========== SEED PAYMENTS ==========
-    console.log('\n💳 Seeding Payments...');
+    logger.log('\n💳 Seeding Payments...');
     let paymentsCreated = 0;
     for (let i = 0; i < paidAppointments.length; i++) {
       const { appointment, patient } = paidAppointments[i];
@@ -1284,10 +1287,10 @@ async function seed() {
       );
       paymentsCreated++;
     }
-    console.log(`   ✅ ${paymentsCreated} Payments created.`);
+    logger.log(`   ✅ ${paymentsCreated} Payments created.`);
 
     // ========== SEED REVIEWS (60% of completed) ==========
-    console.log('\n⭐ Seeding Reviews...');
+    logger.log('\n⭐ Seeding Reviews...');
     let reviewsCreated = 0;
     const reviewableRecords = completedRecords.filter(
       () => Math.random() < 0.6,
@@ -1309,10 +1312,10 @@ async function seed() {
       );
       reviewsCreated++;
     }
-    console.log(`   ✅ ${reviewsCreated} Reviews created.`);
+    logger.log(`   ✅ ${reviewsCreated} Reviews created.`);
 
     // ========== SEED FAVORITES ==========
-    console.log('\n❤️ Seeding Favorites...');
+    logger.log('\n❤️ Seeding Favorites...');
     const favPairs = new Set<string>();
     let favsCreated = 0;
     const targetFavs = Math.min(10, allPatients.length);
@@ -1343,10 +1346,10 @@ async function seed() {
       );
       favsCreated++;
     }
-    console.log(`   ✅ ${favsCreated} Favorites created.`);
+    logger.log(`   ✅ ${favsCreated} Favorites created.`);
 
     // ========== SEED CHATROOMS + MESSAGES ==========
-    console.log('\n💬 Seeding ChatRooms & Messages...');
+    logger.log('\n💬 Seeding ChatRooms & Messages...');
     let chatsCreated = 0;
     const chatPairs = Math.min(5, completedRecords.length);
     for (let i = 0; i < chatPairs; i++) {
@@ -1385,10 +1388,10 @@ async function seed() {
       }
       chatsCreated++;
     }
-    console.log(`   ✅ ${chatsCreated} ChatRooms with messages created.`);
+    logger.log(`   ✅ ${chatsCreated} ChatRooms with messages created.`);
 
     // ========== SEED NOTIFICATIONS ==========
-    console.log('\n🔔 Seeding Notifications...');
+    logger.log('\n🔔 Seeding Notifications...');
     let notifsCreated = 0;
 
     // Patient notifications
@@ -1431,10 +1434,10 @@ async function seed() {
       );
       notifsCreated++;
     }
-    console.log(`   ✅ ${notifsCreated} Notifications created.`);
+    logger.log(`   ✅ ${notifsCreated} Notifications created.`);
 
     // ========== SEED REPORTS (2 sample) ==========
-    console.log('\n🚨 Seeding Reports...');
+    logger.log('\n🚨 Seeding Reports...');
     if (allPatients.length > 0 && createdDoctors.length > 0) {
       await reportRepo.save(
         reportRepo.create({
@@ -1456,11 +1459,11 @@ async function seed() {
           }),
         );
       }
-      console.log('   ✅ 2 Reports created.');
+      logger.log('   ✅ 2 Reports created.');
     }
 
     // ========== GENERATE TIME SLOTS (60 Days) ==========
-    console.log('\n⏳ Generating TimeSlots (60 Days)...');
+    logger.log('\n⏳ Generating TimeSlots (60 Days)...');
     const startDate = startOfDayVN(vnNow());
     const futureDate = addDaysVN(startDate, 60);
 
@@ -1545,16 +1548,16 @@ async function seed() {
         iterDate.setDate(iterDate.getDate() + 1);
       }
     }
-    console.log(`   ✅ ${slotsGenerated} TimeSlots generated.`);
+    logger.log(`   ✅ ${slotsGenerated} TimeSlots generated.`);
 
-    console.log('\n🎉 Seed Completed Successfully!');
-    console.log('Admin: ' + adminEmail);
-    console.log('Doctors: 5 (e.g. general@dutupulmo.vn / Doctor@123)');
-    console.log('Patients: 30 (e.g. random emails / Patient@123)');
+    logger.log('\n🎉 Seed Completed Successfully!');
+    logger.log('Admin: ' + adminEmail);
+    logger.log('Doctors: 5 (e.g. general@dutupulmo.vn / Doctor@123)');
+    logger.log('Patients: 30 (e.g. random emails / Patient@123)');
 
     await dataSource.destroy();
   } catch (error) {
-    console.error('❌ Seed Failed:', error);
+    logger.error('❌ Seed Failed:', error);
     if (dataSource.isInitialized) await dataSource.destroy();
     process.exit(1);
   }

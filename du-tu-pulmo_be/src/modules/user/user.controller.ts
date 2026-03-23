@@ -167,7 +167,6 @@ export class UserController {
     return this.userService.changePassword(user.userId, changePasswordDto);
   }
 
-
   @Post('me/avatar')
   @ApiOperation({ summary: 'Upload avatar cho user hiện tại' })
   @ApiConsumes('multipart/form-data')

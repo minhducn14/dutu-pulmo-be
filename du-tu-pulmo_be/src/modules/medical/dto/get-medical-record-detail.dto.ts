@@ -207,6 +207,30 @@ export class MedicalRecordDetailResponseDto {
   @ApiProperty({ description: 'Ngày cập nhật' })
   updatedAt: Date;
 
+  @ApiPropertyOptional({ description: 'ID hồ sơ trước đó (liên kết)' })
+  previousRecordId?: string;
+
+  @ApiPropertyOptional({ description: 'ID hồ hồ sơ đề xuất liên kết' })
+  suggestedPreviousRecordId?: string | null;
+
+  @ApiPropertyOptional({ description: 'Thông tin hồ sơ đã liên kết' })
+  previousRecord?: {
+    id: string;
+    recordNumber: string;
+    createdAt: Date;
+    doctorName?: string;
+    recordType?: string;
+  };
+
+  @ApiPropertyOptional({ description: 'Thông tin hồ sơ đề xuất' })
+  suggestedPreviousRecord?: {
+    id: string;
+    recordNumber: string;
+    createdAt: Date;
+    doctorName?: string;
+    recordType?: string;
+  };
+
   @ApiPropertyOptional({ description: 'PDF URL' })
   @Transform(toOptionalString)
   pdfUrl?: string;

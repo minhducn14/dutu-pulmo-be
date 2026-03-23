@@ -1,10 +1,11 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { Injectable, NestMiddleware } from '@nestjs/common';
+import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
 
 @Injectable()
 export class LoggerMiddleware implements NestMiddleware {
+  private readonly logger = new Logger(LoggerMiddleware.name);
+
   use(req: any, res: any, next: () => void) {
-    console.log(`[${req.method}] ${req.originalUrl}`);
+    this.logger.log(`[${req.method}] ${req.originalUrl}`);
     next();
   }
 }

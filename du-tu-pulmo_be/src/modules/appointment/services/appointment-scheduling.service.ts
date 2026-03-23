@@ -59,14 +59,7 @@ export class AppointmentSchedulingService {
         throw new NotFoundException(ERROR_MESSAGES.APPOINTMENT_NOT_FOUND);
       }
 
-      // ── Kiểm tra quá hạn ──────────────────────────────────────────
-      if (new Date(appointment.scheduledAt) < new Date()) {
-        this.logger.error('Cannot cancel expired appointment');
-        throw new BadRequestException(
-          ERROR_MESSAGES.CANNOT_EDIT_EXPIRED_APPOINTMENT,
-        );
-      }
-
+      // 1. Terminal states trước tiên
       if (appointment.status === AppointmentStatusEnum.COMPLETED) {
         this.logger.error('Appointment is completed');
         throw new BadRequestException(ERROR_MESSAGES.CANNOT_CANCEL_COMPLETED);
@@ -77,33 +70,59 @@ export class AppointmentSchedulingService {
         throw new BadRequestException(ERROR_MESSAGES.ALREADY_CANCELLED);
       }
 
-      // ── Kiểm tra trạng thái được phép hủy theo role ─────────────────
+      if (appointment.status === AppointmentStatusEnum.NO_SHOW) {
+        this.logger.error('Appointment is NO_SHOW');
+        throw new BadRequestException(ERROR_MESSAGES.CANNOT_CANCEL_COMPLETED);
+      }
+
+      const NON_EXPIRY_STATUSES = [
+        AppointmentStatusEnum.PENDING_PAYMENT,
+        AppointmentStatusEnum.PENDING,
+        AppointmentStatusEnum.CHECKED_IN,
+      ];
+
+      if (
+        !NON_EXPIRY_STATUSES.includes(appointment.status) &&
+        new Date(appointment.scheduledAt) < new Date()
+      ) {
+        this.logger.error('Cannot cancel expired appointment');
+        throw new BadRequestException(
+          ERROR_MESSAGES.CANNOT_EDIT_EXPIRED_APPOINTMENT,
+        );
+      }
+
       const PATIENT_CANCELLABLE = [
         AppointmentStatusEnum.PENDING_PAYMENT,
         AppointmentStatusEnum.PENDING,
         AppointmentStatusEnum.CONFIRMED,
       ];
+
       const STAFF_CANCELLABLE = [
         AppointmentStatusEnum.PENDING_PAYMENT,
         AppointmentStatusEnum.PENDING,
         AppointmentStatusEnum.CONFIRMED,
+        AppointmentStatusEnum.CHECKED_IN,
       ];
 
       const allowedStatuses =
         cancelledBy === 'PATIENT' ? PATIENT_CANCELLABLE : STAFF_CANCELLABLE;
 
       if (!allowedStatuses.includes(appointment.status)) {
-        if (appointment.status === AppointmentStatusEnum.IN_PROGRESS) {
-          throw new BadRequestException(
-            ERROR_MESSAGES.CANNOT_CANCEL_IN_PROGRESS,
-          );
+        switch (appointment.status) {
+          case AppointmentStatusEnum.IN_PROGRESS:
+            throw new BadRequestException(
+              ERROR_MESSAGES.CANNOT_CANCEL_IN_PROGRESS,
+            );
+          case AppointmentStatusEnum.CHECKED_IN:
+            // Chỉ PATIENT mới rơi vào đây (STAFF đã có CHECKED_IN trong list)
+            throw new BadRequestException(
+              ERROR_MESSAGES.CANNOT_CANCEL_CHECKED_IN,
+            );
+          default:
+            throw new BadRequestException(
+              ERROR_MESSAGES.CANNOT_CANCEL_COMPLETED,
+            );
         }
-        if (appointment.status === AppointmentStatusEnum.CHECKED_IN) {
-          throw new BadRequestException(
-            ERROR_MESSAGES.CANNOT_CANCEL_CHECKED_IN,
-          );
-        }
-        throw new BadRequestException(ERROR_MESSAGES.CANNOT_CANCEL_COMPLETED);
       }
 
       // ── Kiểm tra thời gian (chỉ khi CONFIRMED — lúc này chỉ STAFF mới tới được đây) ───────────────────
@@ -182,7 +201,9 @@ export class AppointmentSchedulingService {
             `Cleaned up video room for cancelled appointment ${appointment.id}`,
           );
         } catch (error) {
-          this.logger.warn(`Failed to cleanup video room: ${error}`);
+          this.logger.warn(
+            `Failed to cleanup video room: ${error instanceof Error ? error.message : String(error)}`,
+          );
         }
       }
 
@@ -239,6 +260,7 @@ export class AppointmentSchedulingService {
   async reschedule(
     appointmentId: string,
     newTimeSlotId: string,
+    rescheduledBy: string,
   ): Promise<ResponseCommon<AppointmentResponseDto>> {
     const result = await this.dataSource.transaction(async (manager) => {
       const appointment = await manager.findOne(Appointment, {
@@ -259,16 +281,45 @@ export class AppointmentSchedulingService {
         );
       }
 
-      if (
-        ![
-          AppointmentStatusEnum.PENDING,
-          AppointmentStatusEnum.PENDING_PAYMENT,
-        ].includes(appointment.status)
-      ) {
-        this.logger.error(
-          'Appointment is not in confirmed, pending, or pending payment status',
-        );
+      const RESCHEDULE_ALLOWED_STATUSES = [
+        AppointmentStatusEnum.PENDING,
+        AppointmentStatusEnum.PENDING_PAYMENT,
+        AppointmentStatusEnum.CONFIRMED, // ← FIX: thêm CONFIRMED
+      ];
+
+      if (!RESCHEDULE_ALLOWED_STATUSES.includes(appointment.status)) {
+        this.logger.error('Appointment status does not allow reschedule');
         throw new BadRequestException(ERROR_MESSAGES.CANNOT_RESCHEDULE_STATUS);
+      }
+
+      // Áp dụng time restriction giống cancel, chỉ khi status = CONFIRMED
+      if (appointment.status === AppointmentStatusEnum.CONFIRMED) {
+        const now = new Date();
+        const minutesUntilStart =
+          (new Date(appointment.scheduledAt).getTime() - now.getTime()) /
+          (1000 * 60);
+
+        if (rescheduledBy === 'PATIENT') {
+          if (
+            minutesUntilStart <
+            CANCELLATION_POLICY.PATIENT_CANCEL_BEFORE_MINUTES // 4 * 60 = 240 phút
+          ) {
+            throw new BadRequestException(
+              ERROR_MESSAGES.RESCHEDULE_TOO_LATE_PATIENT,
+            );
+          }
+        }
+
+        if (rescheduledBy === 'DOCTOR') {
+          if (
+            minutesUntilStart < CANCELLATION_POLICY.DOCTOR_CANCEL_BEFORE_MINUTES // 2 * 60 = 120 phút
+          ) {
+            throw new BadRequestException(
+              ERROR_MESSAGES.RESCHEDULE_TOO_LATE_DOCTOR,
+            );
+          }
+        }
+        // ADMIN / RECEPTIONIST: không có giới hạn thời gian
       }
 
       const hasPaidPayment = await manager.exists(Payment, {
@@ -408,26 +459,16 @@ export class AppointmentSchedulingService {
         },
       });
 
+      // GIAI ĐOẠN 1 (trong transaction): Mark CANCELLED local + đánh dấu chờ sync gateway
       for (const payment of pendingPayments) {
-        try {
-          await this.payosService.cancelPaymentLink(
-            Number(payment.orderCode),
-            'INVALIDATED_BY_RESCHEDULE',
-          );
-        } catch (error) {
-          this.logger.warn(
-            `Gateway cancel failed for payment ${payment.id}, continue reschedule: ${error instanceof Error ? error.message : String(error)}`,
-          );
-        }
-
         payment.status = PaymentStatus.CANCELLED;
         payment.cancelledAt = new Date();
         payment.cancellationReason = payment.cancellationReason
           ? `${payment.cancellationReason};INVALIDATED_BY_RESCHEDULE`
           : 'INVALIDATED_BY_RESCHEDULE';
-        payment.errorCode = 'INVALIDATED_BY_RESCHEDULE';
+        payment.errorCode = 'PENDING_GATEWAY_CANCEL'; // ← đánh dấu cần sync lại
         payment.errorMessage =
-          'Payment invalidated due to appointment reschedule';
+          'Payment invalidated due to appointment reschedule, pending gateway cancel';
         payment.lastErrorAt = new Date();
         await manager.save(payment);
       }
@@ -465,7 +506,37 @@ export class AppointmentSchedulingService {
         }
       }
 
-      return manager.save(appointment);
+      const saved = await manager.save(appointment);
+
+      return { saved, paymentsToCancel: [...pendingPayments] };
+    });
+
+    setImmediate(() => {
+      void (async () => {
+        for (const payment of result.paymentsToCancel) {
+          try {
+            await this.payosService.cancelPaymentLink(
+              Number(payment.orderCode),
+              'INVALIDATED_BY_RESCHEDULE',
+            );
+
+            // Xóa error code khi gateway thành công
+            await this.dataSource.getRepository(Payment).update(payment.id, {
+              errorCode: null,
+              errorMessage: null,
+            });
+
+            this.logger.log(
+              `Gateway cancelled payment ${payment.id} for reschedule`,
+            );
+          } catch (error) {
+            this.logger.error(
+              `Failed to cancel payment ${payment.id} on gateway. ` +
+                `Will be retried by cron. Error: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        }
+      })();
     });
 
     const apptWithRelations = await this.dataSource
@@ -476,7 +547,7 @@ export class AppointmentSchedulingService {
       });
 
     if (apptWithRelations) {
-      const newDate = result.scheduledAt.toLocaleDateString('vi-VN', {
+      const newDate = result.saved.scheduledAt.toLocaleDateString('vi-VN', {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
@@ -509,7 +580,7 @@ export class AppointmentSchedulingService {
     return new ResponseCommon(
       200,
       'Đổi lịch hẹn thành công',
-      this.mapper.toDto(result),
+      this.mapper.toDto(result.saved),
     );
   }
 }

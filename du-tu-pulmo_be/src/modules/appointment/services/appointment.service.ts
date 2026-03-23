@@ -161,10 +161,12 @@ export class AppointmentService {
   reschedule(
     appointmentId: string,
     newTimeSlotId: string,
+    rescheduledBy: string,
   ): Promise<ResponseCommon<AppointmentResponseDto>> {
     return this.appointmentSchedulingService.reschedule(
       appointmentId,
       newTimeSlotId,
+      rescheduledBy,
     );
   }
 

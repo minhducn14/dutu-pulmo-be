@@ -36,7 +36,7 @@ export class NotificationService {
     const skip = (page - 1) * limit;
 
     const [items, total] = await this.notificationRepository.findAndCount({
-      where: { 
+      where: {
         userId,
         ...(status && { status }),
         ...(type && { type }),

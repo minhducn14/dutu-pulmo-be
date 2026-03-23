@@ -5,7 +5,7 @@ import {
   SwaggerModule,
   type OpenAPIObject,
 } from '@nestjs/swagger';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { AllExceptionsFilter } from '@/common/filters/all-exceptions.filter';
 import * as express from 'express';
@@ -26,6 +26,7 @@ function getRolesFromOperation(operation: unknown): string[] | undefined {
 }
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
 
   // Set request body limit
@@ -154,7 +155,7 @@ async function bootstrap() {
     if (exportPath) {
       mkdirSync(dirname(exportPath), { recursive: true });
       writeFileSync(exportPath, JSON.stringify(document, null, 2), 'utf8');
-      console.log(`Exported OpenAPI: ${exportPath}`);
+      logger.log(`Exported OpenAPI: ${exportPath}`);
     }
     if (exportPatientPath) {
       mkdirSync(dirname(exportPatientPath), { recursive: true });
@@ -163,7 +164,7 @@ async function bootstrap() {
         JSON.stringify(patientDocument, null, 2),
         'utf8',
       );
-      console.log(`Exported patient OpenAPI: ${exportPatientPath}`);
+      logger.log(`Exported patient OpenAPI: ${exportPatientPath}`);
     }
     await app.close();
     return;
@@ -171,11 +172,11 @@ async function bootstrap() {
 
   await app.listen(port, host);
 
-  console.log(`🚀 Application running on: http://${host}:${port}`);
-  console.log(`📚 Swagger API Docs: http://${host}:${port}/docs`);
-  console.log(`📚 Swagger Admin API Docs: http://${host}:${port}/docs/admin`);
-  console.log(`📚 Swagger Doctor API Docs: http://${host}:${port}/docs/doctor`);
-  console.log(
+  logger.log(`🚀 Application running on: http://${host}:${port}`);
+  logger.log(`📚 Swagger API Docs: http://${host}:${port}/docs`);
+  logger.log(`📚 Swagger Admin API Docs: http://${host}:${port}/docs/admin`);
+  logger.log(`📚 Swagger Doctor API Docs: http://${host}:${port}/docs/doctor`);
+  logger.log(
     `📚 Swagger Patient API Docs: http://${host}:${port}/docs/patient`,
   );
 }

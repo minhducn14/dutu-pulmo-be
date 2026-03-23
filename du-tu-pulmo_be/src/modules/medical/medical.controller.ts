@@ -119,6 +119,7 @@ export class MedicalController {
       diagnosis: record.diagnosis || undefined,
       treatmentPlan: record.treatmentPlan || undefined,
       status: record.status || 'UNKNOWN',
+      previousRecordId: record.previousRecordId || undefined,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
     };
@@ -306,7 +307,7 @@ export class MedicalController {
       }
     }
 
-    await this.medicalService.updateMedicalRecord(id, dto);
+    await this.medicalService.updateMedicalRecord(id, dto, user);
 
     return this.medicalService.getMedicalRecordDetail(id, user);
   }

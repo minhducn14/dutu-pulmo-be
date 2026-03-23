@@ -71,6 +71,9 @@ export class ScreeningConclusion {
   @Column({ name: 'doctor_override_reason', type: 'text', nullable: true })
   doctorOverrideReason: string;
 
+  @Column({ name: 'doctor_notes', type: 'text', nullable: true })
+  doctorNotes: string;
+
   @Column({
     name: 'reviewed_at',
     type: 'timestamptz',

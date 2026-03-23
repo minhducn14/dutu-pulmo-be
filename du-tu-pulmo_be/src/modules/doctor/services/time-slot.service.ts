@@ -807,8 +807,8 @@ export class TimeSlotService {
       count: number;
       hasAvailability: boolean;
     }> = [];
-    const cursor = startOfDayVN(fromDate);
-    const rangeEnd = startOfDayVN(toDate);
+    const cursor = endOfDayVN(fromDate);
+    const rangeEnd = endOfDayVN(toDate);
 
     while (cursor <= rangeEnd) {
       const dateKey = cursor

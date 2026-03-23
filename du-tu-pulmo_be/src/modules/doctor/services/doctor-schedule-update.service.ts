@@ -65,38 +65,39 @@ export class DoctorScheduleUpdateService {
 
     const updateData: Partial<DoctorSchedule> = {
       ...dto,
-      scheduleType: undefined,
       priority: undefined,
       isAvailable: newIsAvailable,
       minimumBookingTime:
         dto.minimumBookingDays !== undefined
           ? dto.minimumBookingDays * 24 * 60
-          : 0,
+          : existing.minimumBookingTime,
       consultationFee:
         dto.consultationFee !== undefined
           ? (dto.consultationFee?.toString() ?? null)
-          : undefined,
+          : existing.consultationFee,
       effectiveFrom:
         dto.effectiveFrom !== undefined
           ? dto.effectiveFrom
             ? new Date(dto.effectiveFrom)
             : null
-          : undefined,
+          : existing.effectiveFrom,
       effectiveUntil:
         dto.effectiveUntil !== undefined
           ? dto.effectiveUntil
             ? new Date(dto.effectiveUntil)
             : null
-          : undefined,
+          : existing.effectiveUntil,
     };
 
-    if ('minimumBookingDays' in updateData) {
-      delete (updateData as any).minimumBookingDays;
-    }
+    // Xóa các trường không nên update trực tiếp hoặc đã handle ở trên
+    const dataToUpdate = updateData as Record<string, unknown>;
+    delete dataToUpdate.id;
+    delete dataToUpdate.minimumBookingDays;
 
-    Object.keys(updateData).forEach((key) => {
-      if (updateData[key as keyof typeof updateData] === undefined) {
-        delete updateData[key as keyof typeof updateData];
+    // Xóa undefined để không ghi đè bằng null không cần thiết
+    (Object.keys(updateData) as (keyof typeof updateData)[]).forEach((key) => {
+      if (updateData[key] === undefined) {
+        delete updateData[key];
       }
     });
 

@@ -164,13 +164,14 @@ export class MedicalRecord {
   @Column({ name: 'full_record_summary', type: 'text', nullable: true })
   fullRecordSummary: string | null;
 
-  // Related records
+  // Previous records (Linking)
   @ManyToOne(() => MedicalRecord, { onDelete: 'SET NULL', nullable: true })
-  @JoinColumn({ name: 'related_record_id' })
-  relatedRecord: MedicalRecord | null;
+  @JoinColumn({ name: 'previous_record_id' })
+  previousRecord: MedicalRecord | null;
 
-  @Column({ name: 'related_record_id', type: 'uuid', nullable: true })
-  relatedRecordId: string | null;
+  @Index('idx_medical_record_previous_record')
+  @Column({ name: 'previous_record_id', type: 'uuid', nullable: true })
+  previousRecordId: string | null;
 
   @Column({
     type: 'enum',
@@ -182,6 +183,7 @@ export class MedicalRecord {
   @Column({ name: 'completed_at', type: 'timestamptz', nullable: true })
   completedAt: Date | null;
 
+  @Index('idx_medical_record_patient_created')
   @CreateDateColumn({
     name: 'created_at',
     type: 'timestamptz',

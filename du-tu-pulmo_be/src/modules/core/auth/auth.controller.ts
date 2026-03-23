@@ -131,7 +131,7 @@ export class AuthController {
         `${process.env.FRONTEND_URL}/login-success?data=${encodedResult}`,
       );
     } catch (error) {
-      console.error('Google OAuth callback error:', error);
+      this.logger.error('Google OAuth callback error:', error);
       // Xử lý lỗi OAuth
       return res.redirect(
         `${process.env.FRONTEND_URL}/signin?error=oauth_failed`,
