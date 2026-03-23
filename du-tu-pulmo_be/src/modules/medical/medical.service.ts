@@ -8,7 +8,7 @@ import {
   Inject,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, EntityManager, In, DataSource } from 'typeorm';
+import { Repository, EntityManager, In, DataSource, MoreThan } from 'typeorm';
 import { MedicalRecord } from '@/modules/medical/entities/medical-record.entity';
 import { VitalSign } from '@/modules/medical/entities/vital-sign.entity';
 import { Prescription } from '@/modules/medical/entities/prescription.entity';
@@ -36,6 +36,11 @@ import { PdfService } from '@/modules/pdf/pdf.service';
 import { validateTextFieldsPolicy as applyTextFieldsPolicy } from '@/common/utils/text-fields-policy.util';
 import { NotificationService } from '@/modules/notification/notification.service';
 import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.enum';
+import { AppointmentMedicalAccessService } from '@/modules/appointment/services/appointment-medical-access.service';
+import { MedicalAuditService } from './medical-audit.service';
+import { AuditAction } from './enums/audit-action.enum';
+import { AuditEntityType } from './enums/audit-entity-type.enum';
+import { AuditActorRole } from './enums/audit-actor-role.enum';
 
 const VALID_TRANSITIONS: Record<
   MedicalRecordStatusEnum,
@@ -69,6 +74,9 @@ export class MedicalService {
     private readonly pdfService: PdfService,
 
     private readonly notificationService: NotificationService,
+    @Inject(forwardRef(() => AppointmentMedicalAccessService))
+    private readonly accessService: AppointmentMedicalAccessService,
+    private readonly auditService: MedicalAuditService,
   ) {}
 
   // ============================================================================
@@ -163,12 +171,26 @@ export class MedicalService {
 
   async createRecord(
     data: Partial<MedicalRecord>,
+    user?: JwtUser,
   ): Promise<ResponseCommon<MedicalRecord>> {
     const record = this.recordRepository.create({
       ...data,
       recordNumber: this.generateRecordNumber(),
     });
     const result = await this.recordRepository.save(record);
+
+    const { actorId, actorRole } = this.getAuditActorInfo(user);
+    this.auditService.log({
+      entityType: AuditEntityType.MEDICAL_RECORD,
+      entityId: result.id,
+      medicalRecordId: result.id,
+      patientId: result.patientId,
+      actorId,
+      actorRole,
+      action: AuditAction.CREATE_RECORD,
+      metadata: { recordNumber: result.recordNumber },
+    });
+
     return new ResponseCommon(
       HttpStatus.CREATED,
       'Tạo hồ sơ thành công',
@@ -179,6 +201,7 @@ export class MedicalService {
   async updateMedicalRecord(
     id: string,
     data: UpdateMedicalRecordDto,
+    user?: JwtUser,
   ): Promise<ResponseCommon<MedicalRecord>> {
     const record = await this.recordRepository.findOne({ where: { id } });
     if (!record) {
@@ -187,9 +210,27 @@ export class MedicalService {
 
     this.assertNotCompleted(record);
 
-    Object.assign(record, data);
+    if (data.previousRecordId !== undefined) {
+      await this.validateLinking(id, record.patientId, data.previousRecordId);
+    }
 
+    const before = { ...record };
+    Object.assign(record, data);
     const result = await this.recordRepository.save(record);
+
+    const { actorId, actorRole } = this.getAuditActorInfo(user);
+    this.auditService.log({
+      entityType: AuditEntityType.MEDICAL_RECORD,
+      entityId: result.id,
+      medicalRecordId: result.id,
+      patientId: result.patientId,
+      actorId,
+      actorRole,
+      action: AuditAction.UPDATE_RECORD,
+      metadata: {
+        diff: this.getDiff(before, result, Object.keys(data)),
+      },
+    });
 
     return new ResponseCommon(HttpStatus.OK, 'Cập nhật thành công', result);
   }
@@ -212,12 +253,26 @@ export class MedicalService {
       }
     }
 
-    this.validateTransition(record.status, MedicalRecordStatusEnum.COMPLETED);
+    const fromStatus = record.status;
+    this.validateTransition(fromStatus, MedicalRecordStatusEnum.COMPLETED);
 
     record.status = MedicalRecordStatusEnum.COMPLETED;
     record.completedAt = new Date();
 
     const result = await this.recordRepository.save(record);
+
+    const { actorId, actorRole } = this.getAuditActorInfo(user);
+    this.auditService.log({
+      entityType: AuditEntityType.MEDICAL_RECORD,
+      entityId: result.id,
+      medicalRecordId: result.id,
+      patientId: result.patientId,
+      actorId,
+      actorRole,
+      action: AuditAction.COMPLETE_RECORD,
+      metadata: { from: fromStatus, to: result.status },
+    });
+
     return new ResponseCommon(
       HttpStatus.OK,
       'Bệnh án đã được hoàn tất',
@@ -234,7 +289,8 @@ export class MedicalService {
       throw new NotFoundException(ERROR_MESSAGES.MEDICAL_RECORD_NOT_FOUND);
     }
 
-    this.validateTransition(record.status, MedicalRecordStatusEnum.IN_PROGRESS);
+    const fromStatus = record.status;
+    this.validateTransition(fromStatus, MedicalRecordStatusEnum.IN_PROGRESS);
 
     if (
       user.roles?.includes(RoleEnum.DOCTOR) &&
@@ -260,6 +316,19 @@ export class MedicalService {
     record.completedAt = null;
 
     const result = await this.recordRepository.save(record);
+
+    const { actorId, actorRole } = this.getAuditActorInfo(user);
+    this.auditService.log({
+      entityType: AuditEntityType.MEDICAL_RECORD,
+      entityId: result.id,
+      medicalRecordId: result.id,
+      patientId: result.patientId,
+      actorId,
+      actorRole,
+      action: AuditAction.REOPEN_RECORD,
+      metadata: { from: fromStatus, to: result.status },
+    });
+
     return new ResponseCommon(HttpStatus.OK, 'Bệnh án đã được mở lại', result);
   }
 
@@ -510,6 +579,21 @@ export class MedicalService {
         presentIllness: appointment.patientNotes ?? null,
       });
       record = await manager.save(record);
+
+      // Audit Hook (System created)
+      this.auditService.log({
+        entityType: AuditEntityType.MEDICAL_RECORD,
+        entityId: record.id,
+        medicalRecordId: record.id,
+        patientId: record.patientId,
+        actorId: '00000000-0000-0000-0000-000000000000',
+        actorRole: AuditActorRole.SYSTEM,
+        action: AuditAction.CREATE_RECORD,
+        metadata: {
+          recordNumber: record.recordNumber,
+          reason: 'Auto-created from appointment status change',
+        },
+      });
     }
     return record;
   }
@@ -543,6 +627,7 @@ export class MedicalService {
       nextAppointmentDate?: string;
       followUpNotes?: string;
     },
+    user?: JwtUser,
   ): Promise<ResponseCommon<MedicalRecord>> {
     return this.dataSource.transaction(async (manager) => {
       const appointment = await manager.findOne(Appointment, {
@@ -556,21 +641,25 @@ export class MedicalService {
         where: { appointmentId },
       });
 
-      const canEdit = [
-        AppointmentStatusEnum.IN_PROGRESS,
-        AppointmentStatusEnum.COMPLETED,
-        AppointmentStatusEnum.CHECKED_IN,
-        AppointmentStatusEnum.CONFIRMED,
-      ].includes(appointment.status);
+      if (record) {
+        this.accessService.validateMedicalRecordStatus(record.status, 'EDIT');
+      } else {
+        const canCreate = [
+          AppointmentStatusEnum.IN_PROGRESS,
+          AppointmentStatusEnum.CHECKED_IN,
+          AppointmentStatusEnum.CONFIRMED,
+        ].includes(appointment.status);
 
-      if (!canEdit && !record) {
-        throw new BadRequestException(
-          ERROR_MESSAGES.CANNOT_CREATE_RECORD_WITH_STATUS,
-        );
+        if (!canCreate) {
+          throw new BadRequestException(
+            ERROR_MESSAGES.CANNOT_CREATE_RECORD_WITH_STATUS,
+          );
+        }
       }
 
       this.validateTextFieldsPolicy(data);
 
+      const before = record ? { ...record } : null;
       if (!record) {
         record = manager.create(MedicalRecord, {
           appointmentId: appointment.id,
@@ -598,13 +687,32 @@ export class MedicalService {
           alcoholConsumption: data.alcoholConsumption || false,
           surgicalHistory: data.surgicalHistory || null,
           familyHistory: data.familyHistory || null,
+          previousRecordId: data.previousRecordId || null,
         });
         record = await manager.save(record);
       }
 
-      Object.assign(record, data);
+      if (data.previousRecordId !== undefined) {
+        await this.validateLinking(record.id, record.patientId, data.previousRecordId);
+      }
 
+      Object.assign(record, data);
       const result = await manager.save(record);
+
+      // Audit Hook
+      const { actorId, actorRole } = this.getAuditActorInfo(user);
+      this.auditService.log({
+        entityType: AuditEntityType.MEDICAL_RECORD,
+        entityId: result.id,
+        medicalRecordId: result.id,
+        patientId: result.patientId,
+        actorId,
+        actorRole,
+        action: before ? AuditAction.UPDATE_RECORD : AuditAction.CREATE_RECORD,
+      metadata: before
+          ? { diff: this.getDiff(before, result, Object.keys(data)) }
+          : { recordNumber: result.recordNumber },
+      });
 
       let apptChanged = false;
       if (
@@ -628,6 +736,17 @@ export class MedicalService {
 
       if (apptChanged) {
         await manager.save(appointment);
+      }
+
+      if (!result.previousRecordId) {
+        const suggested = await this.getSuggestedPreviousRecord(
+          result.patientId,
+          result.id,
+          result.recordType,
+        );
+        if (suggested) {
+          (result as any).suggestedPreviousRecordId = suggested.id;
+        }
       }
 
       return new ResponseCommon(HttpStatus.OK, 'Cập nhật thành công', result);
@@ -683,6 +802,7 @@ export class MedicalService {
         instructions?: string;
       }>;
     },
+    user: JwtUser,
   ): Promise<ResponseCommon<Prescription>> {
     const record = await this.recordRepository.findOne({
       where: { id: encounterId },
@@ -759,6 +879,19 @@ export class MedicalService {
       relations: ['items', 'doctor'],
     });
 
+    // Audit Hook
+    const { actorId, actorRole } = this.getAuditActorInfo(user);
+    this.auditService.log({
+      entityType: AuditEntityType.PRESCRIPTION,
+      entityId: savedPrescription.id,
+      medicalRecordId: encounterId,
+      patientId,
+      actorId,
+      actorRole,
+      action: AuditAction.CREATE_PRESCRIPTION,
+      metadata: { prescriptionNumber: savedPrescription.prescriptionNumber },
+    });
+
     return new ResponseCommon(
       HttpStatus.CREATED,
       'Kê đơn thành công',
@@ -797,6 +930,18 @@ export class MedicalService {
 
     prescription.status = PrescriptionStatusEnum.CANCELLED;
     const result = await this.prescriptionRepository.save(prescription);
+
+    const { actorId, actorRole } = this.getAuditActorInfo(user);
+    this.auditService.log({
+      entityType: AuditEntityType.PRESCRIPTION,
+      entityId: result.id,
+      medicalRecordId: result.medicalRecordId,
+      patientId: result.patientId,
+      actorId,
+      actorRole,
+      action: AuditAction.CANCEL_PRESCRIPTION,
+      metadata: { from: PrescriptionStatusEnum.ACTIVE, to: result.status },
+    });
 
     return new ResponseCommon(
       HttpStatus.OK,
@@ -937,6 +1082,9 @@ export class MedicalService {
         'prescriptions',
         'prescriptions.items',
         'screeningRequests',
+        'previousRecord',
+        'previousRecord.doctor',
+        'previousRecord.doctor.user',
         'screeningRequests.uploadedByDoctor',
         'screeningRequests.images',
         'screeningRequests.aiAnalyses',
@@ -1044,22 +1192,51 @@ export class MedicalService {
       dischargeCondition: record.dischargeCondition || undefined,
       followUpInstructions: record.followUpInstructions || undefined,
       status: record.status,
-      updatedAt: record.updatedAt,
-      surgicalHistory: record.surgicalHistory || undefined,
-      allergies: record.allergies || undefined,
-      chronicDiseases: record.chronicDiseases || undefined,
-      currentMedications: record.currentMedications || undefined,
-      smokingStatus: record.smokingStatus || undefined,
-      smokingYears: record.smokingYears || undefined,
-      alcoholConsumption: record.alcoholConsumption || undefined,
-      assessment: record.assessment || undefined,
-      pdfUrl: record.pdfUrl || undefined,
       createdAt: record.createdAt,
-      screeningRequests:
-        record.screeningRequests?.map((sr) =>
-          ScreeningRequestResponseDto.fromEntity(sr),
-        ) || [],
+      updatedAt: record.updatedAt,
+      previousRecordId: record.previousRecordId || undefined,
+      previousRecord: record.previousRecord
+        ? {
+            id: record.previousRecord.id,
+            recordNumber: record.previousRecord.recordNumber,
+            createdAt: record.previousRecord.createdAt,
+            doctorName: record.previousRecord.doctor?.user?.fullName,
+            recordType: record.previousRecord.recordType,
+          }
+        : undefined,
     };
+
+    if (!record.previousRecordId) {
+      const suggested = await this.getSuggestedPreviousRecord(
+        record.patientId,
+        record.id,
+        record.recordType,
+      );
+      if (suggested) {
+        response.suggestedPreviousRecordId = suggested.id;
+        response.suggestedPreviousRecord = {
+          id: suggested.id,
+          recordNumber: suggested.recordNumber,
+          createdAt: suggested.createdAt,
+          doctorName: suggested.doctor?.user?.fullName,
+          recordType: suggested.recordType,
+        };
+      }
+    }
+
+    response.surgicalHistory = record.surgicalHistory || undefined;
+    response.allergies = record.allergies || undefined;
+    response.chronicDiseases = record.chronicDiseases || undefined;
+    response.currentMedications = record.currentMedications || undefined;
+    response.smokingStatus = record.smokingStatus || undefined;
+    response.smokingYears = record.smokingYears || undefined;
+    response.alcoholConsumption = record.alcoholConsumption || undefined;
+    response.assessment = record.assessment || undefined;
+    response.pdfUrl = record.pdfUrl || undefined;
+    response.screeningRequests =
+      record.screeningRequests?.map((sr) =>
+        ScreeningRequestResponseDto.fromEntity(sr),
+      ) || [];
 
     const transformedResponse = plainToInstance(
       MedicalRecordDetailResponseDto,
@@ -1108,6 +1285,18 @@ export class MedicalService {
     record.digitalSignature = dto.signature;
 
     await this.recordRepository.save(record);
+
+    const { actorId, actorRole } = this.getAuditActorInfo(user);
+    this.auditService.log({
+      entityType: AuditEntityType.MEDICAL_RECORD,
+      entityId: record.id,
+      medicalRecordId: record.id,
+      patientId: record.patientId,
+      actorId,
+      actorRole,
+      action: AuditAction.SIGN_RECORD,
+      metadata: { signedAt: record.signedAt },
+    });
 
     await this.pdfService.generateAndSaveMedicalRecordPdf(recordId);
 
@@ -1278,5 +1467,167 @@ export class MedicalService {
     };
 
     return new ResponseCommon(HttpStatus.OK, 'Thành công', response);
+  }
+
+  private async validateLinking(
+    recordId: string,
+    patientId: string,
+    previousRecordId: string | null,
+  ): Promise<void> {
+    if (!previousRecordId) return;
+
+    if (recordId === previousRecordId) {
+      throw new BadRequestException('Hồ sơ không thể liên kết với chính nó');
+    }
+
+    const previousRecord = await this.recordRepository.findOne({
+      where: { id: previousRecordId },
+      select: { id: true, patientId: true, status: true },
+    });
+
+    if (!previousRecord) {
+      throw new NotFoundException('Hồ sơ liên kết không tồn tại');
+    }
+
+    if (previousRecord.patientId !== patientId) {
+      throw new BadRequestException('Chỉ có thể liên kết hồ sơ của cùng một bệnh nhân');
+    }
+
+    // Cycle detection
+    await this.checkCycle(recordId, previousRecordId);
+  }
+
+  private async checkCycle(
+    recordId: string,
+    previousRecordId: string,
+    depth = 0,
+  ): Promise<void> {
+    const MAX_DEPTH = 50;
+    if (depth > MAX_DEPTH) {
+      throw new BadRequestException('Chuỗi liên kết quá dài hoặc bị vòng lặp');
+    }
+
+    if (recordId === previousRecordId) {
+      throw new BadRequestException('Phát hiện vòng lặp liên kết (Cycle detected)');
+    }
+
+    const prev = await this.recordRepository.findOne({
+      where: { id: previousRecordId },
+      select: { id: true, previousRecordId: true },
+    });
+
+    if (prev?.previousRecordId) {
+      await this.checkCycle(recordId, prev.previousRecordId, depth + 1);
+    }
+  }
+
+  /**
+   * Suggests the most relevant previous record for linking.
+   * Priority:
+   * 1. Latest COMPLETED record with SAME recordType
+   * 2. Latest COMPLETED record (any type)
+   * Fallback: Latest record (any status, except current one) if no completed found.
+   */
+  async getSuggestedPreviousRecord(
+    patientId: string,
+    currentRecordId?: string,
+    currentRecordType?: string,
+  ): Promise<MedicalRecord | null> {
+    const qb = this.recordRepository.createQueryBuilder('record');
+    qb.where('record.patientId = :patientId', { patientId });
+    if (currentRecordId) {
+      qb.andWhere('record.id != :currentRecordId', { currentRecordId });
+    }
+
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    // Attempt 1: Same type + COMPLETED + within 6 months
+    if (currentRecordType) {
+      const sameTypeCompleted = await this.recordRepository.findOne({
+        where: {
+          patientId,
+          recordType: currentRecordType,
+          status: MedicalRecordStatusEnum.COMPLETED,
+          createdAt: MoreThan(sixMonthsAgo),
+        },
+        relations: ['doctor', 'doctor.user'],
+        order: { createdAt: 'DESC' },
+      });
+      if (sameTypeCompleted && sameTypeCompleted.id !== currentRecordId) {
+        return sameTypeCompleted;
+      }
+    }
+
+    // Attempt 2: Any type + COMPLETED + within 6 months
+    const anyCompleted = await this.recordRepository.findOne({
+      where: {
+        patientId,
+        status: MedicalRecordStatusEnum.COMPLETED,
+        createdAt: MoreThan(sixMonthsAgo),
+      },
+      relations: ['doctor', 'doctor.user'],
+      order: { createdAt: 'DESC' },
+    });
+
+    if (anyCompleted && anyCompleted.id !== currentRecordId) {
+      return anyCompleted;
+    }
+
+    // Attempt 3: Fallback to any latest (still within 6 months)
+    const latest = await this.recordRepository.findOne({
+      where: {
+        patientId,
+        createdAt: MoreThan(sixMonthsAgo),
+      },
+      relations: ['doctor', 'doctor.user'],
+      order: { createdAt: 'DESC' },
+    });
+
+    if (latest && latest.id !== currentRecordId) {
+      return latest;
+    }
+
+    return null;
+  }
+
+  // ============================================================================
+  // AUDIT HELPERS
+  // ============================================================================
+
+  private getAuditActorInfo(user?: JwtUser): {
+    actorId: string;
+    actorRole: AuditActorRole;
+  } {
+    if (!user) {
+      return {
+        actorId: '00000000-0000-0000-0000-000000000000',
+        actorRole: AuditActorRole.SYSTEM,
+      };
+    }
+    let role = AuditActorRole.SYSTEM;
+    if (user.roles?.includes(RoleEnum.ADMIN)) role = AuditActorRole.ADMIN;
+    else if (user.roles?.includes(RoleEnum.DOCTOR)) role = AuditActorRole.DOCTOR;
+    else if (user.roles?.includes(RoleEnum.RECEPTIONIST))
+      role = AuditActorRole.ADMIN;
+
+    return { actorId: user.userId, actorRole: role };
+  }
+
+  private getDiff(
+    before: Record<string, any>,
+    after: Record<string, any>,
+    keys: string[],
+  ): Record<string, { old: any; new: any }> {
+    const diff: Record<string, { old: any; new: any }> = {};
+    for (const key of keys) {
+      if (before[key] !== after[key]) {
+        diff[key] = {
+          old: before[key],
+          new: after[key],
+        };
+      }
+    }
+    return diff;
   }
 }

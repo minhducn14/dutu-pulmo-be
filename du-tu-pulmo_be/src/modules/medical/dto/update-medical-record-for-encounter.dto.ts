@@ -7,6 +7,7 @@ import {
   IsBoolean,
   IsInt,
   IsDateString,
+  IsUUID,
 } from 'class-validator';
 
 /**
@@ -136,4 +137,8 @@ export class UpdateMedicalRecordDtoForEncounter {
   @IsOptional()
   @IsDateString()
   nextAppointmentDate?: string;
+  @ApiPropertyOptional({ description: 'ID hồ sơ trước đó (để liên kết)' })
+  @IsOptional()
+  @IsUUID()
+  previousRecordId?: string;
 }

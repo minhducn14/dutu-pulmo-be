@@ -6,6 +6,7 @@ import {
   IsBoolean,
   IsInt,
   IsDateString,
+  IsUUID,
 } from 'class-validator';
 
 export class UpdateMedicalRecordDto {
@@ -146,4 +147,9 @@ export class UpdateMedicalRecordDto {
   @IsOptional()
   @IsBoolean()
   alcoholConsumption?: boolean;
+
+  @ApiPropertyOptional({ description: 'ID hồ sơ trước đó (để liên kết)' })
+  @IsOptional()
+  @IsUUID()
+  previousRecordId?: string;
 }

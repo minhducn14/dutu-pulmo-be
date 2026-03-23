@@ -547,12 +547,19 @@ export class AppointmentActionController {
     const appt = await this.appointmentService.findOne(id);
     if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
-    this.accessService.validateMedicalStatus(appt.status, 'EDIT');
+    const encounterResponse =
+      await this.medicalService.getEncounterByAppointment(id);
+    const encounterRecord = encounterResponse.data;
+    if (!encounterRecord)
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
+
+    this.accessService.validateMedicalRecordStatus(encounterRecord.status, 'EDIT');
     this.accessService.checkEditAccess(user, appt);
 
     const response = await this.medicalService.updateEncounterByAppointment(
       id,
       dto,
+      user,
     );
     const record = response.data;
     if (!record) {
@@ -583,17 +590,20 @@ export class AppointmentActionController {
     const appt = await this.appointmentService.findOne(id);
     if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
-    this.accessService.validateMedicalStatus(appt.status, 'EDIT');
-    this.accessService.checkEditAccess(user, appt);
-
     const encounterResponse =
       await this.medicalService.getEncounterByAppointment(id);
-    const encounter = encounterResponse.data;
-    if (!encounter)
+    const encounterRecord = encounterResponse.data;
+    if (!encounterRecord)
       throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
+    this.accessService.validateMedicalRecordStatus(
+      encounterRecord.status,
+      'EDIT',
+    );
+    this.accessService.checkEditAccess(user, appt);
+
     const response = await this.medicalService.addVitalSignToEncounter(
-      encounter.id,
+      encounterRecord.id,
       appt.patientId,
       dto,
     );
@@ -624,7 +634,16 @@ export class AppointmentActionController {
     const appt = await this.appointmentService.findOne(id);
     if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
-    this.accessService.validateMedicalStatus(appt.status, 'EDIT');
+    const encounterResponse =
+      await this.medicalService.getEncounterByAppointment(id);
+    const encounterRecord = encounterResponse.data;
+    if (!encounterRecord)
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
+
+    this.accessService.validateMedicalRecordStatus(
+      encounterRecord.status,
+      'EDIT',
+    );
 
     const isDoctor = user.doctorId === appt.doctorId;
     if (!isDoctor) throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
@@ -633,18 +652,13 @@ export class AppointmentActionController {
       throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
-    const encounterResponse =
-      await this.medicalService.getEncounterByAppointment(id);
-    const encounter = encounterResponse.data;
-    if (!encounter)
-      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
-
     const response = await this.medicalService.createPrescriptionForEncounter(
-      encounter.id,
+      encounterRecord.id,
       appt.patientId,
       user.doctorId || appt.doctorId,
       id,
       dto,
+      user,
     );
     const prescription = response.data;
     if (!prescription) {
@@ -686,7 +700,12 @@ export class AppointmentActionController {
     const appt = await this.appointmentService.findOne(id);
     if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
-    this.accessService.validateMedicalStatus(appt.status, 'EDIT');
+    const encounterResponse =
+      await this.medicalService.getEncounterByAppointment(id);
+    const record = encounterResponse.data;
+    if (!record) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
+
+    this.accessService.validateMedicalRecordStatus(record.status, 'EDIT');
     this.accessService.checkEditAccess(user, appt);
 
     const response = await this.medicalService.cancelPrescription(
@@ -731,7 +750,12 @@ export class AppointmentActionController {
     const appt = await this.appointmentService.findOne(id);
     if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
-    this.accessService.validateMedicalStatus(appt.status, 'EDIT');
+    const encounterResponse =
+      await this.medicalService.getEncounterByAppointment(id);
+    const record = encounterResponse.data;
+    if (!record) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
+
+    this.accessService.validateMedicalRecordStatus(record.status, 'EDIT');
 
     const response = await this.medicalService.updatePrescription(
       prescriptionId,

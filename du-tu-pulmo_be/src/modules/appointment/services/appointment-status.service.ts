@@ -3,9 +3,11 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  forwardRef,
+  Inject,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
@@ -18,6 +20,7 @@ import { AppointmentEntityService } from '@/modules/appointment/services/appoint
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.enum';
 import { NotificationService } from '@/modules/notification/notification.service';
+import { MedicalService } from '@/modules/medical/medical.service';
 
 @Injectable()
 export class AppointmentStatusService {
@@ -31,106 +34,122 @@ export class AppointmentStatusService {
     private readonly appointmentReadService: AppointmentReadService,
     private readonly appointmentEntityService: AppointmentEntityService,
     private readonly notificationService: NotificationService,
+    private readonly dataSource: DataSource,
+    @Inject(forwardRef(() => MedicalService))
+    private readonly medicalService: MedicalService,
   ) {}
 
   async updateStatus(
     id: string,
     status: AppointmentStatusEnum,
   ): Promise<ResponseCommon<AppointmentResponseDto>> {
-    const appointment = await this.appointmentEntityService.findOne(id);
+    return this.dataSource.transaction(async (manager: EntityManager) => {
+      const appointment = await manager.findOne(Appointment, {
+        where: { id },
+        relations: [
+          'patient',
+          'patient.user',
+          'doctor',
+          'doctor.user',
+          'scheduleSlot',
+        ],
+      });
 
-    if (!appointment) {
-      this.logger.error('Appointment not found');
-      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
-    }
+      if (!appointment) {
+        this.logger.error('Appointment not found');
+        throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
+      }
 
-    const validTransitions: Record<
-      AppointmentStatusEnum,
-      AppointmentStatusEnum[]
-    > = {
-      [AppointmentStatusEnum.PENDING_PAYMENT]: [
-        AppointmentStatusEnum.CONFIRMED,
-        AppointmentStatusEnum.CANCELLED,
-        AppointmentStatusEnum.PENDING,
-      ],
-      [AppointmentStatusEnum.PENDING]: [
-        AppointmentStatusEnum.CONFIRMED,
-        AppointmentStatusEnum.CANCELLED,
-      ],
-      [AppointmentStatusEnum.CONFIRMED]: [
-        AppointmentStatusEnum.CHECKED_IN,
-        AppointmentStatusEnum.IN_PROGRESS,
-        AppointmentStatusEnum.CANCELLED,
-        AppointmentStatusEnum.NO_SHOW,
-      ],
-      [AppointmentStatusEnum.CHECKED_IN]: [
-        AppointmentStatusEnum.IN_PROGRESS,
-        AppointmentStatusEnum.CANCELLED,
-      ],
-      [AppointmentStatusEnum.IN_PROGRESS]: [
-        AppointmentStatusEnum.COMPLETED,
-        AppointmentStatusEnum.CANCELLED,
-      ],
-      [AppointmentStatusEnum.COMPLETED]: [],
-      [AppointmentStatusEnum.CANCELLED]: [],
-      [AppointmentStatusEnum.RESCHEDULED]: [
-        AppointmentStatusEnum.CONFIRMED,
-        AppointmentStatusEnum.CANCELLED,
-      ],
-      [AppointmentStatusEnum.NO_SHOW]: [],
-    };
+      const validTransitions: Record<
+        AppointmentStatusEnum,
+        AppointmentStatusEnum[]
+      > = {
+        [AppointmentStatusEnum.PENDING_PAYMENT]: [
+          AppointmentStatusEnum.CONFIRMED,
+          AppointmentStatusEnum.CANCELLED,
+          AppointmentStatusEnum.PENDING,
+        ],
+        [AppointmentStatusEnum.PENDING]: [
+          AppointmentStatusEnum.CONFIRMED,
+          AppointmentStatusEnum.CANCELLED,
+        ],
+        [AppointmentStatusEnum.CONFIRMED]: [
+          AppointmentStatusEnum.CHECKED_IN,
+          AppointmentStatusEnum.IN_PROGRESS,
+          AppointmentStatusEnum.CANCELLED,
+          AppointmentStatusEnum.NO_SHOW,
+        ],
+        [AppointmentStatusEnum.CHECKED_IN]: [
+          AppointmentStatusEnum.IN_PROGRESS,
+          AppointmentStatusEnum.CANCELLED,
+        ],
+        [AppointmentStatusEnum.IN_PROGRESS]: [
+          AppointmentStatusEnum.COMPLETED,
+          AppointmentStatusEnum.CANCELLED,
+        ],
+        [AppointmentStatusEnum.COMPLETED]: [],
+        [AppointmentStatusEnum.CANCELLED]: [],
+        [AppointmentStatusEnum.RESCHEDULED]: [
+          AppointmentStatusEnum.CONFIRMED,
+          AppointmentStatusEnum.CANCELLED,
+        ],
+        [AppointmentStatusEnum.NO_SHOW]: [],
+      };
 
-    const allowedNextStates = validTransitions[appointment.status] || [];
-    if (!allowedNextStates.includes(status)) {
-      this.logger.error('Invalid status transition');
-      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-    }
+      const allowedNextStates = validTransitions[appointment.status] || [];
+      if (!allowedNextStates.includes(status)) {
+        this.logger.error('Invalid status transition');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+      }
 
-    const updateData: Partial<Appointment> = { status };
+      const updateData: Partial<Appointment> = { status };
 
-    if (status === AppointmentStatusEnum.CONFIRMED) {
-      if (
-        appointment.appointmentType === AppointmentTypeEnum.VIDEO &&
-        !appointment.meetingUrl
+      if (status === AppointmentStatusEnum.CONFIRMED) {
+        if (
+          appointment.appointmentType === AppointmentTypeEnum.VIDEO &&
+          !appointment.meetingUrl
+        ) {
+          try {
+            const room = await this.dailyService.getOrCreateRoom(appointment.id);
+            updateData.meetingUrl = room.url;
+            updateData.dailyCoChannel = room.name;
+            this.logger.log(
+              `Generated meeting URL for appointment ${appointment.id}`,
+            );
+          } catch (error) {
+            this.logger.error(`Failed to generate meeting URL: ${error}`);
+            throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+          }
+        }
+      } else if (status === AppointmentStatusEnum.IN_PROGRESS) {
+        updateData.startedAt = new Date();
+        // Ensure medical record is created
+        await this.medicalService.upsertEncounterInTx(manager, appointment);
+      } else if (
+        status === AppointmentStatusEnum.COMPLETED ||
+        status === AppointmentStatusEnum.NO_SHOW
       ) {
-        try {
-          const room = await this.dailyService.getOrCreateRoom(appointment.id);
-          updateData.meetingUrl = room.url;
-          updateData.dailyCoChannel = room.name;
-          this.logger.log(
-            `Generated meeting URL for appointment ${appointment.id}`,
-          );
-        } catch (error) {
-          this.logger.error(`Failed to generate meeting URL: ${error}`);
-          throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+        updateData.endedAt = new Date();
+
+        if (
+          appointment.appointmentType === AppointmentTypeEnum.VIDEO &&
+          appointment.dailyCoChannel
+        ) {
+          try {
+            await this.dailyService.deleteRoom(appointment.dailyCoChannel);
+            await this.callStateService.clearCallsForAppointment(appointment.id);
+            this.logger.log(
+              `Cleaned up video room for appointment ${appointment.id}`,
+            );
+          } catch (error) {
+            this.logger.warn(`Failed to cleanup video room: ${error}`);
+          }
         }
       }
-    } else if (status === AppointmentStatusEnum.IN_PROGRESS) {
-      updateData.startedAt = new Date();
-    } else if (
-      status === AppointmentStatusEnum.COMPLETED ||
-      status === AppointmentStatusEnum.NO_SHOW
-    ) {
-      updateData.endedAt = new Date();
 
-      if (
-        appointment.appointmentType === AppointmentTypeEnum.VIDEO &&
-        appointment.dailyCoChannel
-      ) {
-        try {
-          await this.dailyService.deleteRoom(appointment.dailyCoChannel);
-          await this.callStateService.clearCallsForAppointment(appointment.id);
-          this.logger.log(
-            `Cleaned up video room for appointment ${appointment.id}`,
-          );
-        } catch (error) {
-          this.logger.warn(`Failed to cleanup video room: ${error}`);
-        }
-      }
-    }
-
-    await this.appointmentRepository.update(id, updateData);
-    return this.appointmentReadService.findById(id);
+      await manager.update(Appointment, id, updateData);
+      return this.appointmentReadService.findById(id);
+    });
   }
 
   async confirmPayment(

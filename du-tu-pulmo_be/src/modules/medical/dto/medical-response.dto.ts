@@ -89,6 +89,18 @@ export class MedicalRecordResponseDto {
   @ApiPropertyOptional({ description: 'Alcohol consumption' })
   alcoholConsumption?: boolean;
 
+  @ApiPropertyOptional({ description: 'Previous Medical Record ID (Linking)' })
+  previousRecordId?: string;
+
+  @ApiPropertyOptional({ description: 'Previous Medical Record' })
+  previousRecord?: MedicalRecordResponseDto;
+
+  @ApiPropertyOptional({ description: 'Suggested Previous Medical Record ID' })
+  suggestedPreviousRecordId?: string;
+
+  @ApiPropertyOptional({ description: 'Suggested Previous Medical Record' })
+  suggestedPreviousRecord?: MedicalRecordResponseDto;
+
   @ApiProperty({ description: 'Created at' })
   createdAt: Date;
 

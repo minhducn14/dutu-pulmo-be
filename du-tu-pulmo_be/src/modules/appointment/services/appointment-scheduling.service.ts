@@ -75,12 +75,10 @@ export class AppointmentSchedulingService {
         throw new BadRequestException(ERROR_MESSAGES.CANNOT_CANCEL_COMPLETED);
       }
 
-      // PENDING_PAYMENT / PENDING = chưa xác nhận, chưa có giá trị thực
-      // → cho phép hủy dù đã qua giờ (để user dọn lịch rác)
-      // CONFIRMED trở lên = đã xác nhận → không cho hủy sau giờ hẹn
       const NON_EXPIRY_STATUSES = [
         AppointmentStatusEnum.PENDING_PAYMENT,
         AppointmentStatusEnum.PENDING,
+        AppointmentStatusEnum.CHECKED_IN,
       ];
 
       if (
@@ -93,22 +91,17 @@ export class AppointmentSchedulingService {
         );
       }
 
-      // ── Kiểm tra trạng thái được phép hủy theo role ─────────────────
-
-      // PATIENT không thể hủy khi đã check-in (đã đến phòng khám)
       const PATIENT_CANCELLABLE = [
         AppointmentStatusEnum.PENDING_PAYMENT,
         AppointmentStatusEnum.PENDING,
         AppointmentStatusEnum.CONFIRMED,
       ];
 
-      // STAFF (Doctor/Admin/Receptionist) có thể hủy cả CHECKED_IN
-      // vì họ có thẩm quyền xử lý tại chỗ
       const STAFF_CANCELLABLE = [
         AppointmentStatusEnum.PENDING_PAYMENT,
         AppointmentStatusEnum.PENDING,
         AppointmentStatusEnum.CONFIRMED,
-        AppointmentStatusEnum.CHECKED_IN, // ← FIX: thêm CHECKED_IN cho staff
+        AppointmentStatusEnum.CHECKED_IN,
       ];
 
       const allowedStatuses =
