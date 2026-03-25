@@ -4,7 +4,10 @@ import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
 import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
-import { Payment, PaymentStatus } from '@/modules/payment/entities/payment.entity';
+import {
+  Payment,
+  PaymentStatus,
+} from '@/modules/payment/entities/payment.entity';
 import { PayosService } from '@/modules/payment/payos.service';
 import { CallStateService } from '@/modules/video_call/call-state.service';
 import { DailyService } from '@/modules/video_call/daily.service';
@@ -78,11 +81,7 @@ export class AppointmentCancellationCoreService {
       });
 
       if (slot && slot.bookedCount < slot.capacity) {
-        await manager.update(
-          TimeSlot,
-          { id: slot.id },
-          { isAvailable: true },
-        );
+        await manager.update(TimeSlot, { id: slot.id }, { isAvailable: true });
       }
     }
 
@@ -181,7 +180,10 @@ export class AppointmentCancellationCoreService {
   private async runPostCommitEffects(
     effects: AppointmentCancellationPostCommitEffect[],
   ): Promise<void> {
-    const videoEffects = new Map<string, AppointmentCancellationPostCommitEffect>();
+    const videoEffects = new Map<
+      string,
+      AppointmentCancellationPostCommitEffect
+    >();
     const paymentTargets = new Map<
       string,
       PaymentGatewayCancellationTarget & { reason: string }
@@ -208,7 +210,9 @@ export class AppointmentCancellationCoreService {
           await this.dailyService.deleteRoom(effect.roomToDelete);
         }
 
-        await this.callStateService.clearCallsForAppointment(effect.appointmentId);
+        await this.callStateService.clearCallsForAppointment(
+          effect.appointmentId,
+        );
       } catch (error) {
         this.logger.warn(
           `Failed to cleanup video state for appointment ${effect.appointmentId}: ${

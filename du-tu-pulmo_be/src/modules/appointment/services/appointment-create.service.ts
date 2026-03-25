@@ -131,7 +131,7 @@ export class AppointmentCreateService {
       });
       if (
         activeAppointmentCount !== slot.bookedCount ||
-        slot.isAvailable !== (activeAppointmentCount < slot.capacity)
+        slot.isAvailable !== activeAppointmentCount < slot.capacity
       ) {
         const reconciledAvailability = activeAppointmentCount < slot.capacity;
         await manager.update(
@@ -306,9 +306,8 @@ export class AppointmentCreateService {
       throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
-    const appointmentDateTime = savedAppointment.scheduledAt.toLocaleString(
-      'vi-VN',
-    );
+    const appointmentDateTime =
+      savedAppointment.scheduledAt.toLocaleString('vi-VN');
 
     if (savedAppointment.patient?.userId) {
       void this.notificationService.createNotification({
@@ -339,5 +338,3 @@ export class AppointmentCreateService {
     );
   }
 }
-
-

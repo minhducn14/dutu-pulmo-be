@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, OnModuleDestroy } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -51,9 +51,10 @@ function loadTemplate(filename: string): HandlebarsTemplateDelegate {
 // ── PdfService ──────────────────────────────────────────────────────────────
 
 @Injectable()
-export class PdfService {
+export class PdfService implements OnModuleDestroy {
   private prescriptionTemplate: HandlebarsTemplateDelegate;
   private medicalRecordTemplate: HandlebarsTemplateDelegate;
+  private browserPromise: Promise<puppeteer.Browser> | null = null;
 
   constructor(
     @InjectRepository(Prescription)
@@ -67,6 +68,18 @@ export class PdfService {
   ) {
     this.prescriptionTemplate = loadTemplate('prescription.html');
     this.medicalRecordTemplate = loadTemplate('medical-record.html');
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    if (!this.browserPromise) {
+      return;
+    }
+
+    const browser = await this.browserPromise.catch(() => null);
+    this.browserPromise = null;
+    if (browser) {
+      await browser.close();
+    }
   }
 
   // ── Public API ────────────────────────────────────────────────────────────
@@ -147,7 +160,9 @@ export class PdfService {
   ): Record<string, unknown> {
     const user = prescription.patient?.user;
     const doctorUser = prescription.doctor?.user;
-    const vitalSign = prescription.medicalRecord?.vitalSigns?.[0];
+    const vitalSign = this.getLatestVitalSign(
+      prescription.medicalRecord?.vitalSigns,
+    );
     const medicalRecord = prescription.medicalRecord;
 
     const birthYear = user?.dateOfBirth
@@ -207,7 +222,7 @@ export class PdfService {
   ): Record<string, unknown> {
     const patientUser = record.patient?.user;
     const doctorUser = record.doctor?.user;
-    const vitalSign = record.vitalSigns?.[0];
+    const vitalSign = this.getLatestVitalSign(record.vitalSigns);
 
     const birthYear = patientUser?.dateOfBirth
       ? new Date(patientUser.dateOfBirth).getFullYear()
@@ -308,6 +323,18 @@ export class PdfService {
 
   // ── Core Engine ───────────────────────────────────────────────────────────
 
+  private getLatestVitalSign(
+    vitalSigns?: MedicalRecord['vitalSigns'],
+  ): MedicalRecord['vitalSigns'][number] | null {
+    if (!vitalSigns?.length) {
+      return null;
+    }
+
+    return vitalSigns
+      .slice()
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+  }
+
   private async renderAndUpload(
     template: HandlebarsTemplateDelegate,
     data: Record<string, unknown>,
@@ -336,16 +363,9 @@ export class PdfService {
     html: string,
     outputPath: string,
   ): Promise<void> {
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-      ],
-    });
+    const browser = await this.getBrowser();
+    const page = await browser.newPage();
     try {
-      const page = await browser.newPage();
       await page.setContent(html, {
         waitUntil: 'networkidle0',
         timeout: 30000,
@@ -357,7 +377,27 @@ export class PdfService {
         printBackground: true,
       });
     } finally {
-      await browser.close();
+      await page.close();
+    }
+  }
+
+  private async getBrowser(): Promise<puppeteer.Browser> {
+    if (!this.browserPromise) {
+      this.browserPromise = puppeteer.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+        ],
+      });
+    }
+
+    try {
+      return await this.browserPromise;
+    } catch (error) {
+      this.browserPromise = null;
+      throw error;
     }
   }
 

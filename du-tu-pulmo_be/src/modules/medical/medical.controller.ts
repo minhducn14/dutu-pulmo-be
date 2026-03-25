@@ -11,8 +11,8 @@ import {
   UseInterceptors,
   ClassSerializerInterceptor,
   NotFoundException,
+  ParseUUIDPipe,
 } from '@nestjs/common';
-import { PdfService } from '@/modules/pdf/pdf.service';
 import {
   ApiTags,
   ApiOperation,
@@ -57,7 +57,6 @@ export class MedicalController {
   constructor(
     private readonly medicalService: MedicalService,
     private readonly appointmentService: AppointmentService,
-    private readonly pdfService: PdfService,
   ) {}
 
   private async validatePatientAccess(
@@ -79,7 +78,7 @@ export class MedicalController {
 
     if (user.roles.includes(RoleEnum.DOCTOR)) {
       if (!user.doctorId)
-        throw new ForbiddenException(ERROR_MESSAGES.DOCTOR_ID_INVALID);
+        throw new ForbiddenException(ERROR_MESSAGES.DOCTOR_ID_MISSING);
       const hasAccess = await this.appointmentService.hasAnyAppointment(
         user.doctorId,
         patientId,
@@ -191,13 +190,7 @@ export class MedicalController {
   }
 
   private getDiagnosisName(prescription: Prescription): string | undefined {
-    const diagnosis = (prescription as { diagnosis?: { name?: unknown } })
-      .diagnosis;
-    if (diagnosis && typeof diagnosis.name === 'string') {
-      return diagnosis.name;
-    }
-
-    return undefined;
+    return prescription.medicalRecord?.diagnosis || undefined;
   }
 
   // ==================== Medical Records ====================
@@ -234,24 +227,17 @@ export class MedicalController {
     type: [MedicalRecordResponseDto],
   })
   async findRecordsByPatient(
-    @Param('patientId') patientId: string,
+    @Param('patientId', ParseUUIDPipe) patientId: string,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<MedicalRecordResponseDto[]>> {
-    let result: ResponseCommon<MedicalRecord[]>;
-
-    if (user.roles?.includes(RoleEnum.PATIENT)) {
-      if (user.patientId !== patientId)
-        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_MEDICAL);
-      result = await this.medicalService.findRecordsByPatient(patientId);
-    } else if (user.roles?.includes(RoleEnum.ADMIN)) {
-      result = await this.medicalService.findRecordsByPatient(patientId);
-    } else if (user.roles?.includes(RoleEnum.DOCTOR)) {
-      if (!user.doctorId)
-        throw new ForbiddenException(ERROR_MESSAGES.DOCTOR_ID_MISSING);
-      result = await this.medicalService.findRecordsByPatient(patientId);
-    } else {
-      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_MEDICAL);
-    }
+    await this.validatePatientAccess(user, patientId);
+    const doctorId = user.roles?.includes(RoleEnum.DOCTOR)
+      ? user.doctorId
+      : undefined;
+    const result = await this.medicalService.findRecordsByPatient(
+      patientId,
+      doctorId,
+    );
 
     // Safe access
     const dtos = (result.data || []).map((r) => this.toRecordDto(r));
@@ -269,7 +255,7 @@ export class MedicalController {
     type: MedicalRecordDetailResponseDto,
   })
   async getMedicalRecordDetail(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<MedicalRecordDetailResponseDto>> {
     return this.medicalService.getMedicalRecordDetail(id, user);
@@ -284,7 +270,7 @@ export class MedicalController {
     description: 'Cập nhật thành công',
   })
   async updateMedicalRecord(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateMedicalRecordDto,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<MedicalRecordDetailResponseDto>> {
@@ -321,7 +307,7 @@ export class MedicalController {
     description: 'Ký số thành công',
   })
   async signMedicalRecord(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: SignMedicalRecordDto,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<MedicalRecordDetailResponseDto>> {
@@ -336,7 +322,7 @@ export class MedicalController {
   @ApiParam({ name: 'id', description: 'Medical Record ID (UUID)' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Hoàn tất thành công' })
   async completeMedicalRecord(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<MedicalRecordResponseDto>> {
     const result = await this.medicalService.completeMedicalRecord(id, user);
@@ -356,7 +342,7 @@ export class MedicalController {
   @ApiParam({ name: 'id', description: 'Medical Record ID (UUID)' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Mở lại thành công' })
   async reopenMedicalRecord(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<MedicalRecordResponseDto>> {
     const result = await this.medicalService.reopenMedicalRecord(id, user);
@@ -379,9 +365,10 @@ export class MedicalController {
     type: MedicalRecordExaminationDto,
   })
   async getMedicalRecordForExamination(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<MedicalRecordExaminationDto>> {
-    return this.medicalService.getMedicalRecordForExamination(id);
+    return this.medicalService.getMedicalRecordForExamination(id, user);
   }
 
   @Get('records/:id/summary')
@@ -394,9 +381,10 @@ export class MedicalController {
     type: MedicalRecordSummaryDto,
   })
   async getMedicalRecordForSummary(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<MedicalRecordSummaryDto>> {
-    return this.medicalService.getMedicalRecordForSummary(id);
+    return this.medicalService.getMedicalRecordForSummary(id, user);
   }
 
   // ==================== Vital Signs ====================
@@ -410,7 +398,7 @@ export class MedicalController {
     type: [VitalSignResponseDto],
   })
   async findVitalSigns(
-    @Param('patientId') patientId: string,
+    @Param('patientId', ParseUUIDPipe) patientId: string,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<VitalSignResponseDto[]>> {
     await this.validatePatientAccess(user, patientId);
@@ -460,7 +448,7 @@ export class MedicalController {
     type: PrescriptionResponseDto,
   })
   async getPrescriptionDetail(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<PrescriptionResponseDto>> {
     const result = await this.medicalService.getPrescriptionDetail(id, user);
@@ -477,7 +465,7 @@ export class MedicalController {
     type: [PrescriptionResponseDto],
   })
   async findPrescriptions(
-    @Param('patientId') patientId: string,
+    @Param('patientId', ParseUUIDPipe) patientId: string,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<PrescriptionResponseDto[]>> {
     await this.validatePatientAccess(user, patientId);
@@ -488,17 +476,6 @@ export class MedicalController {
       : undefined;
 
     // Strict Mode for Patients: Only return their own prescriptions
-    const patientIdLogin = user.roles?.includes(RoleEnum.PATIENT)
-      ? user.userId
-      : undefined;
-
-    // Nếu login bằng patient nhưng cố xem patient khác
-    if (patientIdLogin && patientIdLogin !== patientId) {
-      throw new ForbiddenException(
-        'Patients can only view their own prescriptions',
-      );
-    }
-
     const result = await this.medicalService.findPrescriptionsByPatient(
       patientId,
       doctorId,
@@ -521,9 +498,10 @@ export class MedicalController {
     schema: { example: { pdfUrl: 'https://res.cloudinary.com/...' } },
   })
   async generateMedicalRecordPdf(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<{ pdfUrl: string }>> {
-    const pdfUrl = await this.pdfService.generateAndSaveMedicalRecordPdf(id);
+    const pdfUrl = await this.medicalService.generateMedicalRecordPdf(id, user);
     return new ResponseCommon(
       HttpStatus.CREATED,
       'Tạo PDF bệnh án thành công',
@@ -541,7 +519,7 @@ export class MedicalController {
     schema: { example: { pdfUrl: 'https://res.cloudinary.com/...' } },
   })
   async getMedicalRecordPdfUrl(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<{ pdfUrl: string | null }>> {
     const result = await this.medicalService.getMedicalRecordDetail(id, user);
@@ -562,9 +540,10 @@ export class MedicalController {
     schema: { example: { pdfUrl: 'https://res.cloudinary.com/...' } },
   })
   async generatePrescriptionPdf(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<{ pdfUrl: string }>> {
-    const pdfUrl = await this.pdfService.generateAndSavePrescriptionPdf(id);
+    const pdfUrl = await this.medicalService.generatePrescriptionPdf(id, user);
     return new ResponseCommon(
       HttpStatus.CREATED,
       'Tạo PDF đơn thuốc thành công',
@@ -582,7 +561,7 @@ export class MedicalController {
     schema: { example: { pdfUrl: 'https://res.cloudinary.com/...' } },
   })
   async getPrescriptionPdfUrl(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<{ pdfUrl: string | null }>> {
     const result = await this.medicalService.getPrescriptionDetail(id, user);

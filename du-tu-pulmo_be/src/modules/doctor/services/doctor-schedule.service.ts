@@ -198,7 +198,10 @@ export class DoctorScheduleService {
     return this.flexibleService.updateFlexibleSchedule(doctorId, id, dto);
   }
 
-  deleteFlexibleSchedule(doctorId: string, id: string): Promise<
+  deleteFlexibleSchedule(
+    doctorId: string,
+    id: string,
+  ): Promise<
     ResponseCommon<{
       appointmentsCount: number;
       appointmentsOutsideRegular: number;
@@ -231,7 +234,10 @@ export class DoctorScheduleService {
     return this.timeOffService.updateTimeOff(doctorId, id, dto);
   }
 
-  deleteTimeOff(doctorId: string, id: string): Promise<
+  deleteTimeOff(
+    doctorId: string,
+    id: string,
+  ): Promise<
     ResponseCommon<{
       restoredSlots: number;
     }>

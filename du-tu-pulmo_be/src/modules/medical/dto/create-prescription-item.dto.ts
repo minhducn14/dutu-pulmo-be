@@ -3,6 +3,7 @@ import {
   IsString,
   IsUUID,
   IsNumber,
+  Matches,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -37,6 +38,9 @@ export class CreatePrescriptionItemDto {
   @ApiProperty({ description: 'Thời gian dùng', example: '7 ngày' })
   @IsString()
   @MaxLength(100)
+  @Matches(/^\s*[1-9]\d*(\s*ngày)?\s*$/i, {
+    message: 'duration must be a positive number of days',
+  })
   duration: string;
 
   @ApiPropertyOptional({ description: 'Đơn vị', example: 'viên' })

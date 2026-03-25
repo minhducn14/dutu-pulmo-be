@@ -219,9 +219,9 @@ export class SlotGeneratorService {
         return false;
       }
 
-       if (s.scheduleType !== ScheduleType.TIME_OFF && !s.isAvailable) {
-         return false;
-       }
+      if (s.scheduleType !== ScheduleType.TIME_OFF && !s.isAvailable) {
+        return false;
+      }
 
       // FLEXIBLE and TIME_OFF use specificDate
       if (
@@ -377,7 +377,10 @@ export class SlotGeneratorService {
     const currentDate = startOfDayVN(effectiveStart);
 
     while (currentDate <= effectiveEnd) {
-      if (getDayVN(currentDate) === schedule.dayOfWeek && schedule.isAvailable) {
+      if (
+        getDayVN(currentDate) === schedule.dayOfWeek &&
+        schedule.isAvailable
+      ) {
         const daySlots = this.generateSlotsFromSchedule(schedule, currentDate);
         allSlots.push(...daySlots);
       }

@@ -33,7 +33,17 @@ import { MedicalAuditListener } from './medical-audit.listener';
     NotificationModule,
   ],
   controllers: [MedicalController, MedicineController],
-  providers: [MedicalService, MedicineService, MedicalAuditService, MedicalAuditListener],
-  exports: [MedicalService, MedicineService, MedicalAuditService, TypeOrmModule],
+  providers: [
+    MedicalService,
+    MedicineService,
+    MedicalAuditService,
+    MedicalAuditListener,
+  ],
+  exports: [
+    MedicalService,
+    MedicineService,
+    MedicalAuditService,
+    TypeOrmModule,
+  ],
 })
 export class MedicalModule {}

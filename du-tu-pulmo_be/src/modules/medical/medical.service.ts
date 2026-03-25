@@ -123,11 +123,6 @@ export class MedicalService {
         'doctor',
         'doctor.user',
         'appointment',
-        'patient',
-        'vitalSigns',
-        'prescriptions',
-        'prescriptions.items',
-        'prescriptions.items.medicine',
       ],
       order: { createdAt: 'DESC' },
     });
@@ -350,6 +345,52 @@ export class MedicalService {
     }
   }
 
+  private assertUserCanAccessRecord(
+    record: Pick<MedicalRecord, 'patientId' | 'doctorId'>,
+    user: JwtUser,
+  ): void {
+    if (user.roles?.includes(RoleEnum.PATIENT)) {
+      if (user.patientId !== record.patientId) {
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_MEDICAL);
+      }
+      return;
+    }
+
+    if (user.roles?.includes(RoleEnum.DOCTOR)) {
+      if (user.doctorId !== record.doctorId) {
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_MEDICAL);
+      }
+      return;
+    }
+
+    if (!user.roles?.includes(RoleEnum.ADMIN)) {
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_MEDICAL);
+    }
+  }
+
+  private getLatestVitalSignFromCollection(
+    vitalSigns?: VitalSign[] | null,
+  ): VitalSign | null {
+    if (!vitalSigns?.length) {
+      return null;
+    }
+
+    return vitalSigns
+      .slice()
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+  }
+
+  private parsePrescriptionDurationDays(duration: string): number {
+    const match = duration.match(/\d+/);
+    const durationDays = match ? Number(match[0]) : NaN;
+
+    if (!Number.isInteger(durationDays) || durationDays <= 0) {
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+    }
+
+    return durationDays;
+  }
+
   // ============================================================================
   // VITAL SIGNS
   // ============================================================================
@@ -480,7 +521,7 @@ export class MedicalService {
   ): Promise<Prescription[]> {
     return this.prescriptionRepository.find({
       where: { patientId },
-      relations: ['items', 'doctor'],
+      relations: ['items', 'doctor', 'medicalRecord', 'appointment'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -527,17 +568,46 @@ export class MedicalService {
     }
 
     if (user.roles?.includes(RoleEnum.PATIENT)) {
-      if (prescription.patient.user.id !== user.userId) {
+      if (prescription.patient?.user?.id !== user.userId) {
         throw new ForbiddenException(ERROR_MESSAGES.PRESCRIPTION_NOT_FOUND);
       }
     }
 
     if (user.roles?.includes(RoleEnum.DOCTOR)) {
-      if (prescription.doctor.user.id !== user.userId) {
+      if (prescription.doctor?.user?.id !== user.userId) {
         throw new ForbiddenException(ERROR_MESSAGES.PRESCRIPTION_NOT_FOUND);
       }
     }
     return new ResponseCommon(HttpStatus.OK, 'Thành công', prescription);
+  }
+
+  async generateMedicalRecordPdf(
+    recordId: string,
+    user: JwtUser,
+  ): Promise<string> {
+    const record = await this.recordRepository.findOne({
+      where: { id: recordId },
+      select: {
+        id: true,
+        patientId: true,
+        doctorId: true,
+      },
+    });
+
+    if (!record) {
+      throw new NotFoundException(ERROR_MESSAGES.MEDICAL_RECORD_NOT_FOUND);
+    }
+
+    this.assertUserCanAccessRecord(record, user);
+    return this.pdfService.generateAndSaveMedicalRecordPdf(recordId);
+  }
+
+  async generatePrescriptionPdf(
+    prescriptionId: string,
+    user: JwtUser,
+  ): Promise<string> {
+    await this.getPrescriptionDetail(prescriptionId, user);
+    return this.pdfService.generateAndSavePrescriptionPdf(prescriptionId);
   }
 
   // ============================================================================
@@ -563,10 +633,11 @@ export class MedicalService {
   async upsertEncounterInTx(
     manager: EntityManager,
     appointment: Appointment,
-  ): Promise<MedicalRecord> {
+  ): Promise<{ record: MedicalRecord; created: boolean }> {
     let record = await manager.findOne(MedicalRecord, {
       where: { appointmentId: appointment.id },
     });
+    let created = false;
 
     if (!record) {
       // Prefill only once from appointment data. Do not overwrite once a record exists.
@@ -579,23 +650,10 @@ export class MedicalService {
         presentIllness: appointment.patientNotes ?? null,
       });
       record = await manager.save(record);
-
-      // Audit Hook (System created)
-      this.auditService.log({
-        entityType: AuditEntityType.MEDICAL_RECORD,
-        entityId: record.id,
-        medicalRecordId: record.id,
-        patientId: record.patientId,
-        actorId: '00000000-0000-0000-0000-000000000000',
-        actorRole: AuditActorRole.SYSTEM,
-        action: AuditAction.CREATE_RECORD,
-        metadata: {
-          recordNumber: record.recordNumber,
-          reason: 'Auto-created from appointment status change',
-        },
-      });
+      created = true;
     }
-    return record;
+
+    return { record, created };
   }
 
   async getEncounterByAppointment(
@@ -629,7 +687,9 @@ export class MedicalService {
     },
     user?: JwtUser,
   ): Promise<ResponseCommon<MedicalRecord>> {
-    return this.dataSource.transaction(async (manager) => {
+    let auditPayload: Parameters<MedicalAuditService['log']>[0] | null = null;
+
+    const response = await this.dataSource.transaction(async (manager) => {
       const appointment = await manager.findOne(Appointment, {
         where: { id: appointmentId },
       });
@@ -693,15 +753,18 @@ export class MedicalService {
       }
 
       if (data.previousRecordId !== undefined) {
-        await this.validateLinking(record.id, record.patientId, data.previousRecordId);
+        await this.validateLinking(
+          record.id,
+          record.patientId,
+          data.previousRecordId,
+        );
       }
 
       Object.assign(record, data);
       const result = await manager.save(record);
 
-      // Audit Hook
       const { actorId, actorRole } = this.getAuditActorInfo(user);
-      this.auditService.log({
+      auditPayload = {
         entityType: AuditEntityType.MEDICAL_RECORD,
         entityId: result.id,
         medicalRecordId: result.id,
@@ -709,10 +772,10 @@ export class MedicalService {
         actorId,
         actorRole,
         action: before ? AuditAction.UPDATE_RECORD : AuditAction.CREATE_RECORD,
-      metadata: before
+        metadata: before
           ? { diff: this.getDiff(before, result, Object.keys(data)) }
           : { recordNumber: result.recordNumber },
-      });
+      };
 
       let apptChanged = false;
       if (
@@ -751,6 +814,12 @@ export class MedicalService {
 
       return new ResponseCommon(HttpStatus.OK, 'Cập nhật thành công', result);
     });
+
+    if (auditPayload) {
+      this.auditService.log(auditPayload);
+    }
+
+    return response;
   }
 
   // ============================================================================
@@ -804,99 +873,119 @@ export class MedicalService {
     },
     user: JwtUser,
   ): Promise<ResponseCommon<Prescription>> {
-    const record = await this.recordRepository.findOne({
-      where: { id: encounterId },
-    });
-    if (!record) {
-      throw new NotFoundException(ERROR_MESSAGES.MEDICAL_RECORD_NOT_FOUND);
+    if (!data.items?.length) {
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
-    this.assertNotCompleted(record);
 
-    const prescription = this.prescriptionRepository.create({
-      prescriptionNumber: this.generatePrescriptionNumber(),
-      patientId,
-      doctorId,
-      medicalRecordId: encounterId,
-      appointmentId,
-      notes: data.notes,
-    });
+    let auditPayload: Parameters<MedicalAuditService['log']>[0] | null = null;
 
-    const savedPrescription =
-      await this.prescriptionRepository.save(prescription);
+    const result = await this.dataSource.transaction(async (manager) => {
+      const recordRepo = manager.getRepository(MedicalRecord);
+      const prescriptionRepo = manager.getRepository(Prescription);
+      const itemRepo = manager.getRepository(PrescriptionItem);
+      const medicineRepo = manager.getRepository(Medicine);
 
-    const medicineIds = data.items
-      .map((i) => i.medicineId)
-      .filter(Boolean) as string[];
-    let medicineMap = new Map<string, Medicine>();
-    if (medicineIds.length > 0) {
-      const medicines = await this.medicineRepository.findBy({
-        id: In(medicineIds),
+      const record = await recordRepo.findOne({
+        where: { id: encounterId },
       });
-      medicineMap = new Map(medicines.map((m) => [m.id, m]));
-    }
+      if (!record) {
+        throw new NotFoundException(ERROR_MESSAGES.MEDICAL_RECORD_NOT_FOUND);
+      }
+      this.assertNotCompleted(record);
 
-    const startDate = new Date();
-
-    const itemEntities = data.items.map((item) => {
-      let finalName = item.medicineName;
-      let finalUnit = item.unit;
-      if (item.medicineId) {
-        const medicine = medicineMap.get(item.medicineId);
-        if (!medicine) {
-          throw new NotFoundException(ERROR_MESSAGES.MEDICINE_NOT_FOUND);
-        }
-        finalName = medicine.name;
-        finalUnit = finalUnit || medicine.unit;
-      } else {
-        if (!finalName) {
-          throw new BadRequestException(ERROR_MESSAGES.MEDICINE_NAME_REQUIRED);
-        }
+      if (data.diagnosis !== undefined) {
+        record.diagnosis = data.diagnosis;
+        await recordRepo.save(record);
       }
 
-      const durationDays = parseInt(item.duration) || 1;
-      const endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + durationDays);
+      const savedPrescription = await prescriptionRepo.save(
+        prescriptionRepo.create({
+          prescriptionNumber: this.generatePrescriptionNumber(),
+          patientId,
+          doctorId,
+          medicalRecordId: encounterId,
+          appointmentId,
+          notes: data.notes,
+        }),
+      );
 
-      return this.prescriptionItemRepository.create({
-        prescription: savedPrescription,
-        medicineId: item.medicineId || undefined,
-        medicineName: finalName,
-        dosage: item.dosage,
-        frequency: item.frequency,
-        durationDays: durationDays,
-        quantity: item.quantity || 0,
-        instructions: item.instructions,
-        startDate: startDate,
-        endDate: endDate,
-        unit: finalUnit || 'viên',
+      const medicineIds = data.items
+        .map((item) => item.medicineId)
+        .filter(Boolean) as string[];
+      let medicineMap = new Map<string, Medicine>();
+      if (medicineIds.length > 0) {
+        const medicines = await medicineRepo.findBy({
+          id: In(medicineIds),
+        });
+        medicineMap = new Map(
+          medicines.map((medicine) => [medicine.id, medicine]),
+        );
+      }
+
+      const startDate = new Date();
+
+      const itemEntities = data.items.map((item) => {
+        let finalName = item.medicineName;
+        let finalUnit = item.unit;
+        if (item.medicineId) {
+          const medicine = medicineMap.get(item.medicineId);
+          if (!medicine) {
+            throw new NotFoundException(ERROR_MESSAGES.MEDICINE_NOT_FOUND);
+          }
+          finalName = medicine.name;
+          finalUnit = finalUnit || medicine.unit;
+        } else {
+          if (!finalName) {
+            throw new BadRequestException(
+              ERROR_MESSAGES.MEDICINE_NAME_REQUIRED,
+            );
+          }
+        }
+
+        const durationDays = this.parsePrescriptionDurationDays(item.duration);
+        const endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + durationDays);
+
+        return itemRepo.create({
+          prescription: savedPrescription,
+          medicineId: item.medicineId || undefined,
+          medicineName: finalName,
+          dosage: item.dosage,
+          frequency: item.frequency,
+          durationDays,
+          quantity: item.quantity || 0,
+          instructions: item.instructions,
+          startDate,
+          endDate,
+          unit: finalUnit || 'viên',
+        });
       });
+
+      await itemRepo.save(itemEntities);
+
+      const result = await prescriptionRepo.findOne({
+        where: { id: savedPrescription.id },
+        relations: ['items', 'doctor', 'medicalRecord', 'appointment'],
+      });
+
+      auditPayload = {
+        ...this.getAuditActorInfo(user),
+        entityType: AuditEntityType.PRESCRIPTION,
+        entityId: savedPrescription.id,
+        medicalRecordId: encounterId,
+        patientId,
+        action: AuditAction.CREATE_PRESCRIPTION,
+        metadata: { prescriptionNumber: savedPrescription.prescriptionNumber },
+      };
+
+      return result as Prescription;
     });
 
-    await this.prescriptionItemRepository.save(itemEntities);
+    if (auditPayload) {
+      this.auditService.log(auditPayload);
+    }
 
-    const result = await this.prescriptionRepository.findOne({
-      where: { id: savedPrescription.id },
-      relations: ['items', 'doctor'],
-    });
-
-    // Audit Hook
-    const { actorId, actorRole } = this.getAuditActorInfo(user);
-    this.auditService.log({
-      entityType: AuditEntityType.PRESCRIPTION,
-      entityId: savedPrescription.id,
-      medicalRecordId: encounterId,
-      patientId,
-      actorId,
-      actorRole,
-      action: AuditAction.CREATE_PRESCRIPTION,
-      metadata: { prescriptionNumber: savedPrescription.prescriptionNumber },
-    });
-
-    return new ResponseCommon(
-      HttpStatus.CREATED,
-      'Kê đơn thành công',
-      result as Prescription,
-    );
+    return new ResponseCommon(HttpStatus.CREATED, 'Ke don thanh cong', result);
   }
 
   async cancelPrescription(
@@ -993,59 +1082,78 @@ export class MedicalService {
       throw new BadRequestException(ERROR_MESSAGES.INVALID_PRESCRIPTION_STATUS);
     }
 
-    prescription.notes = dto.notes || '';
+    if (!dto.items?.length) {
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+    }
 
-    await this.prescriptionRepository.manager.transaction(async (manager) => {
-      await manager.save(prescription);
+    prescription.notes = dto.notes ?? prescription.notes;
 
-      await manager.delete(PrescriptionItem, { prescriptionId });
+    await this.dataSource.transaction(async (manager) => {
+      const prescriptionRepo = manager.getRepository(Prescription);
+      const itemRepo = manager.getRepository(PrescriptionItem);
+      const medicineRepo = manager.getRepository(Medicine);
+      const recordRepo = manager.getRepository(MedicalRecord);
+
+      await prescriptionRepo.save(prescription);
+      await itemRepo.delete({ prescriptionId });
 
       const medicineIds = dto.items
         .map((i) => i.medicineId)
         .filter(Boolean) as string[];
       let medicineMap = new Map<string, Medicine>();
       if (medicineIds.length > 0) {
-        const medicines = await this.medicineRepository.findBy({
+        const medicines = await medicineRepo.findBy({
           id: In(medicineIds),
         });
         medicineMap = new Map(medicines.map((m) => [m.id, m]));
       }
 
+      if (dto.diagnosis !== undefined && prescription.medicalRecordId) {
+        await recordRepo.update(prescription.medicalRecordId, {
+          diagnosis: dto.diagnosis,
+        });
+      }
+
       const startDate = new Date();
       const itemEntities = dto.items.map((item) => {
         let finalName = item.medicineName;
+        let finalUnit = item.unit;
         if (item.medicineId) {
           const medicine = medicineMap.get(item.medicineId);
-          if (!medicine)
+          if (!medicine) {
             throw new NotFoundException(ERROR_MESSAGES.MEDICINE_NOT_FOUND);
+          }
           finalName = medicine.name;
+          finalUnit = finalUnit || medicine.unit;
+        } else if (!finalName) {
+          throw new BadRequestException(ERROR_MESSAGES.MEDICINE_NAME_REQUIRED);
         }
 
-        const durationDays = parseInt(item.duration) || 1;
+        const durationDays = this.parsePrescriptionDurationDays(item.duration);
         const endDate = new Date(startDate);
         endDate.setDate(endDate.getDate() + durationDays);
 
-        return this.prescriptionItemRepository.create({
-          prescription: prescription,
+        return itemRepo.create({
+          prescription,
           medicineId: item.medicineId || undefined,
           medicineName: finalName,
           dosage: item.dosage,
           frequency: item.frequency,
-          durationDays: durationDays,
+          durationDays,
           quantity: item.quantity || 0,
           instructions: item.instructions,
-          startDate: startDate,
-          endDate: endDate,
-          unit: item.unit || 'viên',
+          startDate,
+          endDate,
+          unit: finalUnit || 'viên',
         });
       });
 
-      await manager.save(PrescriptionItem, itemEntities);
+      await itemRepo.save(itemEntities);
     });
 
     const result = await this.prescriptionRepository.findOne({
       where: { id: prescriptionId },
-      relations: ['items', 'doctor'],
+      relations: ['items', 'doctor', 'medicalRecord', 'appointment'],
     });
 
     return new ResponseCommon(
@@ -1096,24 +1204,11 @@ export class MedicalService {
       throw new NotFoundException(ERROR_MESSAGES.MEDICAL_RECORD_NOT_FOUND);
     }
 
-    // Permission check
-    if (user.roles?.includes(RoleEnum.PATIENT)) {
-      if (user.patientId !== record.patientId) {
-        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_MEDICAL);
-      }
-    } else if (user.roles?.includes(RoleEnum.DOCTOR)) {
-      if (user.doctorId !== record.doctorId) {
-        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_MEDICAL);
-      }
-    } else if (!user.roles?.includes(RoleEnum.ADMIN)) {
-      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_MEDICAL);
-    }
+    this.assertUserCanAccessRecord(record, user);
 
-    const latestVitalSign = record.vitalSigns?.length
-      ? record.vitalSigns
-          .slice()
-          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0]
-      : null;
+    const latestVitalSign = this.getLatestVitalSignFromCollection(
+      record.vitalSigns,
+    );
 
     const response: MedicalRecordDetailResponseDto = {
       id: record.id,
@@ -1144,16 +1239,20 @@ export class MedicalService {
       diagnosis: record.diagnosis || undefined,
       chiefComplaint: record.chiefComplaint || undefined,
       vitalSigns: {
-        temperature: latestVitalSign?.temperature
-          ? Number(latestVitalSign.temperature)
-          : undefined,
-        respiratoryRate: latestVitalSign?.respiratoryRate || undefined,
-        weight: latestVitalSign?.weight || undefined,
-        bloodPressure: latestVitalSign?.bloodPressure || undefined,
-        heartRate: latestVitalSign?.heartRate || undefined,
-        height: latestVitalSign?.height || undefined,
-        bmi: latestVitalSign?.bmi ? Number(latestVitalSign.bmi) : undefined,
-        spo2: latestVitalSign?.spo2 || undefined,
+        temperature:
+          latestVitalSign?.temperature != null
+            ? Number(latestVitalSign.temperature)
+            : undefined,
+        respiratoryRate: latestVitalSign?.respiratoryRate ?? undefined,
+        weight: latestVitalSign?.weight ?? undefined,
+        bloodPressure: latestVitalSign?.bloodPressure ?? undefined,
+        heartRate: latestVitalSign?.heartRate ?? undefined,
+        height: latestVitalSign?.height ?? undefined,
+        bmi:
+          latestVitalSign?.bmi != null
+            ? Number(latestVitalSign.bmi)
+            : undefined,
+        spo2: latestVitalSign?.spo2 ?? undefined,
       },
       presentIllness: record.presentIllness || undefined,
       medicalHistory: record.medicalHistory || undefined,
@@ -1228,9 +1327,9 @@ export class MedicalService {
     response.allergies = record.allergies || undefined;
     response.chronicDiseases = record.chronicDiseases || undefined;
     response.currentMedications = record.currentMedications || undefined;
-    response.smokingStatus = record.smokingStatus || undefined;
-    response.smokingYears = record.smokingYears || undefined;
-    response.alcoholConsumption = record.alcoholConsumption || undefined;
+    response.smokingStatus = record.smokingStatus ?? undefined;
+    response.smokingYears = record.smokingYears ?? undefined;
+    response.alcoholConsumption = record.alcoholConsumption ?? undefined;
     response.assessment = record.assessment || undefined;
     response.pdfUrl = record.pdfUrl || undefined;
     response.screeningRequests =
@@ -1280,11 +1379,27 @@ export class MedicalService {
       throw new BadRequestException(ERROR_MESSAGES.ALREADY_SIGNED);
     }
 
+    const previousSigningState = {
+      signedStatus: record.signedStatus,
+      signedAt: record.signedAt,
+      digitalSignature: record.digitalSignature,
+    };
+
     record.signedStatus = SignedStatusEnum.SIGNED;
     record.signedAt = new Date();
     record.digitalSignature = dto.signature;
 
     await this.recordRepository.save(record);
+
+    try {
+      await this.pdfService.generateAndSaveMedicalRecordPdf(recordId);
+    } catch (error) {
+      record.signedStatus = previousSigningState.signedStatus;
+      record.signedAt = previousSigningState.signedAt;
+      record.digitalSignature = previousSigningState.digitalSignature;
+      await this.recordRepository.save(record);
+      throw error;
+    }
 
     const { actorId, actorRole } = this.getAuditActorInfo(user);
     this.auditService.log({
@@ -1297,8 +1412,6 @@ export class MedicalService {
       action: AuditAction.SIGN_RECORD,
       metadata: { signedAt: record.signedAt },
     });
-
-    await this.pdfService.generateAndSaveMedicalRecordPdf(recordId);
 
     const recordWithPatient = await this.recordRepository.findOne({
       where: { id: recordId },
@@ -1325,6 +1438,7 @@ export class MedicalService {
 
   async getMedicalRecordForExamination(
     recordId: string,
+    user: JwtUser,
   ): Promise<ResponseCommon<MedicalRecordExaminationDto>> {
     const record = await this.recordRepository.findOne({
       where: { id: recordId },
@@ -1335,7 +1449,11 @@ export class MedicalService {
       throw new NotFoundException(ERROR_MESSAGES.MEDICAL_RECORD_NOT_FOUND);
     }
 
-    const latestVitalSign = record.vitalSigns?.[0];
+    this.assertUserCanAccessRecord(record, user);
+
+    const latestVitalSign = this.getLatestVitalSignFromCollection(
+      record.vitalSigns,
+    );
 
     const recentRecords = await this.recordRepository.find({
       where: { patientId: record.patientId },
@@ -1383,17 +1501,22 @@ export class MedicalService {
       currentMedications: record.currentMedications || [],
       latestVitalSign: latestVitalSign
         ? {
-            temperature: latestVitalSign.temperature
-              ? Number(latestVitalSign.temperature)
-              : undefined,
+            temperature:
+              latestVitalSign.temperature != null
+                ? Number(latestVitalSign.temperature)
+                : undefined,
             bloodPressure: latestVitalSign.bloodPressure,
             heartRate: latestVitalSign.heartRate,
-            spo2: latestVitalSign.spo2
-              ? Number(latestVitalSign.spo2)
-              : undefined,
+            spo2:
+              latestVitalSign.spo2 != null
+                ? Number(latestVitalSign.spo2)
+                : undefined,
             weight: latestVitalSign.weight,
             height: latestVitalSign.height,
-            bmi: latestVitalSign.bmi ? Number(latestVitalSign.bmi) : undefined,
+            bmi:
+              latestVitalSign.bmi != null
+                ? Number(latestVitalSign.bmi)
+                : undefined,
             recordedAt: latestVitalSign.createdAt,
           }
         : undefined,
@@ -1404,7 +1527,7 @@ export class MedicalService {
       diagnosis: record.diagnosis || undefined,
       treatmentPlan: record.treatmentPlan || undefined,
       recentRecords: recent,
-      status: record.appointment?.status || 'UNKNOWN',
+      status: record.status,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
     };
@@ -1414,6 +1537,7 @@ export class MedicalService {
 
   async getMedicalRecordForSummary(
     recordId: string,
+    user: JwtUser,
   ): Promise<ResponseCommon<MedicalRecordSummaryDto>> {
     const record = await this.recordRepository.findOne({
       where: { id: recordId },
@@ -1429,6 +1553,8 @@ export class MedicalService {
     if (!record) {
       throw new NotFoundException(ERROR_MESSAGES.MEDICAL_RECORD_NOT_FOUND);
     }
+
+    this.assertUserCanAccessRecord(record, user);
 
     const response: MedicalRecordSummaryDto = {
       id: record.id,
@@ -1455,12 +1581,7 @@ export class MedicalService {
         record.prescriptions?.map((p) => ({
           id: p.id,
           prescriptionNumber: p.prescriptionNumber,
-          diagnosis:
-            (
-              p as Prescription & {
-                diagnosis?: { name?: string };
-              }
-            ).diagnosis?.name || undefined,
+          diagnosis: record.diagnosis || undefined,
           createdAt: p.createdAt,
         })) || [],
       status: record.status || '',
@@ -1490,7 +1611,9 @@ export class MedicalService {
     }
 
     if (previousRecord.patientId !== patientId) {
-      throw new BadRequestException('Chỉ có thể liên kết hồ sơ của cùng một bệnh nhân');
+      throw new BadRequestException(
+        'Chỉ có thể liên kết hồ sơ của cùng một bệnh nhân',
+      );
     }
 
     // Cycle detection
@@ -1508,7 +1631,9 @@ export class MedicalService {
     }
 
     if (recordId === previousRecordId) {
-      throw new BadRequestException('Phát hiện vòng lặp liên kết (Cycle detected)');
+      throw new BadRequestException(
+        'Phát hiện vòng lặp liên kết (Cycle detected)',
+      );
     }
 
     const prev = await this.recordRepository.findOne({
@@ -1607,11 +1732,30 @@ export class MedicalService {
     }
     let role = AuditActorRole.SYSTEM;
     if (user.roles?.includes(RoleEnum.ADMIN)) role = AuditActorRole.ADMIN;
-    else if (user.roles?.includes(RoleEnum.DOCTOR)) role = AuditActorRole.DOCTOR;
+    else if (user.roles?.includes(RoleEnum.DOCTOR))
+      role = AuditActorRole.DOCTOR;
     else if (user.roles?.includes(RoleEnum.RECEPTIONIST))
       role = AuditActorRole.ADMIN;
 
     return { actorId: user.userId, actorRole: role };
+  }
+
+  logAutoCreatedEncounter(
+    record: Pick<MedicalRecord, 'id' | 'patientId' | 'recordNumber'>,
+  ): void {
+    this.auditService.log({
+      entityType: AuditEntityType.MEDICAL_RECORD,
+      entityId: record.id,
+      medicalRecordId: record.id,
+      patientId: record.patientId,
+      actorId: '00000000-0000-0000-0000-000000000000',
+      actorRole: AuditActorRole.SYSTEM,
+      action: AuditAction.CREATE_RECORD,
+      metadata: {
+        recordNumber: record.recordNumber,
+        reason: 'Auto-created from appointment status change',
+      },
+    });
   }
 
   private getDiff(

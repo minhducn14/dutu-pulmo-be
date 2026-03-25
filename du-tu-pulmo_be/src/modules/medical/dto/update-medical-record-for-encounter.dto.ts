@@ -107,12 +107,6 @@ export class UpdateMedicalRecordDtoForEncounter {
   @IsBoolean()
   alcoholConsumption?: boolean;
 
-  @ApiPropertyOptional({ description: 'Nghề nghiệp' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(5000)
-  occupation?: string;
-
   @ApiPropertyOptional({ description: 'Hướng dẫn tái khám' })
   @IsOptional()
   @IsString()
@@ -137,6 +131,7 @@ export class UpdateMedicalRecordDtoForEncounter {
   @IsOptional()
   @IsDateString()
   nextAppointmentDate?: string;
+
   @ApiPropertyOptional({ description: 'ID hồ sơ trước đó (để liên kết)' })
   @IsOptional()
   @IsUUID()

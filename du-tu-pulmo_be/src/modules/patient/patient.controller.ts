@@ -93,7 +93,7 @@ export class PatientController {
       assessment: record.assessment || undefined,
       diagnosis: record.diagnosis || undefined,
       treatmentPlan: record.treatmentPlan || undefined,
-      status: record.appointment?.status || 'UNKNOWN',
+      status: record.status || 'UNKNOWN',
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
     };
@@ -164,13 +164,7 @@ export class PatientController {
   }
 
   private getDiagnosisName(prescription: Prescription): string | undefined {
-    const diagnosis = (prescription as { diagnosis?: { name?: unknown } })
-      .diagnosis;
-    if (diagnosis && typeof diagnosis.name === 'string') {
-      return diagnosis.name;
-    }
-
-    return undefined;
+    return prescription.medicalRecord?.diagnosis || undefined;
   }
 
   // ============================================================================

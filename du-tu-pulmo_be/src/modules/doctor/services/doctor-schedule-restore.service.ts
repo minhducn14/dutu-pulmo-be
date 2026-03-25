@@ -153,7 +153,9 @@ export class DoctorScheduleRestoreService {
         const slotEnd = new Date(currentStart.getTime() + slotDurationMs);
         if (slotEnd > overlapEnd) break;
 
-        if (this.overlapsBlockingPeriod(currentStart, slotEnd, blockingPeriods)) {
+        if (
+          this.overlapsBlockingPeriod(currentStart, slotEnd, blockingPeriods)
+        ) {
           currentStart = slotEnd;
           continue;
         }

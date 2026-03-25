@@ -46,6 +46,11 @@ export class AppointmentStatusService {
     id: string,
     status: AppointmentStatusEnum,
   ): Promise<ResponseCommon<AppointmentResponseDto>> {
+    let createdEncounter: Pick<
+      Awaited<ReturnType<MedicalService['upsertEncounterInTx']>>['record'],
+      'id' | 'patientId' | 'recordNumber'
+    > | null = null;
+
     await this.dataSource.transaction(async (manager: EntityManager) => {
       const appointment = await manager.findOne(Appointment, {
         where: { id },
@@ -113,7 +118,9 @@ export class AppointmentStatusService {
           !appointment.meetingUrl
         ) {
           try {
-            const room = await this.dailyService.getOrCreateRoom(appointment.id);
+            const room = await this.dailyService.getOrCreateRoom(
+              appointment.id,
+            );
             updateData.meetingUrl = room.url;
             updateData.dailyCoChannel = room.name;
             this.logger.log(
@@ -127,7 +134,13 @@ export class AppointmentStatusService {
       } else if (status === AppointmentStatusEnum.IN_PROGRESS) {
         updateData.startedAt = new Date();
         // Ensure medical record is created
-        await this.medicalService.upsertEncounterInTx(manager, appointment);
+        const encounterResult = await this.medicalService.upsertEncounterInTx(
+          manager,
+          appointment,
+        );
+        if (encounterResult.created) {
+          createdEncounter = encounterResult.record;
+        }
       } else if (
         status === AppointmentStatusEnum.COMPLETED ||
         status === AppointmentStatusEnum.NO_SHOW
@@ -140,7 +153,9 @@ export class AppointmentStatusService {
         ) {
           try {
             await this.dailyService.deleteRoom(appointment.dailyCoChannel);
-            await this.callStateService.clearCallsForAppointment(appointment.id);
+            await this.callStateService.clearCallsForAppointment(
+              appointment.id,
+            );
             this.logger.log(
               `Cleaned up video room for appointment ${appointment.id}`,
             );
@@ -152,6 +167,10 @@ export class AppointmentStatusService {
 
       await manager.update(Appointment, id, updateData);
     });
+
+    if (createdEncounter) {
+      this.medicalService.logAutoCreatedEncounter(createdEncounter);
+    }
 
     return this.appointmentReadService.findById(id);
   }

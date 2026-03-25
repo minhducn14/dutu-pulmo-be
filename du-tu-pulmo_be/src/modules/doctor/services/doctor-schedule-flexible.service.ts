@@ -104,8 +104,9 @@ export class DoctorScheduleFlexibleService {
       }
     }
 
-    const existingFlexibleSameDay =
-      await this.dataSource.getRepository(DoctorSchedule).findOne({
+    const existingFlexibleSameDay = await this.dataSource
+      .getRepository(DoctorSchedule)
+      .findOne({
         where: {
           doctorId,
           scheduleType: ScheduleType.FLEXIBLE,
@@ -613,7 +614,10 @@ export class DoctorScheduleFlexibleService {
 
   // ==================== DELETE ====================
 
-  async deleteFlexibleSchedule(doctorId: string, id: string): Promise<
+  async deleteFlexibleSchedule(
+    doctorId: string,
+    id: string,
+  ): Promise<
     ResponseCommon<{
       appointmentsCount: number;
       appointmentsOutsideRegular: number;
@@ -872,7 +876,9 @@ export class DoctorScheduleFlexibleService {
       this.notificationService
         .notifyCancelledAppointments(cancelledAppointments, 'SCHEDULE_CHANGE')
         .catch((err) => {
-          const appointmentIds = cancelledAppointments.map((a) => a.id).join(',');
+          const appointmentIds = cancelledAppointments
+            .map((a) => a.id)
+            .join(',');
           this.logger.error(
             `Failed to send notifications for ${cancelledAppointments.length} appointments (doctorId=${doctorId}, appointmentIds=${appointmentIds})`,
             err instanceof Error ? err.stack : String(err),
@@ -881,4 +887,3 @@ export class DoctorScheduleFlexibleService {
     }
   }
 }
-

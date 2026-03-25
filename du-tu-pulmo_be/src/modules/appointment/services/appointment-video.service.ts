@@ -130,10 +130,7 @@ export class AppointmentVideoService {
       return;
     }
 
-    if (
-      !appointment.patient?.userId ||
-      appointment.patient.userId !== userId
-    ) {
+    if (!appointment.patient?.userId || appointment.patient.userId !== userId) {
       this.logger.error('Patient user ID mismatch');
       throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_VIDEO_CALL);
     }
@@ -173,9 +170,7 @@ export class AppointmentVideoService {
 
     this.validateVideoJoinWindowOrThrow(preflightAppointment);
 
-    let pendingRoom:
-      | { id: string; name: string; url: string }
-      | null = null;
+    let pendingRoom: { id: string; name: string; url: string } | null = null;
 
     if (!preflightAppointment.dailyCoChannel) {
       if (!isDoctor) {
@@ -199,10 +194,13 @@ export class AppointmentVideoService {
     let patientUserIdToNotify: string | null = null;
     let doctorUserIdToNotify: string | null = null;
     let appointmentNumber: string | null = null;
+    let createdEncounter: Pick<
+      Awaited<ReturnType<MedicalService['upsertEncounterInTx']>>['record'],
+      'id' | 'patientId' | 'recordNumber'
+    > | null = null;
     const joinResult = await this.dataSource.transaction(async (manager) => {
       const aptFull = await manager.findOne(Appointment, {
         where: { id: appointmentId },
-        relations: ['patient', 'patient.user', 'doctor', 'doctor.user'],
         lock: { mode: 'pessimistic_write' },
       });
 
@@ -211,7 +209,7 @@ export class AppointmentVideoService {
         throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
       }
 
-      this.validateParticipantAccess(aptFull, userId, isDoctor);
+      this.validateParticipantAccess(preflightAppointment, userId, isDoctor);
 
       if (aptFull.appointmentType !== AppointmentTypeEnum.VIDEO) {
         this.logger.error('Appointment type is not video');
@@ -277,17 +275,23 @@ export class AppointmentVideoService {
       }
 
       if (isDoctor && apt.status === AppointmentStatusEnum.IN_PROGRESS) {
-        patientUserIdToNotify = aptFull?.patient?.user?.id ?? null;
+        patientUserIdToNotify = preflightAppointment?.patient?.user?.id ?? null;
         appointmentNumber = apt.appointmentNumber;
       }
 
       if (!isDoctor && apt.status === AppointmentStatusEnum.CHECKED_IN) {
-        doctorUserIdToNotify = aptFull?.doctor?.user?.id ?? null;
+        doctorUserIdToNotify = preflightAppointment?.doctor?.user?.id ?? null;
         appointmentNumber = apt.appointmentNumber;
       }
 
       if (enteredInProgress) {
-        await this.medicalService.upsertEncounterInTx(manager, apt);
+        const encounterResult = await this.medicalService.upsertEncounterInTx(
+          manager,
+          apt,
+        );
+        if (encounterResult.created) {
+          createdEncounter = encounterResult.record;
+        }
         this.logger.log(
           `Auto start examination for VIDEO appointment ${appointmentId}`,
         );
@@ -298,7 +302,7 @@ export class AppointmentVideoService {
       let tokenData;
       try {
         tokenData = await this.dailyService.createMeetingToken(
-          roomName!,
+          roomName,
           userId,
           userName,
           isDoctor,
@@ -307,15 +311,21 @@ export class AppointmentVideoService {
         this.logger.error(
           `Failed to generate meeting token for ${appointmentId}: ${error}`,
         );
-        throw new BadRequestException(ERROR_MESSAGES.VIDEO_TOKEN_GENERATE_FAILED);
+        throw new BadRequestException(
+          ERROR_MESSAGES.VIDEO_TOKEN_GENERATE_FAILED,
+        );
       }
 
       return {
         token: tokenData.token,
         url: roomUrl!,
-        roomName: roomName!,
+        roomName: roomName,
       };
     });
+
+    if (createdEncounter) {
+      this.medicalService.logAutoCreatedEncounter(createdEncounter);
+    }
 
     if (patientUserIdToNotify && appointmentNumber) {
       void this.notificationService.createNotification({
@@ -345,9 +355,8 @@ export class AppointmentVideoService {
       joinResult.roomName,
     );
 
-    const appointmentData = await this.appointmentReadService.findById(
-      appointmentId,
-    );
+    const appointmentData =
+      await this.appointmentReadService.findById(appointmentId);
 
     return {
       token: joinResult.token,

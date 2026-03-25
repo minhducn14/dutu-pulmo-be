@@ -35,7 +35,7 @@ export const mapMedicalRecordToDto = (
   assessment: record.assessment ?? undefined,
   diagnosis: record.diagnosis ?? undefined,
   treatmentPlan: record.treatmentPlan ?? undefined,
-  status: record.appointment?.status ?? 'UNKNOWN',
+  status: record.status ?? 'UNKNOWN',
   progressNotes: record.progressNotes ?? undefined,
   followUpInstructions: record.followUpInstructions ?? undefined,
   surgicalHistory: record.surgicalHistory ?? undefined,
@@ -85,7 +85,7 @@ export const mapPrescriptionToDto = (
     appointment: prescription.appointment
       ? AppointmentResponseDto.fromEntity(prescription.appointment)
       : (null as unknown as AppointmentResponseDto),
-    diagnosis: undefined,
+    diagnosis: prescription.medicalRecord?.diagnosis ?? undefined,
     notes: prescription.notes ?? undefined,
     status: prescription.status ?? undefined,
     items,

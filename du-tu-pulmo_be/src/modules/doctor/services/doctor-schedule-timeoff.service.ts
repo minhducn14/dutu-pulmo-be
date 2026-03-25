@@ -518,7 +518,10 @@ export class DoctorScheduleTimeOffService {
 
   // ==================== DELETE ====================
 
-  async deleteTimeOff(doctorId: string, id: string): Promise<
+  async deleteTimeOff(
+    doctorId: string,
+    id: string,
+  ): Promise<
     ResponseCommon<{
       restoredSlots: number;
     }>

@@ -828,10 +828,7 @@ export class DoctorScheduleRegularService {
       } catch (error) {
         failedUpdates.push({
           id,
-          reason:
-            error instanceof Error
-              ? error.message
-              : 'Lỗi không xác định',
+          reason: error instanceof Error ? error.message : 'Lỗi không xác định',
         });
       }
     }
@@ -998,7 +995,8 @@ export class DoctorScheduleRegularService {
             dto.dayOfWeek !== currentExisting.dayOfWeek) ||
           (dto.startTime !== undefined &&
             dto.startTime !== currentExisting.startTime) ||
-          (dto.endTime !== undefined && dto.endTime !== currentExisting.endTime) ||
+          (dto.endTime !== undefined &&
+            dto.endTime !== currentExisting.endTime) ||
           (dto.isAvailable !== undefined &&
             dto.isAvailable !== currentExisting.isAvailable) ||
           (dto.appointmentType !== undefined &&
@@ -1018,8 +1016,7 @@ export class DoctorScheduleRegularService {
           while (checkDate <= checkRangeEnd) {
             const matchesOldDay =
               getDayVN(checkDate) === currentExisting.dayOfWeek;
-            const matchesNewDay =
-              getDayVN(checkDate) === currentNewDayOfWeek;
+            const matchesNewDay = getDayVN(checkDate) === currentNewDayOfWeek;
 
             if (!matchesOldDay && !matchesNewDay) {
               checkDate.setDate(checkDate.getDate() + 1);
@@ -1201,7 +1198,7 @@ export class DoctorScheduleRegularService {
 
         // Generate slots mới
         let totalGeneratedSlots = 0;
-        let skippedDaysByHigherPriority = 0;
+        const skippedDaysByHigherPriority = 0;
 
         if (currentNewIsAvailable === false) {
           this.logger.log(
@@ -1588,7 +1585,9 @@ export class DoctorScheduleRegularService {
           .getMany();
 
         const flexibleDateSet = new Set(
-          flexibleDates.map((d) => d.specificDate!.toISOString().split('T')[0]),
+          flexibleDates.map(
+            (d) => new Date(d.specificDate!).toISOString().split('T')[0],
+          ),
         );
 
         const appointmentsToCancel = futureAppointments.filter((apt) => {

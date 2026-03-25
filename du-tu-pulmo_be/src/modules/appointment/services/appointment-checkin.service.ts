@@ -230,6 +230,11 @@ export class AppointmentCheckinService {
   async startExamination(
     id: string,
   ): Promise<ResponseCommon<AppointmentResponseDto>> {
+    let createdEncounter: Pick<
+      Awaited<ReturnType<MedicalService['upsertEncounterInTx']>>['record'],
+      'id' | 'patientId' | 'recordNumber'
+    > | null = null;
+
     await this.dataSource.transaction(async (manager) => {
       const appointment = await manager.findOne(Appointment, {
         where: { id },
@@ -250,8 +255,18 @@ export class AppointmentCheckinService {
       appointment.startedAt = new Date();
       await manager.save(appointment);
 
-      await this.medicalService.upsertEncounterInTx(manager, appointment);
+      const encounterResult = await this.medicalService.upsertEncounterInTx(
+        manager,
+        appointment,
+      );
+      if (encounterResult.created) {
+        createdEncounter = encounterResult.record;
+      }
     });
+
+    if (createdEncounter) {
+      this.medicalService.logAutoCreatedEncounter(createdEncounter);
+    }
 
     const appt = await this.appointmentReadService.findById(id);
     const data = appt.data!;

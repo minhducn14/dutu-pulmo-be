@@ -114,7 +114,8 @@ export class DoctorScheduleSlotService {
 
         const hasOverlap = existingSlots.some(
           (existingSlot) =>
-            slotStart < existingSlot.endTime && slotEnd > existingSlot.startTime,
+            slotStart < existingSlot.endTime &&
+            slotEnd > existingSlot.startTime,
         );
 
         if (!hasOverlap) {
