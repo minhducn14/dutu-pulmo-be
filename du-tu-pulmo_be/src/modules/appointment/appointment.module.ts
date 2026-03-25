@@ -29,6 +29,7 @@ import { PaymentModule } from '@/modules/payment/payment.module';
 import { CloudinaryModule } from '@/modules/cloudinary';
 import { RichTextService } from '@/modules/appointment/services/rich-text.service';
 import { NotificationModule } from '@/modules/notification/notification.module';
+import { AppointmentCancellationModule } from '@/modules/appointment/appointment-cancellation.module';
 import { PdfModule } from '../pdf/pdf.module';
 
 @Module({
@@ -36,6 +37,7 @@ import { PdfModule } from '../pdf/pdf.module';
     TypeOrmModule.forFeature([Appointment, TimeSlot, Doctor, Patient, Payment]),
     DoctorModule,
     PaymentModule,
+    AppointmentCancellationModule,
     CloudinaryModule,
     NotificationModule,
     PdfModule,

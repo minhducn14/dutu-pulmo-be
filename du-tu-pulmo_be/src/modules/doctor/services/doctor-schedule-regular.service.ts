@@ -19,6 +19,10 @@ import { DoctorSchedule } from '@/modules/doctor/entities/doctor-schedule.entity
 import { Doctor } from '@/modules/doctor/entities/doctor.entity';
 import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
+import {
+  AppointmentCancellationCoreService,
+  AppointmentCancellationPostCommitEffect,
+} from '@/modules/appointment/services/appointment-cancellation-core.service';
 import { CreateDoctorScheduleDto } from '@/modules/doctor/dto/create-doctor-schedule.dto';
 import { UpdateDoctorScheduleDto } from '@/modules/doctor/dto/update-doctor-schedule.dto';
 import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
@@ -53,6 +57,7 @@ export class DoctorScheduleRegularService {
     private readonly helper: DoctorScheduleHelperService,
     private readonly slotService: DoctorScheduleSlotService,
     private readonly notificationService: NotificationService,
+    private readonly appointmentCancellationCore: AppointmentCancellationCoreService,
   ) {}
 
   // ==================== CREATE ====================
@@ -483,12 +488,15 @@ export class DoctorScheduleRegularService {
 
     if (effectiveDateChanged) {
       const result = await this.dataSource.transaction(async (manager) => {
+        const cancellationEffects: AppointmentCancellationPostCommitEffect[] =
+          [];
         // Xử lý thu hẹp: cancel appointments + xóa slots ngoài range mới
         const cancelledAppointments = await this._handleEffectiveShrink(
           existing,
           newEffectiveFrom,
           newEffectiveUntil,
           manager,
+          cancellationEffects,
         );
 
         // Xử lý mở rộng: generate thêm slots cho range mới mở
@@ -532,9 +540,13 @@ export class DoctorScheduleRegularService {
         return {
           response: new ResponseCommon(200, message, updated!),
           cancelledAppointments,
+          cancellationEffects,
         };
       });
 
+      this.appointmentCancellationCore.schedulePostCommitEffects(
+        result.cancellationEffects,
+      );
       if (result.cancelledAppointments.length > 0) {
         this.notificationService
           .notifyCancelledAppointments(
@@ -946,6 +958,8 @@ export class DoctorScheduleRegularService {
           throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
         }
 
+        const cancellationEffects: AppointmentCancellationPostCommitEffect[] =
+          [];
         const currentNewDayOfWeek = dto.dayOfWeek ?? currentExisting.dayOfWeek;
         const currentNewStartTime = dto.startTime ?? currentExisting.startTime;
         const currentNewEndTime = dto.endTime ?? currentExisting.endTime;
@@ -1106,21 +1120,18 @@ export class DoctorScheduleRegularService {
               }
 
               if (shouldCancel) {
-                apt.status = AppointmentStatusEnum.CANCELLED;
-                apt.cancelledAt = vnNow();
-                apt.cancellationReason = 'SCHEDULE_CHANGE';
-                apt.cancelledBy = 'DOCTOR';
-                await manager.save(apt);
-
-                if (apt.timeSlotId) {
-                  await manager
-                    .createQueryBuilder()
-                    .softDelete()
-                    .from(TimeSlot)
-                    .where('id = :id', { id: apt.timeSlotId })
-                    .execute();
-                }
-
+                cancellationEffects.push(
+                  await this.appointmentCancellationCore.cancelAppointmentInTransaction(
+                    manager,
+                    {
+                      appointment: apt,
+                      reason: 'SCHEDULE_CHANGE',
+                      cancelledBy: 'DOCTOR',
+                      paymentCancellationReason: 'SCHEDULE_CHANGE',
+                      slotAction: 'soft_delete',
+                    },
+                  ),
+                );
                 cancelledAppointments.push(apt);
               }
             }
@@ -1201,6 +1212,7 @@ export class DoctorScheduleRegularService {
             generatedSlots: 0,
             skippedDaysByHigherPriority: 0,
             cancelledAppointments,
+            cancellationEffects,
           };
         }
 
@@ -1220,10 +1232,14 @@ export class DoctorScheduleRegularService {
           generatedSlots: totalGeneratedSlots,
           skippedDaysByHigherPriority,
           cancelledAppointments,
+          cancellationEffects,
         };
       },
     );
 
+    this.appointmentCancellationCore.schedulePostCommitEffects(
+      result.cancellationEffects,
+    );
     if (result.cancelledAppointments.length > 0) {
       this.notificationService
         .notifyCancelledAppointments(
@@ -1273,6 +1289,7 @@ export class DoctorScheduleRegularService {
     newFrom: Date | null,
     newUntil: Date | null,
     manager: EntityManager,
+    cancellationEffects: AppointmentCancellationPostCommitEffect[],
   ): Promise<Appointment[]> {
     const now = vnNow();
     const tomorrow = addDaysVN(startOfDayVN(now), 1);
@@ -1303,6 +1320,7 @@ export class DoctorScheduleRegularService {
             cutEnd,
             manager,
             cancelled,
+            cancellationEffects,
           );
         }
       }
@@ -1327,6 +1345,7 @@ export class DoctorScheduleRegularService {
             trimEnd,
             manager,
             cancelled,
+            cancellationEffects,
           );
         }
       }
@@ -1423,6 +1442,7 @@ export class DoctorScheduleRegularService {
     rangeEnd: Date,
     manager: EntityManager,
     cancelledList: Appointment[],
+    cancellationEffects: AppointmentCancellationPostCommitEffect[],
   ): Promise<void> {
     const [sH, sM] = schedule.startTime.split(':').map(Number);
     const [eH, eM] = schedule.endTime.split(':').map(Number);
@@ -1454,21 +1474,18 @@ export class DoctorScheduleRegularService {
       // Chỉ cancel appointment thuộc đúng schedule này
       if (apt.timeSlot?.scheduleId !== schedule.id) continue;
 
-      apt.status = AppointmentStatusEnum.CANCELLED;
-      apt.cancelledAt = vnNow();
-      apt.cancellationReason = 'SCHEDULE_CHANGE';
-      apt.cancelledBy = 'DOCTOR';
-      await manager.save(apt);
-
-      if (apt.timeSlotId) {
-        await manager
-          .createQueryBuilder()
-          .softDelete()
-          .from(TimeSlot)
-          .where('id = :id', { id: apt.timeSlotId })
-          .execute();
-      }
-
+      cancellationEffects.push(
+        await this.appointmentCancellationCore.cancelAppointmentInTransaction(
+          manager,
+          {
+            appointment: apt,
+            reason: 'SCHEDULE_CHANGE',
+            cancelledBy: 'DOCTOR',
+            paymentCancellationReason: 'SCHEDULE_CHANGE',
+            slotAction: 'soft_delete',
+          },
+        ),
+      );
       cancelledList.push(apt);
     }
 
@@ -1530,6 +1547,8 @@ export class DoctorScheduleRegularService {
 
     const result = await this.dataSource.transaction(
       async (manager: EntityManager) => {
+        const cancellationEffects: AppointmentCancellationPostCommitEffect[] =
+          [];
         const futureAppointments = await manager.find(Appointment, {
           where: {
             doctorId: schedule.doctorId,
@@ -1598,18 +1617,18 @@ export class DoctorScheduleRegularService {
         });
 
         for (const apt of appointmentsToCancel) {
-          apt.status = AppointmentStatusEnum.CANCELLED;
-          apt.cancelledAt = vnNow();
-          apt.cancellationReason = 'SCHEDULE_DELETED';
-          apt.cancelledBy = 'DOCTOR';
-          await manager.save(apt);
-
-          await manager
-            .createQueryBuilder()
-            .softDelete()
-            .from(TimeSlot)
-            .where('id = :id', { id: apt.timeSlotId })
-            .execute();
+          cancellationEffects.push(
+            await this.appointmentCancellationCore.cancelAppointmentInTransaction(
+              manager,
+              {
+                appointment: apt,
+                reason: 'SCHEDULE_DELETED',
+                cancelledBy: 'DOCTOR',
+                paymentCancellationReason: 'SCHEDULE_DELETED',
+                slotAction: 'soft_delete',
+              },
+            ),
+          );
         }
 
         const deleteResult = await manager
@@ -1627,10 +1646,14 @@ export class DoctorScheduleRegularService {
           cancelledAppointments: appointmentsToCancel.length,
           deletedSlots: deleteResult.affected || 0,
           appointmentsList: appointmentsToCancel,
+          cancellationEffects,
         };
       },
     );
 
+    this.appointmentCancellationCore.schedulePostCommitEffects(
+      result.cancellationEffects,
+    );
     if (result.appointmentsList.length > 0) {
       this.notificationService
         .notifyCancelledAppointments(result.appointmentsList, 'SCHEDULE_CHANGE')

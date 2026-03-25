@@ -12,6 +12,10 @@ import { Doctor } from '@/modules/doctor/entities/doctor.entity';
 import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import {
+  AppointmentCancellationCoreService,
+  AppointmentCancellationPostCommitEffect,
+} from '@/modules/appointment/services/appointment-cancellation-core.service';
+import {
   CreateFlexibleScheduleDto,
   UpdateFlexibleScheduleDto,
 } from '@/modules/doctor/dto/flexible-schedule.dto';
@@ -43,6 +47,7 @@ export class DoctorScheduleFlexibleService {
     private readonly queryService: DoctorScheduleQueryService,
     private readonly updateService: DoctorScheduleUpdateService,
     private readonly restoreService: DoctorScheduleRestoreService,
+    private readonly appointmentCancellationCore: AppointmentCancellationCoreService,
   ) {}
 
   // ==================== CREATE ====================
@@ -161,24 +166,24 @@ export class DoctorScheduleFlexibleService {
         ],
       });
 
+      const cancellationEffects: AppointmentCancellationPostCommitEffect[] = [];
+
       // Business rule: creating FLEXIBLE on a date cancels all pre-booked appointments on that date.
       const conflicting = appointments;
 
       for (const apt of conflicting) {
-        apt.status = AppointmentStatusEnum.CANCELLED;
-        apt.cancelledAt = new Date();
-        apt.cancellationReason = 'SCHEDULE_CHANGE';
-        apt.cancelledBy = 'SYSTEM';
-        await manager.save(apt);
-
-        if (apt.timeSlotId) {
-          await manager
-            .createQueryBuilder()
-            .softDelete()
-            .from(TimeSlot)
-            .where('id = :id', { id: apt.timeSlotId })
-            .execute();
-        }
+        cancellationEffects.push(
+          await this.appointmentCancellationCore.cancelAppointmentInTransaction(
+            manager,
+            {
+              appointment: apt,
+              reason: 'SCHEDULE_CHANGE',
+              cancelledBy: 'SYSTEM',
+              paymentCancellationReason: 'SCHEDULE_CHANGE',
+              slotAction: 'soft_delete',
+            },
+          ),
+        );
       }
 
       const schedule = manager.create(DoctorSchedule, {
@@ -267,9 +272,13 @@ export class DoctorScheduleFlexibleService {
         schedule: savedSchedule,
         cancelledAppointments: conflicting,
         generatedSlotsCount: slotEntities.length,
+        cancellationEffects,
       };
     });
 
+    this.appointmentCancellationCore.schedulePostCommitEffects(
+      result.cancellationEffects,
+    );
     this.sendFlexibleScheduleNotifications(
       result.cancelledAppointments,
       doctorId,
@@ -429,6 +438,7 @@ export class DoctorScheduleFlexibleService {
         ],
       });
 
+      const cancellationEffects: AppointmentCancellationPostCommitEffect[] = [];
       const newIsAvailable = dto.isAvailable ?? existing.isAvailable;
 
       // Tìm appointment bị ảnh hưởng (ngoài khung giờ mới HOẶC do bị tắt lịch)
@@ -436,22 +446,22 @@ export class DoctorScheduleFlexibleService {
       const appointmentsToCancel = appointments;
 
       for (const apt of appointmentsToCancel) {
-        apt.status = AppointmentStatusEnum.CANCELLED;
-        apt.cancelledAt = new Date();
-        apt.cancellationReason = 'SCHEDULE_CHANGE';
-        apt.cancelledBy = 'SYSTEM';
-        apt.conflict = false;
-        apt.conflictReason = null;
-        await manager.save(apt);
-
-        if (apt.timeSlotId) {
-          await manager
-            .createQueryBuilder()
-            .softDelete()
-            .from(TimeSlot)
-            .where('id = :id', { id: apt.timeSlotId })
-            .execute();
-        }
+        cancellationEffects.push(
+          await this.appointmentCancellationCore.cancelAppointmentInTransaction(
+            manager,
+            {
+              appointment: apt,
+              reason: 'SCHEDULE_CHANGE',
+              cancelledBy: 'SYSTEM',
+              paymentCancellationReason: 'SCHEDULE_CHANGE',
+              slotAction: 'soft_delete',
+              additionalUpdates: {
+                conflict: false,
+                conflictReason: null,
+              },
+            },
+          ),
+        );
       }
 
       // Xóa slot không có booking trong khoảng mới
@@ -498,6 +508,7 @@ export class DoctorScheduleFlexibleService {
           schedule: updatedSchedule!,
           cancelledAppointments: appointmentsToCancel,
           generatedSlots: restoredSlots,
+          cancellationEffects,
         };
       }
 
@@ -567,9 +578,13 @@ export class DoctorScheduleFlexibleService {
         schedule: updated!,
         cancelledAppointments: appointmentsToCancel,
         generatedSlots: slotEntities.length,
+        cancellationEffects,
       };
     });
 
+    this.appointmentCancellationCore.schedulePostCommitEffects(
+      result.cancellationEffects,
+    );
     if (result.cancelledAppointments.length > 0) {
       this.notificationService
         .notifyCancelledAppointments(

@@ -49,9 +49,6 @@ export class AppointmentStatsService {
         scheduledAt: 'ASC',
       },
     });
-
-    console.log(appointments.length);
-
     const inProgress = appointments.filter(
       (a) => a.status === AppointmentStatusEnum.IN_PROGRESS,
     );

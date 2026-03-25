@@ -71,6 +71,12 @@ export class AppointmentActionController {
   ) {}
 
   @Post()
+  @Roles(
+    RoleEnum.ADMIN,
+    RoleEnum.RECEPTIONIST,
+    RoleEnum.PATIENT,
+    RoleEnum.DOCTOR,
+  )
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Tạo lịch hẹn mới' })
   @ApiResponse({ status: HttpStatus.CREATED, type: AppointmentResponseDto })

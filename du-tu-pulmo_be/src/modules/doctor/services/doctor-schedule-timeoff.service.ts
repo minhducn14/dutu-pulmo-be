@@ -12,6 +12,10 @@ import { Doctor } from '@/modules/doctor/entities/doctor.entity';
 import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import {
+  AppointmentCancellationCoreService,
+  AppointmentCancellationPostCommitEffect,
+} from '@/modules/appointment/services/appointment-cancellation-core.service';
+import {
   CreateTimeOffDto,
   UpdateTimeOffDto,
 } from '@/modules/doctor/dto/time-off.dto';
@@ -42,6 +46,7 @@ export class DoctorScheduleTimeOffService {
     private readonly queryService: DoctorScheduleQueryService,
     private readonly updateService: DoctorScheduleUpdateService,
     private readonly restoreService: DoctorScheduleRestoreService,
+    private readonly appointmentCancellationCore: AppointmentCancellationCoreService,
   ) {}
 
   // ==================== CREATE ====================
@@ -135,21 +140,20 @@ export class DoctorScheduleTimeOffService {
         return apt.scheduledAt < scheduleEnd && aptEnd > scheduleStart;
       });
 
+      const cancellationEffects: AppointmentCancellationPostCommitEffect[] = [];
       for (const apt of conflicting) {
-        apt.status = AppointmentStatusEnum.CANCELLED;
-        apt.cancelledAt = new Date();
-        apt.cancellationReason = 'TIME_OFF';
-        apt.cancelledBy = 'SYSTEM';
-        await manager.save(apt);
-
-        if (apt.timeSlotId) {
-          await manager
-            .createQueryBuilder()
-            .softDelete()
-            .from(TimeSlot)
-            .where('id = :id', { id: apt.timeSlotId })
-            .execute();
-        }
+        cancellationEffects.push(
+          await this.appointmentCancellationCore.cancelAppointmentInTransaction(
+            manager,
+            {
+              appointment: apt,
+              reason: 'TIME_OFF',
+              cancelledBy: 'SYSTEM',
+              paymentCancellationReason: 'TIME_OFF',
+              slotAction: 'soft_delete',
+            },
+          ),
+        );
       }
 
       const disableResult = await manager
@@ -187,9 +191,13 @@ export class DoctorScheduleTimeOffService {
         schedule: savedSchedule,
         cancelledAppointments: conflicting,
         disabledSlotsCount: disableResult.affected || 0,
+        cancellationEffects,
       };
     });
 
+    this.appointmentCancellationCore.schedulePostCommitEffects(
+      result.cancellationEffects,
+    );
     if (result.cancelledAppointments.length > 0) {
       this.notificationService
         .notifyCancelledAppointments(result.cancelledAppointments, 'TIME_OFF')
@@ -313,6 +321,8 @@ export class DoctorScheduleTimeOffService {
         ],
       });
 
+      const cancellationEffects: AppointmentCancellationPostCommitEffect[] = [];
+
       const cancelAppointmentsInRange = async (
         rangeStart: Date,
         rangeEnd: Date,
@@ -324,20 +334,18 @@ export class DoctorScheduleTimeOffService {
         });
 
         for (const apt of conflicting) {
-          apt.status = AppointmentStatusEnum.CANCELLED;
-          apt.cancelledAt = new Date();
-          apt.cancellationReason = 'TIME_OFF';
-          apt.cancelledBy = 'SYSTEM';
-          await manager.save(apt);
-
-          if (apt.timeSlotId) {
-            await manager
-              .createQueryBuilder()
-              .softDelete()
-              .from(TimeSlot)
-              .where('id = :id', { id: apt.timeSlotId })
-              .execute();
-          }
+          cancellationEffects.push(
+            await this.appointmentCancellationCore.cancelAppointmentInTransaction(
+              manager,
+              {
+                appointment: apt,
+                reason: 'TIME_OFF',
+                cancelledBy: 'SYSTEM',
+                paymentCancellationReason: 'TIME_OFF',
+                slotAction: 'soft_delete',
+              },
+            ),
+          );
         }
 
         return conflicting;
@@ -463,15 +471,20 @@ export class DoctorScheduleTimeOffService {
         disabledSlots,
         restoredSlots,
         previouslyCancelledCount: totalPreviouslyCancelled,
+        cancellationEffects,
       } as {
         schedule: DoctorSchedule;
         cancelledAppointments: Appointment[];
         disabledSlots: number;
         restoredSlots: number;
         previouslyCancelledCount: number;
+        cancellationEffects: AppointmentCancellationPostCommitEffect[];
       };
     });
 
+    this.appointmentCancellationCore.schedulePostCommitEffects(
+      result.cancellationEffects,
+    );
     if (result.cancelledAppointments.length > 0) {
       this.notificationService
         .notifyCancelledAppointments(result.cancelledAppointments, 'TIME_OFF')

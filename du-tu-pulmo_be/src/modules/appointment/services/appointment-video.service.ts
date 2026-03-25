@@ -113,7 +113,29 @@ export class AppointmentVideoService {
       this.logger.error(
         `Appointment outside video join window: status=${appointment.status}, minutesUntilStart=${joinInfo.minutesUntilStart}`,
       );
-      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+      throw new BadRequestException(ERROR_MESSAGES.NOT_IN_CALL_WINDOW);
+    }
+  }
+
+  private validateParticipantAccess(
+    appointment: Appointment,
+    userId: string,
+    isDoctor: boolean,
+  ): void {
+    if (isDoctor) {
+      if (!appointment.doctor?.userId || appointment.doctor.userId !== userId) {
+        this.logger.error('Doctor user ID mismatch');
+        throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_VIDEO_CALL);
+      }
+      return;
+    }
+
+    if (
+      !appointment.patient?.userId ||
+      appointment.patient.userId !== userId
+    ) {
+      this.logger.error('Patient user ID mismatch');
+      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED_VIDEO_CALL);
     }
   }
 
@@ -127,107 +149,98 @@ export class AppointmentVideoService {
     url: string;
     appointment: ResponseCommon<AppointmentResponseDto>;
   }> {
-    let appointment = await this.dataSource.transaction(async (manager) => {
-      const apt = await manager.findOne(Appointment, {
-        where: { id: appointmentId },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!apt) {
-        this.logger.error('Appointment not found');
-        throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
-      }
-
-      const aptWithRelations = await manager.findOne(Appointment, {
-        where: { id: appointmentId },
-        relations: ['patient', 'patient.user', 'doctor', 'doctor.user'],
-      });
-
-      if (!aptWithRelations) {
-        this.logger.error('Appointment with relations not found');
-        throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
-      }
-
-      if (isDoctor) {
-        if (
-          !aptWithRelations.doctor?.userId ||
-          aptWithRelations.doctor.userId !== userId
-        ) {
-          this.logger.error('Doctor user ID mismatch');
-          throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
-        }
-      } else {
-        if (
-          !aptWithRelations.patient?.userId ||
-          aptWithRelations.patient.userId !== userId
-        ) {
-          this.logger.error('Patient user ID mismatch');
-          throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
-        }
-      }
-
-      if (aptWithRelations.appointmentType !== AppointmentTypeEnum.VIDEO) {
-        this.logger.error('Appointment type is not video');
-        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-      }
-
-      if (!VIDEO_JOIN_VALID_STATES.includes(aptWithRelations.status)) {
-        this.logger.error('Invalid status transition');
-        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-      }
-
-      this.validateVideoJoinWindowOrThrow(aptWithRelations);
-
-      return aptWithRelations;
+    const preflightAppointment = await this.appointmentRepository.findOne({
+      where: { id: appointmentId },
+      relations: ['patient', 'patient.user', 'doctor', 'doctor.user'],
     });
 
-    let roomUrl = appointment.meetingUrl;
-    let roomName = appointment.dailyCoChannel;
+    if (!preflightAppointment) {
+      this.logger.error('Appointment not found');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
+    }
 
-    if (!roomName) {
-      if (isDoctor) {
-        try {
-          const room = await this.dailyService.getOrCreateRoom(appointmentId);
-          roomUrl = room.url;
-          roomName = room.name;
+    this.validateParticipantAccess(preflightAppointment, userId, isDoctor);
 
-          await this.appointmentRepository.update(appointmentId, {
-            meetingUrl: room.url,
-            dailyCoChannel: room.name,
-            meetingRoomId: room.id,
-          });
+    if (preflightAppointment.appointmentType !== AppointmentTypeEnum.VIDEO) {
+      this.logger.error('Appointment type is not video');
+      throw new BadRequestException(ERROR_MESSAGES.NOT_VIDEO_APPOINTMENT);
+    }
 
-          this.logger.log(
-            `Created video room for appointment ${appointmentId}`,
-          );
-        } catch (error) {
-          this.logger.error(`Failed to create room: ${error}`);
-          throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-        }
-      } else {
+    if (!VIDEO_JOIN_VALID_STATES.includes(preflightAppointment.status)) {
+      this.logger.error('Invalid video join status');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_STATUS_TRANSITION);
+    }
+
+    this.validateVideoJoinWindowOrThrow(preflightAppointment);
+
+    let pendingRoom:
+      | { id: string; name: string; url: string }
+      | null = null;
+
+    if (!preflightAppointment.dailyCoChannel) {
+      if (!isDoctor) {
         this.logger.error('Patient cannot create room');
-        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+        throw new BadRequestException(ERROR_MESSAGES.VIDEO_CALL_NOT_STARTED);
+      }
+
+      try {
+        const room = await this.dailyService.getOrCreateRoom(appointmentId);
+        pendingRoom = {
+          id: room.id,
+          name: room.name,
+          url: room.url,
+        };
+      } catch (error) {
+        this.logger.error(`Failed to create room: ${error}`);
+        throw new BadRequestException(ERROR_MESSAGES.VIDEO_ROOM_CREATE_FAILED);
       }
     }
 
     let patientUserIdToNotify: string | null = null;
     let doctorUserIdToNotify: string | null = null;
     let appointmentNumber: string | null = null;
-
-    appointment = await this.dataSource.transaction(async (manager) => {
-      const apt = await manager.findOne(Appointment, {
-        where: { id: appointmentId },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!apt) {
-        this.logger.error('Appointment not found');
-        throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
-      }
+    const joinResult = await this.dataSource.transaction(async (manager) => {
       const aptFull = await manager.findOne(Appointment, {
         where: { id: appointmentId },
         relations: ['patient', 'patient.user', 'doctor', 'doctor.user'],
+        lock: { mode: 'pessimistic_write' },
       });
+
+      if (!aptFull) {
+        this.logger.error('Appointment not found');
+        throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
+      }
+
+      this.validateParticipantAccess(aptFull, userId, isDoctor);
+
+      if (aptFull.appointmentType !== AppointmentTypeEnum.VIDEO) {
+        this.logger.error('Appointment type is not video');
+        throw new BadRequestException(ERROR_MESSAGES.NOT_VIDEO_APPOINTMENT);
+      }
+
+      if (!VIDEO_JOIN_VALID_STATES.includes(aptFull.status)) {
+        this.logger.error('Invalid video join status');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_STATUS_TRANSITION);
+      }
+
+      this.validateVideoJoinWindowOrThrow(aptFull);
+
+      const apt = aptFull;
+      let roomName = apt.dailyCoChannel;
+      let roomUrl = apt.meetingUrl;
+
+      if (!roomName) {
+        if (!isDoctor || !pendingRoom) {
+          this.logger.error('Video room is not ready');
+          throw new BadRequestException(ERROR_MESSAGES.VIDEO_CALL_NOT_STARTED);
+        }
+
+        apt.meetingUrl = pendingRoom.url;
+        apt.dailyCoChannel = pendingRoom.name;
+        apt.meetingRoomId = pendingRoom.id;
+        roomName = pendingRoom.name;
+        roomUrl = pendingRoom.url;
+      }
 
       let statusChanged = false;
       let enteredInProgress = false;
@@ -279,7 +292,29 @@ export class AppointmentVideoService {
           `Auto start examination for VIDEO appointment ${appointmentId}`,
         );
       }
-      return apt;
+
+      await manager.save(apt);
+
+      let tokenData;
+      try {
+        tokenData = await this.dailyService.createMeetingToken(
+          roomName!,
+          userId,
+          userName,
+          isDoctor,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Failed to generate meeting token for ${appointmentId}: ${error}`,
+        );
+        throw new BadRequestException(ERROR_MESSAGES.VIDEO_TOKEN_GENERATE_FAILED);
+      }
+
+      return {
+        token: tokenData.token,
+        url: roomUrl!,
+        roomName: roomName!,
+      };
     });
 
     if (patientUserIdToNotify && appointmentNumber) {
@@ -304,34 +339,21 @@ export class AppointmentVideoService {
       });
     }
 
-    try {
-      const tokenData = await this.dailyService.createMeetingToken(
-        roomName,
-        userId,
-        userName,
-        isDoctor,
-      );
+    await this.callStateService.setCurrentCall(
+      userId,
+      appointmentId,
+      joinResult.roomName,
+    );
 
-      await this.callStateService.setCurrentCall(
-        userId,
-        appointmentId,
-        roomName,
-      );
+    const appointmentData = await this.appointmentReadService.findById(
+      appointmentId,
+    );
 
-      const appointmentData =
-        await this.appointmentReadService.findById(appointmentId);
-
-      return {
-        token: tokenData.token,
-        url: roomUrl!,
-        appointment: appointmentData,
-      };
-    } catch (error) {
-      this.logger.error(
-        `Failed to generate meeting token for ${appointmentId}: ${error}`,
-      );
-      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-    }
+    return {
+      token: joinResult.token,
+      url: joinResult.url,
+      appointment: appointmentData,
+    };
   }
 
   async getUserCallStatus(userId: string): Promise<{

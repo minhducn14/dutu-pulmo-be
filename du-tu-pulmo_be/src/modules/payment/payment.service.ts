@@ -56,6 +56,8 @@ export class PaymentService {
   private readonly logger = new Logger(PaymentService.name);
   private static readonly INVALIDATED_BY_RESCHEDULE =
     'INVALIDATED_BY_RESCHEDULE';
+  private static readonly MIN_PUBLIC_PAYMENT_AMOUNT = 2_000;
+  private static readonly MAX_PUBLIC_PAYMENT_AMOUNT = 100_000;
 
   constructor(
     @InjectRepository(Payment)
@@ -126,12 +128,19 @@ export class PaymentService {
     const buyerName = appointment.patient?.user?.fullName;
     const buyerEmail = appointment.patient?.user?.account?.email;
     const buyerPhone = appointment.patient?.user?.phone;
+    const rawAmount = Math.floor(Number(appointment.feeAmount));
+    const amount = this.normalizePublicPaymentAmount(rawAmount);
+    this.logger.warn(`Normalize payment amount from ${rawAmount} → ${amount}`);
+    if (amount !== rawAmount) {
+      this.logger.warn(
+        `Normalized payment amount for appointment ${appointmentId} from ${appointment.feeAmount} to ${amount}`,
+      );
+    }
 
     // Create payment link via PayOS
     const paymentLink = await this.payosService.createPaymentLink({
       orderCode,
-      // amount: Number(appointment.feeAmount),
-      amount: 2000,
+      amount,
       description: description.substring(0, 25),
       buyerName,
       buyerEmail,
@@ -140,7 +149,7 @@ export class PaymentService {
         {
           name: `Khám bệnh - ${doctorName}`.substring(0, 50),
           quantity: 1,
-          price: Number(appointment.feeAmount),
+          price: amount,
         },
       ],
       returnUrl,
@@ -155,7 +164,7 @@ export class PaymentService {
     const payment = this.paymentRepository.create({
       orderCode: String(orderCode),
       appointmentId,
-      amount: String(Math.floor(Number(appointment.feeAmount))),
+      amount: String(amount),
       description,
       status: PaymentStatus.PENDING,
       paymentLinkId: paymentLink.paymentLinkId,
@@ -184,6 +193,37 @@ export class PaymentService {
     );
 
     return this.toDto(saved);
+  }
+
+  private normalizePublicPaymentAmount(amount: number): number {
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return PaymentService.MIN_PUBLIC_PAYMENT_AMOUNT;
+    }
+
+    if (amount < PaymentService.MIN_PUBLIC_PAYMENT_AMOUNT) {
+      return PaymentService.MIN_PUBLIC_PAYMENT_AMOUNT;
+    }
+
+    if (amount <= PaymentService.MAX_PUBLIC_PAYMENT_AMOUNT) {
+      return amount;
+    }
+
+    let normalized = amount;
+
+    while (
+      normalized > PaymentService.MAX_PUBLIC_PAYMENT_AMOUNT ||
+      Math.floor(normalized / 10) >= PaymentService.MIN_PUBLIC_PAYMENT_AMOUNT
+    ) {
+      const divided = Math.floor(normalized / 10);
+
+      if (divided < PaymentService.MIN_PUBLIC_PAYMENT_AMOUNT) {
+        break;
+      }
+
+      normalized = divided;
+    }
+
+    return normalized;
   }
 
   /**
@@ -391,11 +431,13 @@ export class PaymentService {
       if (payment.appointmentId) {
         const appointmentForStaleCheck = await manager.findOne(Appointment, {
           where: { id: payment.appointmentId },
-          select: ['id', 'paymentId'],
+          select: ['id', 'paymentId', 'status'],
         });
         if (
           appointmentForStaleCheck &&
-          appointmentForStaleCheck.paymentId !== payment.id
+          (appointmentForStaleCheck.paymentId !== payment.id ||
+            appointmentForStaleCheck.status !==
+              AppointmentStatusEnum.PENDING_PAYMENT)
         ) {
           payment.lastErrorAt = new Date();
           payment.errorCode =

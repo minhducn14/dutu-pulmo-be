@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Between, Repository } from 'typeorm';
+import { DataSource, Between, EntityManager, Repository } from 'typeorm';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
@@ -41,6 +41,33 @@ export class AppointmentCheckinService {
     private readonly notificationService: NotificationService,
     private readonly pdfService: PdfService,
   ) {}
+
+  private async getNextQueueNumber(
+    manager: EntityManager,
+    doctorId: string,
+    scheduledAt: Date,
+  ): Promise<number> {
+    const dayStart = startOfDayVN(scheduledAt);
+    const dayEnd = endOfDayVN(scheduledAt);
+    const queueLockKey = `appointment-queue:${doctorId}:${dayStart.toISOString()}`;
+
+    await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+      queueLockKey,
+    ]);
+
+    const maxQueueResult = await manager
+      .createQueryBuilder(Appointment, 'apt')
+      .select('MAX(apt.queueNumber)', 'maxQueue')
+      .where('apt.doctorId = :doctorId', { doctorId })
+      .andWhere('apt.scheduledAt BETWEEN :start AND :end', {
+        start: dayStart,
+        end: dayEnd,
+      })
+      .andWhere('apt.queueNumber IS NOT NULL')
+      .getRawOne<{ maxQueue: string | null }>();
+
+    return Number(maxQueueResult?.maxQueue ?? 0) + 1;
+  }
 
   async checkIn(id: string): Promise<ResponseCommon<AppointmentResponseDto>> {
     const { queueNumber, doctorId, appointmentType } =
@@ -77,22 +104,11 @@ export class AppointmentCheckinService {
             throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
         }
 
-        // Tính maxQueue TRONG CÙNG transaction có lock
-        const maxQueueResult = await manager
-          .createQueryBuilder(Appointment, 'apt')
-          .select('MAX(apt.queueNumber)', 'maxQueue')
-          .where('apt.doctorId = :doctorId', {
-            doctorId: appointmentStatus.doctorId,
-          })
-          .andWhere('apt.scheduledAt BETWEEN :start AND :end', {
-            start: startOfDayVN(vnNow()),
-            end: endOfDayVN(vnNow()),
-          })
-          .andWhere('apt.queueNumber IS NOT NULL')
-          .setLock('pessimistic_write')
-          .getRawOne<{ maxQueue: string | null }>();
-
-        const newQueueNumber = Number(maxQueueResult?.maxQueue ?? 0) + 1;
+        const newQueueNumber = await this.getNextQueueNumber(
+          manager,
+          appointmentStatus.doctorId,
+          appointmentStatus.scheduledAt,
+        );
 
         appointmentStatus.status = AppointmentStatusEnum.CHECKED_IN;
         appointmentStatus.checkInTime = new Date();
@@ -155,7 +171,7 @@ export class AppointmentCheckinService {
   async checkInVideo(
     id: string,
   ): Promise<ResponseCommon<AppointmentResponseDto>> {
-    return await this.dataSource.transaction(async (manager) => {
+    await this.dataSource.transaction(async (manager) => {
       // Dùng pessimistic_write để lock appointment, tránh race condition số thứ tự
       const appointment = await manager.findOne(Appointment, {
         where: { id },
@@ -191,22 +207,11 @@ export class AppointmentCheckinService {
         throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
 
-      // Calculate queueNumber (tương tự logic checkIn chung)
-      const maxQueueResult = await manager
-        .createQueryBuilder(Appointment, 'apt')
-        .select('MAX(apt.queueNumber)', 'maxQueue')
-        .where('apt.doctorId = :doctorId', {
-          doctorId: appointment.doctorId,
-        })
-        .andWhere('apt.scheduledAt BETWEEN :start AND :end', {
-          start: startOfDayVN(vnNow()),
-          end: endOfDayVN(vnNow()),
-        })
-        .andWhere('apt.queueNumber IS NOT NULL')
-        .setLock('pessimistic_write')
-        .getRawOne<{ maxQueue: string | null }>();
-
-      const newQueueNumber = Number(maxQueueResult?.maxQueue ?? 0) + 1;
+      const newQueueNumber = await this.getNextQueueNumber(
+        manager,
+        appointment.doctorId,
+        appointment.scheduledAt,
+      );
 
       appointment.status = AppointmentStatusEnum.CHECKED_IN;
       appointment.checkInTime = new Date();
@@ -217,15 +222,15 @@ export class AppointmentCheckinService {
       this.logger.log(
         `VIDEO appointment ${id} checked in, queue #${newQueueNumber}`,
       );
-
-      return this.appointmentReadService.findById(id);
     });
+
+    return this.appointmentReadService.findById(id);
   }
 
   async startExamination(
     id: string,
   ): Promise<ResponseCommon<AppointmentResponseDto>> {
-    return this.dataSource.transaction(async (manager) => {
+    await this.dataSource.transaction(async (manager) => {
       const appointment = await manager.findOne(Appointment, {
         where: { id },
         lock: { mode: 'pessimistic_write' },
@@ -246,23 +251,23 @@ export class AppointmentCheckinService {
       await manager.save(appointment);
 
       await this.medicalService.upsertEncounterInTx(manager, appointment);
-
-      const appt = await this.appointmentReadService.findById(id);
-      const data = appt.data!;
-
-      if (data.patient?.user?.id) {
-        void this.notificationService.createNotification({
-          userId: data.patient.user.id,
-          type: NotificationTypeEnum.APPOINTMENT,
-          title: 'Bác sĩ đang khám',
-          content: `Bác sĩ ${data.doctor?.fullName || ''} đã bắt đầu khám lịch hẹn ${data.appointmentNumber}.`,
-          refId: id,
-          refType: 'APPOINTMENT',
-        });
-      }
-
-      return appt;
     });
+
+    const appt = await this.appointmentReadService.findById(id);
+    const data = appt.data!;
+
+    if (data.patient?.user?.id) {
+      void this.notificationService.createNotification({
+        userId: data.patient.user.id,
+        type: NotificationTypeEnum.APPOINTMENT,
+        title: 'Bác sĩ đang khám',
+        content: `Bác sĩ ${data.doctor?.fullName || ''} đã bắt đầu khám lịch hẹn ${data.appointmentNumber}.`,
+        refId: id,
+        refType: 'APPOINTMENT',
+      });
+    }
+
+    return appt;
   }
 
   async completeExamination(

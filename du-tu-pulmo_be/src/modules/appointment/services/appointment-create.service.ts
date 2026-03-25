@@ -45,6 +45,32 @@ export class AppointmentCreateService {
     return `APT-${timestamp}-${random}`;
   }
 
+  private validateSlotBookingWindow(
+    slotStartTime: Date,
+    schedule: DoctorSchedule | null,
+  ): void {
+    const now = vnNow();
+    const minimumBookingTime = schedule?.minimumBookingTime ?? 0;
+    const earliestAllowed = new Date(
+      now.getTime() + minimumBookingTime * 60 * 1000,
+    );
+
+    if (slotStartTime < earliestAllowed) {
+      this.logger.error('Time slot is before minimum booking window');
+      throw new BadRequestException(ERROR_MESSAGES.APPOINTMENT_TIME_INVALID);
+    }
+
+    const maxAdvanceBookingDays = schedule?.maxAdvanceBookingDays ?? 30;
+    const latestAllowed = new Date(
+      now.getTime() + maxAdvanceBookingDays * 24 * 60 * 60 * 1000,
+    );
+
+    if (slotStartTime > latestAllowed) {
+      this.logger.error('Time slot is after max advance booking window');
+      throw new BadRequestException(ERROR_MESSAGES.APPOINTMENT_TIME_INVALID);
+    }
+  }
+
   async create(
     data: Partial<Appointment>,
   ): Promise<ResponseCommon<AppointmentResponseDto>> {
@@ -93,6 +119,8 @@ export class AppointmentCreateService {
             where: { id: slot.scheduleId },
           })
         : null;
+
+      this.validateSlotBookingWindow(slot.startTime, schedule);
 
       // Repair slot counters from source-of-truth appointments before booking.
       const activeAppointmentCount = await manager.count(Appointment, {
@@ -230,32 +258,6 @@ export class AppointmentCreateService {
 
       const saved = await manager.save(appointment);
 
-      // Thông báo cho Patient
-      void this.notificationService.createNotification({
-        userId: patient.userId,
-        type: NotificationTypeEnum.APPOINTMENT,
-        title: 'Đặt lịch thành công',
-        content: `Lịch hẹn ${saved.appointmentNumber} đã được đặt thành công. Vui lòng thanh toán để xác nhận.`,
-        refId: saved.id,
-        refType: 'APPOINTMENT',
-      });
-
-      // Thông báo cho Doctor — cần query doctor.userId
-      const doctorForNotification = await manager.findOne(Doctor, {
-        where: { id: saved.doctorId },
-        relations: ['user'],
-      });
-      if (doctorForNotification?.userId) {
-        void this.notificationService.createNotification({
-          userId: doctorForNotification.userId,
-          type: NotificationTypeEnum.APPOINTMENT,
-          title: 'Lịch hẹn mới',
-          content: `Có lịch hẹn mới ${saved.appointmentNumber} được đặt vào ${saved.scheduledAt.toLocaleDateString('vi-VN')}.`,
-          refId: saved.id,
-          refType: 'APPOINTMENT',
-        });
-      }
-
       await manager.increment(TimeSlot, { id: slot.id }, 'bookedCount', 1);
 
       if (slot.bookedCount + 1 >= slot.capacity) {
@@ -278,16 +280,64 @@ export class AppointmentCreateService {
 
       return {
         kind: 'success' as const,
-        response: new ResponseCommon(
-        201,
-        'Tạo lịch hẹn thành công',
-          this.mapper.toDto(saved),
-        ),
+        appointmentId: saved.id,
       };
     });
     if (result.kind === 'conflict') {
       throw new ConflictException(ERROR_MESSAGES.CONFLICT_DETECTED);
     }
-    return result.response;
+
+    const savedAppointment = await this.dataSource
+      .getRepository(Appointment)
+      .findOne({
+        where: { id: result.appointmentId },
+        relations: [
+          'patient',
+          'patient.user',
+          'doctor',
+          'doctor.user',
+          'hospital',
+          'timeSlot',
+        ],
+      });
+
+    if (!savedAppointment) {
+      this.logger.error('Saved appointment not found after commit');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
+    }
+
+    const appointmentDateTime = savedAppointment.scheduledAt.toLocaleString(
+      'vi-VN',
+    );
+
+    if (savedAppointment.patient?.userId) {
+      void this.notificationService.createNotification({
+        userId: savedAppointment.patient.userId,
+        type: NotificationTypeEnum.APPOINTMENT,
+        title: 'Đặt lịch thành công',
+        content: `Lịch hẹn ${savedAppointment.appointmentNumber} đã được đặt thành công. Vui lòng thanh toán để xác nhận.`,
+        refId: savedAppointment.id,
+        refType: 'APPOINTMENT',
+      });
+    }
+
+    if (savedAppointment.doctor?.userId) {
+      void this.notificationService.createNotification({
+        userId: savedAppointment.doctor.userId,
+        type: NotificationTypeEnum.APPOINTMENT,
+        title: 'Lịch hẹn mới',
+        content: `Có lịch hẹn mới ${savedAppointment.appointmentNumber} được đặt vào ${appointmentDateTime}.`,
+        refId: savedAppointment.id,
+        refType: 'APPOINTMENT',
+      });
+    }
+
+    return new ResponseCommon(
+      201,
+      'Tạo lịch hẹn thành công',
+      this.mapper.toDto(savedAppointment),
+    );
   }
 }
+
+

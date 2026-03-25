@@ -1,16 +1,17 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { DailyService } from '@/modules/video_call/daily.service';
 import { CallStateService } from '@/modules/video_call/call-state.service';
-import { AppointmentModule } from '@/modules/appointment/appointment.module';
+import { ActiveCallEntity } from '@/modules/video_call/entities/active-call.entity';
 
 @Module({
   imports: [
+    TypeOrmModule.forFeature([ActiveCallEntity]),
     HttpModule.register({
       timeout: 10000,
       maxRedirects: 5,
     }),
-    forwardRef(() => AppointmentModule),
   ],
   controllers: [],
   providers: [DailyService, CallStateService],
