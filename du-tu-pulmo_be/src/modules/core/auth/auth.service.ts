@@ -84,7 +84,7 @@ export class AuthService {
     }
 
     const passwordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.])[A-Za-z\d@$!%*?&.]{8,}$/;
     if (!passwordRegex.test(dto.password)) {
       throw new BadRequestException(ERROR_MESSAGES.PASSWORD_TOO_WEAK);
     }
@@ -1340,7 +1340,7 @@ export class AuthService {
       const normalizedEmail = email.toLowerCase().trim();
 
       const passwordRegex =
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.])[A-Za-z\d@$!%*?&.]{8,}$/;
       if (!passwordRegex.test(newPassword)) {
         throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
