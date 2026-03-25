@@ -50,6 +50,8 @@ import {
 } from '@/modules/doctor/dto/schedule-response.dto';
 import { ScheduleType } from '@/modules/common/enums/schedule-type.enum';
 import { ResponseCommon } from '@/common/dto/response.dto';
+import { CurrentUser } from '@/common/decorators/user.decorator';
+import type { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
 
 @ApiTags('Doctor Schedules')
 @ApiBearerAuth('JWT-auth')
@@ -480,8 +482,13 @@ export class DoctorScheduleController {
   async updateFlexibleSchedule(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateFlexibleScheduleDto,
+    @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<DoctorScheduleResponseDto>> {
-    const result = await this.scheduleService.updateFlexibleSchedule(id, dto);
+    const result = await this.scheduleService.updateFlexibleSchedule(
+      user.doctorId!,
+      id,
+      dto,
+    );
     return new ResponseCommon(
       result.code,
       result.message,
@@ -507,8 +514,11 @@ export class DoctorScheduleController {
     status: HttpStatus.BAD_REQUEST,
     description: 'Lịch này không phải là lịch linh hoạt (FLEXIBLE)',
   })
-  deleteFlexibleSchedule(@Param('id', ParseUUIDPipe) id: string) {
-    return this.scheduleService.deleteFlexibleSchedule(id);
+  deleteFlexibleSchedule(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.scheduleService.deleteFlexibleSchedule(user.doctorId!, id);
   }
 
   // ========================================
@@ -614,8 +624,13 @@ export class DoctorScheduleController {
   async updateTimeOff(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateTimeOffDto,
+    @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<DoctorScheduleResponseDto>> {
-    const result = await this.scheduleService.updateTimeOff(id, dto);
+    const result = await this.scheduleService.updateTimeOff(
+      user.doctorId!,
+      id,
+      dto,
+    );
     return new ResponseCommon(
       result.code,
       result.message,
@@ -641,7 +656,10 @@ export class DoctorScheduleController {
     status: HttpStatus.BAD_REQUEST,
     description: 'Lịch này không phải là lịch nghỉ (TIME_OFF)',
   })
-  deleteTimeOff(@Param('id', ParseUUIDPipe) id: string) {
-    return this.scheduleService.deleteTimeOff(id);
+  deleteTimeOff(
+    @Param('doctorId', ParseUUIDPipe) doctorId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.scheduleService.deleteTimeOff(doctorId, id);
   }
 }

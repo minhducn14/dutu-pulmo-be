@@ -11,6 +11,7 @@ import {
   Repository,
   Between,
   DataSource,
+  EntityManager,
   MoreThanOrEqual,
   In,
   SelectQueryBuilder,
@@ -37,7 +38,6 @@ interface AvailabilitySummaryRaw {
   date: string;
   count: string;
 }
-
 @Injectable()
 export class TimeSlotService {
   private readonly logger = new Logger(TimeSlotService.name);
@@ -53,6 +53,22 @@ export class TimeSlotService {
   async findById(id: string): Promise<ResponseCommon<TimeSlot>> {
     const slot = await this.timeSlotRepository.findOne({
       where: { id },
+      relations: ['doctor', 'schedule'],
+    });
+    if (!slot) {
+      this.logger.error('Slot not found');
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
+    }
+    const [enriched] = await this.enrichSlotsWithPricing([slot]);
+    return new ResponseCommon(200, 'SUCCESS', enriched);
+  }
+
+  async findByDoctorAndId(
+    doctorId: string,
+    id: string,
+  ): Promise<ResponseCommon<TimeSlot>> {
+    const slot = await this.timeSlotRepository.findOne({
+      where: { id, doctorId },
       relations: ['doctor', 'schedule'],
     });
     if (!slot) {
@@ -153,13 +169,13 @@ export class TimeSlotService {
     startDate: Date,
     endDate: Date,
   ): Promise<TimeSlot[]> {
-    return this.timeSlotRepository.find({
-      where: {
-        doctorId,
-        startTime: Between(startDate, endDate),
-      },
-      order: { startTime: 'ASC' },
-    });
+    return this.timeSlotRepository
+      .createQueryBuilder('slot')
+      .where('slot.doctorId = :doctorId', { doctorId })
+      .andWhere('slot.startTime < :endDate', { endDate })
+      .andWhere('slot.endTime > :startDate', { startDate })
+      .orderBy('slot.startTime', 'ASC')
+      .getMany();
   }
 
   async findAvailableSlotsByDate(
@@ -195,22 +211,39 @@ export class TimeSlotService {
   private async enrichSlotsWithPricing(slots: TimeSlot[]): Promise<TimeSlot[]> {
     if (slots.length === 0) return slots;
     const ids = slots.map((slot) => slot.id);
+    const batchSize = 500;
+    if (ids.length > batchSize) {
+      this.logger.warn(
+        `enrichSlotsWithPricing called with ${ids.length} slots; querying in batches of ${batchSize}`,
+      );
+    }
 
-    const rawRows = await this.timeSlotRepository
-      .createQueryBuilder('slot')
-      .leftJoin('slot.schedule', 'schedule')
-      .leftJoin('slot.doctor', 'doctor')
-      .select('slot.id', 'slot_id')
-      .addSelect('schedule.consultationFee', 'schedule_consultation_fee')
-      .addSelect('schedule.discountPercent', 'schedule_discount_percent')
-      .addSelect('doctor.defaultConsultationFee', 'doctor_default_fee')
-      .where('slot.id IN (:...ids)', { ids })
-      .getRawMany<{
-        slot_id: string;
-        schedule_consultation_fee: string | null;
-        schedule_discount_percent: number | null;
-        doctor_default_fee: string | null;
-      }>();
+    const rawRows: Array<{
+      slot_id: string;
+      schedule_consultation_fee: string | null;
+      schedule_discount_percent: number | null;
+      doctor_default_fee: string | null;
+    }> = [];
+
+    for (let i = 0; i < ids.length; i += batchSize) {
+      const batchIds = ids.slice(i, i + batchSize);
+      const batchRows = await this.timeSlotRepository
+        .createQueryBuilder('slot')
+        .leftJoin('slot.schedule', 'schedule')
+        .leftJoin('slot.doctor', 'doctor')
+        .select('slot.id', 'slot_id')
+        .addSelect('schedule.consultationFee', 'schedule_consultation_fee')
+        .addSelect('schedule.discountPercent', 'schedule_discount_percent')
+        .addSelect('doctor.defaultConsultationFee', 'doctor_default_fee')
+        .where('slot.id IN (:...ids)', { ids: batchIds })
+        .getRawMany<{
+          slot_id: string;
+          schedule_consultation_fee: string | null;
+          schedule_discount_percent: number | null;
+          doctor_default_fee: string | null;
+        }>();
+      rawRows.push(...batchRows);
+    }
 
     const feeMap = new Map(
       rawRows.map((row) => {
@@ -321,11 +354,8 @@ export class TimeSlotService {
     doctorId: string,
     date: Date,
   ): Promise<number> {
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
+    const startOfDay = startOfDayVN(date);
+    const endOfDay = endOfDayVN(date);
 
     return this.timeSlotRepository.count({
       where: {
@@ -342,17 +372,23 @@ export class TimeSlotService {
     let doctorSchedule: DoctorSchedule | null = null;
     if (dto.scheduleId) {
       doctorSchedule = await this.scheduleRepository.findOne({
-        where: { id: dto.scheduleId },
+        where: { id: dto.scheduleId, doctorId },
         select: [
           'id',
+          'doctorId',
           'version',
           'minimumBookingTime',
           'maxAdvanceBookingDays',
         ],
       });
 
+      if (!doctorSchedule) {
+        this.logger.error('Schedule not found for doctor');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+      }
+
       // Validate version match if provided
-      if (dto.scheduleVersion !== undefined && doctorSchedule) {
+      if (dto.scheduleVersion !== undefined) {
         if (dto.scheduleVersion !== doctorSchedule.version) {
           this.logger.error('Invalid schedule version');
           throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
@@ -415,10 +451,21 @@ export class TimeSlotService {
     const scheduleMap = new Map<string, DoctorSchedule>();
     if (scheduleIds.length > 0) {
       const schedules = await this.scheduleRepository.find({
-        where: { id: In(scheduleIds) },
-        select: ['id', 'minimumBookingTime', 'maxAdvanceBookingDays'],
+        where: { id: In(scheduleIds), doctorId },
+        select: [
+          'id',
+          'doctorId',
+          'version',
+          'minimumBookingTime',
+          'maxAdvanceBookingDays',
+        ],
       });
       schedules.forEach((s) => scheduleMap.set(s.id, s));
+
+      if (schedules.length !== scheduleIds.length) {
+        this.logger.error('One or more schedules are invalid for doctor');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+      }
     }
 
     for (const dto of dtos) {
@@ -426,6 +473,18 @@ export class TimeSlotService {
       const schedule = dto.scheduleId
         ? scheduleMap.get(dto.scheduleId)
         : undefined;
+      if (dto.scheduleId && !schedule) {
+        this.logger.error('Schedule not found for doctor');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+      }
+      if (
+        dto.scheduleVersion !== undefined &&
+        schedule &&
+        dto.scheduleVersion !== schedule.version
+      ) {
+        this.logger.error('Invalid schedule version');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+      }
       this.validateSlot(dto, schedule);
 
       const startTime = new Date(dto.startTime);
@@ -457,8 +516,12 @@ export class TimeSlotService {
     await this.checkOverlapBulk(doctorId, timeRanges);
 
     const result = await this.dataSource.transaction(async (manager) => {
-      const entities = dtos.map((dto) =>
-        manager.create(TimeSlot, {
+      const entities = dtos.map((dto) => {
+        const schedule = dto.scheduleId
+          ? scheduleMap.get(dto.scheduleId)
+          : undefined;
+
+        return manager.create(TimeSlot, {
           doctorId,
           startTime: new Date(dto.startTime),
           endTime: new Date(dto.endTime),
@@ -467,9 +530,9 @@ export class TimeSlotService {
           isAvailable: dto.isAvailable ?? true,
           bookedCount: 0,
           scheduleId: dto.scheduleId ?? null,
-          scheduleVersion: dto.scheduleVersion ?? null,
-        }),
-      );
+          scheduleVersion: schedule?.version ?? null,
+        });
+      });
 
       return manager.save(TimeSlot, entities);
     });
@@ -496,17 +559,19 @@ export class TimeSlotService {
       timeRanges[0].endTime,
     );
 
-    const existingSlots = await this.timeSlotRepository.find({
-      where: {
-        doctorId,
-        startTime: Between(minStart, maxEnd),
-      },
-      select: ['startTime', 'endTime'],
-    });
+    const existingSlots = await this.timeSlotRepository
+      .createQueryBuilder('slot')
+      .select(['slot.startTime', 'slot.endTime'])
+      .where('slot.doctorId = :doctorId', { doctorId })
+      .andWhere('slot.startTime < :maxEnd', { maxEnd })
+      .andWhere('slot.endTime > :minStart', { minStart })
+      .getMany();
 
     for (const newSlot of timeRanges) {
       const overlapping = existingSlots.find(
         (existing) =>
+          existing.startTime < maxEnd &&
+          existing.endTime > minStart &&
           newSlot.startTime < existing.endTime &&
           newSlot.endTime > existing.startTime,
       );
@@ -717,34 +782,51 @@ export class TimeSlotService {
     doctorId: string,
     date: Date,
     scheduleIds: string[],
+    manager?: EntityManager,
   ): Promise<number> {
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
+    if (scheduleIds.length === 0) {
+      return 0;
+    }
 
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
+    const startOfDay = startOfDayVN(date);
+    const endOfDay = endOfDayVN(date);
+    const slotRepository = (manager ?? this.dataSource.manager).getRepository(
+      TimeSlot,
+    );
 
     // Xây dựng query với điều kiện phức tạp
-    const queryBuilder = this.timeSlotRepository
+    const softDeleteResult = await slotRepository
+      .createQueryBuilder()
+      .softDelete()
+      .from(TimeSlot)
+      .where('doctorId = :doctorId', { doctorId })
+      .andWhere('startTime >= :startOfDay', { startOfDay })
+      .andWhere('startTime <= :endOfDay', { endOfDay })
+      .andWhere('bookedCount = 0')
+      .andWhere('"deleted_at" IS NULL')
+      .andWhere('(scheduleId NOT IN (:...scheduleIds) OR scheduleId IS NULL)', {
+        scheduleIds,
+      })
+      .execute();
+
+    const disableQuery = slotRepository
       .createQueryBuilder()
       .update(TimeSlot)
       .set({ isAvailable: false })
       .where('doctorId = :doctorId', { doctorId })
       .andWhere('startTime >= :startOfDay', { startOfDay })
       .andWhere('startTime <= :endOfDay', { endOfDay })
-      .andWhere('bookedCount = 0')
+      .andWhere('"deleted_at" IS NULL')
       .andWhere('isAvailable = true');
 
-    if (scheduleIds.length > 0) {
-      // Disable slots KHÔNG thuộc scheduleIds này HOẶC không có scheduleId
-      queryBuilder.andWhere(
-        '(scheduleId NOT IN (:...scheduleIds) OR scheduleId IS NULL)',
-        { scheduleIds },
-      );
-    }
+    // Disable slots KHÔNG thuộc scheduleIds này HOẶC không có scheduleId
+    disableQuery.andWhere(
+      '(scheduleId NOT IN (:...scheduleIds) OR scheduleId IS NULL)',
+      { scheduleIds },
+    );
 
-    const result = await queryBuilder.execute();
-    return result.affected || 0;
+    const disableResult = await disableQuery.execute();
+    return (softDeleteResult.affected || 0) + (disableResult.affected || 0);
   }
 
   private validateAppointmentTypes(types: AppointmentTypeEnum[]): void {

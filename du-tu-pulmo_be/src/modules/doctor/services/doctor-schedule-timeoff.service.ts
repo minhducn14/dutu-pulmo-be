@@ -28,7 +28,7 @@ import { DoctorScheduleHelperService } from '@/modules/doctor/services/doctor-sc
 import { DoctorScheduleQueryService } from '@/modules/doctor/services/doctor-schedule-query.service';
 import { DoctorScheduleUpdateService } from '@/modules/doctor/services/doctor-schedule-update.service';
 import { DoctorScheduleRestoreService } from '@/modules/doctor/services/doctor-schedule-restore.service';
-import { endOfDayVN, startOfDayVN, vnNow } from '@/common/datetime';
+import { endOfDayVN, getDayVN, startOfDayVN, vnNow } from '@/common/datetime';
 
 @Injectable()
 export class DoctorScheduleTimeOffService {
@@ -67,7 +67,7 @@ export class DoctorScheduleTimeOffService {
 
     const today = startOfDayVN(vnNow());
     const specificDateNormalized = startOfDayVN(specificDate);
-    const dayOfWeek = specificDateNormalized.getDay();
+    const dayOfWeek = getDayVN(specificDateNormalized);
 
     if (specificDateNormalized < today) {
       this.logger.error('Specific date is in the past');
@@ -130,11 +130,8 @@ export class DoctorScheduleTimeOffService {
       });
 
       const conflicting = appointments.filter((apt) => {
-        if (!apt.timeSlot?.schedule?.slotDuration) return false;
-        const aptEnd = new Date(
-          apt.scheduledAt.getTime() +
-            apt.timeSlot.schedule.slotDuration * 60 * 1000,
-        );
+        const aptEnd = this.resolveAppointmentEnd(apt);
+        if (!aptEnd) return false;
         return apt.scheduledAt < scheduleEnd && aptEnd > scheduleStart;
       });
 
@@ -196,9 +193,15 @@ export class DoctorScheduleTimeOffService {
     if (result.cancelledAppointments.length > 0) {
       this.notificationService
         .notifyCancelledAppointments(result.cancelledAppointments, 'TIME_OFF')
-        .catch((err) =>
-          this.logger.error('Failed to send notifications:', err),
-        );
+        .catch((err) => {
+          const appointmentIds = result.cancelledAppointments
+            .map((a) => a.id)
+            .join(',');
+          this.logger.error(
+            `Failed to send notifications for ${result.cancelledAppointments.length} appointments (doctorId=${doctorId}, appointmentIds=${appointmentIds})`,
+            err instanceof Error ? err.stack : String(err),
+          );
+        });
     }
 
     const message =
@@ -216,11 +219,14 @@ export class DoctorScheduleTimeOffService {
   // ==================== UPDATE ====================
 
   async updateTimeOff(
+    doctorId: string,
     id: string,
     dto: UpdateTimeOffDto,
   ): Promise<ResponseCommon<DoctorSchedule>> {
-    const existingResult = await this.queryService.findById(id);
-    const existing = existingResult.data!;
+    const existing = await this.queryService.validateDoctorOwnership(
+      id,
+      doctorId,
+    );
 
     if (existing.scheduleType !== ScheduleType.TIME_OFF) {
       this.logger.error('Invalid schedule type');
@@ -312,11 +318,8 @@ export class DoctorScheduleTimeOffService {
         rangeEnd: Date,
       ): Promise<Appointment[]> => {
         const conflicting = appointments.filter((apt) => {
-          if (!apt.timeSlot?.schedule?.slotDuration) return false;
-          const aptEnd = new Date(
-            apt.scheduledAt.getTime() +
-              apt.timeSlot.schedule.slotDuration * 60 * 1000,
-          );
+          const aptEnd = this.resolveAppointmentEnd(apt);
+          if (!aptEnd) return false;
           return apt.scheduledAt < rangeEnd && aptEnd > rangeStart;
         });
 
@@ -425,6 +428,11 @@ export class DoctorScheduleTimeOffService {
           specificDate,
           range.start,
           range.end,
+          {
+            // During update, ignore the current TIME_OFF record (old range),
+            // otherwise it blocks the exact range that should be restored.
+            excludeTimeOffScheduleIds: [id],
+          },
         );
         restoredSlots += restored;
 
@@ -467,9 +475,15 @@ export class DoctorScheduleTimeOffService {
     if (result.cancelledAppointments.length > 0) {
       this.notificationService
         .notifyCancelledAppointments(result.cancelledAppointments, 'TIME_OFF')
-        .catch((err) =>
-          this.logger.error('Failed to send notifications:', err),
-        );
+        .catch((err) => {
+          const appointmentIds = result.cancelledAppointments
+            .map((a) => a.id)
+            .join(',');
+          this.logger.error(
+            `Failed to send notifications for ${result.cancelledAppointments.length} appointments (doctorId=${existing.doctorId}, appointmentIds=${appointmentIds})`,
+            err instanceof Error ? err.stack : String(err),
+          );
+        });
     }
 
     let message = `Cập nhật lịch nghỉ thành công.`;
@@ -491,13 +505,15 @@ export class DoctorScheduleTimeOffService {
 
   // ==================== DELETE ====================
 
-  async deleteTimeOff(id: string): Promise<
+  async deleteTimeOff(doctorId: string, id: string): Promise<
     ResponseCommon<{
       restoredSlots: number;
     }>
   > {
-    const existingResult = await this.queryService.findById(id);
-    const schedule = existingResult.data!;
+    const schedule = await this.queryService.validateDoctorOwnership(
+      id,
+      doctorId,
+    );
 
     if (schedule.scheduleType !== ScheduleType.TIME_OFF) {
       this.logger.error('Invalid schedule type');
@@ -542,5 +558,30 @@ export class DoctorScheduleTimeOffService {
         : `Xóa lịch nghỉ thành công.`;
 
     return new ResponseCommon(200, message, result);
+  }
+
+  private resolveAppointmentEnd(appointment: Appointment): Date | null {
+    if (!appointment.scheduledAt) {
+      return null;
+    }
+
+    if (appointment.timeSlot?.endTime) {
+      return new Date(appointment.timeSlot.endTime);
+    }
+
+    if (appointment.durationMinutes && appointment.durationMinutes > 0) {
+      return new Date(
+        appointment.scheduledAt.getTime() + appointment.durationMinutes * 60000,
+      );
+    }
+
+    if (appointment.timeSlot?.schedule?.slotDuration) {
+      return new Date(
+        appointment.scheduledAt.getTime() +
+          appointment.timeSlot.schedule.slotDuration * 60000,
+      );
+    }
+
+    return null;
   }
 }

@@ -44,8 +44,11 @@ export class DoctorOwnershipGuard implements CanActivate {
       throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
     }
 
-    const scheduleId = request.params.scheduleId;
-    if (scheduleId) {
+    const isTimeSlotRoute = request.path.includes('/time-slots/');
+    const scheduleId =
+      request.params.scheduleId ||
+      (!isTimeSlotRoute ? request.params.id : undefined);
+    if (scheduleId && request.path.includes('/schedules/')) {
       const schedule = await this.scheduleRepository.findOne({
         where: { id: scheduleId as string },
         select: ['id', 'doctorId'],
@@ -59,7 +62,7 @@ export class DoctorOwnershipGuard implements CanActivate {
     }
 
     const slotId = request.params.id;
-    if (slotId && request.path.includes('/time-slots/')) {
+    if (slotId && isTimeSlotRoute) {
       const slot = await this.timeSlotRepository.findOne({
         where: { id: slotId as string },
         select: ['id', 'doctorId'],

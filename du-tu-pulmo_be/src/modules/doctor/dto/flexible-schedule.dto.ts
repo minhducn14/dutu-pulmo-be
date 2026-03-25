@@ -10,7 +10,12 @@ import {
   IsNumber,
   IsBoolean,
 } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+  OmitType,
+  PartialType,
+} from '@nestjs/swagger';
 import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
 import { IsValidBookingWindow } from '@/modules/doctor/validators/is-valid-booking-window.decorator';
 
@@ -130,5 +135,5 @@ export class CreateFlexibleScheduleDto {
  * DTO for updating a flexible schedule
  */
 export class UpdateFlexibleScheduleDto extends PartialType(
-  CreateFlexibleScheduleDto,
+  OmitType(CreateFlexibleScheduleDto, ['specificDate'] as const),
 ) {}

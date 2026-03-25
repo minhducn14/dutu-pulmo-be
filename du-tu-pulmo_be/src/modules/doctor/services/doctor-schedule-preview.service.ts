@@ -76,23 +76,33 @@ export class DoctorSchedulePreviewService {
         'timeSlot.schedule',
       ],
     });
+    const timeOffPeriods = await this.getTimeOffPeriods(
+      doctorId,
+      startOfDay,
+      endOfDay,
+      specificDate,
+    );
 
     const conflicting = appointments.filter((apt) => {
-      if (!apt.timeSlot?.schedule?.slotDuration) return false;
+      if (!apt.timeSlot?.schedule?.slotDuration) return true;
       const aptEnd = new Date(
         apt.scheduledAt.getTime() +
           apt.timeSlot.schedule.slotDuration * 60 * 1000,
       );
-      return apt.scheduledAt < scheduleEnd && aptEnd > scheduleStart;
+      const fitsFlexibleWindow =
+        apt.scheduledAt >= scheduleStart && aptEnd <= scheduleEnd;
+
+      return (
+        !fitsFlexibleWindow ||
+        this.overlapsBlockingPeriod(apt.scheduledAt, aptEnd, timeOffPeriods)
+      );
     });
 
-    const affectedSlots = await this.timeSlotRepository.count({
-      where: {
-        doctorId,
-        startTime: Between(scheduleStart, scheduleEnd),
-        isAvailable: true,
-      },
-    });
+    const affectedSlots = await this.countSlotsForDay(
+      doctorId,
+      startOfDay,
+      endOfDay,
+    );
 
     const conflictingAppointments: ConflictingAppointmentDto[] =
       conflicting.map((apt) => ({
@@ -168,13 +178,11 @@ export class DoctorSchedulePreviewService {
       return apt.scheduledAt < scheduleEnd && aptEnd > scheduleStart;
     });
 
-    const affectedSlots = await this.timeSlotRepository.count({
-      where: {
-        doctorId,
-        startTime: Between(scheduleStart, scheduleEnd),
-        bookedCount: 0,
-      },
-    });
+    const affectedSlots = await this.countOverlappingSlots(
+      doctorId,
+      scheduleStart,
+      scheduleEnd,
+    );
 
     const conflictingAppointments: ConflictingAppointmentDto[] =
       conflicting.map((apt) => ({
@@ -326,5 +334,84 @@ export class DoctorSchedulePreviewService {
       affectedSlotsCount: 0,
       message,
     });
+  }
+
+  private async countOverlappingSlots(
+    doctorId: string,
+    scheduleStart: Date,
+    scheduleEnd: Date,
+  ): Promise<number> {
+    return this.timeSlotRepository
+      .createQueryBuilder('slot')
+      .where('slot.doctorId = :doctorId', { doctorId })
+      .andWhere('slot.startTime < :scheduleEnd', { scheduleEnd })
+      .andWhere('slot.endTime > :scheduleStart', { scheduleStart })
+      .andWhere('slot.bookedCount = 0')
+      .getCount();
+  }
+
+  private async countSlotsForDay(
+    doctorId: string,
+    startOfDay: Date,
+    endOfDay: Date,
+  ): Promise<number> {
+    return this.timeSlotRepository
+      .createQueryBuilder('slot')
+      .where('slot.doctorId = :doctorId', { doctorId })
+      .andWhere('slot.startTime >= :startOfDay', { startOfDay })
+      .andWhere('slot.startTime <= :endOfDay', { endOfDay })
+      .andWhere('slot.bookedCount = 0')
+      .getCount();
+  }
+
+  private async getTimeOffPeriods(
+    doctorId: string,
+    startOfDay: Date,
+    endOfDay: Date,
+    specificDate: Date,
+  ): Promise<Array<{ start: Date; end: Date }>> {
+    const timeOffSchedules = await this.doctorScheduleRepository.find({
+      where: {
+        doctorId,
+        scheduleType: ScheduleType.TIME_OFF,
+        specificDate: Between(startOfDay, endOfDay),
+      },
+    });
+
+    const baseDate = startOfDayVN(specificDate);
+    const periods = timeOffSchedules
+      .map((schedule) => {
+        const [startH, startM] = schedule.startTime.split(':').map(Number);
+        const [endH, endM] = schedule.endTime.split(':').map(Number);
+
+        return {
+          start: new Date(baseDate.getTime() + (startH * 60 + startM) * 60000),
+          end: new Date(baseDate.getTime() + (endH * 60 + endM) * 60000),
+        };
+      })
+      .sort((a, b) => a.start.getTime() - b.start.getTime());
+
+    const merged: Array<{ start: Date; end: Date }> = [];
+    for (const period of periods) {
+      const last = merged[merged.length - 1];
+      if (!last || period.start > last.end) {
+        merged.push(period);
+        continue;
+      }
+
+      last.end = new Date(Math.max(last.end.getTime(), period.end.getTime()));
+    }
+
+    return merged;
+  }
+
+  private overlapsBlockingPeriod(
+    slotStart: Date,
+    slotEnd: Date,
+    blockingPeriods: Array<{ start: Date; end: Date }>,
+  ): boolean {
+    return blockingPeriods.some(
+      (period) => slotStart < period.end && slotEnd > period.start,
+    );
   }
 }

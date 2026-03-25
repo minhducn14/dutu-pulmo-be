@@ -6,7 +6,12 @@ import {
   IsBoolean,
   MaxLength,
 } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+  OmitType,
+  PartialType,
+} from '@nestjs/swagger';
 
 /**
  * DTO for creating a time-off schedule
@@ -49,7 +54,9 @@ export class CreateTimeOffDto {
 /**
  * DTO for updating a time-off schedule
  */
-export class UpdateTimeOffDto extends PartialType(CreateTimeOffDto) {
+export class UpdateTimeOffDto extends PartialType(
+  OmitType(CreateTimeOffDto, ['specificDate'] as const),
+) {
   @ApiPropertyOptional({
     description: 'Bật/Tắt lịch nghỉ',
   })

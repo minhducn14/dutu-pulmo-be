@@ -30,60 +30,27 @@ export class DoctorScheduleHelperService {
   validateTimeRange(
     dto: CreateDoctorScheduleDto | UpdateDoctorScheduleDto,
   ): void {
-    if (dto.slotDuration !== undefined) {
-      if (dto.slotDuration <= 0) {
-        this.logger.error(
-          'Invalid slot duration. Slot duration must be greater than 0',
-        );
-        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-      }
-      if (dto.slotDuration < 10) {
-        this.logger.error(
-          'Invalid slot duration. Slot duration must be at least 10 minutes',
-        );
-        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-      }
-      if (dto.slotDuration > 120) {
-        this.logger.error(
-          'Invalid slot duration. Slot duration must be at most 120 minutes',
-        );
-        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-      }
-    }
-
-    if (dto.startTime && dto.endTime) {
-      if (dto.startTime >= dto.endTime) {
-        this.logger.error(
-          'Invalid start time or end time. Start time must be less than end time',
-        );
-        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-      }
-
-      if (dto.slotDuration) {
-        const [startH, startM] = dto.startTime.split(':').map(Number);
-        const [endH, endM] = dto.endTime.split(':').map(Number);
-        const workingMinutes = endH * 60 + endM - (startH * 60 + startM);
-
-        if (workingMinutes < dto.slotDuration) {
-          this.logger.error(
-            'Invalid start time or end time. Working minutes must be greater than or equal to slot duration',
-          );
-          throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-        }
-      }
-    }
+    this.validateTimeWindow(dto.startTime, dto.endTime, dto.slotDuration);
 
     if (dto.effectiveFrom && dto.effectiveUntil) {
       const from = new Date(dto.effectiveFrom);
       const until = new Date(dto.effectiveUntil);
 
-      if (from >= until) {
+      if (from > until) {
         this.logger.error(
-          'Invalid effective date. Effective from must be less than effective until',
+          'Invalid effective date. Effective from must be less than or equal to effective until',
         );
         throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
     }
+  }
+
+  validateMergedTimeRange(
+    startTime: string,
+    endTime: string,
+    slotDuration?: number,
+  ): void {
+    this.validateTimeWindow(startTime, endTime, slotDuration);
   }
 
   validateBookingDaysConstraints(
@@ -144,6 +111,7 @@ export class DoctorScheduleHelperService {
         const newStart = startTime.slice(0, 5);
         const newEnd = endTime.slice(0, 5);
 
+        // HH:mm lexicographic compare is intentional and correct for normalized 24h format.
         if (exStart >= newEnd || exEnd <= newStart) {
           continue;
         }
@@ -240,9 +208,10 @@ export class DoctorScheduleHelperService {
       });
     }
 
-    queryBuilder.andWhere('EXTRACT(DOW FROM s.specific_date) = :dayOfWeek', {
-      dayOfWeek,
-    });
+    queryBuilder.andWhere(
+      `EXTRACT(DOW FROM s.specific_date AT TIME ZONE 'Asia/Ho_Chi_Minh') = :dayOfWeek`,
+      { dayOfWeek },
+    );
 
     const count = await queryBuilder.getCount();
     return count > 0;
@@ -265,5 +234,58 @@ export class DoctorScheduleHelperService {
     }
 
     return true;
+  }
+
+  private validateTimeWindow(
+    startTime?: string,
+    endTime?: string,
+    slotDuration?: number,
+  ): void {
+    if (slotDuration !== undefined) {
+      if (slotDuration <= 0) {
+        this.logger.error(
+          'Invalid slot duration. Slot duration must be greater than 0',
+        );
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+      }
+      if (slotDuration < 10) {
+        this.logger.error(
+          'Invalid slot duration. Slot duration must be at least 10 minutes',
+        );
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+      }
+      if (slotDuration > 120) {
+        this.logger.error(
+          'Invalid slot duration. Slot duration must be at most 120 minutes',
+        );
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+      }
+    }
+
+    if (!startTime || !endTime) {
+      return;
+    }
+
+    if (startTime >= endTime) {
+      this.logger.error(
+        'Invalid start time or end time. Start time must be less than end time',
+      );
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+    }
+
+    if (slotDuration === undefined) {
+      return;
+    }
+
+    const [startH, startM] = startTime.split(':').map(Number);
+    const [endH, endM] = endTime.split(':').map(Number);
+    const workingMinutes = endH * 60 + endM - (startH * 60 + startM);
+
+    if (workingMinutes < slotDuration) {
+      this.logger.error(
+        'Invalid start time or end time. Working minutes must be greater than or equal to slot duration',
+      );
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+    }
   }
 }

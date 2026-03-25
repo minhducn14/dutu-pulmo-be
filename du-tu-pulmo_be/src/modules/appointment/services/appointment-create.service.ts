@@ -74,7 +74,7 @@ export class AppointmentCreateService {
       throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
-    return this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       const slot = await manager
         .createQueryBuilder(TimeSlot, 'slot')
         .setLock('pessimistic_write', undefined, ['slot'])
@@ -94,14 +94,41 @@ export class AppointmentCreateService {
           })
         : null;
 
+      // Repair slot counters from source-of-truth appointments before booking.
+      const activeAppointmentCount = await manager.count(Appointment, {
+        where: {
+          timeSlotId: slot.id,
+          status: Not(In([AppointmentStatusEnum.CANCELLED])),
+        },
+      });
+      if (
+        activeAppointmentCount !== slot.bookedCount ||
+        slot.isAvailable !== (activeAppointmentCount < slot.capacity)
+      ) {
+        const reconciledAvailability = activeAppointmentCount < slot.capacity;
+        await manager.update(
+          TimeSlot,
+          { id: slot.id },
+          {
+            bookedCount: activeAppointmentCount,
+            isAvailable: reconciledAvailability,
+          },
+        );
+        slot.bookedCount = activeAppointmentCount;
+        slot.isAvailable = reconciledAvailability;
+        this.logger.warn(
+          `Reconciled slot counters before booking: slotId=${slot.id}, bookedCount=${activeAppointmentCount}, capacity=${slot.capacity}, isAvailable=${reconciledAvailability}`,
+        );
+      }
+
       if (!slot.isAvailable) {
         this.logger.error('Time slot is not available');
-        throw new ConflictException(ERROR_MESSAGES.CONFLICT_DETECTED);
+        return { kind: 'conflict' as const };
       }
 
       if (slot.bookedCount >= slot.capacity) {
         this.logger.error('Time slot is full');
-        throw new ConflictException(ERROR_MESSAGES.CONFLICT_DETECTED);
+        return { kind: 'conflict' as const };
       }
 
       if (isBeforeVN(slot.startTime, vnNow())) {
@@ -249,11 +276,18 @@ export class AppointmentCreateService {
         }
       }
 
-      return new ResponseCommon(
+      return {
+        kind: 'success' as const,
+        response: new ResponseCommon(
         201,
         'Tạo lịch hẹn thành công',
-        this.mapper.toDto(saved),
-      );
+          this.mapper.toDto(saved),
+        ),
+      };
     });
+    if (result.kind === 'conflict') {
+      throw new ConflictException(ERROR_MESSAGES.CONFLICT_DETECTED);
+    }
+    return result.response;
   }
 }

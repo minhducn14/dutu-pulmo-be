@@ -44,6 +44,19 @@ export class DoctorScheduleUpdateService {
         : null;
     }
 
+    const existingMinimumBookingDays = Math.floor(
+      (existing.minimumBookingTime ?? 0) / (24 * 60),
+    );
+    const newMinimumBookingDays =
+      dto.minimumBookingDays ?? existingMinimumBookingDays;
+    const newMaxAdvanceBookingDays =
+      dto.maxAdvanceBookingDays ?? existing.maxAdvanceBookingDays;
+
+    this.helper.validateBookingDaysConstraints(
+      newMinimumBookingDays,
+      newMaxAdvanceBookingDays,
+    );
+
     if (
       dto.dayOfWeek !== undefined ||
       dto.startTime !== undefined ||
@@ -64,9 +77,19 @@ export class DoctorScheduleUpdateService {
     }
 
     const updateData: Partial<DoctorSchedule> = {
-      ...dto,
-      priority: undefined,
       isAvailable: newIsAvailable,
+      note: dto.note !== undefined ? dto.note : existing.note,
+      dayOfWeek: dto.dayOfWeek ?? existing.dayOfWeek,
+      startTime: dto.startTime ?? existing.startTime,
+      endTime: dto.endTime ?? existing.endTime,
+      slotDuration: dto.slotDuration ?? existing.slotDuration,
+      slotCapacity: dto.slotCapacity ?? existing.slotCapacity,
+      appointmentType: dto.appointmentType ?? existing.appointmentType,
+      maxAdvanceBookingDays:
+        dto.maxAdvanceBookingDays ?? existing.maxAdvanceBookingDays,
+      discountPercent: dto.discountPercent ?? existing.discountPercent,
+      description:
+        dto.description !== undefined ? dto.description : existing.description,
       minimumBookingTime:
         dto.minimumBookingDays !== undefined
           ? dto.minimumBookingDays * 24 * 60
@@ -92,7 +115,6 @@ export class DoctorScheduleUpdateService {
     // Xóa các trường không nên update trực tiếp hoặc đã handle ở trên
     const dataToUpdate = updateData as Record<string, unknown>;
     delete dataToUpdate.id;
-    delete dataToUpdate.minimumBookingDays;
 
     // Xóa undefined để không ghi đè bằng null không cần thiết
     (Object.keys(updateData) as (keyof typeof updateData)[]).forEach((key) => {

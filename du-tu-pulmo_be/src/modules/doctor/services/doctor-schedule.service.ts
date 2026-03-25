@@ -191,13 +191,14 @@ export class DoctorScheduleService {
   }
 
   updateFlexibleSchedule(
+    doctorId: string,
     id: string,
     dto: UpdateFlexibleScheduleDto,
   ): Promise<ResponseCommon<DoctorSchedule>> {
-    return this.flexibleService.updateFlexibleSchedule(id, dto);
+    return this.flexibleService.updateFlexibleSchedule(doctorId, id, dto);
   }
 
-  deleteFlexibleSchedule(id: string): Promise<
+  deleteFlexibleSchedule(doctorId: string, id: string): Promise<
     ResponseCommon<{
       appointmentsCount: number;
       appointmentsOutsideRegular: number;
@@ -205,7 +206,7 @@ export class DoctorScheduleService {
       restoredSlots: number;
     }>
   > {
-    return this.flexibleService.deleteFlexibleSchedule(id);
+    return this.flexibleService.deleteFlexibleSchedule(doctorId, id);
   }
 
   createTimeOff(
@@ -223,18 +224,19 @@ export class DoctorScheduleService {
   }
 
   updateTimeOff(
+    doctorId: string,
     id: string,
     dto: UpdateTimeOffDto,
   ): Promise<ResponseCommon<DoctorSchedule>> {
-    return this.timeOffService.updateTimeOff(id, dto);
+    return this.timeOffService.updateTimeOff(doctorId, id, dto);
   }
 
-  deleteTimeOff(id: string): Promise<
+  deleteTimeOff(doctorId: string, id: string): Promise<
     ResponseCommon<{
       restoredSlots: number;
     }>
   > {
-    return this.timeOffService.deleteTimeOff(id);
+    return this.timeOffService.deleteTimeOff(doctorId, id);
   }
 
   previewFlexibleScheduleConflicts(
