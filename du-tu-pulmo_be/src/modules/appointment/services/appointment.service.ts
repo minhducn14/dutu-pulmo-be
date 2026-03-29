@@ -86,10 +86,6 @@ export class AppointmentService {
     return this.appointmentCheckinService.checkInByNumber(appointmentNumber);
   }
 
-  checkInVideo(id: string): Promise<ResponseCommon<AppointmentResponseDto>> {
-    return this.appointmentCheckinService.checkInVideo(id);
-  }
-
   startExamination(
     id: string,
   ): Promise<ResponseCommon<AppointmentResponseDto>> {

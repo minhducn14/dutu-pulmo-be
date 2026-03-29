@@ -21,6 +21,32 @@ export enum SignedStatusEnum {
   SIGNED = 'SIGNED',
 }
 
+export class MedicalRecordAddendumResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  doctorId: string | null;
+
+  @ApiPropertyOptional()
+  doctorName?: string;
+
+  @ApiProperty()
+  reason: string;
+
+  @ApiProperty()
+  content: string;
+
+  @ApiProperty({ enum: SignedStatusEnum })
+  signedStatus: string;
+
+  @ApiPropertyOptional()
+  signedAt?: Date;
+
+  @ApiProperty()
+  createdAt: Date;
+}
+
 export class MedicalRecordDetailResponseDto {
   @ApiProperty({ description: 'Medical Record ID' })
   id: string;
@@ -238,4 +264,7 @@ export class MedicalRecordDetailResponseDto {
   @ApiPropertyOptional({ type: [ScreeningRequestResponseDto] })
   @Transform(toScreeningRequests)
   screeningRequests?: ScreeningRequestResponseDto[];
+
+  @ApiPropertyOptional({ type: [MedicalRecordAddendumResponseDto] })
+  addenda?: MedicalRecordAddendumResponseDto[];
 }

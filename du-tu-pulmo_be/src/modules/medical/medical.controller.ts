@@ -34,6 +34,7 @@ import { MedicalRecordDetailResponseDto } from '@/modules/medical/dto/get-medica
 import { MedicalRecordExaminationDto } from '@/modules/medical/dto/medical-record-examination.dto';
 import { UpdateMedicalRecordDto } from '@/modules/medical/dto/update-medical-record.dto';
 import { SignMedicalRecordDto } from '@/modules/medical/dto/sign-medical-record.dto';
+import { MedicalRecordAddendumResponseDto } from '@/modules/medical/dto/get-medical-record-detail.dto';
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
@@ -331,6 +332,33 @@ export class MedicalController {
     return this.medicalService.createAddendum(id, dto, user);
   }
 
+  @Get('records/:id/addenda')
+  @Roles(RoleEnum.DOCTOR)
+  @ApiOperation({ summary: 'Lấy danh sách bản đính chính của bệnh án' })
+  @ApiParam({ name: 'id', description: 'Medical Record ID (UUID)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Danh sách bản đính chính',
+    type: [MedicalRecordAddendumResponseDto],
+  })
+  async getAddenda(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<MedicalRecordAddendumResponseDto[]>> {
+    const result = await this.medicalService.getAddendaByRecord(id, user);
+    const dtos = (result.data || []).map((ad) => ({
+      id: ad.id,
+      doctorId: ad.doctorId,
+      doctorName: ad.doctor?.user?.fullName || 'N/A',
+      reason: ad.reason,
+      content: ad.content,
+      signedStatus: ad.signedStatus,
+      signedAt: ad.signedAt || undefined,
+      createdAt: ad.createdAt,
+    }));
+    return new ResponseCommon(result.code, result.message, dtos);
+  }
+
   @Post('records/:id/complete')
   @Roles(RoleEnum.DOCTOR, RoleEnum.ADMIN)
   @ApiOperation({
@@ -505,26 +533,26 @@ export class MedicalController {
 
   // ==================== PDF Generation ====================
 
-  @Post('records/:id/pdf')
-  @Roles(RoleEnum.DOCTOR, RoleEnum.ADMIN)
-  @ApiOperation({ summary: 'Tạo PDF bệnh án và lưu lên Cloudinary' })
-  @ApiParam({ name: 'id', description: 'Medical Record ID (UUID)' })
-  @ApiResponse({
-    status: HttpStatus.CREATED,
-    description: 'Tạo PDF thành công, trả về URL',
-    schema: { example: { pdfUrl: 'https://res.cloudinary.com/...' } },
-  })
-  async generateMedicalRecordPdf(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: JwtUser,
-  ): Promise<ResponseCommon<{ pdfUrl: string }>> {
-    const pdfUrl = await this.medicalService.generateMedicalRecordPdf(id, user);
-    return new ResponseCommon(
-      HttpStatus.CREATED,
-      'Tạo PDF bệnh án thành công',
-      { pdfUrl },
-    );
-  }
+  // @Post('records/:id/pdf')
+  // @Roles(RoleEnum.DOCTOR, RoleEnum.ADMIN)
+  // @ApiOperation({ summary: 'Tạo PDF bệnh án và lưu lên Cloudinary' })
+  // @ApiParam({ name: 'id', description: 'Medical Record ID (UUID)' })
+  // @ApiResponse({
+  //   status: HttpStatus.CREATED,
+  //   description: 'Tạo PDF thành công, trả về URL',
+  //   schema: { example: { pdfUrl: 'https://res.cloudinary.com/...' } },
+  // })
+  // async generateMedicalRecordPdf(
+  //   @Param('id', ParseUUIDPipe) id: string,
+  //   @CurrentUser() user: JwtUser,
+  // ): Promise<ResponseCommon<{ pdfUrl: string }>> {
+  //   const pdfUrl = await this.medicalService.generateMedicalRecordPdf(id, user);
+  //   return new ResponseCommon(
+  //     HttpStatus.CREATED,
+  //     'Tạo PDF bệnh án thành công',
+  //     { pdfUrl },
+  //   );
+  // }
 
   @Get('records/:id/pdf')
   @Roles(RoleEnum.DOCTOR, RoleEnum.PATIENT, RoleEnum.ADMIN)
@@ -547,26 +575,26 @@ export class MedicalController {
     });
   }
 
-  @Post('prescriptions/:id/pdf')
-  @Roles(RoleEnum.DOCTOR, RoleEnum.ADMIN)
-  @ApiOperation({ summary: 'Tạo PDF đơn thuốc và lưu lên Cloudinary' })
-  @ApiParam({ name: 'id', description: 'Prescription ID (UUID)' })
-  @ApiResponse({
-    status: HttpStatus.CREATED,
-    description: 'Tạo PDF thành công, trả về URL',
-    schema: { example: { pdfUrl: 'https://res.cloudinary.com/...' } },
-  })
-  async generatePrescriptionPdf(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: JwtUser,
-  ): Promise<ResponseCommon<{ pdfUrl: string }>> {
-    const pdfUrl = await this.medicalService.generatePrescriptionPdf(id, user);
-    return new ResponseCommon(
-      HttpStatus.CREATED,
-      'Tạo PDF đơn thuốc thành công',
-      { pdfUrl },
-    );
-  }
+  // @Post('prescriptions/:id/pdf')
+  // @Roles(RoleEnum.DOCTOR, RoleEnum.ADMIN)
+  // @ApiOperation({ summary: 'Tạo PDF đơn thuốc và lưu lên Cloudinary' })
+  // @ApiParam({ name: 'id', description: 'Prescription ID (UUID)' })
+  // @ApiResponse({
+  //   status: HttpStatus.CREATED,
+  //   description: 'Tạo PDF thành công, trả về URL',
+  //   schema: { example: { pdfUrl: 'https://res.cloudinary.com/...' } },
+  // })
+  // async generatePrescriptionPdf(
+  //   @Param('id', ParseUUIDPipe) id: string,
+  //   @CurrentUser() user: JwtUser,
+  // ): Promise<ResponseCommon<{ pdfUrl: string }>> {
+  //   const pdfUrl = await this.medicalService.generatePrescriptionPdf(id, user);
+  //   return new ResponseCommon(
+  //     HttpStatus.CREATED,
+  //     'Tạo PDF đơn thuốc thành công',
+  //     { pdfUrl },
+  //   );
+  // }
 
   @Get('prescriptions/:id/pdf')
   @Roles(RoleEnum.DOCTOR, RoleEnum.PATIENT, RoleEnum.ADMIN)

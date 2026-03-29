@@ -144,10 +144,12 @@ export class DoctorScheduleHelperService {
         if (newSpecific && exSpecific) {
           if (isSameDayVN(new Date(newSpecific), new Date(exSpecific))) {
             // Same Date -> Check Time Overlap [start, end)
-            if (
-              existing.startTime >= endTime ||
-              existing.endTime <= startTime
-            ) {
+            const exStart = existing.startTime.slice(0, 5);
+            const exEnd = existing.endTime.slice(0, 5);
+            const newStart = startTime.slice(0, 5);
+            const newEnd = endTime.slice(0, 5);
+
+            if (exStart >= newEnd || exEnd <= newStart) {
               continue;
             }
 

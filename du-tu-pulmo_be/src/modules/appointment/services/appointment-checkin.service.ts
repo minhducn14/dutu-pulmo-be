@@ -95,19 +95,21 @@ export class AppointmentCheckinService {
         if (
           appointmentStatus.appointmentType === AppointmentTypeEnum.IN_CLINIC
         ) {
-          if (timeDiffMinutes > 30 || timeDiffMinutes < -15)
+          if (timeDiffMinutes > 30 || timeDiffMinutes < -15) {
             this.logger.error(
-              `Appointment ${id} is not IN_CLINIC type and timeDiffMinutes is ${timeDiffMinutes}`,
+              `Appointment ${id} (IN_CLINIC) timeDiffMinutes is ${timeDiffMinutes}`,
             );
-          throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+            throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+          }
         } else if (
           appointmentStatus.appointmentType === AppointmentTypeEnum.VIDEO
         ) {
-          if (timeDiffMinutes > 60 || timeDiffMinutes < -30)
+          if (timeDiffMinutes > 60 || timeDiffMinutes < -30) {
             this.logger.error(
-              `Appointment ${id} is not VIDEO type and timeDiffMinutes is ${timeDiffMinutes}`,
+              `Appointment ${id} (VIDEO) timeDiffMinutes is ${timeDiffMinutes}`,
             );
-          throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+            throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+          }
         }
 
         const newQueueNumber = await this.getNextQueueNumber(
@@ -138,8 +140,8 @@ export class AppointmentCheckinService {
       void this.notificationService.createNotification({
         userId: data.patient.user.id,
         type: NotificationTypeEnum.APPOINTMENT,
-        title: 'Check-in',
-        content: `Bạn đã check-in lịch hẹn ${data.appointmentNumber}. Số thứ tự: ${queueNumber}. Vui lòng chờ được gọi.`,
+        title: 'Check-in thành công',
+        content: `Bạn đã check-in lịch hẹn ${data.appointmentNumber}. Số thứ tự của bạn là: ${queueNumber}. Vui lòng chờ bác sĩ gọi tên.`,
         refId: id,
         refType: 'APPOINTMENT',
       });
@@ -172,65 +174,6 @@ export class AppointmentCheckinService {
     }
 
     return this.checkIn(appointment.id);
-  }
-
-  async checkInVideo(
-    id: string,
-  ): Promise<ResponseCommon<AppointmentResponseDto>> {
-    await this.dataSource.transaction(async (manager) => {
-      // Dùng pessimistic_write để lock appointment, tránh race condition số thứ tự
-      const appointment = await manager.findOne(Appointment, {
-        where: { id },
-        lock: { mode: 'pessimistic_write' },
-        relations: ['timeSlot'],
-      });
-
-      if (!appointment) {
-        throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
-      }
-
-      if (appointment.status !== AppointmentStatusEnum.CONFIRMED) {
-        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-      }
-
-      if (appointment.appointmentType !== AppointmentTypeEnum.VIDEO) {
-        this.logger.error('Appointment is not video');
-        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-      }
-
-      const now = new Date();
-      const scheduledTime = new Date(appointment.scheduledAt);
-      const timeDiffMinutes =
-        (scheduledTime.getTime() - now.getTime()) / (1000 * 60);
-
-      if (timeDiffMinutes > 60) {
-        this.logger.error('Appointment is too early in video');
-        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-      }
-
-      if (timeDiffMinutes < -30) {
-        this.logger.error('Appointment is too late in video');
-        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-      }
-
-      const newQueueNumber = await this.getNextQueueNumber(
-        manager,
-        appointment.doctorId,
-        appointment.scheduledAt,
-      );
-
-      appointment.status = AppointmentStatusEnum.CHECKED_IN;
-      appointment.checkInTime = new Date();
-      appointment.queueNumber = newQueueNumber;
-
-      await manager.save(appointment);
-
-      this.logger.log(
-        `VIDEO appointment ${id} checked in, queue #${newQueueNumber}`,
-      );
-    });
-
-    return this.appointmentReadService.findById(id);
   }
 
   async startExamination(
@@ -320,11 +263,14 @@ export class AppointmentCheckinService {
         throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
 
+      record.chiefComplaint = dto.chiefComplaint;
       if (dto.physicalExamNotes)
         record.physicalExamNotes = dto.physicalExamNotes;
-      if (dto.assessment) record.assessment = dto.assessment;
+      record.assessment = dto.assessment;
       if (dto.diagnosis) record.diagnosis = dto.diagnosis;
-      if (dto.treatmentPlan) record.treatmentPlan = dto.treatmentPlan;
+      record.treatmentPlan = dto.treatmentPlan;
+      if (dto.followUpInstructions)
+        record.followUpInstructions = dto.followUpInstructions;
       await manager.save(record);
 
       appointment.status = AppointmentStatusEnum.COMPLETED;

@@ -173,7 +173,7 @@ export class DoctorScheduleTimeOffService {
         scheduleType: ScheduleType.TIME_OFF,
         priority,
         dayOfWeek,
-        specificDate,
+        specificDate: specificDateNormalized,
         startTime: dto.startTime,
         endTime: dto.endTime,
         slotCapacity: 1,
@@ -181,8 +181,8 @@ export class DoctorScheduleTimeOffService {
         appointmentType: AppointmentTypeEnum.VIDEO,
         isAvailable: false,
         note: dto.note ?? null,
-        effectiveFrom: specificDate,
-        effectiveUntil: specificDate,
+        effectiveFrom: specificDateNormalized,
+        effectiveUntil: specificDateNormalized,
       });
 
       const savedSchedule = await manager.save(schedule);
@@ -296,6 +296,18 @@ export class DoctorScheduleTimeOffService {
     );
     const scheduleEnd = new Date(
       baseDate.getTime() + (endH * 60 + endM) * 60000,
+    );
+
+    // Check overlap with other schedules of the same priority (TIME_OFF)
+    await this.helper.checkOverlap(
+      existing.doctorId,
+      existing.dayOfWeek,
+      newStartTime,
+      newEndTime,
+      specificDate,
+      specificDate,
+      existing.priority,
+      id,
     );
 
     const result = await this.dataSource.transaction(async (manager) => {

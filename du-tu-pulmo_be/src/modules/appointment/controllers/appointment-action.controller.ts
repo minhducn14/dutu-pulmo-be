@@ -205,37 +205,6 @@ export class AppointmentActionController {
     return this.wrapAppointment(response);
   }
 
-  @Post(':id/check-in/video')
-  @Roles(RoleEnum.PATIENT, RoleEnum.DOCTOR)
-  @ApiOperation({
-    summary: 'Check-in cho cuộc hẹn VIDEO (bệnh nhân hoặc bác sĩ)',
-    description:
-      'Cho phép check-in trước giờ hẹn 1 tiếng để chuẩn bị join video call',
-  })
-  @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
-  @ApiResponse({ status: HttpStatus.OK, type: AppointmentResponseDto })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Không phải VIDEO appointment hoặc chưa đến giờ',
-  })
-  async checkInVideo(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: JwtUser,
-  ): Promise<ResponseCommon<AppointmentResponseDto>> {
-    const result = await this.appointmentService.findById(id);
-    const appointment = result.data!;
-
-    const isPatient = appointment.patient.id === user.patientId;
-    const isDoctor = appointment.doctor.id === user.doctorId;
-
-    if (!isPatient && !isDoctor && !user.roles?.includes(RoleEnum.ADMIN)) {
-      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
-    }
-
-    const response = await this.appointmentService.checkInVideo(id);
-    return this.wrapAppointment(response);
-  }
-
   @Post(':id/start-examination')
   @Roles(RoleEnum.DOCTOR)
   @ApiOperation({ summary: 'Bác sĩ bắt đầu khám bệnh' })

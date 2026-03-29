@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -30,6 +35,18 @@ Handlebars.registerHelper(
   },
 );
 
+Handlebars.registerHelper(
+  'formatDate',
+  function (date: Date | string | undefined | null) {
+    if (!date) return '.../.../......';
+    const d = new Date(date);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  },
+);
+
 // ── Template loader (once at startup) ─────────────────────────────────────
 
 function loadTemplate(filename: string): HandlebarsTemplateDelegate {
@@ -55,7 +72,7 @@ export class PdfService implements OnModuleDestroy {
   private prescriptionTemplate: HandlebarsTemplateDelegate;
   private medicalRecordTemplate: HandlebarsTemplateDelegate;
   private browserPromise: Promise<puppeteer.Browser> | null = null;
-
+  private readonly logger = new Logger(PdfService.name);
   constructor(
     @InjectRepository(Prescription)
     private readonly prescriptionRepo: Repository<Prescription>,
@@ -134,6 +151,7 @@ export class PdfService implements OnModuleDestroy {
         'vitalSigns',
         'prescriptions',
         'prescriptions.items',
+        'screeningRequests',
       ],
     });
 
@@ -150,6 +168,7 @@ export class PdfService implements OnModuleDestroy {
     );
 
     await this.medicalRecordRepo.update(recordId, { pdfUrl });
+    this.logger.log(`PDF generated for record ${recordId}: ${pdfUrl}`);
     return pdfUrl;
   }
 
@@ -315,9 +334,31 @@ export class PdfService implements OnModuleDestroy {
         record.dischargeCondition,
       ),
       followUpInstructions: record.followUpInstructions ?? undefined,
+      nextAppointmentDate: record.appointment?.nextAppointmentDate
+        ? this.formatDate(record.appointment.nextAppointmentDate)
+        : undefined,
       hasPrescription: prescriptions.length > 0,
       prescriptions,
       fullRecordSummary: record.fullRecordSummary ?? undefined,
+      screeningStats: {
+        xray: (record.screeningRequests ?? [])
+          .filter((s) => s.screeningType === 'XRAY')
+          .map((s) => s.screeningNumber)
+          .join(', '),
+        ct: (record.screeningRequests ?? [])
+          .filter((s) => s.screeningType === 'CT')
+          .map((s) => s.screeningNumber)
+          .join(', '),
+        ultrasound: (record.screeningRequests ?? [])
+          .filter((s) => s.screeningType === 'ULTRASOUND')
+          .map((s) => s.screeningNumber)
+          .join(', '),
+        mri: (record.screeningRequests ?? [])
+          .filter((s) => s.screeningType === 'MRI')
+          .map((s) => s.screeningNumber)
+          .join(', '),
+        total: record.screeningRequests?.length ?? 0,
+      },
     };
   }
 

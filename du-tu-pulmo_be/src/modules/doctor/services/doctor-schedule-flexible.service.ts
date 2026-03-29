@@ -32,7 +32,7 @@ import { DoctorScheduleHelperService } from '@/modules/doctor/services/doctor-sc
 import { DoctorScheduleQueryService } from '@/modules/doctor/services/doctor-schedule-query.service';
 import { DoctorScheduleUpdateService } from '@/modules/doctor/services/doctor-schedule-update.service';
 import { DoctorScheduleRestoreService } from '@/modules/doctor/services/doctor-schedule-restore.service';
-import { endOfDayVN, getDayVN, startOfDayVN, vnNow } from '@/common/datetime';
+import { endOfDayVN, formatDateVN, getDayVN, startOfDayVN, vnNow } from '@/common/datetime';
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 
 @Injectable()
@@ -441,10 +441,32 @@ export class DoctorScheduleFlexibleService {
 
       const cancellationEffects: AppointmentCancellationPostCommitEffect[] = [];
       const newIsAvailable = dto.isAvailable ?? existing.isAvailable;
+      const slotCapacity = dto.slotCapacity ?? existing.slotCapacity;
+      const slotDuration = dto.slotDuration ?? existing.slotDuration;
+      const appointmentType = newAppointmentType;
 
-      // Tìm appointment bị ảnh hưởng (ngoài khung giờ mới HOẶC do bị tắt lịch)
-      // Business rule: updating FLEXIBLE on a date also cancels all pre-booked appointments on that date.
-      const appointmentsToCancel = appointments;
+      // Hủy có chọn lọc (Surgical Cancellation)
+      // Hủy toàn bộ nếu đổi cấu trúc ca khám (Duration/Type) hoặc tắt lịch hoàn toàn
+      const isStructureChanged =
+        (dto.slotDuration !== undefined &&
+          dto.slotDuration !== existing.slotDuration) ||
+        (dto.appointmentType !== undefined &&
+          dto.appointmentType !== existing.appointmentType);
+
+      let appointmentsToCancel: Appointment[] = [];
+      if (newIsAvailable === false || isStructureChanged) {
+        // Business rule: updating FLEXIBLE on a date with major changes cancels all pre-booked appointments on that date.
+        appointmentsToCancel = appointments;
+      } else {
+        // Chỉ hủy những lịch nằm ngoài khung giờ [newStartTime, newEndTime]
+        const nStart = newStartTime.slice(0, 5);
+        const nEnd = newEndTime.slice(0, 5);
+
+        appointmentsToCancel = appointments.filter((apt) => {
+          const aptTime = formatDateVN(apt.scheduledAt, 'HH:mm');
+          return aptTime < nStart || aptTime >= nEnd;
+        });
+      }
 
       for (const apt of appointmentsToCancel) {
         cancellationEffects.push(
@@ -465,10 +487,7 @@ export class DoctorScheduleFlexibleService {
         );
       }
 
-      // Xóa slot không có booking trong khoảng mới
-      const slotCapacity = dto.slotCapacity ?? existing.slotCapacity;
-      const slotDuration = dto.slotDuration ?? existing.slotDuration;
-      const appointmentType = newAppointmentType;
+      // Cập nhật cấu hình lịch
 
       await manager.update(DoctorSchedule, id, {
         startTime: newStartTime,
@@ -605,7 +624,11 @@ export class DoctorScheduleFlexibleService {
 
     let message = `Cập nhật lịch thành công.`;
     if (result.cancelledAppointments.length > 0) {
-      message += ` ${result.cancelledAppointments.length} lịch hẹn nằm ngoài khung giờ mới đã bị hủy và bệnh nhân đã được thông báo.`;
+      if (result.cancelledAppointments.length === result.cancellationEffects.length) {
+        message += ` ${result.cancelledAppointments.length} lịch hẹn bị ảnh hưởng đã bị hủy và bệnh nhân đã được thông báo.`;
+      } else {
+        message += ` Đã cập nhật lịch.`;
+      }
     }
     message += ` Đã tạo ${result.generatedSlots} time slots mới.`;
 

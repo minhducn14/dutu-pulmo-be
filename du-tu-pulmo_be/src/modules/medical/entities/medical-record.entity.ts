@@ -17,6 +17,7 @@ import { VitalSign } from '@/modules/medical/entities/vital-sign.entity';
 import { Prescription } from '@/modules/medical/entities/prescription.entity';
 import { MedicalRecordStatusEnum } from '@/modules/common/enums/medical-record-status.enum';
 import { ScreeningRequest } from '@/modules/screening/entities/screening-request.entity';
+import { MedicalRecordAddendum } from './medical-record-addendum.entity';
 
 @Entity('medical_records')
 @Index('ux_medical_record_appointment', ['appointmentId'], { unique: true })
@@ -60,9 +61,6 @@ export class MedicalRecord {
 
   @Column({ name: 'pdf_url', type: 'varchar', nullable: true })
   pdfUrl: string | null;
-
-  @Column({ name: 'bold_sign_document_id', type: 'varchar', nullable: true })
-  boldSignDocumentId: string | null;
 
   @Column({ name: 'content_hash', type: 'varchar', nullable: true })
   contentHash: string | null;
@@ -213,4 +211,7 @@ export class MedicalRecord {
 
   @OneToMany(() => ScreeningRequest, (s) => s.medicalRecord)
   screeningRequests: ScreeningRequest[];
+
+  @OneToMany(() => MedicalRecordAddendum, (a) => a.originalRecord)
+  addenda: MedicalRecordAddendum[];
 }

@@ -6,7 +6,9 @@ import {
   HttpStatus,
   forwardRef,
   Inject,
+  Logger,
 } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager, In, DataSource, MoreThan } from 'typeorm';
 import { MedicalRecord } from '@/modules/medical/entities/medical-record.entity';
@@ -232,6 +234,17 @@ export class MedicalService {
       },
     });
 
+    if (result.pdfUrl) {
+      this.pdfService
+        .generateAndSaveMedicalRecordPdf(result.id)
+        .catch((err) => {
+          Logger.error(
+            `Failed to regenerate PDF for Record ${result.id}: ${err.message}`,
+            'MedicalService',
+          );
+        });
+    }
+
     return new ResponseCommon(HttpStatus.OK, 'Cập nhật thành công', result);
   }
 
@@ -291,6 +304,10 @@ export class MedicalService {
 
     const fromStatus = record.status;
     this.validateTransition(fromStatus, MedicalRecordStatusEnum.IN_PROGRESS);
+
+    if (record.signedStatus === SignedStatusEnum.SIGNED) {
+      throw new ForbiddenException(ERROR_MESSAGES.CANNOT_REOPEN_SIGNED_RECORD);
+    }
 
     if (
       user.roles?.includes(RoleEnum.DOCTOR) &&
@@ -1172,6 +1189,15 @@ export class MedicalService {
       relations: ['items', 'doctor', 'medicalRecord', 'appointment'],
     });
 
+    if (result && result.pdfUrl) {
+      this.pdfService.generateAndSavePrescriptionPdf(result.id).catch((err) => {
+        Logger.error(
+          `Failed to regenerate PDF for Prescription ${result.id}: ${err.message}`,
+          'MedicalService',
+        );
+      });
+    }
+
     return new ResponseCommon(
       HttpStatus.OK,
       'Cập nhật đơn thuốc thành công',
@@ -1213,6 +1239,9 @@ export class MedicalService {
         'screeningRequests.images',
         'screeningRequests.aiAnalyses',
         'screeningRequests.conclusions',
+        'addenda',
+        'addenda.doctor',
+        'addenda.doctor.user',
       ],
     });
 
@@ -1249,6 +1278,17 @@ export class MedicalService {
         String(record.signedStatus) === 'SIGNED'
           ? SignedStatusEnum.SIGNED
           : SignedStatusEnum.NOT_SIGNED,
+      addenda:
+        record.addenda?.map((ad) => ({
+          id: ad.id,
+          doctorId: ad.doctorId,
+          doctorName: ad.doctor?.user?.fullName || 'N/A',
+          reason: ad.reason,
+          content: ad.content,
+          signedStatus: ad.signedStatus,
+          signedAt: ad.signedAt || undefined,
+          createdAt: ad.createdAt,
+        })) || [],
       signedAt: record.signedAt || undefined,
       digitalSignature: record.digitalSignature || undefined,
       recordType: record.recordType || 'Bệnh án Ngoại trú chung',
@@ -1365,6 +1405,8 @@ export class MedicalService {
   // DIGITAL SIGNATURE
   // ============================================================================
 
+  private readonly logger = new Logger(MedicalService.name);
+
   async signMedicalRecord(
     recordId: string,
     dto: SignMedicalRecordDto,
@@ -1390,9 +1432,43 @@ export class MedicalService {
       throw new BadRequestException(ERROR_MESSAGES.SIGN_COMPLETED_ONLY);
     }
 
+    if (record.status !== MedicalRecordStatusEnum.COMPLETED) {
+      throw new BadRequestException(ERROR_MESSAGES.SIGN_RECORD_NOT_COMPLETED);
+    }
+
     const signedStatus = record.signedStatus as SignedStatusEnum;
     if (signedStatus === SignedStatusEnum.SIGNED) {
       throw new BadRequestException(ERROR_MESSAGES.ALREADY_SIGNED);
+    }
+
+    // Hash verification logic
+    const fullRecord = await this.recordRepository.findOne({
+      where: { id: recordId },
+      relations: ['vitalSigns', 'prescriptions', 'prescriptions.items'],
+    });
+
+    if (!fullRecord) {
+      throw new NotFoundException(ERROR_MESSAGES.MEDICAL_RECORD_NOT_FOUND);
+    }
+
+    const latestVitals = fullRecord.vitalSigns?.length
+      ? [...fullRecord.vitalSigns].sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        )[0]
+      : null;
+
+    const backendHash = this.computeRecordHash(
+      fullRecord,
+      fullRecord.prescriptions || [],
+      latestVitals,
+    );
+
+    if (dto.contentHash && dto.contentHash !== backendHash) {
+      this.logger.error(
+        `Hash mismatch for record ${recordId}. FE: ${dto.contentHash}, BE: ${backendHash}`,
+      );
+      throw new BadRequestException(ERROR_MESSAGES.SIGN_HASH_MISMATCH);
     }
 
     const previousSigningState = {
@@ -1404,11 +1480,6 @@ export class MedicalService {
     record.signedStatus = SignedStatusEnum.SIGNED;
     record.signedAt = new Date();
     record.digitalSignature = dto.signature;
-    
-    // Preparation for BoldSign integration
-    if (dto.documentId) {
-      record.boldSignDocumentId = dto.documentId;
-    }
 
     await this.recordRepository.save(record);
 
@@ -1431,7 +1502,7 @@ export class MedicalService {
       actorId,
       actorRole,
       action: AuditAction.SIGN_RECORD,
-      metadata: { signedAt: record.signedAt },
+      metadata: { signedAt: record.signedAt, contentHash: backendHash },
     });
 
     const recordWithPatient = await this.recordRepository.findOne({
@@ -1453,12 +1524,118 @@ export class MedicalService {
     return this.getMedicalRecordDetail(recordId, user);
   }
 
+  private stableStringify(obj: any): string {
+    if (obj === null || typeof obj !== 'object') {
+      return JSON.stringify(obj);
+    }
+
+    if (Array.isArray(obj)) {
+      return '[' + obj.map((v) => this.stableStringify(v)).join(',') + ']';
+    }
+
+    const sortedKeys = Object.keys(obj).sort();
+    const result =
+      '{' +
+      sortedKeys
+        .map(
+          (key) => `${JSON.stringify(key)}:${this.stableStringify(obj[key])}`,
+        )
+        .join(',') +
+      '}';
+
+    return result;
+  }
+
+  private computeRecordHash(
+    record: MedicalRecord,
+    prescriptions: Prescription[],
+    latestVitals: VitalSign | null,
+  ): string {
+    const dataToHash = {
+      id: record.id,
+      clinical: {
+        chiefComplaint: record.chiefComplaint || '',
+        presentIllness: record.presentIllness || '',
+        physicalExamNotes: record.physicalExamNotes || '',
+        systemsReview: record.systemsReview || '',
+        fullRecordSummary: record.fullRecordSummary || '',
+        diagnosis: record.diagnosis || '',
+        secondaryDiagnosis: record.secondaryDiagnosis || '',
+        treatmentGiven: record.treatmentGiven || '',
+        treatmentPlan: record.treatmentPlan || '',
+        primaryDiagnosis: record.primaryDiagnosis || '',
+        dischargeCondition: record.dischargeCondition || '',
+        followUpInstructions: record.followUpInstructions || '',
+      },
+      history: {
+        medicalHistory: record.medicalHistory || '',
+        surgicalHistory: record.surgicalHistory || '',
+        familyHistory: record.familyHistory || '',
+        smokingStatus: !!record.smokingStatus,
+        smokingYears: Number(record.smokingYears || 0),
+        alcoholConsumption: !!record.alcoholConsumption,
+        allergies: [...(record.allergies || [])].sort(),
+        chronicDiseases: [...(record.chronicDiseases || [])].sort(),
+        currentMedications: [...(record.currentMedications || [])].sort(),
+      },
+      vitals: latestVitals
+        ? {
+            weight:
+              latestVitals.weight != null ? Number(latestVitals.weight) : null,
+            height:
+              latestVitals.height != null ? Number(latestVitals.height) : null,
+            temperature:
+              latestVitals.temperature != null
+                ? Number(latestVitals.temperature)
+                : null,
+            bloodPressure: latestVitals.bloodPressure || '',
+            heartRate:
+              latestVitals.heartRate != null
+                ? Number(latestVitals.heartRate)
+                : null,
+            respiratoryRate:
+              latestVitals.respiratoryRate != null
+                ? Number(latestVitals.respiratoryRate)
+                : null,
+            spo2: latestVitals.spo2 != null ? Number(latestVitals.spo2) : null,
+          }
+        : null,
+      prescriptions: [...(prescriptions || [])]
+        .sort((a, b) =>
+          (a.prescriptionNumber || '').localeCompare(
+            b.prescriptionNumber || '',
+          ),
+        )
+        .map((p) => ({
+          prescriptionNumber: p.prescriptionNumber || '',
+          notes: p.notes || '',
+          items: [...(p.items || [])]
+            .sort((a, b) =>
+              (a.medicineName || '').localeCompare(b.medicineName || ''),
+            )
+            .map((it) => ({
+              medicineName: it.medicineName || '',
+              quantity: Number(it.quantity || 0),
+              unit: it.unit || '',
+              dosage: it.dosage || '',
+              frequency: it.frequency || '',
+              instructions: it.instructions || '',
+            })),
+        })),
+    };
+
+    const jsonString = this.stableStringify(dataToHash);
+    return crypto.createHash('sha256').update(jsonString).digest('hex');
+  }
+
   async createAddendum(
     recordId: string,
     dto: { reason: string; content: string },
     user: JwtUser,
   ): Promise<ResponseCommon<MedicalRecordAddendum>> {
-    const record = await this.recordRepository.findOne({ where: { id: recordId } });
+    const record = await this.recordRepository.findOne({
+      where: { id: recordId },
+    });
     if (!record) {
       throw new NotFoundException(ERROR_MESSAGES.MEDICAL_RECORD_NOT_FOUND);
     }
@@ -1467,6 +1644,15 @@ export class MedicalService {
       throw new BadRequestException(
         'Chỉ có thể tạo bản đính chính cho bệnh án đã ký số.',
       );
+    }
+
+    if (
+      user.roles?.includes(RoleEnum.DOCTOR) &&
+      !user.roles.includes(RoleEnum.ADMIN)
+    ) {
+      if (record.doctorId !== user.doctorId) {
+        throw new ForbiddenException(ERROR_MESSAGES.ADDENDUM_FORBIDDEN);
+      }
     }
 
     const addendum = this.addendumRepository.create({
@@ -1488,14 +1674,40 @@ export class MedicalService {
       actorId,
       actorRole,
       action: AuditAction.UPDATE_RECORD,
-      metadata: { 
+      metadata: {
         type: 'ADDENDUM_CREATED',
         addendumId: result.id,
-        reason: dto.reason 
+        reason: dto.reason,
       },
     });
 
-    return new ResponseCommon(HttpStatus.CREATED, 'Tạo bản đính chính thành công', result);
+    return new ResponseCommon(
+      HttpStatus.CREATED,
+      'Tạo bản đính chính thành công',
+      result,
+    );
+  }
+
+  async getAddendaByRecord(
+    recordId: string,
+    user: JwtUser,
+  ): Promise<ResponseCommon<MedicalRecordAddendum[]>> {
+    const record = await this.recordRepository.findOne({
+      where: { id: recordId },
+    });
+    if (!record) {
+      throw new NotFoundException(ERROR_MESSAGES.MEDICAL_RECORD_NOT_FOUND);
+    }
+
+    this.assertUserCanAccessRecord(record, user);
+
+    const addenda = await this.addendumRepository.find({
+      where: { originalRecordId: recordId },
+      relations: ['doctor', 'doctor.user'],
+      order: { createdAt: 'DESC' },
+    });
+
+    return new ResponseCommon(HttpStatus.OK, 'Thành công', addenda);
   }
 
   // ============================================================================
