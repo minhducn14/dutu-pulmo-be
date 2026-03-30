@@ -131,4 +131,4 @@ if __name__ == '__main__':
     
     logger.info(f"🚀 Server starting on http://localhost:{Config.PORT}")
     logger.info("🚀 Swagger docs available at http://localhost:5000/docs")
-    app.run(host='localhost', port=Config.PORT, debug=Config.FLASK_DEBUG)
+    app.run(host='0.0.0.0', port=Config.PORT, debug=Config.FLASK_DEBUG)
