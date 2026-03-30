@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 # ==============================
 # 🌍 ENVIRONMENT CONFIG
 # ==============================
-ENV = os.getenv("ENV", "development")
+ENV = os.getenv("FLASK_ENV", "development")
 APP_HOST = os.getenv("APP_HOST")
 
 IS_PROD = ENV == "production"
