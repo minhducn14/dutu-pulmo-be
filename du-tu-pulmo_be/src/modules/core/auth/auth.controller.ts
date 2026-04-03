@@ -115,7 +115,7 @@ export class AuthController {
     @Res() res: express.Response,
   ) {
     if (error || !code) {
-      return res.redirect(`${process.env.FRONTEND_URL}/signin?error=${error}`);
+      return res.redirect(`${process.env.FRONTEND_URL}/login?error=${error}`);
     }
 
     try {
@@ -134,7 +134,7 @@ export class AuthController {
       this.logger.error('Google OAuth callback error:', error);
       // Xử lý lỗi OAuth
       return res.redirect(
-        `${process.env.FRONTEND_URL}/signin?error=oauth_failed`,
+        `${process.env.FRONTEND_URL}/login?error=oauth_failed`,
       );
     }
   }
