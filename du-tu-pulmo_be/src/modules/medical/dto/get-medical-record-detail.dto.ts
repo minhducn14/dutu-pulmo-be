@@ -233,6 +233,9 @@ export class MedicalRecordDetailResponseDto {
   @ApiProperty({ description: 'Ngày cập nhật' })
   updatedAt: Date;
 
+  @ApiPropertyOptional({ description: 'Ngày đóng bệnh án' })
+  completedAt?: Date;
+
   @ApiPropertyOptional({ description: 'ID hồ sơ trước đó (liên kết)' })
   previousRecordId?: string;
 

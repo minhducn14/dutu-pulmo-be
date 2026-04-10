@@ -39,7 +39,8 @@ export class AppointmentReadService {
       .leftJoinAndSelect('appointment.patient', 'patient')
       .leftJoinAndSelect('patient.user', 'patientUser')
       .leftJoinAndSelect('appointment.doctor', 'doctor')
-      .leftJoinAndSelect('doctor.user', 'doctorUser');
+      .leftJoinAndSelect('doctor.user', 'doctorUser')
+      .leftJoinAndSelect('appointment.payment', 'payment');
 
     if (query?.search) {
       qb.andWhere(
@@ -151,6 +152,7 @@ export class AppointmentReadService {
       .leftJoinAndSelect('patient.user', 'patientUser')
       .leftJoinAndSelect('appointment.doctor', 'doctor')
       .leftJoinAndSelect('doctor.user', 'doctorUser')
+      .leftJoinAndSelect('appointment.payment', 'payment')
       .where('appointment.patientId = :patientId', { patientId });
 
     if (query?.search) {
@@ -231,6 +233,7 @@ export class AppointmentReadService {
       .leftJoinAndSelect('patient.user', 'patientUser')
       .leftJoinAndSelect('appointment.doctor', 'doctor')
       .leftJoinAndSelect('doctor.user', 'doctorUser')
+      .leftJoinAndSelect('appointment.payment', 'payment')
       .where('appointment.doctorId = :doctorId', { doctorId });
 
     if (query?.status) {

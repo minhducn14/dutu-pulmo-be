@@ -7,6 +7,7 @@ export const APPOINTMENT_BASE_RELATIONS = [
   'doctor.user.account',
   'hospital',
   'timeSlot',
+  'payment',
 ];
 
 export const APPOINTMENT_AUTH_RELATIONS = [

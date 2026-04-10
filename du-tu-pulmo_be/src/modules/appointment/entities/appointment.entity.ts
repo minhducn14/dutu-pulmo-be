@@ -18,6 +18,7 @@ import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enu
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import { AppointmentSubTypeEnum } from '@/modules/common/enums/appointment-sub-type.enum';
 import { SourceTypeEnum } from '@/modules/common/enums/source-type.enum';
+import { Payment } from '@/modules/payment/entities/payment.entity';
 
 @Entity('appointments')
 @Index('idx_appointment_patient_slot', ['patientId', 'timeSlotId'])
@@ -140,6 +141,10 @@ export class Appointment {
 
   @Column({ name: 'payment_id', type: 'uuid', nullable: true })
   paymentId: string | null;
+
+  @OneToOne('Payment', 'appointment', { nullable: true })
+  @JoinColumn({ name: 'payment_id' })
+  payment: Payment;
 
   @Column({ default: false })
   refunded: boolean;

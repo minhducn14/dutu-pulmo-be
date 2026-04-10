@@ -60,6 +60,9 @@ export class AppointmentResponseDto {
   @ApiPropertyOptional()
   paymentId?: string;
 
+  @ApiPropertyOptional({ description: 'Trạng thái thanh toán' })
+  paymentStatus?: string;
+
   @ApiProperty()
   refunded: boolean;
 
@@ -149,6 +152,7 @@ export class AppointmentResponseDto {
     dto.feeAmount = entity.feeAmount;
     dto.paidAmount = entity.paidAmount;
     dto.paymentId = entity.paymentId || undefined;
+    dto.paymentStatus = (entity as any).payment?.status || undefined;
     dto.refunded = entity.refunded;
     dto.meetingRoomId = entity.meetingRoomId || undefined;
     dto.meetingUrl = entity.meetingUrl || undefined;
