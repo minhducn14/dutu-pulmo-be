@@ -105,6 +105,19 @@ export class AppointmentCheckinService {
           throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
         }
 
+        // Validate thanh toán
+        /*
+        if (
+          Number(appointmentStatus.paidAmount) <
+          Number(appointmentStatus.feeAmount)
+        ) {
+          this.logger.error(
+            `Appointment ${id} cannot check-in: Payment not completed. Paid: ${appointmentStatus.paidAmount}, Fee: ${appointmentStatus.feeAmount}`,
+          );
+          throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+        }
+        */
+
         // Validate thời gian check-in
         const now = new Date();
         const timeDiffMinutes =

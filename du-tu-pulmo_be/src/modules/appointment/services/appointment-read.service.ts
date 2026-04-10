@@ -41,6 +41,23 @@ export class AppointmentReadService {
       .leftJoinAndSelect('appointment.doctor', 'doctor')
       .leftJoinAndSelect('doctor.user', 'doctorUser');
 
+    if (query?.search) {
+      qb.andWhere(
+        new Brackets((subQuery) => {
+          subQuery
+            .where('UPPER(patientUser.fullName) LIKE :search', {
+              search: `%${query.search?.toUpperCase()}%`,
+            })
+            .orWhere('UPPER(doctorUser.fullName) LIKE :search', {
+              search: `%${query.search?.toUpperCase()}%`,
+            })
+            .orWhere('UPPER(appointment.appointmentNumber) LIKE :search', {
+              search: `%${query.search?.toUpperCase()}%`,
+            });
+        }),
+      );
+    }
+
     if (query?.status) {
       qb.andWhere('appointment.status = :status', { status: query.status });
     }
@@ -70,7 +87,13 @@ export class AppointmentReadService {
     applyPaginationAndSort(
       qb,
       query || {},
-      ['scheduledAt', 'createdAt', 'status', 'appointmentType'],
+      [
+        'scheduledAt',
+        'createdAt',
+        'status',
+        'appointmentType',
+        'appointmentNumber',
+      ],
       'scheduledAt',
       'DESC',
     );
