@@ -375,7 +375,7 @@ export class AppointmentCheckinService {
     }
 
     // Gửi ngầm việc generate PDF, không block response
-    void this.generatePdfWithRetry(result.recordId).catch((err) => {
+    void this.medicalService.generatePdfsForRecordWithRetry(result.recordId).catch((err) => {
       this.logger.error(
         `Final PDF generation failed after retries for record ${result.recordId}: ${err.message}`,
       );
@@ -398,39 +398,4 @@ export class AppointmentCheckinService {
     return appt;
   }
 
-  private async generatePdfWithRetry(
-    recordId: string,
-    retries = 3,
-    delay = 1000, // 1 second
-  ): Promise<void> {
-    for (let i = 0; i < retries; i++) {
-      try {
-        this.logger.log(
-          `Attempt ${i + 1} to generate PDFs for record ${recordId}`,
-        );
-
-        // 1. Medical record PDF
-        await this.pdfService.generateAndSaveMedicalRecordPdf(recordId);
-
-        // 2. Prescription PDFs
-        const record = await this.medicalService.findById(recordId);
-
-        for (const p of record.prescriptions ?? []) {
-          await this.pdfService.generateAndSavePrescriptionPdf(p.id);
-        }
-
-        this.logger.log(`Successfully generated PDFs for record ${recordId}`);
-        return;
-      } catch (error: any) {
-        const isLastRetry = i === retries - 1;
-        this.logger.warn(
-          `PDF generation attempt ${i + 1} failed for ${recordId}: ${error.message}. ` +
-            (isLastRetry ? 'Giving up.' : `Retrying in ${delay}ms...`),
-        );
-        if (isLastRetry) throw error;
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        delay *= 2; // Exponential backoff
-      }
-    }
-  }
 }

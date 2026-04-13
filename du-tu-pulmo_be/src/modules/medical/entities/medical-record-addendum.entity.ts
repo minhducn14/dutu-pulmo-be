@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { MedicalRecord } from './medical-record.entity';
 import { Doctor } from '@/modules/doctor/entities/doctor.entity';
+import { SignedStatusEnum } from '@/modules/common/enums/signed-status.enum';
 
 @Entity('medical_record_addenda')
 export class MedicalRecordAddendum {
@@ -39,10 +40,11 @@ export class MedicalRecordAddendum {
 
   @Column({
     name: 'signed_status',
-    type: 'varchar',
-    default: 'NOT_SIGNED',
+    type: 'enum',
+    enum: SignedStatusEnum,
+    default: SignedStatusEnum.NOT_SIGNED,
   })
-  signedStatus: string; // 'NOT_SIGNED' | 'SIGNED'
+  signedStatus: SignedStatusEnum;
 
   @Column({ name: 'signed_at', type: 'timestamptz', nullable: true })
   signedAt: Date | null;

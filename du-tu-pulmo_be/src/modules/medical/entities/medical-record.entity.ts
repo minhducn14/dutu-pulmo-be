@@ -16,6 +16,7 @@ import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { VitalSign } from '@/modules/medical/entities/vital-sign.entity';
 import { Prescription } from '@/modules/medical/entities/prescription.entity';
 import { MedicalRecordStatusEnum } from '@/modules/common/enums/medical-record-status.enum';
+import { SignedStatusEnum } from '@/modules/common/enums/signed-status.enum';
 import { ScreeningRequest } from '@/modules/screening/entities/screening-request.entity';
 import { MedicalRecordAddendum } from './medical-record-addendum.entity';
 
@@ -49,9 +50,13 @@ export class MedicalRecord {
   @Column({ name: 'record_number', length: 50, unique: true })
   recordNumber: string;
 
-  // ===== SIGNING FIELDS =====
-  @Column({ name: 'signed_status', type: 'varchar', default: 'NOT_SIGNED' })
-  signedStatus: string; // 'NOT_SIGNED' | 'SIGNED'
+  @Column({
+    name: 'signed_status',
+    type: 'enum',
+    enum: SignedStatusEnum,
+    default: SignedStatusEnum.NOT_SIGNED,
+  })
+  signedStatus: SignedStatusEnum;
 
   @Column({ name: 'signed_at', type: 'timestamptz', nullable: true })
   signedAt: Date | null;

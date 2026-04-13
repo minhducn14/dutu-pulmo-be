@@ -16,10 +16,9 @@ const toScreeningRequests = ({
 }): ScreeningRequestResponseDto[] =>
   Array.isArray(value) ? (value as ScreeningRequestResponseDto[]) : [];
 
-export enum SignedStatusEnum {
-  NOT_SIGNED = 'NOT_SIGNED',
-  SIGNED = 'SIGNED',
-}
+// Re-export từ common/enums để backward-compatible với các import hiện có
+export { SignedStatusEnum } from '@/modules/common/enums/signed-status.enum';
+import { SignedStatusEnum } from '@/modules/common/enums/signed-status.enum';
 
 export class MedicalRecordAddendumResponseDto {
   @ApiProperty()

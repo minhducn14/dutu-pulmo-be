@@ -228,12 +228,6 @@ export class Payment {
   // ========================================
   // AUDIT TRAIL - SECURITY: Anonymized data
   // ========================================
-  @Column({
-    name: 'request_country',
-    length: 2,
-    nullable: true,
-  })
-  requestCountry: string;
 
   @Column({
     name: 'ip_address_hash',

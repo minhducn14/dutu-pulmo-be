@@ -64,6 +64,23 @@ export class AiAnalysisResponseDto {
   @ApiProperty({ example: '2024-10-11T09:30:00.000Z' })
   createdAt: Date;
 
+  private static resolveTotalFindings(analysis: {
+    totalFindings?: number | null;
+    findings?: AiFinding[] | null;
+    rawPredictions?: Record<string, unknown> | null;
+  }): number {
+    const rawTotal = analysis.rawPredictions?.['total_findings'];
+    if (typeof rawTotal === 'number' && Number.isFinite(rawTotal)) {
+      return rawTotal;
+    }
+
+    if (Array.isArray(analysis.findings)) {
+      return analysis.findings.length;
+    }
+
+    return analysis.totalFindings ?? 0;
+  }
+
   static fromEntity(analysis: {
     id: string;
     screeningId: string;
@@ -94,7 +111,7 @@ export class AiAnalysisResponseDto {
     dto.primaryDiagnosis = analysis.primaryDiagnosis ?? undefined;
     dto.findings = analysis.findings ?? undefined;
     dto.grayZoneNotes = analysis.grayZoneNotes ?? undefined;
-    dto.totalFindings = analysis.totalFindings;
+    dto.totalFindings = AiAnalysisResponseDto.resolveTotalFindings(analysis);
     dto.originalImageUrl = analysis.originalImageUrl ?? undefined;
     dto.annotatedImageUrl = analysis.annotatedImageUrl ?? undefined;
     dto.evaluatedImageUrl = analysis.evaluatedImageUrl ?? undefined;

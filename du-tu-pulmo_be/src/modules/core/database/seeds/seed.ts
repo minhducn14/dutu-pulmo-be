@@ -687,7 +687,7 @@ async function seed() {
         gender: GenderEnum.MALE,
         spec: SpecialtyEnum.RESPIRATORY_MEDICINE,
         licenseNumber: 'LIC-HN2018',
-        yearsOfExperience: 15,
+        practiceStartYear: 2011, // Equivalent to 15 years experience in 2026
         bio: 'Chuyên gia Nội Hô hấp với hơn 15 năm kinh nghiệm tại BV Phổi Trung ương. Chuyên sâu điều trị COPD, hen phế quản và viêm phổi.',
         fee: '500000',
       },
@@ -698,7 +698,7 @@ async function seed() {
         gender: GenderEnum.FEMALE,
         spec: SpecialtyEnum.PULMONOLOGY,
         licenseNumber: 'LIC-HCM2016',
-        yearsOfExperience: 12,
+        practiceStartYear: 2014, // Equivalent to 12 years experience in 2026
         bio: 'Bác sĩ chuyên khoa Phổi, tốt nghiệp ĐH Y Dược TP.HCM. Chuyên điều trị bệnh lý phổi mạn tính và u phổi.',
         fee: '450000',
       },
@@ -709,7 +709,7 @@ async function seed() {
         gender: GenderEnum.MALE,
         spec: SpecialtyEnum.THORACIC_SURGERY,
         licenseNumber: 'LIC-HN2010',
-        yearsOfExperience: 20,
+        practiceStartYear: 2006, // Equivalent to 20 years experience in 2026
         bio: 'Phó Giáo sư, Tiến sĩ Ngoại Lồng ngực. 20 năm kinh nghiệm phẫu thuật lồng ngực và nội soi phổi.',
         fee: '800000',
       },
@@ -720,7 +720,7 @@ async function seed() {
         gender: GenderEnum.FEMALE,
         spec: SpecialtyEnum.TUBERCULOSIS,
         licenseNumber: 'LIC-CT2015',
-        yearsOfExperience: 10,
+        practiceStartYear: 2016, // Equivalent to 10 years experience in 2026
         bio: 'Bác sĩ chuyên khoa Lao, kinh nghiệm 10 năm điều trị lao phổi và lao đa kháng thuốc.',
         fee: '400000',
       },
@@ -731,7 +731,7 @@ async function seed() {
         gender: GenderEnum.MALE,
         spec: SpecialtyEnum.THORACIC_SURGERY,
         licenseNumber: 'LIC-HN2012',
-        yearsOfExperience: 18,
+        practiceStartYear: 2008, // Equivalent to 18 years experience in 2026
         bio: 'Tiến sĩ Y khoa, chuyên phẫu thuật lồng ngực. Nghiên cứu và điều trị ung thư phổi giai đoạn sớm.',
         fee: '700000',
       },
@@ -768,7 +768,7 @@ async function seed() {
             licenseNumber: ds.licenseNumber,
             title: DoctorTitle.SPECIALIST_DOCTOR_1,
             specialty: ds.spec,
-            yearsOfExperience: ds.yearsOfExperience,
+            practiceStartYear: ds.practiceStartYear,
             bio: ds.bio,
             defaultConsultationFee: ds.fee,
             primaryHospitalId:

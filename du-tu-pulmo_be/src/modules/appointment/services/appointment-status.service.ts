@@ -284,6 +284,30 @@ export class AppointmentStatusService {
       );
     }
 
+    if (sanitizedData.doctorNotes !== undefined) {
+      const medicalRecord =
+        await this.medicalService.findEncounterByAppointmentIdSafe(
+          appointmentId,
+        );
+
+      if (medicalRecord) {
+        // Medical record tồn tại → ghi vào nguồn sự thật chính xác
+        await this.dataSource
+          .createQueryBuilder()
+          .update('medical_records')
+          .set({ assessment: sanitizedData.doctorNotes })
+          .where('appointment_id = :appointmentId', { appointmentId })
+          .execute();
+        // Không ghi vào appointments nữa → xóa khỏi sanitizedData
+        delete sanitizedData.doctorNotes;
+        this.logger.log(
+          `doctorNotes redirected to medical_records.assessment for appointment ${appointmentId}`,
+        );
+      }
+      // Nếu không có medical record → giữ nguyên sanitizedData.doctorNotes
+      // để ghi vào appointments.doctor_notes (backward compat)
+    }
+
     await this.appointmentRepository.update(appointmentId, sanitizedData);
 
     this.logger.log(`Updated clinical info for appointment ${appointmentId}`);

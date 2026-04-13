@@ -11,6 +11,7 @@ import { ScreeningRequest } from '@/modules/screening/entities/screening-request
 import { AiAnalysis } from '@/modules/screening/entities/ai-analysis.entity';
 import { Patient } from '@/modules/patient/entities/patient.entity';
 import { Doctor } from '@/modules/doctor/entities/doctor.entity';
+import { MedicalRecord } from '@/modules/medical/entities/medical-record.entity';
 import type { DecisionSource } from '@/modules/common/enums/decision-source.enum';
 
 @Entity('screening_conclusions')
@@ -35,8 +36,12 @@ export class ScreeningConclusion {
   @Column({ name: 'ai_analysis_id', type: 'uuid', nullable: true })
   aiAnalysisId: string;
 
+  @ManyToOne(() => MedicalRecord, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'medical_record_id' })
+  medicalRecord: MedicalRecord | null;
+
   @Column({ name: 'medical_record_id', type: 'uuid', nullable: true })
-  medicalRecordId: string;
+  medicalRecordId: string | null;
 
   @ManyToOne(() => Patient, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'patient_id' })

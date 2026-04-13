@@ -761,7 +761,7 @@ export class PaymentService {
       payment.ipAddressHash = undefined as unknown as string;
       payment.browserType = undefined as unknown as string;
       payment.deviceType = undefined as unknown as string;
-      payment.requestCountry = undefined as unknown as string;
+
       payment.counterAccountNumberMasked = '****';
       payment.webhookMetadata =
         undefined as unknown as Payment['webhookMetadata'];

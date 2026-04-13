@@ -13,7 +13,6 @@ import { AuthModule } from '@/modules/core/auth/auth.module';
 
 // Feature Modules
 import { AccountModule } from '@/modules/account/account.module';
-import { AdminActionModule } from '@/modules/admin-action/admin-action.module';
 import { AppointmentModule } from '@/modules/appointment/appointment.module';
 import { ChatModule } from '@/modules/chat/chat.module';
 import { ChatMessageModule } from '@/modules/chatmessage/chatmessage.module';
@@ -100,7 +99,6 @@ import { ScheduleModule } from '@nestjs/schedule';
 
     // Feature Modules
     AccountModule,
-    AdminActionModule,
     AppointmentModule,
     ChatModule,
     ChatMessageModule,

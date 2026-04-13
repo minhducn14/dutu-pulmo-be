@@ -311,7 +311,9 @@ export class DoctorResponseDto {
     dto.title = doctor.title;
     dto.position = doctor.position;
     dto.specialty = doctor.specialty;
-    dto.yearsOfExperience = doctor.yearsOfExperience;
+    dto.yearsOfExperience = doctor.practiceStartYear
+      ? new Date().getFullYear() - doctor.practiceStartYear
+      : doctor.yearsOfExperience;
     dto.primaryHospitalId = doctor.primaryHospitalId ?? null;
     dto.primaryHospital = doctor.primaryHospital ?? null;
     dto.expertiseDescription = doctor.expertiseDescription;

@@ -91,6 +91,9 @@ export class AppointmentResponseDto {
   doctorNotes?: string;
 
   @ApiPropertyOptional()
+  clinicalNotes?: string;
+
+  @ApiPropertyOptional()
   checkInTime?: Date;
 
   @ApiPropertyOptional()
@@ -114,6 +117,9 @@ export class AppointmentResponseDto {
   @ApiProperty()
   followUpRequired: boolean;
 
+  @ApiProperty({ description: 'Có lịch tái khám không' })
+  hasFollowUp: boolean;
+
   @ApiPropertyOptional()
   nextAppointmentDate?: Date;
 
@@ -125,6 +131,32 @@ export class AppointmentResponseDto {
 
   @ApiProperty()
   updatedAt: Date;
+
+  private static resolvePaidAmount(
+    entity: Appointment & {
+      payment?: {
+        amount?: string | number | null;
+        status?: string | null;
+      } | null;
+    },
+  ): string {
+    const storedPaidAmount = entity.paidAmount ?? '0';
+    const numericStoredPaidAmount = Number(storedPaidAmount);
+
+    if (Number.isFinite(numericStoredPaidAmount) && numericStoredPaidAmount > 0) {
+      return storedPaidAmount;
+    }
+
+    if (
+      entity.payment?.status === 'PAID' &&
+      entity.payment.amount !== null &&
+      entity.payment.amount !== undefined
+    ) {
+      return String(entity.payment.amount);
+    }
+
+    return storedPaidAmount;
+  }
 
   static fromEntity(entity: Appointment): AppointmentResponseDto {
     const dto = new AppointmentResponseDto();
@@ -150,7 +182,14 @@ export class AppointmentResponseDto {
     dto.subType = entity.subType;
     dto.sourceType = entity.sourceType;
     dto.feeAmount = entity.feeAmount;
-    dto.paidAmount = entity.paidAmount;
+    dto.paidAmount = AppointmentResponseDto.resolvePaidAmount(
+      entity as Appointment & {
+        payment?: {
+          amount?: string | number | null;
+          status?: string | null;
+        } | null;
+      },
+    );
     dto.paymentId = entity.paymentId || undefined;
     dto.paymentStatus = (entity as any).payment?.status || undefined;
     dto.refunded = entity.refunded;
@@ -170,6 +209,7 @@ export class AppointmentResponseDto {
     dto.cancellationReason = entity.cancellationReason || undefined;
     dto.cancelledBy = entity.cancelledBy || undefined;
     dto.followUpRequired = entity.followUpRequired;
+    dto.hasFollowUp = !!entity.followUpAppointmentId; // computed — không đọc từ cột has_follow_up
     dto.nextAppointmentDate = entity.nextAppointmentDate || undefined;
     dto.patientRating = entity.patientRating || undefined;
     dto.createdAt = entity.createdAt;

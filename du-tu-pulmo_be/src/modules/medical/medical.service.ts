@@ -21,10 +21,8 @@ import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { RoleEnum } from '@/modules/common/enums/role.enum';
 import type { JwtUser } from '@/modules/core/auth/strategies/jwt.strategy';
-import {
-  MedicalRecordDetailResponseDto,
-  SignedStatusEnum,
-} from '@/modules/medical/dto/get-medical-record-detail.dto';
+import { MedicalRecordDetailResponseDto } from '@/modules/medical/dto/get-medical-record-detail.dto';
+import { SignedStatusEnum } from '@/modules/common/enums/signed-status.enum';
 import { MedicalRecordSummaryDto } from '@/modules/medical/dto/medical-record-summary.dto';
 import { plainToInstance } from 'class-transformer';
 import { ScreeningRequestResponseDto } from '@/modules/screening/dto/screening-request-response.dto';
@@ -218,6 +216,11 @@ export class MedicalService {
 
     const before = { ...record };
     Object.assign(record, data);
+
+    if (record.signedStatus !== SignedStatusEnum.SIGNED) {
+      record.contentHash = this.computeContentHash(record);
+    }
+
     const result = await this.recordRepository.save(record);
 
     const { actorId, actorRole } = this.getAuditActorInfo(user);
@@ -356,7 +359,7 @@ export class MedicalService {
   }
 
   private assertNotSigned(record: MedicalRecord): void {
-    if (record.signedStatus === 'SIGNED') {
+    if (record.signedStatus === SignedStatusEnum.SIGNED) {
       throw new BadRequestException(
         'Bệnh án đã được ký số, không thể chỉnh sửa. Vui lòng tạo bản đính chính.',
       );
@@ -656,6 +659,24 @@ export class MedicalService {
     return `RX-${ts}-${rand}`;
   }
 
+  /**
+   * Tính SHA-256 hash từ các trường lâm sàng quan trọng.
+   * Hash này được dùng để phát hiện giả mạo dữ liệu bệnh án.
+   * Chỉ tính lại khi bệnh án chưa được ký (signedStatus !== 'SIGNED').
+   */
+  private computeContentHash(record: MedicalRecord): string {
+    const content = JSON.stringify({
+      chiefComplaint: record.chiefComplaint ?? null,
+      presentIllness: record.presentIllness ?? null,
+      physicalExamNotes: record.physicalExamNotes ?? null,
+      assessment: record.assessment ?? null,
+      diagnosis: record.diagnosis ?? null,
+      treatmentPlan: record.treatmentPlan ?? null,
+      medicalHistory: record.medicalHistory ?? null,
+    });
+    return crypto.createHash('sha256').update(content).digest('hex');
+  }
+
   // ============================================================================
   // ENCOUNTER MANAGEMENT
   // ============================================================================
@@ -684,6 +705,16 @@ export class MedicalService {
     }
 
     return { record, created };
+  }
+
+  /**
+   * Tìm medical record theo appointmentId một cách an toàn (không throw nếu không tìm thấy).
+   * Dùng cho dual-write logic: kiểm tra sự tồn tại trước khi quyết định ghi vào đâu.
+   */
+  async findEncounterByAppointmentIdSafe(
+    appointmentId: string,
+  ): Promise<MedicalRecord | null> {
+    return this.recordRepository.findOne({ where: { appointmentId } });
   }
 
   async getEncounterByAppointment(
@@ -1660,7 +1691,7 @@ export class MedicalService {
       doctorId: user.doctorId,
       reason: dto.reason,
       content: dto.content,
-      signedStatus: 'NOT_SIGNED',
+      signedStatus: SignedStatusEnum.NOT_SIGNED,
     });
 
     const result = await this.addendumRepository.save(addendum);
@@ -2038,6 +2069,45 @@ export class MedicalService {
         reason: 'Auto-created from appointment status change',
       },
     });
+  }
+
+  /**
+   * Resiliently generate both Medical Record and Prescription PDFs for a record
+   */
+  async generatePdfsForRecordWithRetry(
+    recordId: string,
+    retries = 3,
+    delay = 1000,
+  ): Promise<void> {
+    for (let i = 0; i < retries; i++) {
+      try {
+        this.logger.log(
+          `Attempt ${i + 1} to generate PDFs for record ${recordId}`,
+        );
+
+        // 1. Medical record PDF
+        await this.pdfService.generateAndSaveMedicalRecordPdf(recordId);
+
+        // 2. Prescription PDFs
+        const record = await this.findById(recordId);
+
+        for (const p of record.prescriptions ?? []) {
+          await this.pdfService.generateAndSavePrescriptionPdf(p.id);
+        }
+
+        this.logger.log(`Successfully generated PDFs for record ${recordId}`);
+        return;
+      } catch (error: any) {
+        const isLastRetry = i === retries - 1;
+        this.logger.warn(
+          `PDF generation attempt ${i + 1} failed for ${recordId}: ${error.message}. ` +
+            (isLastRetry ? 'Giving up.' : `Retrying in ${delay}ms...`),
+        );
+        if (isLastRetry) throw error;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        delay *= 2; // Exponential backoff
+      }
+    }
   }
 
   private getDiff(

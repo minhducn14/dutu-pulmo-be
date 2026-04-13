@@ -12,6 +12,7 @@ import { MedicalRecordStatusEnum } from '@/modules/common/enums/medical-record-s
 import { startOfDayVN, vnNow } from '@/common/datetime';
 import { DataSource } from 'typeorm';
 import { AppointmentCheckinService } from '@/modules/appointment/services/appointment-checkin.service';
+import { MedicalService } from '@/modules/medical/medical.service';
 
 @Injectable()
 export class AppointmentSchedulerService {
@@ -22,6 +23,7 @@ export class AppointmentSchedulerService {
     private readonly appointmentRepository: Repository<Appointment>,
     private readonly dailyService: DailyService,
     private readonly dataSource: DataSource,
+    private readonly medicalService: MedicalService,
   ) {}
 
   /**
@@ -168,37 +170,56 @@ export class AppointmentSchedulerService {
               AppointmentStatusEnum.IN_PROGRESS,
             ].includes(appointment.status)
           ) {
-            await this.dataSource.transaction(async (manager) => {
-              // 1. Update Appointment Status
-              await manager.update(Appointment, appointment.id, {
-                status: AppointmentStatusEnum.COMPLETED,
-                endedAt: appointment.endedAt || new Date(),
-              });
+            const recordId = await this.dataSource.transaction(
+              async (manager) => {
+                // 1. Update Appointment Status
+                await manager.update(Appointment, appointment.id, {
+                  status: AppointmentStatusEnum.COMPLETED,
+                  endedAt: appointment.endedAt || new Date(),
+                });
 
-              // 2. Update Medical Record Status if exists
-              await manager.update(
-                MedicalRecord,
-                { appointmentId: appointment.id },
-                { status: MedicalRecordStatusEnum.COMPLETED },
-              );
+                // 2. Find and Update Medical Record Status if exists
+                const record = await manager.findOne(MedicalRecord, {
+                  where: { appointmentId: appointment.id },
+                });
 
-              // 3. Cleanup video room if video appointment
-              if (
-                appointment.appointmentType === AppointmentTypeEnum.VIDEO &&
-                appointment.dailyCoChannel
-              ) {
-                try {
-                  await this.dailyService.deleteRoom(
-                    appointment.dailyCoChannel,
-                  );
-                } catch (e) {
-                  this.logger.warn(
-                    `Failed to delete room for ${appointment.id}`,
-                  );
+                if (record) {
+                  record.status = MedicalRecordStatusEnum.COMPLETED;
+                  await manager.save(record);
                 }
-              }
-            });
+
+                // 3. Cleanup video room if video appointment
+                if (
+                  appointment.appointmentType === AppointmentTypeEnum.VIDEO &&
+                  appointment.dailyCoChannel
+                ) {
+                  try {
+                    await this.dailyService.deleteRoom(
+                      appointment.dailyCoChannel,
+                    );
+                  } catch (e) {
+                    this.logger.warn(
+                      `Failed to delete room for ${appointment.id}`,
+                    );
+                  }
+                }
+
+                return record?.id;
+              },
+            );
+
             this.logger.log(`✅ Auto-completed appointment ${appointment.id}`);
+
+            // 4. Trigger PDF generation if record exists
+            if (recordId) {
+              void this.medicalService
+                .generatePdfsForRecordWithRetry(recordId)
+                .catch((err) => {
+                  this.logger.error(
+                    `Failed to generate PDFs for auto-completed record ${recordId}: ${err.message}`,
+                  );
+                });
+            }
           }
         } catch (error) {
           this.logger.error(

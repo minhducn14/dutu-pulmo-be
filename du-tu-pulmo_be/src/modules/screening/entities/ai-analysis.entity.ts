@@ -82,6 +82,14 @@ export class AiAnalysis {
   pulmoFileId: string;
 
   @Column({
+    name: 'model_version',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
+  modelVersion: string | null;
+
+  @Column({
     name: 'diagnosis_status',
     type: 'enum',
     enum: AiDiagnosisStatusEnum,

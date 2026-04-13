@@ -129,14 +129,17 @@ export class AppointmentReadService {
 
     const dto = this.mapper.toDto(appointment);
 
-    // Try to find associated medical record ID
+    // Try to find associated medical record
     const medicalRecord = await this.medicalRecordRepository.findOne({
       where: { appointmentId: id },
-      select: ['id'],
+      select: ['id', 'assessment', 'diagnosis'],
     });
 
     if (medicalRecord) {
       dto.medicalRecordId = medicalRecord.id;
+      // Backward compatibility: If appointment notes are empty, use medical record notes
+      dto.doctorNotes = dto.doctorNotes || medicalRecord.assessment || undefined;
+      dto.clinicalNotes = dto.clinicalNotes || medicalRecord.diagnosis || undefined;
     }
 
     return new ResponseCommon(200, 'SUCCESS', dto);
