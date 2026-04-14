@@ -32,7 +32,13 @@ import { DoctorScheduleHelperService } from '@/modules/doctor/services/doctor-sc
 import { DoctorScheduleQueryService } from '@/modules/doctor/services/doctor-schedule-query.service';
 import { DoctorScheduleUpdateService } from '@/modules/doctor/services/doctor-schedule-update.service';
 import { DoctorScheduleRestoreService } from '@/modules/doctor/services/doctor-schedule-restore.service';
-import { endOfDayVN, formatDateVN, getDayVN, startOfDayVN, vnNow } from '@/common/datetime';
+import {
+  endOfDayVN,
+  formatDateVN,
+  getDayVN,
+  startOfDayVN,
+  vnNow,
+} from '@/common/datetime';
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 
 @Injectable()
@@ -624,7 +630,10 @@ export class DoctorScheduleFlexibleService {
 
     let message = `Cập nhật lịch thành công.`;
     if (result.cancelledAppointments.length > 0) {
-      if (result.cancelledAppointments.length === result.cancellationEffects.length) {
+      if (
+        result.cancelledAppointments.length ===
+        result.cancellationEffects.length
+      ) {
         message += ` ${result.cancelledAppointments.length} lịch hẹn bị ảnh hưởng đã bị hủy và bệnh nhân đã được thông báo.`;
       } else {
         message += ` Đã cập nhật lịch.`;

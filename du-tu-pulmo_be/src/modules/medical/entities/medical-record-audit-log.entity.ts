@@ -11,6 +11,8 @@ import { AuditEntityType } from '../enums/audit-entity-type.enum';
 import { AuditActorRole } from '../enums/audit-actor-role.enum';
 import { AuditAction } from '../enums/audit-action.enum';
 import { MedicalRecord } from './medical-record.entity';
+import { Patient } from '@/modules/patient/entities/patient.entity';
+import { User } from '@/modules/user/entities/user.entity';
 
 @Entity('medical_record_audit_logs')
 @Index(['patientId', 'createdAt'])
@@ -66,4 +68,12 @@ export class MedicalRecordAuditLog {
   @ManyToOne(() => MedicalRecord, { createForeignKeyConstraints: false })
   @JoinColumn({ name: 'medical_record_id' })
   medicalRecord?: MedicalRecord;
+
+  @ManyToOne(() => Patient, { createForeignKeyConstraints: false })
+  @JoinColumn({ name: 'patient_id' })
+  patient?: Patient;
+
+  @ManyToOne(() => User, { createForeignKeyConstraints: false })
+  @JoinColumn({ name: 'actor_id' })
+  actor?: User;
 }

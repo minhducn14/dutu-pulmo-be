@@ -17,6 +17,8 @@ import { PdfModule } from '@/modules/pdf/pdf.module';
 import { NotificationModule } from '@/modules/notification/notification.module';
 import { MedicalAuditService } from './medical-audit.service';
 import { MedicalAuditListener } from './medical-audit.listener';
+import { User } from '@/modules/user/entities/user.entity';
+import { Patient } from '@/modules/patient/entities/patient.entity';
 
 @Module({
   imports: [
@@ -29,6 +31,8 @@ import { MedicalAuditListener } from './medical-audit.listener';
       PrescriptionItem,
       Medicine,
       ScreeningRequest,
+      User,
+      Patient,
     ]),
     forwardRef(() => AppointmentModule),
     forwardRef(() => PdfModule),

@@ -80,7 +80,9 @@ export class ReviewController {
   async findMyDoctorReviews(
     @CurrentUser() user: JwtUser,
   ): Promise<ResponseCommon<ReviewResponseDto[]>> {
-    const response = await this.reviewService.findAllByDoctorUserId(user.userId);
+    const response = await this.reviewService.findAllByDoctorUserId(
+      user.userId,
+    );
     const data = (response.data ?? []).map((review) =>
       ReviewResponseDto.fromEntity(review),
     );

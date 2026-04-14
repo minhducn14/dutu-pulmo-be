@@ -60,6 +60,10 @@ export class RefreshToken {
   @Column({ name: 'replaced_by_token_id', type: 'uuid', nullable: true })
   replacedByTokenId?: string;
 
+  @ManyToOne(() => RefreshToken, { nullable: true })
+  @JoinColumn({ name: 'replaced_by_token_id' })
+  replacedByToken?: RefreshToken;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

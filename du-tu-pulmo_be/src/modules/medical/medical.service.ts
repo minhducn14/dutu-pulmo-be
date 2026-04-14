@@ -699,6 +699,7 @@ export class MedicalService {
         recordNumber: this.generateRecordNumber(),
         chiefComplaint: appointment.chiefComplaint ?? null,
         presentIllness: appointment.patientNotes ?? null,
+        physicalExamNotes: appointment.symptoms?.join(', ') ?? null,
       });
       record = await manager.save(record);
       created = true;
@@ -1467,7 +1468,7 @@ export class MedicalService {
       throw new BadRequestException(ERROR_MESSAGES.SIGN_RECORD_NOT_COMPLETED);
     }
 
-    const signedStatus = record.signedStatus as SignedStatusEnum;
+    const signedStatus = record.signedStatus;
     if (signedStatus === SignedStatusEnum.SIGNED) {
       throw new BadRequestException(ERROR_MESSAGES.ALREADY_SIGNED);
     }

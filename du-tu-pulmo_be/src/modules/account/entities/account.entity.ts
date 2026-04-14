@@ -67,7 +67,6 @@ export class Account {
   })
   status: AccountStatusEnum;
 
-
   @Column({
     name: 'verification_token',
     type: 'varchar',

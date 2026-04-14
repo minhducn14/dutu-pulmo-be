@@ -131,7 +131,6 @@ export class Doctor {
   @Column({ name: 'verified_at', type: 'timestamptz', nullable: true })
   verifiedAt: Date;
 
-
   @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz', nullable: true })
   deletedAt: Date;
 

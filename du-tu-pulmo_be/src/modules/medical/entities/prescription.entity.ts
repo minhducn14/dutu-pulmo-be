@@ -30,8 +30,6 @@ export class Prescription {
   @Column({ name: 'appointment_id', type: 'uuid', nullable: true })
   appointmentId: string;
 
-
-
   @ManyToOne(() => MedicalRecord, (mr) => mr.prescriptions, {
     onDelete: 'SET NULL',
     nullable: true,
@@ -71,8 +69,6 @@ export class Prescription {
 
   @Column({ name: 'valid_until', type: 'timestamptz', nullable: true })
   validUntil: Date;
-
-
 
   @Column({ name: 'pdf_url', type: 'varchar', nullable: true })
   pdfUrl: string;

@@ -143,7 +143,10 @@ export class AppointmentResponseDto {
     const storedPaidAmount = entity.paidAmount ?? '0';
     const numericStoredPaidAmount = Number(storedPaidAmount);
 
-    if (Number.isFinite(numericStoredPaidAmount) && numericStoredPaidAmount > 0) {
+    if (
+      Number.isFinite(numericStoredPaidAmount) &&
+      numericStoredPaidAmount > 0
+    ) {
       return storedPaidAmount;
     }
 

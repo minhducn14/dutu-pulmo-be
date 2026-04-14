@@ -138,8 +138,10 @@ export class AppointmentReadService {
     if (medicalRecord) {
       dto.medicalRecordId = medicalRecord.id;
       // Backward compatibility: If appointment notes are empty, use medical record notes
-      dto.doctorNotes = dto.doctorNotes || medicalRecord.assessment || undefined;
-      dto.clinicalNotes = dto.clinicalNotes || medicalRecord.diagnosis || undefined;
+      dto.doctorNotes =
+        dto.doctorNotes || medicalRecord.assessment || undefined;
+      dto.clinicalNotes =
+        dto.clinicalNotes || medicalRecord.diagnosis || undefined;
     }
 
     return new ResponseCommon(200, 'SUCCESS', dto);

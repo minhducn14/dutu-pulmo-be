@@ -112,11 +112,13 @@ export class ReviewService {
     return new ResponseCommon(200, 'SUCCESS', reviews);
   }
 
-  async findAllByDoctorUserId(userId: string): Promise<ResponseCommon<Review[]>> {
+  async findAllByDoctorUserId(
+    userId: string,
+  ): Promise<ResponseCommon<Review[]>> {
     const doctor = await this.doctorRepository.findOne({
       where: { userId },
     });
-    
+
     if (!doctor) {
       throw new NotFoundException(ERROR_MESSAGES.DOCTOR_NOT_FOUND);
     }

@@ -88,7 +88,10 @@ export function isSameDayVN(date1: Date, date2: Date): boolean {
  * Format a date as YYYY-MM-DD string in VN timezone.
  * Useful for display and logging.
  */
-export function formatDateVN(date: Date, formatStr: string = 'yyyy-MM-dd'): string {
+export function formatDateVN(
+  date: Date,
+  formatStr: string = 'yyyy-MM-dd',
+): string {
   return formatInTimeZone(date, VN_TZ, formatStr);
 }
 /**

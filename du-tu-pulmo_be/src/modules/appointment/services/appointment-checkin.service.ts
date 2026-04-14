@@ -375,11 +375,13 @@ export class AppointmentCheckinService {
     }
 
     // Gửi ngầm việc generate PDF, không block response
-    void this.medicalService.generatePdfsForRecordWithRetry(result.recordId).catch((err) => {
-      this.logger.error(
-        `Final PDF generation failed after retries for record ${result.recordId}: ${err.message}`,
-      );
-    });
+    void this.medicalService
+      .generatePdfsForRecordWithRetry(result.recordId)
+      .catch((err) => {
+        this.logger.error(
+          `Final PDF generation failed after retries for record ${result.recordId}: ${err.message}`,
+        );
+      });
 
     const appt = await this.appointmentReadService.findById(id);
     const data = appt.data!;
@@ -397,5 +399,4 @@ export class AppointmentCheckinService {
 
     return appt;
   }
-
 }
