@@ -8,12 +8,19 @@ import {
   Delete,
   Query,
   NotFoundException,
+  ParseUUIDPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { MedicineService } from '@/modules/medical/medicine.service';
 import { CreateMedicineDto } from '@/modules/medical/dto/create-medicine.dto';
 import { FilterMedicineQueryDto } from '@/modules/medical/dto/filter-medicine.dto';
 import { UpdateMedicineDto } from '@/modules/medical/dto/update-medicine.dto';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { Medicine } from '@/modules/medical/entities/medicine.entity';
 import {
   MedicineResponseDto,
@@ -22,9 +29,15 @@ import {
 import { ResponseCommon } from '@/common/dto/response.dto';
 import { PaginatedResponseDto } from '@/common/dto/pagination.dto';
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
+import { JwtAuthGuard } from '@/modules/core/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@/modules/core/auth/guards/roles.guard';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { RoleEnum } from '@/modules/common/enums/role.enum';
 
 @ApiTags('Medicines')
 @Controller('medicines')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@ApiBearerAuth('JWT-auth')
 export class MedicineController {
   constructor(private readonly medicineService: MedicineService) {}
 
@@ -54,6 +67,7 @@ export class MedicineController {
     description: 'Created successfully',
     type: MedicineResponseDto,
   })
+  @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
   async create(
     @Body() createMedicineDto: CreateMedicineDto,
   ): Promise<ResponseCommon<MedicineResponseDto>> {
@@ -97,7 +111,7 @@ export class MedicineController {
   })
   @ApiResponse({ status: 404, description: 'Not Found' })
   async findOne(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ): Promise<ResponseCommon<MedicineResponseDto>> {
     const result = await this.medicineService.findOne(id);
     if (!result.data)
@@ -113,8 +127,9 @@ export class MedicineController {
     description: 'Updated successfully',
     type: MedicineResponseDto,
   })
+  @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
   async update(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() updateMedicineDto: UpdateMedicineDto,
   ): Promise<ResponseCommon<MedicineResponseDto>> {
     const result = await this.medicineService.update(id, updateMedicineDto);
@@ -125,7 +140,10 @@ export class MedicineController {
   @Delete(':id')
   @ApiOperation({ summary: 'Soft delete (deactivate) medicine' })
   @ApiResponse({ status: 200, description: 'Deactivated successfully' })
-  async remove(@Param('id') id: string): Promise<ResponseCommon<boolean>> {
+  @Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ResponseCommon<boolean>> {
     return this.medicineService.remove(id);
   }
 }

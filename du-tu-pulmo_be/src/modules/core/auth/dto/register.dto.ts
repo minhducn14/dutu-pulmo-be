@@ -19,9 +19,12 @@ export class RegisterDto {
 
   @IsString()
   @MinLength(8, { message: 'Mật khẩu phải có ít nhất 8 ký tự' })
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/, {
-    message: 'Mật khẩu phải chứa chữ hoa, chữ thường, số và ký tự đặc biệt',
-  })
+  @Matches(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.])[A-Za-z\d@$!%*?&.]{8,}$/,
+    {
+      message: 'Mật khẩu phải chứa chữ hoa, chữ thường, số và ký tự đặc biệt',
+    },
+  )
   @ApiProperty({
     example: 'SecurePass@123',
     minLength: 8,

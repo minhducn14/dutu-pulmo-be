@@ -1,6 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsIn, IsOptional, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  ValidateIf,
+} from 'class-validator';
 
+import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { DECISION_SOURCES } from '@/modules/common/enums/decision-source.enum';
 import type { DecisionSource } from '@/modules/common/enums/decision-source.enum';
 
@@ -22,7 +30,15 @@ export class CreateConclusionDto {
   @ApiPropertyOptional({
     description: 'Reason for overriding AI analysis (if applicable)',
   })
-  @IsOptional()
+  @ValidateIf((o: CreateConclusionDto) => o.agreesWithAi === false)
+  @IsNotEmpty({ message: ERROR_MESSAGES.DOCTOR_OVERRIDE_REASON_REQUIRED })
   @IsString()
   doctorOverrideReason?: string;
+
+  @ApiPropertyOptional({
+    description: 'Additional notes from the doctor',
+  })
+  @IsOptional()
+  @IsString()
+  doctorNotes?: string;
 }

@@ -89,6 +89,7 @@ export class CloudinaryService {
           if (error) {
             reject(new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST));
           } else if (result) {
+            console.log(result);
             resolve({
               url: result.secure_url,
               publicId: result.public_id,
@@ -162,7 +163,7 @@ export class CloudinaryService {
     file: Express.Multer.File,
     userId: string,
   ): Promise<CloudinaryUploadResult> {
-    const filename = `avatar-${userId}-${this.formatDate(Date.now())}`;
+    const filename = `avatar-${userId}`;
 
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
@@ -179,18 +180,25 @@ export class CloudinaryService {
         },
         (error, result: UploadApiResponse | undefined) => {
           if (error) {
-            reject(new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST));
-          } else if (result) {
-            resolve({
-              url: result.secure_url,
-              publicId: result.public_id,
-              width: result.width,
-              height: result.height,
-              format: result.format,
-            });
-          } else {
-            reject(new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST));
+            console.error(error);
+            return reject(
+              new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST),
+            );
           }
+
+          if (!result) {
+            return reject(
+              new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST),
+            );
+          }
+
+          resolve({
+            url: result.secure_url,
+            publicId: result.public_id,
+            width: result.width,
+            height: result.height,
+            format: result.format,
+          });
         },
       );
 

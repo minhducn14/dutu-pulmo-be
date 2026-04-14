@@ -2,6 +2,7 @@ import {
   IsOptional,
   IsString,
   IsArray,
+  ArrayNotEmpty,
   ValidateNested,
   MaxLength,
 } from 'class-validator';
@@ -30,6 +31,7 @@ export class CreatePrescriptionDto {
     type: [CreatePrescriptionItemDto],
   })
   @IsArray()
+  @ArrayNotEmpty()
   @ValidateNested({ each: true })
   @Type(() => CreatePrescriptionItemDto)
   items: CreatePrescriptionItemDto[];

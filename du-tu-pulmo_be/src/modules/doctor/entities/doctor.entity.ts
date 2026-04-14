@@ -60,7 +60,7 @@ export class Doctor {
   })
   specialty: SpecialtyEnum;
 
-  @Column({ name: 'years_of_experience', type: 'integer', nullable: true })
+  // @Column({ name: 'years_of_experience', type: 'integer', nullable: true })
   yearsOfExperience: number;
 
   // Nơi công tác
@@ -130,9 +130,6 @@ export class Doctor {
 
   @Column({ name: 'verified_at', type: 'timestamptz', nullable: true })
   verifiedAt: Date;
-
-  @Column({ name: 'rejection_reason', type: 'text', nullable: true })
-  rejectionReason: string;
 
   @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz', nullable: true })
   deletedAt: Date;

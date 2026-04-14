@@ -13,7 +13,6 @@ import { AuthModule } from '@/modules/core/auth/auth.module';
 
 // Feature Modules
 import { AccountModule } from '@/modules/account/account.module';
-import { AdminActionModule } from '@/modules/admin-action/admin-action.module';
 import { AppointmentModule } from '@/modules/appointment/appointment.module';
 import { ChatModule } from '@/modules/chat/chat.module';
 import { ChatMessageModule } from '@/modules/chatmessage/chatmessage.module';
@@ -46,9 +45,11 @@ import * as Joi from 'joi';
 import { LoggerMiddleware } from '@/common/middleware/logger.middleware';
 import { PushNotificationModule } from '@/modules/push-notification/push-notification.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRootAsync({
       useFactory: async () => (await AppDataSourcePromise).options,
     }),
@@ -98,7 +99,6 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 
     // Feature Modules
     AccountModule,
-    AdminActionModule,
     AppointmentModule,
     ChatModule,
     ChatMessageModule,

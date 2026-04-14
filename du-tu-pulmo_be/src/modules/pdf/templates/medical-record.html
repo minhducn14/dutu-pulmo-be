@@ -220,6 +220,85 @@
         .sig-space {
             height: 80px;
         }
+
+        /* Rich Text Support */
+        .rich-text {
+            display: inline-block;
+            width: 100%;
+        }
+
+        .rich-text p {
+            margin-bottom: 4px;
+        }
+
+        .rich-text p:last-child {
+            margin-bottom: 0;
+        }
+
+        .rich-text ul, .rich-text ol {
+            margin-left: 20px;
+            margin-bottom: 8px;
+        }
+
+        /* Summary Table & Footer Layout */
+        .summary-wrapper {
+            display: flex;
+            margin-top: 20px;
+            border: 1px solid #000;
+            page-break-inside: avoid;
+        }
+
+        .summary-files {
+            width: 40%;
+            border-right: 1px solid #000;
+        }
+
+        .summary-files table {
+            margin: 0;
+            border: none;
+            font-size: 10pt;
+        }
+
+        .summary-files th, .summary-files td {
+            border: none;
+            border-bottom: 1px solid #000;
+            padding: 4px 8px;
+        }
+
+        .summary-files tr:last-child td {
+            border-bottom: none;
+        }
+
+        .summary-handover {
+            width: 25%;
+            border-right: 1px solid #000;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .handover-box {
+            flex: 1;
+            text-align: center;
+            padding: 5px;
+            border-bottom: 1px solid #000;
+        }
+
+        .handover-box:last-child {
+            border-bottom: none;
+        }
+
+        .summary-signature {
+            width: 35%;
+            text-align: center;
+            padding: 10px;
+        }
+
+        .summary-title {
+            background-color: #f2f2f2;
+            padding: 2px 10px;
+            font-weight: bold;
+            border-bottom: 1px solid #000;
+        }
     </style>
 </head>
 
@@ -307,13 +386,13 @@
 
         <div class="mb-2">
             <span class="font-bold">1. Lý do vào viện / khám bệnh:</span>
-            <span>{{chiefComplaint}}</span>
+            <div class="rich-text mt-1">{{{chiefComplaint}}}</div>
         </div>
 
         <div class="mb-2">
             <span class="font-bold">2. Quá trình bệnh lý:</span>
             <i>(khởi phát, diễn biến, chẩn đoán, điều trị của tuyến dưới)</i>
-            <div class="paragraph mt-1">{{presentIllness}}</div>
+            <div class="rich-text paragraph mt-1">{{{presentIllness}}}</div>
         </div>
 
         <div class="mb-2">
@@ -323,12 +402,12 @@
         <div class="ml-2 mb-2">
             <div class="row">
                 <div class="label font-bold">+ Bản thân:</div>
-                <div class="dot-line" style="flex-grow: 1;"><span class="dot-val">{{medicalHistory}}</span></div>
+                <div class="dot-line" style="flex-grow: 1;"><span class="dot-val rich-text">{{{medicalHistory}}}</span></div>
             </div>
             {{#if surgicalHistory}}
             <div class="row">
                 <div class="label">- Phẫu thuật:</div>
-                <div class="dot-line" style="flex-grow: 1;"><span class="dot-val">{{surgicalHistory}}</span></div>
+                <div class="dot-line" style="flex-grow: 1;"><span class="dot-val rich-text">{{{surgicalHistory}}}</span></div>
             </div>
             {{/if}}
             <div class="row">
@@ -351,7 +430,7 @@
             </div>
             <div class="row mt-2">
                 <div class="label font-bold">+ Gia đình:</div>
-                <div class="dot-line" style="flex-grow: 1;"><span class="dot-val">{{familyHistory}}</span></div>
+                <div class="dot-line" style="flex-grow: 1;"><span class="dot-val rich-text">{{{familyHistory}}}</span></div>
             </div>
         </div>
     </div>
@@ -402,120 +481,142 @@
         <div class="mb-2">
             <span class="font-bold">1. Khám toàn thân:</span>
             <i>(ý thức, da niêm mạc, hệ thống hạch,...)</i>
-            <div class="paragraph mt-1">{{physicalExamNotes}}</div>
+            <div class="rich-text paragraph mt-1">{{{physicalExamNotes}}}</div>
         </div>
 
         <div class="mb-2">
             <span class="font-bold">2. Khám các bộ phận:</span>
-            <div class="paragraph mt-1">{{systemsReview}}</div>
+            <div class="rich-text paragraph mt-1">{{{systemsReview}}}</div>
         </div>
 
         <div class="mb-2">
             <span class="font-bold">3. Tóm tắt kết quả cận lâm sàng (nếu có):</span>
-            <div class="paragraph mt-1">{{fullRecordSummary}}</div>
+            <div class="rich-text paragraph mt-1">{{{fullRecordSummary}}}</div>
         </div>
 
     </div>
 
-    <!-- IV. CHẨN ĐOÁN & KẾ HOẠCH -->
+    <!-- IV. CHẨN ĐOÁN VÀ ĐIỀU TRỊ -->
     <div class="section">
         <h2>IV. CHẨN ĐOÁN VÀ ĐIỀU TRỊ</h2>
 
         <div class="row">
             <div class="label font-bold">1. Chẩn đoán ban đầu/Chẩn đoán bệnh:</div>
-            <div class="dot-line" style="flex-grow: 1;"><span class="dot-val">{{diagnosis}}</span></div>
+            <div class="dot-line" style="flex-grow: 1;"><span class="dot-val rich-text">{{{diagnosis}}}</span></div>
         </div>
 
         <div class="row">
             <div class="label font-bold">2. Bệnh kèm theo:</div>
-            <div class="dot-line" style="flex-grow: 1;"><span class="dot-val">{{secondaryDiagnosis}}</span></div>
+            <div class="dot-line" style="flex-grow: 1;"><span class="dot-val rich-text">{{{secondaryDiagnosis}}}</span></div>
         </div>
 
         <div class="row">
             <div class="label font-bold">3. Đã xử lý (thuốc, chăm sóc):</div>
-            <div class="dot-line" style="flex-grow: 1;"><span class="dot-val">{{treatmentGiven}}</span></div>
+            <div class="dot-line" style="flex-grow: 1;"><span class="dot-val rich-text">{{{treatmentGiven}}}</span></div>
         </div>
 
         <div class="row">
             <div class="label font-bold">4. Phác đồ điều trị:</div>
-            <div class="dot-line" style="flex-grow: 1;"><span class="dot-val">{{treatmentPlan}}</span></div>
+            <div class="dot-line" style="flex-grow: 1;"><span class="dot-val rich-text">{{{treatmentPlan}}}</span></div>
         </div>
     </div>
 
-    <!-- V. CHẨN ĐOÁN RA VIỆN -->
-    <div class="section">
-        <h3 style="text-decoration: underline; margin-bottom: 10px;">Chẩn đoán khi ra viện (Tổng kết):</h3>
+    <!-- C. TỔNG KẾT BỆNH ÁN -->
+    <div class="section" style="border: 1px solid #000; padding-top: 0; margin-top: 25px;">
+        <div class="summary-title" style="font-size: 14pt;">C. TỔNG KẾT BỆNH ÁN</div>
+        
+        <div style="padding: 10px;">
+            <div class="mb-2">
+                <div class="font-bold">1. Quá trình bệnh lý và diễn biến lâm sàng:</div>
+                <div class="rich-text mt-1" style="min-height: 40px;">{{{fullRecordSummary}}}</div>
+            </div>
 
-        <div class="row">
-            <div class="label font-bold">- Chẩn đoán ra viện:</div>
-            <div class="dot-line" style="flex-grow: 1;"><span class="dot-val font-bold">{{primaryDiagnosis}}</span>
+            <div class="mb-2">
+                <div class="font-bold">3. Chẩn đoán ra viện:</div>
+                <div class="row">
+                    <div class="label">+ Bệnh chính:</div>
+                    <div class="dot-line" style="flex-grow: 1;"><span class="dot-val rich-text font-bold">{{{primaryDiagnosis}}}</span></div>
+                </div>
+                <div class="row">
+                    <div class="label">+ Bệnh kèm theo:</div>
+                    <div class="dot-line" style="flex-grow: 1;"><span class="dot-val rich-text">{{{secondaryDiagnosis}}}</span></div>
+                </div>
+            </div>
+
+            <div class="mb-2">
+                <div class="font-bold">4. Phương pháp điều trị:</div>
+                <div class="rich-text mt-1" style="min-height: 30px;">{{{treatmentPlan}}}</div>
+            </div>
+
+            <div class="mb-2">
+                <div class="font-bold">5. Tình trạng người ra viện:</div>
+                <div class="rich-text mt-1" style="min-height: 25px;">{{{dischargeCondition}}}</div>
+            </div>
+
+            <div class="mb-2">
+                <div class="font-bold">6. Hướng điều trị và các chế độ tiếp theo:</div>
+                <div class="rich-text mt-1" style="min-height: 30px;">{{{followUpInstructions}}}</div>
+                {{#if nextAppointmentDate}}
+                <div class="mt-2 font-bold" style="color: #d12c2c;">
+                    - NGÀY TÁI KHÁM: {{nextAppointmentDate}}
+                </div>
+                {{/if}}
             </div>
         </div>
 
-        <div class="row">
-            <div class="label font-bold">- Tình trạng người bệnh lúc ra viện:</div>
-            <div class="dot-line" style="flex-grow: 1;"><span class="dot-val">{{dischargeCondition}}</span></div>
-        </div>
+        <!-- Footer signatures and files -->
+        <div class="summary-wrapper">
+            <div class="summary-files">
+                <div class="text-center font-bold" style="border-bottom: 1px solid #000; padding: 2px;">Hồ sơ, phim, ảnh</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 60%; border-right: 1px solid #000;">Loại hồ sơ</th>
+                            <th>Số hồ sơ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="border-right: 1px solid #000;">X-Quang</td>
+                            <td class="text-center">{{#if screeningStats.xray}}{{screeningStats.xray}}{{else}}......{{/if}}</td>
+                        </tr>
+                        <tr>
+                            <td style="border-right: 1px solid #000;">CT Scanner</td>
+                            <td class="text-center">{{#if screeningStats.ct}}{{screeningStats.ct}}{{else}}......{{/if}}</td>
+                        </tr>
+                        <tr>
+                            <td style="border-right: 1px solid #000;">Siêu âm</td>
+                            <td class="text-center">{{#if screeningStats.ultrasound}}{{screeningStats.ultrasound}}{{else}}......{{/if}}</td>
+                        </tr>
+                        <tr>
+                            <td style="border-right: 1px solid #000;">Xét nghiệm</td>
+                            <td class="text-center">......</td>
+                        </tr>
+                        <tr>
+                            <td style="border-right: 1px solid #000;" class="font-bold">Toàn bộ hồ sơ</td>
+                            <td class="text-center font-bold">{{screeningStats.total}}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
-        {{#if treatmentStartDate}}
-        <div class="row">
-            <div class="label font-bold">- Điều trị ngoại trú từ ngày:</div>
-            <div class="ml-2 mr-2">{{treatmentStartDate}}</div>
-            <div class="label font-bold">đến ngày:</div>
-            <div class="ml-2">{{treatmentEndDate}}</div>
-        </div>
-        {{/if}}
+            <div class="summary-handover">
+                <div class="handover-box">
+                    <div class="font-bold">Người giao hồ sơ</div>
+                    <div style="height: 50px;"></div>
+                </div>
+                <div class="handover-box">
+                    <div class="font-bold">Người nhận hồ sơ</div>
+                    <div style="height: 50px;"></div>
+                </div>
+            </div>
 
-        <div class="row">
-            <div class="label font-bold">- Hướng dẫn khám lại:</div>
-            <div class="dot-line" style="flex-grow: 1;"><span class="dot-val">{{followUpInstructions}}</span></div>
-        </div>
-    </div>
-
-    <!-- VI. ĐƠN THUỐC -->
-    {{#if hasPrescription}}
-    <div class="section" style="page-break-before: auto;">
-        <h2>V. ĐƠN THUỐC KÈM THEO</h2>
-        {{#each prescriptions}}
-        <div class="mb-4">
-            <div class="font-bold">Mã số đơn thuốc: {{this.prescriptionNumber}}</div>
-            {{#if this.notes}}<div><i>Ghi chú: {{this.notes}}</i></div>{{/if}}
-            <table>
-                <thead>
-                    <tr>
-                        <th style="width: 5%;">STT</th>
-                        <th style="width: 35%;">Tên thuốc (Nồng độ/Hàm lượng)</th>
-                        <th style="width: 20%;">Liều dùng/Tần suất</th>
-                        <th style="width: 10%;">Số lượng</th>
-                        <th style="width: 10%;">ĐVT</th>
-                        <th style="width: 20%;">Cách dùng</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{#each this.items}}
-                    <tr>
-                        <td class="text-center">{{math @index "+" 1}}</td>
-                        <td class="font-bold">{{this.medicineName}}</td>
-                        <td class="text-center">{{this.dosage}} / {{this.frequency}}</td>
-                        <td class="text-center">{{this.quantity}}</td>
-                        <td class="text-center">{{this.unit}}</td>
-                        <td>{{this.instructions}}</td>
-                    </tr>
-                    {{/each}}
-                </tbody>
-            </table>
-        </div>
-        {{/each}}
-    </div>
-    {{/if}}
-
-    <!-- SIGNATURE -->
-    <div class="signature-area">
-        <div class="sig-box">
-            <div>Ngày ..... tháng ..... năm 20.....</div>
-            <div class="font-bold mt-1">BÁC SĨ ĐIỀU TRỊ</div>
-            <div class="sig-space"></div>
-            <div class="font-bold">{{doctorName}}</div>
+            <div class="summary-signature">
+                <div>Ngày {{formatDate record.createdAt}}</div>
+                <div class="font-bold mt-1">Bác sỹ điều trị</div>
+                <div style="height: 80px;"></div>
+                <div class="font-bold" style="font-size: 14pt;">{{doctorName}}</div>
+            </div>
         </div>
     </div>
 

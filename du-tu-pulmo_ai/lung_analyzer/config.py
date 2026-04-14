@@ -14,6 +14,7 @@ class Config:
     FLASK_ENV = os.getenv('FLASK_ENV', 'development')
     FLASK_DEBUG = os.getenv('FLASK_DEBUG', 'true').lower() == 'true'
     PORT = int(os.getenv('PORT', 5000))
+    APP_HOST = os.getenv("APP_HOST", "localhost")
     
     MODEL_PATH = os.getenv('MODEL_PATH', 'model/train/weights/best.pt')
     

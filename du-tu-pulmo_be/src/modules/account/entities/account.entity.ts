@@ -67,15 +67,6 @@ export class Account {
   })
   status: AccountStatusEnum;
 
-  @Column({ name: 'suspended_until', type: 'timestamptz', nullable: true })
-  suspendedUntil?: Date;
-
-  @Column({ name: 'suspension_reason', type: 'text', nullable: true })
-  suspensionReason?: string;
-
-  @Column({ name: 'suspended_by', type: 'uuid', nullable: true })
-  suspendedBy?: string;
-
   @Column({
     name: 'verification_token',
     type: 'varchar',

@@ -238,6 +238,25 @@
             font-style: italic;
             color: #666;
         }
+
+        /* Rich Text Support */
+        .rich-text {
+            display: inline-block;
+            width: 100%;
+        }
+
+        .rich-text p {
+            margin: 0 0 4px 0;
+        }
+
+        .rich-text p:last-child {
+            margin-bottom: 0;
+        }
+
+        .rich-text ul, .rich-text ol {
+            margin-left: 20px;
+            margin-bottom: 4px;
+        }
     </style>
 </head>
 
@@ -332,7 +351,7 @@
     <!-- DIAGNOSIS -->
     <div class="diagnosis">
         <span class="info-label">Chẩn đoán: </span>
-        {{#if diagnosisCode}}<strong>({{diagnosisCode}})</strong> {{/if}}{{diagnosisName}}
+        {{#if diagnosisCode}}<strong>({{diagnosisCode}})</strong> {{/if}}<span class="rich-text">{{{diagnosisName}}}</span>
     </div>
 
     <!-- MEDICINE TABLE -->
@@ -366,7 +385,7 @@
     <!-- ADVICE -->
     {{#if advice}}
     <div class="advice">
-        <span class="info-label">💊 Lời dặn: </span>{{advice}}
+        <span class="info-label">💊 Lời dặn: </span><span class="rich-text">{{{advice}}}</span>
     </div>
     {{/if}}
 

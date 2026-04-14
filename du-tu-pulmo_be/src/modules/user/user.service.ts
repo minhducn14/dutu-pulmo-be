@@ -163,13 +163,13 @@ export class UserService {
     if (!user) throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
 
     const uploaded = await this.cloudinaryService.uploadAvatar(file, userId);
-    if (user.avatarPublicId) {
-      try {
-        await this.cloudinaryService.deleteImage(user.avatarPublicId);
-      } catch {
-        // Ignore cleanup error for old avatar and continue update flow.
-      }
-    }
+    // if (user.avatarPublicId) {
+    //   try {
+    //     await this.cloudinaryService.deleteImage(user.avatarPublicId);
+    //   } catch {
+    //     // Ignore cleanup error for old avatar and continue update flow.
+    //   }
+    // }
 
     user.avatarUrl = uploaded.url;
     user.avatarPublicId = uploaded.publicId;

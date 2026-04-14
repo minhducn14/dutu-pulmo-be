@@ -7,7 +7,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { DataSource, In, Not } from 'typeorm';
+import { DataSource, In } from 'typeorm';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { TimeSlot } from '@/modules/doctor/entities/time-slot.entity';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
@@ -28,6 +28,8 @@ import { AppointmentMapperService } from '@/modules/appointment/services/appoint
 import { ConsultationPricingService } from '@/modules/doctor/services/consultation-pricing.service';
 import { NotificationService } from '@/modules/notification/notification.service';
 import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.enum';
+import { AppointmentCancellationCoreService } from '@/modules/appointment/services/appointment-cancellation-core.service';
+import { vnNow } from '@/common/datetime';
 
 @Injectable()
 export class AppointmentSchedulingService {
@@ -41,7 +43,34 @@ export class AppointmentSchedulingService {
     private readonly payosService: PayosService,
     private readonly pricingService: ConsultationPricingService,
     private readonly notificationService: NotificationService,
+    private readonly appointmentCancellationCore: AppointmentCancellationCoreService,
   ) {}
+
+  private validateSlotBookingWindow(
+    slotStartTime: Date,
+    schedule: DoctorSchedule | null,
+  ): void {
+    const now = vnNow();
+    const minimumBookingTime = schedule?.minimumBookingTime ?? 0;
+    const earliestAllowed = new Date(
+      now.getTime() + minimumBookingTime * 60 * 1000,
+    );
+
+    if (slotStartTime < earliestAllowed) {
+      this.logger.error('Time slot is before minimum booking window');
+      throw new BadRequestException(ERROR_MESSAGES.APPOINTMENT_TIME_INVALID);
+    }
+
+    const maxAdvanceBookingDays = schedule?.maxAdvanceBookingDays ?? 30;
+    const latestAllowed = new Date(
+      now.getTime() + maxAdvanceBookingDays * 24 * 60 * 60 * 1000,
+    );
+
+    if (slotStartTime > latestAllowed) {
+      this.logger.error('Time slot is after max advance booking window');
+      throw new BadRequestException(ERROR_MESSAGES.APPOINTMENT_TIME_INVALID);
+    }
+  }
 
   async cancel(
     id: string,
@@ -59,14 +88,7 @@ export class AppointmentSchedulingService {
         throw new NotFoundException(ERROR_MESSAGES.APPOINTMENT_NOT_FOUND);
       }
 
-      // ── Kiểm tra quá hạn ──────────────────────────────────────────
-      if (new Date(appointment.scheduledAt) < new Date()) {
-        this.logger.error('Cannot cancel expired appointment');
-        throw new BadRequestException(
-          ERROR_MESSAGES.CANNOT_EDIT_EXPIRED_APPOINTMENT,
-        );
-      }
-
+      // 1. Terminal states trước tiên
       if (appointment.status === AppointmentStatusEnum.COMPLETED) {
         this.logger.error('Appointment is completed');
         throw new BadRequestException(ERROR_MESSAGES.CANNOT_CANCEL_COMPLETED);
@@ -77,33 +99,59 @@ export class AppointmentSchedulingService {
         throw new BadRequestException(ERROR_MESSAGES.ALREADY_CANCELLED);
       }
 
-      // ── Kiểm tra trạng thái được phép hủy theo role ─────────────────
+      if (appointment.status === AppointmentStatusEnum.NO_SHOW) {
+        this.logger.error('Appointment is NO_SHOW');
+        throw new BadRequestException(ERROR_MESSAGES.CANNOT_CANCEL_COMPLETED);
+      }
+
+      const NON_EXPIRY_STATUSES = [
+        AppointmentStatusEnum.PENDING_PAYMENT,
+        AppointmentStatusEnum.PENDING,
+        AppointmentStatusEnum.CHECKED_IN,
+      ];
+
+      if (
+        !NON_EXPIRY_STATUSES.includes(appointment.status) &&
+        new Date(appointment.scheduledAt) < new Date()
+      ) {
+        this.logger.error('Cannot cancel expired appointment');
+        throw new BadRequestException(
+          ERROR_MESSAGES.CANNOT_EDIT_EXPIRED_APPOINTMENT,
+        );
+      }
+
       const PATIENT_CANCELLABLE = [
         AppointmentStatusEnum.PENDING_PAYMENT,
         AppointmentStatusEnum.PENDING,
         AppointmentStatusEnum.CONFIRMED,
       ];
+
       const STAFF_CANCELLABLE = [
         AppointmentStatusEnum.PENDING_PAYMENT,
         AppointmentStatusEnum.PENDING,
         AppointmentStatusEnum.CONFIRMED,
+        AppointmentStatusEnum.CHECKED_IN,
       ];
 
       const allowedStatuses =
         cancelledBy === 'PATIENT' ? PATIENT_CANCELLABLE : STAFF_CANCELLABLE;
 
       if (!allowedStatuses.includes(appointment.status)) {
-        if (appointment.status === AppointmentStatusEnum.IN_PROGRESS) {
-          throw new BadRequestException(
-            ERROR_MESSAGES.CANNOT_CANCEL_IN_PROGRESS,
-          );
+        switch (appointment.status) {
+          case AppointmentStatusEnum.IN_PROGRESS:
+            throw new BadRequestException(
+              ERROR_MESSAGES.CANNOT_CANCEL_IN_PROGRESS,
+            );
+          case AppointmentStatusEnum.CHECKED_IN:
+            // Chỉ PATIENT mới rơi vào đây (STAFF đã có CHECKED_IN trong list)
+            throw new BadRequestException(
+              ERROR_MESSAGES.CANNOT_CANCEL_CHECKED_IN,
+            );
+          default:
+            throw new BadRequestException(
+              ERROR_MESSAGES.CANNOT_CANCEL_COMPLETED,
+            );
         }
-        if (appointment.status === AppointmentStatusEnum.CHECKED_IN) {
-          throw new BadRequestException(
-            ERROR_MESSAGES.CANNOT_CANCEL_CHECKED_IN,
-          );
-        }
-        throw new BadRequestException(ERROR_MESSAGES.CANNOT_CANCEL_COMPLETED);
       }
 
       // ── Kiểm tra thời gian (chỉ khi CONFIRMED — lúc này chỉ STAFF mới tới được đây) ───────────────────
@@ -135,59 +183,27 @@ export class AppointmentSchedulingService {
         }
       }
 
-      if (appointment.timeSlotId) {
-        await manager.decrement(
-          TimeSlot,
-          { id: appointment.timeSlotId },
-          'bookedCount',
-          1,
+      const cancellationEffect =
+        await this.appointmentCancellationCore.cancelAppointmentInTransaction(
+          manager,
+          {
+            appointment,
+            reason,
+            cancelledBy,
+            paymentCancellationReason: 'APPOINTMENT_CANCELLED',
+            slotAction: 'release',
+          },
         );
 
-        const slot = await manager.findOne(TimeSlot, {
-          where: { id: appointment.timeSlotId },
-        });
-
-        if (slot && slot.bookedCount < slot.capacity) {
-          await manager.update(
-            TimeSlot,
-            { id: slot.id },
-            { isAvailable: true },
-          );
-        }
-      }
-
-      appointment.cancelledAt = new Date();
-      appointment.cancellationReason = reason;
-      appointment.cancelledBy = cancelledBy;
-
-      const scheduledTimeForAudit = new Date(appointment.scheduledAt);
-      const minutesUntilStartForAudit =
-        (scheduledTimeForAudit.getTime() - appointment.cancelledAt.getTime()) /
-        (1000 * 60);
-      appointment.cancelledMinutesBeforeStart = Math.floor(
-        minutesUntilStartForAudit,
-      );
-      appointment.status = AppointmentStatusEnum.CANCELLED;
-
-      const saved = await manager.save(appointment);
-
-      if (
-        appointment.appointmentType === AppointmentTypeEnum.VIDEO &&
-        appointment.dailyCoChannel
-      ) {
-        try {
-          await this.dailyService.deleteRoom(appointment.dailyCoChannel);
-          void this.callStateService.clearCallsForAppointment(appointment.id);
-          this.logger.log(
-            `Cleaned up video room for cancelled appointment ${appointment.id}`,
-          );
-        } catch (error) {
-          this.logger.warn(`Failed to cleanup video room: ${error}`);
-        }
-      }
-
-      return saved;
+      return {
+        saved: appointment,
+        cancellationEffects: [cancellationEffect],
+      };
     });
+
+    this.appointmentCancellationCore.schedulePostCommitEffects(
+      result.cancellationEffects,
+    );
 
     const apptWithRelations = await this.dataSource
       .getRepository(Appointment)
@@ -210,7 +226,7 @@ export class AppointmentSchedulingService {
           userId: apptWithRelations.patient.user.id,
           type: NotificationTypeEnum.APPOINTMENT,
           title: 'Lịch hẹn đã bị hủy',
-          content: `Lịch hẹn ${result.appointmentNumber} đã bị hủy bởi ${cancellerName}. Lý do: ${reason}.`,
+          content: `Lịch hẹn ${result.saved.appointmentNumber} đã bị hủy bởi ${cancellerName}. Lý do: ${reason}.`,
           refId: id,
           refType: 'APPOINTMENT',
         });
@@ -222,7 +238,7 @@ export class AppointmentSchedulingService {
           userId: apptWithRelations.doctor.user.id,
           type: NotificationTypeEnum.APPOINTMENT,
           title: 'Lịch hẹn đã bị hủy',
-          content: `Lịch hẹn ${result.appointmentNumber} đã bị hủy bởi ${cancellerName}.`,
+          content: `Lịch hẹn ${result.saved.appointmentNumber} đã bị hủy bởi ${cancellerName}.`,
           refId: id,
           refType: 'APPOINTMENT',
         });
@@ -232,13 +248,14 @@ export class AppointmentSchedulingService {
     return new ResponseCommon(
       200,
       'Hủy lịch hẹn thành công',
-      this.mapper.toDto(result),
+      this.mapper.toDto(apptWithRelations ?? result.saved),
     );
   }
 
   async reschedule(
     appointmentId: string,
     newTimeSlotId: string,
+    rescheduledBy: string,
   ): Promise<ResponseCommon<AppointmentResponseDto>> {
     const result = await this.dataSource.transaction(async (manager) => {
       const appointment = await manager.findOne(Appointment, {
@@ -259,16 +276,45 @@ export class AppointmentSchedulingService {
         );
       }
 
-      if (
-        ![
-          AppointmentStatusEnum.PENDING,
-          AppointmentStatusEnum.PENDING_PAYMENT,
-        ].includes(appointment.status)
-      ) {
-        this.logger.error(
-          'Appointment is not in confirmed, pending, or pending payment status',
-        );
+      const RESCHEDULE_ALLOWED_STATUSES = [
+        AppointmentStatusEnum.PENDING,
+        AppointmentStatusEnum.PENDING_PAYMENT,
+        AppointmentStatusEnum.CONFIRMED, // ← FIX: thêm CONFIRMED
+      ];
+
+      if (!RESCHEDULE_ALLOWED_STATUSES.includes(appointment.status)) {
+        this.logger.error('Appointment status does not allow reschedule');
         throw new BadRequestException(ERROR_MESSAGES.CANNOT_RESCHEDULE_STATUS);
+      }
+
+      // Áp dụng time restriction giống cancel, chỉ khi status = CONFIRMED
+      if (appointment.status === AppointmentStatusEnum.CONFIRMED) {
+        const now = new Date();
+        const minutesUntilStart =
+          (new Date(appointment.scheduledAt).getTime() - now.getTime()) /
+          (1000 * 60);
+
+        if (rescheduledBy === 'PATIENT') {
+          if (
+            minutesUntilStart <
+            CANCELLATION_POLICY.PATIENT_CANCEL_BEFORE_MINUTES // 4 * 60 = 240 phút
+          ) {
+            throw new BadRequestException(
+              ERROR_MESSAGES.RESCHEDULE_TOO_LATE_PATIENT,
+            );
+          }
+        }
+
+        if (rescheduledBy === 'DOCTOR') {
+          if (
+            minutesUntilStart < CANCELLATION_POLICY.DOCTOR_CANCEL_BEFORE_MINUTES // 2 * 60 = 120 phút
+          ) {
+            throw new BadRequestException(
+              ERROR_MESSAGES.RESCHEDULE_TOO_LATE_DOCTOR,
+            );
+          }
+        }
+        // ADMIN / RECEPTIONIST: không có giới hạn thời gian
       }
 
       const hasPaidPayment = await manager.exists(Payment, {
@@ -310,10 +356,30 @@ export class AppointmentSchedulingService {
         throw new BadRequestException(ERROR_MESSAGES.SLOT_DOCTOR_MISMATCH);
       }
 
+      if (appointment.timeSlotId === newTimeSlotId) {
+        this.logger.error('New slot must be different from current slot');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+      }
+
       if (newSlot.startTime < new Date()) {
         this.logger.error('Slot in past');
         throw new BadRequestException(ERROR_MESSAGES.SLOT_IN_PAST);
       }
+
+      const schedule = newSlot.scheduleId
+        ? await manager.findOne(DoctorSchedule, {
+            where: { id: newSlot.scheduleId },
+            select: [
+              'id',
+              'consultationFee',
+              'discountPercent',
+              'minimumBookingTime',
+              'maxAdvanceBookingDays',
+            ],
+          })
+        : null;
+
+      this.validateSlotBookingWindow(newSlot.startTime, schedule);
 
       if (!newSlot.allowedAppointmentTypes?.length) {
         this.logger.error('Slot has no allowed appointment types');
@@ -327,18 +393,31 @@ export class AppointmentSchedulingService {
         throw new BadRequestException(ERROR_MESSAGES.SLOT_TYPE_MISMATCH);
       }
 
-      const duplicateInNewSlot = await manager.findOne(Appointment, {
-        where: {
+      const overlappingAppointment = await manager
+        .createQueryBuilder(Appointment, 'apt')
+        .setLock('pessimistic_read')
+        .innerJoin('apt.timeSlot', 'existingSlot')
+        .where('apt.patientId = :patientId', {
           patientId: appointment.patientId,
-          timeSlotId: newTimeSlotId,
-          status: Not(In([AppointmentStatusEnum.CANCELLED])),
-        },
-        lock: { mode: 'pessimistic_read' },
-      });
+        })
+        .andWhere('apt.id != :appointmentId', {
+          appointmentId: appointment.id,
+        })
+        .andWhere('apt.status NOT IN (:...statuses)', {
+          statuses: [AppointmentStatusEnum.CANCELLED],
+        })
+        .andWhere(
+          '(existingSlot.startTime < :newEndTime AND existingSlot.endTime > :newStartTime)',
+          {
+            newEndTime: newSlot.endTime,
+            newStartTime: newSlot.startTime,
+          },
+        )
+        .getOne();
 
-      if (duplicateInNewSlot) {
-        this.logger.error('Duplicate in new slot');
-        throw new ConflictException(ERROR_MESSAGES.DUPLICATE_IN_SLOT);
+      if (overlappingAppointment) {
+        this.logger.error('Patient has overlapping appointment in new slot');
+        throw new ConflictException(ERROR_MESSAGES.CONFLICT_DETECTED);
       }
 
       if (!newSlot.isAvailable) {
@@ -382,12 +461,6 @@ export class AppointmentSchedulingService {
       appointment.durationMinutes = Math.floor(
         (newSlot.endTime.getTime() - newSlot.startTime.getTime()) / 60000,
       );
-      const schedule = newSlot.scheduleId
-        ? await manager.findOne(DoctorSchedule, {
-            where: { id: newSlot.scheduleId },
-            select: ['id', 'consultationFee', 'discountPercent'],
-          })
-        : null;
       const doctor = await manager.findOne(Doctor, {
         where: { id: newSlot.doctorId },
         select: ['id', 'defaultConsultationFee'],
@@ -408,26 +481,16 @@ export class AppointmentSchedulingService {
         },
       });
 
+      // GIAI ĐOẠN 1 (trong transaction): Mark CANCELLED local + đánh dấu chờ sync gateway
       for (const payment of pendingPayments) {
-        try {
-          await this.payosService.cancelPaymentLink(
-            Number(payment.orderCode),
-            'INVALIDATED_BY_RESCHEDULE',
-          );
-        } catch (error) {
-          this.logger.warn(
-            `Gateway cancel failed for payment ${payment.id}, continue reschedule: ${error instanceof Error ? error.message : String(error)}`,
-          );
-        }
-
         payment.status = PaymentStatus.CANCELLED;
         payment.cancelledAt = new Date();
         payment.cancellationReason = payment.cancellationReason
           ? `${payment.cancellationReason};INVALIDATED_BY_RESCHEDULE`
           : 'INVALIDATED_BY_RESCHEDULE';
-        payment.errorCode = 'INVALIDATED_BY_RESCHEDULE';
+        payment.errorCode = 'PENDING_GATEWAY_CANCEL'; // ← đánh dấu cần sync lại
         payment.errorMessage =
-          'Payment invalidated due to appointment reschedule';
+          'Payment invalidated due to appointment reschedule, pending gateway cancel';
         payment.lastErrorAt = new Date();
         await manager.save(payment);
       }
@@ -440,32 +503,70 @@ export class AppointmentSchedulingService {
           ? AppointmentStatusEnum.CONFIRMED
           : AppointmentStatusEnum.PENDING_PAYMENT;
 
+      const oldChannel = appointment.dailyCoChannel;
       if (appointment.meetingUrl || appointment.dailyCoChannel) {
-        const oldChannel = appointment.dailyCoChannel;
         appointment.meetingUrl = null;
         appointment.dailyCoChannel = null;
         appointment.meetingRoomId = null;
         appointment.meetingPassword = null;
         appointment.dailyCoToken = null;
-
-        // Cleanup Daily.co room outside the transaction after saving
-        if (oldChannel) {
-          setImmediate(async () => {
-            try {
-              await this.dailyService.deleteRoom(oldChannel);
-              this.logger.log(
-                `Cleaned up old video room ${oldChannel} after reschedule`,
-              );
-            } catch (err) {
-              this.logger.warn(
-                `Failed to cleanup video room on reschedule: ${err}`,
-              );
-            }
-          });
-        }
       }
 
-      return manager.save(appointment);
+      const saved = await manager.save(appointment);
+
+      return {
+        saved,
+        paymentsToCancel: [...pendingPayments],
+        roomToDelete: oldChannel,
+      };
+    });
+
+    if (result.roomToDelete) {
+      setImmediate(() => {
+        void (async () => {
+          try {
+            await this.dailyService.deleteRoom(result.roomToDelete!);
+            await this.callStateService.clearCallsForAppointment(appointmentId);
+            this.logger.log(
+              `Cleaned up old video room ${result.roomToDelete} after reschedule`,
+            );
+          } catch (err) {
+            this.logger.warn(
+              `Failed to cleanup video room on reschedule: ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+            );
+          }
+        })();
+      });
+    }
+
+    setImmediate(() => {
+      void (async () => {
+        for (const payment of result.paymentsToCancel) {
+          try {
+            await this.payosService.cancelPaymentLink(
+              Number(payment.orderCode),
+              'INVALIDATED_BY_RESCHEDULE',
+            );
+
+            // Xóa error code khi gateway thành công
+            await this.dataSource.getRepository(Payment).update(payment.id, {
+              errorCode: null,
+              errorMessage: null,
+            });
+
+            this.logger.log(
+              `Gateway cancelled payment ${payment.id} for reschedule`,
+            );
+          } catch (error) {
+            this.logger.error(
+              `Failed to cancel payment ${payment.id} on gateway. ` +
+                `Will be retried by cron. Error: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        }
+      })();
     });
 
     const apptWithRelations = await this.dataSource
@@ -476,7 +577,7 @@ export class AppointmentSchedulingService {
       });
 
     if (apptWithRelations) {
-      const newDate = result.scheduledAt.toLocaleDateString('vi-VN', {
+      const newDate = result.saved.scheduledAt.toLocaleDateString('vi-VN', {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
@@ -509,7 +610,7 @@ export class AppointmentSchedulingService {
     return new ResponseCommon(
       200,
       'Đổi lịch hẹn thành công',
-      this.mapper.toDto(result),
+      this.mapper.toDto(apptWithRelations ?? result.saved),
     );
   }
 }

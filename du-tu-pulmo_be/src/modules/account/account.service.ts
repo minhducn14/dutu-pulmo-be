@@ -50,9 +50,6 @@ export class AccountService {
       throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
-    // Log admin action for audit
-    console.log(`Admin ${adminId} updating account ${id}:`, dto);
-
     if (dto.roles !== undefined) {
       account.roles = dto.roles as RoleEnum[]; // Trust admin input
     }

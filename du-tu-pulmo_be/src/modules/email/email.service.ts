@@ -707,7 +707,7 @@ Hỗ trợ: support@dutupulmo.vn
         <div style="background-color: #e3f2fd; border-left: 4px solid #2196F3; padding: 15px; margin: 20px 0; border-radius: 4px;">
           <strong>⏰ Thông tin quan trọng:</strong>
           <ul style="margin: 10px 0 0 0; padding-left: 20px;">
-            <li style="margin: 5px 0;">Mã OTP có hiệu lực trong <strong>10 phút</strong>.</li>
+            <li style="margin: 5px 0;">Mã OTP có hiệu lực trong <strong>5 phút</strong>.</li>
             <li style="margin: 5px 0;">Tuyệt đối không chia sẻ mã này với bất kỳ ai.</li>
             <li style="margin: 5px 0;">Mỗi mã OTP chỉ có thể sử dụng <strong>một lần</strong>.</li>
           </ul>
@@ -743,7 +743,7 @@ Hỗ trợ: support@dutupulmo.vn
   Mã OTP của bạn là: ${otp}
 
   Thông tin quan trọng:
-  - Mã OTP có hiệu lực trong 10 phút
+  - Mã OTP có hiệu lực trong 5 phút
   - Tuyệt đối không chia sẻ mã này với bất kỳ ai
   - Mỗi mã OTP chỉ có thể sử dụng một lần
 

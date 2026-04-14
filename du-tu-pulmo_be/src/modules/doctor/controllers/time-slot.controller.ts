@@ -41,6 +41,8 @@ import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 
 @ApiTags('Time Slots')
 @ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, RolesGuard, DoctorOwnershipGuard)
+@Roles(RoleEnum.ADMIN, RoleEnum.DOCTOR)
 @Controller('doctors/:doctorId/time-slots')
 export class TimeSlotController {
   constructor(private readonly timeSlotService: TimeSlotService) {}

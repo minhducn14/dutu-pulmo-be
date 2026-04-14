@@ -48,9 +48,6 @@ export class Notification {
   @Column({ name: 'ref_type', type: 'varchar', length: 50, nullable: true })
   refType: string | null; // APPOINTMENT, SCREENING, PAYMENT, etc.
 
-  @Column({ name: 'sent_at', type: 'timestamptz', nullable: true })
-  sentAt: Date;
-
   @CreateDateColumn({
     name: 'created_at',
     type: 'timestamptz',

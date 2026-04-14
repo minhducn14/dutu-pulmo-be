@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Between, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
@@ -24,6 +24,7 @@ import { MedicalRecordStatusEnum } from '@/modules/common/enums/medical-record-s
 import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.enum';
 import { NotificationService } from '@/modules/notification/notification.service';
 import { PdfService } from '@/modules/pdf/pdf.service';
+import { CHECKIN_TIME_THRESHOLDS } from '@/modules/appointment/appointment.constants';
 
 @Injectable()
 export class AppointmentCheckinService {
@@ -42,78 +43,146 @@ export class AppointmentCheckinService {
     private readonly pdfService: PdfService,
   ) {}
 
-  async checkIn(id: string): Promise<ResponseCommon<AppointmentResponseDto>> {
-    const appointment = await this.appointmentEntityService.findOne(id);
+  private async getNextQueueNumber(
+    manager: EntityManager,
+    doctorId: string,
+    scheduledAt: Date,
+    isLate: boolean = false,
+  ): Promise<number> {
+    const dayStart = startOfDayVN(scheduledAt);
+    const dayEnd = endOfDayVN(scheduledAt);
+    const queueLockKey = `appointment-queue:${doctorId}:${dayStart.toISOString()}`;
 
-    if (!appointment) {
-      this.logger.error('Appointment not found');
-      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
-    }
+    await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+      queueLockKey,
+    ]);
 
-    if (appointment.status !== AppointmentStatusEnum.CONFIRMED) {
-      this.logger.error('Appointment is not confirmed');
-      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-    }
-
-    const now = new Date();
-    const scheduledTime = new Date(appointment.scheduledAt);
-    const timeDiffMinutes =
-      (scheduledTime.getTime() - now.getTime()) / (1000 * 60);
-
-    if (appointment.appointmentType === AppointmentTypeEnum.IN_CLINIC) {
-      if (timeDiffMinutes > 30) {
-        this.logger.error('Appointment is too early in clinic');
-        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-      }
-
-      if (timeDiffMinutes < -15) {
-        this.logger.error('Appointment is too late in clinic');
-        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-      }
-    } else if (appointment.appointmentType === AppointmentTypeEnum.VIDEO) {
-      if (timeDiffMinutes > 60) {
-        this.logger.error('Appointment is too early in video');
-        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-      }
-
-      if (timeDiffMinutes < -30) {
-        this.logger.error('Appointment is too late in video');
-        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-      }
-    }
-
-    const startOfToday = () => {
-      const now = vnNow();
-      return startOfDayVN(now);
-    };
-
-    const endOfToday = () => {
-      const now = vnNow();
-      return endOfDayVN(now);
-    };
-
-    const maxQueueResult = await this.appointmentRepository
-      .createQueryBuilder('apt')
+    const baseQuery = manager
+      .createQueryBuilder(Appointment, 'apt')
       .select('MAX(apt.queueNumber)', 'maxQueue')
-      .where('apt.doctorId = :doctorId', { doctorId: appointment.doctorId })
+      .where('apt.doctorId = :doctorId', { doctorId })
       .andWhere('apt.scheduledAt BETWEEN :start AND :end', {
-        start: startOfToday(),
-        end: endOfToday(),
+        start: dayStart,
+        end: dayEnd,
       })
-      .andWhere('apt.queueNumber IS NOT NULL')
-      .getRawOne<{ maxQueue: string | null }>();
+      .andWhere('apt.queueNumber IS NOT NULL');
 
-    const queueNumber = Number(maxQueueResult?.maxQueue ?? 0);
+    if (isLate) {
+      const lateResult = await baseQuery
+        .clone()
+        .andWhere('apt.status IN (:...statuses)', {
+          statuses: [
+            AppointmentStatusEnum.CHECKED_IN,
+            AppointmentStatusEnum.IN_PROGRESS,
+          ],
+        })
+        .getRawOne<{ maxQueue: string | null }>();
 
-    await this.appointmentRepository.update(id, {
-      status: AppointmentStatusEnum.CHECKED_IN,
-      checkInTime: new Date(),
-      queueNumber: queueNumber + 1,
-    });
+      if (lateResult?.maxQueue != null) {
+        return Number(lateResult.maxQueue) + 1;
+      }
+      // Fallback: tái dùng baseQuery
+    }
 
-    this.logger.log(
-      `${appointment.appointmentType} appointment ${id} checked in at ${new Date().toISOString()}`,
-    );
+    const result = await baseQuery.getRawOne<{ maxQueue: string | null }>();
+    return Number(result?.maxQueue ?? 0) + 1;
+  }
+
+  async checkIn(id: string): Promise<ResponseCommon<AppointmentResponseDto>> {
+    const { queueNumber, doctorId, appointmentType, isLateCheckin } =
+      await this.dataSource.transaction(async (manager) => {
+        // Lock appointment row trước
+        const appointmentStatus = await manager.findOne(Appointment, {
+          where: { id },
+          lock: { mode: 'pessimistic_write' },
+        });
+
+        if (!appointmentStatus) {
+          throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
+        }
+
+        if (appointmentStatus.status !== AppointmentStatusEnum.CONFIRMED) {
+          throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+        }
+
+        // Validate thanh toán
+        /*
+        if (
+          Number(appointmentStatus.paidAmount) <
+          Number(appointmentStatus.feeAmount)
+        ) {
+          this.logger.error(
+            `Appointment ${id} cannot check-in: Payment not completed. Paid: ${appointmentStatus.paidAmount}, Fee: ${appointmentStatus.feeAmount}`,
+          );
+          throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+        }
+        */
+
+        // Validate thời gian check-in
+        const now = new Date();
+        const timeDiffMinutes =
+          (new Date(appointmentStatus.scheduledAt).getTime() - now.getTime()) /
+          (1000 * 60);
+
+        let isLateCheckin = false;
+        const dayEnd = endOfDayVN(appointmentStatus.scheduledAt);
+        if (now > dayEnd) {
+          this.logger.error(`Appointment ${id} checked in after end of day.`);
+          throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+        }
+
+        if (
+          appointmentStatus.appointmentType === AppointmentTypeEnum.IN_CLINIC
+        ) {
+          if (
+            timeDiffMinutes > CHECKIN_TIME_THRESHOLDS.IN_CLINIC.EARLY_MINUTES
+          ) {
+            this.logger.error(
+              `Appointment ${id} (IN_CLINIC) timeDiffMinutes is ${timeDiffMinutes}`,
+            );
+            throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+          }
+          if (
+            timeDiffMinutes < -CHECKIN_TIME_THRESHOLDS.IN_CLINIC.LATE_MINUTES
+          ) {
+            isLateCheckin = true;
+          }
+        } else if (
+          appointmentStatus.appointmentType === AppointmentTypeEnum.VIDEO
+        ) {
+          if (
+            timeDiffMinutes > CHECKIN_TIME_THRESHOLDS.VIDEO.EARLY_MINUTES ||
+            timeDiffMinutes < -CHECKIN_TIME_THRESHOLDS.VIDEO.LATE_MINUTES
+          ) {
+            this.logger.error(
+              `Appointment ${id} (VIDEO) timeDiffMinutes is ${timeDiffMinutes}`,
+            );
+            throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+          }
+        }
+
+        const newQueueNumber = await this.getNextQueueNumber(
+          manager,
+          appointmentStatus.doctorId,
+          appointmentStatus.scheduledAt,
+          isLateCheckin,
+        );
+
+        appointmentStatus.status = AppointmentStatusEnum.CHECKED_IN;
+        appointmentStatus.checkInTime = new Date();
+        appointmentStatus.queueNumber = newQueueNumber;
+        appointmentStatus.isLateCheckin = isLateCheckin;
+        await manager.save(appointmentStatus);
+
+        return {
+          queueNumber: newQueueNumber,
+          doctorId: appointmentStatus.doctorId,
+          appointmentType: appointmentStatus.appointmentType,
+          isLateCheckin,
+        };
+      });
+
+    this.logger.log(`Appointment ${id} checked in, queue #${queueNumber}`);
 
     const appt = await this.appointmentReadService.findById(id);
     const data = appt.data!;
@@ -124,7 +193,21 @@ export class AppointmentCheckinService {
         userId: data.patient.user.id,
         type: NotificationTypeEnum.APPOINTMENT,
         title: 'Check-in thành công',
-        content: `Bạn đã check-in lịch hẹn ${data.appointmentNumber}. Số thứ tự: ${data.queueNumber}. Vui lòng chờ được gọi.`,
+        content: isLateCheckin
+          ? `Bạn đã check-in trễ lịch hẹn ${data.appointmentNumber}. Bạn được xếp cuối hàng chờ, số thứ tự: ${queueNumber}.`
+          : `Bạn đã check-in lịch hẹn ${data.appointmentNumber}. Số thứ tự của bạn là: ${queueNumber}. Vui lòng chờ bác sĩ gọi tên.`,
+        refId: id,
+        refType: 'APPOINTMENT',
+      });
+    }
+
+    // Notify doctor if late
+    if (isLateCheckin && data.doctor?.userId) {
+      void this.notificationService.createNotification({
+        userId: data.doctor.userId,
+        type: NotificationTypeEnum.APPOINTMENT,
+        title: 'Bệnh nhân đến trễ',
+        content: `Bệnh nhân ${data.patient?.user?.fullName || 'ẩn danh'} (Lịch hẹn ${data.appointmentNumber}) đã đến trễ và được xếp vào cuối hàng chờ. Số thứ tự: ${queueNumber}.`,
         refId: id,
         refType: 'APPOINTMENT',
       });
@@ -148,58 +231,26 @@ export class AppointmentCheckinService {
       throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
+    // Validate appointment type for check-in by number
+    if (appointment.appointmentType !== AppointmentTypeEnum.IN_CLINIC) {
+      this.logger.error(
+        `Appointment ${appointment.id} is not IN_CLINIC type, cannot check-in by number.`,
+      );
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+    }
+
     return this.checkIn(appointment.id);
-  }
-
-  async checkInVideo(
-    id: string,
-  ): Promise<ResponseCommon<AppointmentResponseDto>> {
-    const appointment = await this.appointmentEntityService.findOne(id);
-
-    if (!appointment) {
-      this.logger.error('Appointment not found');
-      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
-    }
-
-    if (appointment.status !== AppointmentStatusEnum.CONFIRMED) {
-      this.logger.error('Appointment is not confirmed');
-      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-    }
-
-    if (appointment.appointmentType !== AppointmentTypeEnum.VIDEO) {
-      this.logger.error('Appointment is not video');
-      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-    }
-
-    const now = new Date();
-    const scheduledTime = new Date(appointment.scheduledAt);
-    const timeDiffMinutes =
-      (scheduledTime.getTime() - now.getTime()) / (1000 * 60);
-
-    if (timeDiffMinutes > 60) {
-      this.logger.error('Appointment is too early in video');
-      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-    }
-
-    if (timeDiffMinutes < -30) {
-      this.logger.error('Appointment is too late in video');
-      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-    }
-
-    await this.appointmentRepository.update(id, {
-      status: AppointmentStatusEnum.CHECKED_IN,
-      checkInTime: new Date(),
-    });
-
-    this.logger.log(`VIDEO appointment ${id} checked in`);
-
-    return this.appointmentReadService.findById(id);
   }
 
   async startExamination(
     id: string,
   ): Promise<ResponseCommon<AppointmentResponseDto>> {
-    return this.dataSource.transaction(async (manager) => {
+    let createdEncounter: Pick<
+      Awaited<ReturnType<MedicalService['upsertEncounterInTx']>>['record'],
+      'id' | 'patientId' | 'recordNumber'
+    > | null = null;
+
+    await this.dataSource.transaction(async (manager) => {
       const appointment = await manager.findOne(Appointment, {
         where: { id },
         lock: { mode: 'pessimistic_write' },
@@ -219,26 +270,34 @@ export class AppointmentCheckinService {
       appointment.startedAt = new Date();
       await manager.save(appointment);
 
-      await this.medicalService.upsertEncounterInTx(manager, appointment);
-
-      this.logger.log(`Examination started for appointment ${id}`);
-
-      const appt = await this.appointmentReadService.findById(id);
-      const data = appt.data!;
-
-      if (data.patient?.user?.id) {
-        void this.notificationService.createNotification({
-          userId: data.patient.user.id,
-          type: NotificationTypeEnum.APPOINTMENT,
-          title: 'Bác sĩ đang khám',
-          content: `Bác sĩ ${data.doctor?.fullName || ''} đã bắt đầu khám lịch hẹn ${data.appointmentNumber}.`,
-          refId: id,
-          refType: 'APPOINTMENT',
-        });
+      const encounterResult = await this.medicalService.upsertEncounterInTx(
+        manager,
+        appointment,
+      );
+      if (encounterResult.created) {
+        createdEncounter = encounterResult.record;
       }
-
-      return appt;
     });
+
+    if (createdEncounter) {
+      this.medicalService.logAutoCreatedEncounter(createdEncounter);
+    }
+
+    const appt = await this.appointmentReadService.findById(id);
+    const data = appt.data!;
+
+    if (data.patient?.user?.id) {
+      void this.notificationService.createNotification({
+        userId: data.patient.user.id,
+        type: NotificationTypeEnum.APPOINTMENT,
+        title: 'Bác sĩ đang khám',
+        content: `Bác sĩ ${data.doctor?.fullName || ''} đã bắt đầu khám lịch hẹn ${data.appointmentNumber}.`,
+        refId: id,
+        refType: 'APPOINTMENT',
+      });
+    }
+
+    return appt;
   }
 
   async completeExamination(
@@ -270,11 +329,14 @@ export class AppointmentCheckinService {
         throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }
 
+      record.chiefComplaint = dto.chiefComplaint;
       if (dto.physicalExamNotes)
         record.physicalExamNotes = dto.physicalExamNotes;
-      if (dto.assessment) record.assessment = dto.assessment;
+      record.assessment = dto.assessment;
       if (dto.diagnosis) record.diagnosis = dto.diagnosis;
-      if (dto.treatmentPlan) record.treatmentPlan = dto.treatmentPlan;
+      record.treatmentPlan = dto.treatmentPlan;
+      if (dto.followUpInstructions)
+        record.followUpInstructions = dto.followUpInstructions;
       await manager.save(record);
 
       appointment.status = AppointmentStatusEnum.COMPLETED;
@@ -312,22 +374,14 @@ export class AppointmentCheckinService {
       }
     }
 
-    // Fire-and-forget PDF generation — don't block the response
-    setImmediate(async () => {
-      try {
-        // 1. Medical record PDF
-        await this.pdfService.generateAndSaveMedicalRecordPdf(result.recordId);
-
-        // 2. Prescription PDFs
-        const record = await this.medicalService.findById(result.recordId); // hoặc repo
-
-        for (const p of record.prescriptions ?? []) {
-          await this.pdfService.generateAndSavePrescriptionPdf(p.id);
-        }
-      } catch (err) {
-        this.logger.error('PDF generation failed', err);
-      }
-    });
+    // Gửi ngầm việc generate PDF, không block response
+    void this.medicalService
+      .generatePdfsForRecordWithRetry(result.recordId)
+      .catch((err) => {
+        this.logger.error(
+          `Final PDF generation failed after retries for record ${result.recordId}: ${err.message}`,
+        );
+      });
 
     const appt = await this.appointmentReadService.findById(id);
     const data = appt.data!;

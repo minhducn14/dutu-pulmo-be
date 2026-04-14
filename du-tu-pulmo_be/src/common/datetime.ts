@@ -88,9 +88,26 @@ export function isSameDayVN(date1: Date, date2: Date): boolean {
  * Format a date as YYYY-MM-DD string in VN timezone.
  * Useful for display and logging.
  */
-export function formatDateVN(date: Date): string {
-  return formatInTimeZone(date, VN_TZ, 'yyyy-MM-dd');
+export function formatDateVN(
+  date: Date,
+  formatStr: string = 'yyyy-MM-dd',
+): string {
+  return formatInTimeZone(date, VN_TZ, formatStr);
 }
+/**
+ * Trả về số phút kể từ 00:00 theo giờ Việt Nam.
+ *
+ * Dùng thay thế cho date.getHours() / date.getMinutes() trên server chạy UTC,
+ * vì getHours() trả giờ UTC không phải giờ VN.
+ *
+ * Ví dụ: 08:30 VN (01:30 UTC) → 510
+ * Ví dụ: 00:30 VN (17:30 UTC hôm trước) → 30
+ */
+export function getTimeMinutesVN(date: Date): number {
+  const vn = toZonedTime(date, VN_TZ);
+  return vn.getHours() * 60 + vn.getMinutes();
+}
+
 /**
  * Returns the start of the 1st day of the next month in VN timezone.
  */

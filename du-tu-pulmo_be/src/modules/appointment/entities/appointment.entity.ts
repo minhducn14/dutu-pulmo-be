@@ -18,6 +18,7 @@ import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enu
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import { AppointmentSubTypeEnum } from '@/modules/common/enums/appointment-sub-type.enum';
 import { SourceTypeEnum } from '@/modules/common/enums/source-type.enum';
+import { Payment } from '@/modules/payment/entities/payment.entity';
 
 @Entity('appointments')
 @Index('idx_appointment_patient_slot', ['patientId', 'timeSlotId'])
@@ -60,9 +61,6 @@ export class Appointment {
 
   @Column({ name: 'hospital_id', type: 'uuid', nullable: true })
   hospitalId: string;
-
-  @Column({ name: 'screening_id', type: 'uuid', nullable: true })
-  screeningId: string;
 
   @ManyToOne(() => TimeSlot, (timeSlot) => timeSlot.appointments, {
     onDelete: 'SET NULL',
@@ -141,6 +139,10 @@ export class Appointment {
   @Column({ name: 'payment_id', type: 'uuid', nullable: true })
   paymentId: string | null;
 
+  @OneToOne('Payment', 'appointment', { nullable: true })
+  @JoinColumn({ name: 'payment_id' })
+  payment: Payment;
+
   @Column({ default: false })
   refunded: boolean;
 
@@ -208,13 +210,13 @@ export class Appointment {
   /**
    * @deprecated Use MedicalRecord.assessment instead. Kept for backward compatibility.
    */
-  @Column({ name: 'doctor_notes', type: 'text', nullable: true })
+  // @Column({ name: 'doctor_notes', type: 'text', nullable: true })
   doctorNotes: string; // Bác sĩ ghi chú
 
   /**
    * @deprecated Use MedicalRecord.diagnosis instead. Kept for backward compatibility.
    */
-  @Column({ name: 'clinical_notes', type: 'text', nullable: true })
+  // @Column({ name: 'clinical_notes', type: 'text', nullable: true })
   clinicalNotes: string; // triệu chứng lâm sàng
 
   // ========================================
@@ -230,7 +232,7 @@ export class Appointment {
   })
   nextAppointmentDate: Date;
 
-  @Column({ name: 'has_follow_up', default: false })
+  // @Column({ name: 'has_follow_up', default: false })
   hasFollowUp: boolean;
 
   @OneToOne(() => Appointment)
@@ -243,23 +245,26 @@ export class Appointment {
   // ========================================
   // REMINDERS
   // ========================================
-  @Column({ name: 'reminder_24h_sent', default: false })
-  reminder24hSent: boolean;
+  // @Column({ name: 'reminder_24h_sent', default: false })
+  // reminder24hSent: boolean;
 
-  @Column({ name: 'reminder_1h_sent', default: false })
-  reminder1hSent: boolean;
+  // @Column({ name: 'reminder_1h_sent', default: false })
+  // reminder1hSent: boolean;
 
-  @Column({ name: 'reminder_sent_at', type: 'timestamptz', nullable: true })
-  reminderSentAt: Date;
+  // @Column({ name: 'reminder_sent_at', type: 'timestamptz', nullable: true })
+  // reminderSentAt: Date;
 
-  @Column({ name: 'confirmation_sent', default: false })
-  confirmationSent: boolean;
+  // @Column({ name: 'confirmation_sent', default: false })
+  // confirmationSent: boolean;
 
   // ========================================
   // TIMELINE
   // ========================================
   @Column({ name: 'check_in_time', type: 'timestamptz', nullable: true })
   checkInTime: Date;
+
+  @Column({ name: 'is_late_checkin', default: false })
+  isLateCheckin: boolean;
 
   @Column({ name: 'started_at', type: 'timestamptz', nullable: true })
   startedAt: Date;

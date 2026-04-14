@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -30,6 +35,18 @@ Handlebars.registerHelper(
   },
 );
 
+Handlebars.registerHelper(
+  'formatDate',
+  function (date: Date | string | undefined | null) {
+    if (!date) return '.../.../......';
+    const d = new Date(date);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  },
+);
+
 // ── Template loader (once at startup) ─────────────────────────────────────
 
 function loadTemplate(filename: string): HandlebarsTemplateDelegate {
@@ -51,10 +68,11 @@ function loadTemplate(filename: string): HandlebarsTemplateDelegate {
 // ── PdfService ──────────────────────────────────────────────────────────────
 
 @Injectable()
-export class PdfService {
+export class PdfService implements OnModuleDestroy {
   private prescriptionTemplate: HandlebarsTemplateDelegate;
   private medicalRecordTemplate: HandlebarsTemplateDelegate;
-
+  private browserPromise: Promise<puppeteer.Browser> | null = null;
+  private readonly logger = new Logger(PdfService.name);
   constructor(
     @InjectRepository(Prescription)
     private readonly prescriptionRepo: Repository<Prescription>,
@@ -67,6 +85,18 @@ export class PdfService {
   ) {
     this.prescriptionTemplate = loadTemplate('prescription.html');
     this.medicalRecordTemplate = loadTemplate('medical-record.html');
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    if (!this.browserPromise) {
+      return;
+    }
+
+    const browser = await this.browserPromise.catch(() => null);
+    this.browserPromise = null;
+    if (browser) {
+      await browser.close();
+    }
   }
 
   // ── Public API ────────────────────────────────────────────────────────────
@@ -121,6 +151,7 @@ export class PdfService {
         'vitalSigns',
         'prescriptions',
         'prescriptions.items',
+        'screeningRequests',
       ],
     });
 
@@ -137,6 +168,7 @@ export class PdfService {
     );
 
     await this.medicalRecordRepo.update(recordId, { pdfUrl });
+    this.logger.log(`PDF generated for record ${recordId}: ${pdfUrl}`);
     return pdfUrl;
   }
 
@@ -147,7 +179,9 @@ export class PdfService {
   ): Record<string, unknown> {
     const user = prescription.patient?.user;
     const doctorUser = prescription.doctor?.user;
-    const vitalSign = prescription.medicalRecord?.vitalSigns?.[0];
+    const vitalSign = this.getLatestVitalSign(
+      prescription.medicalRecord?.vitalSigns,
+    );
     const medicalRecord = prescription.medicalRecord;
 
     const birthYear = user?.dateOfBirth
@@ -207,7 +241,7 @@ export class PdfService {
   ): Record<string, unknown> {
     const patientUser = record.patient?.user;
     const doctorUser = record.doctor?.user;
-    const vitalSign = record.vitalSigns?.[0];
+    const vitalSign = this.getLatestVitalSign(record.vitalSigns);
 
     const birthYear = patientUser?.dateOfBirth
       ? new Date(patientUser.dateOfBirth).getFullYear()
@@ -300,13 +334,47 @@ export class PdfService {
         record.dischargeCondition,
       ),
       followUpInstructions: record.followUpInstructions ?? undefined,
+      nextAppointmentDate: record.appointment?.nextAppointmentDate
+        ? this.formatDate(record.appointment.nextAppointmentDate)
+        : undefined,
       hasPrescription: prescriptions.length > 0,
       prescriptions,
       fullRecordSummary: record.fullRecordSummary ?? undefined,
+      screeningStats: {
+        xray: (record.screeningRequests ?? [])
+          .filter((s) => s.screeningType === 'XRAY')
+          .map((s) => s.screeningNumber)
+          .join(', '),
+        ct: (record.screeningRequests ?? [])
+          .filter((s) => s.screeningType === 'CT')
+          .map((s) => s.screeningNumber)
+          .join(', '),
+        ultrasound: (record.screeningRequests ?? [])
+          .filter((s) => s.screeningType === 'ULTRASOUND')
+          .map((s) => s.screeningNumber)
+          .join(', '),
+        mri: (record.screeningRequests ?? [])
+          .filter((s) => s.screeningType === 'MRI')
+          .map((s) => s.screeningNumber)
+          .join(', '),
+        total: record.screeningRequests?.length ?? 0,
+      },
     };
   }
 
   // ── Core Engine ───────────────────────────────────────────────────────────
+
+  private getLatestVitalSign(
+    vitalSigns?: MedicalRecord['vitalSigns'],
+  ): MedicalRecord['vitalSigns'][number] | null {
+    if (!vitalSigns?.length) {
+      return null;
+    }
+
+    return vitalSigns
+      .slice()
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+  }
 
   private async renderAndUpload(
     template: HandlebarsTemplateDelegate,
@@ -336,16 +404,9 @@ export class PdfService {
     html: string,
     outputPath: string,
   ): Promise<void> {
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-      ],
-    });
+    const browser = await this.getBrowser();
+    const page = await browser.newPage();
     try {
-      const page = await browser.newPage();
       await page.setContent(html, {
         waitUntil: 'networkidle0',
         timeout: 30000,
@@ -357,7 +418,27 @@ export class PdfService {
         printBackground: true,
       });
     } finally {
-      await browser.close();
+      await page.close();
+    }
+  }
+
+  private async getBrowser(): Promise<puppeteer.Browser> {
+    if (!this.browserPromise) {
+      this.browserPromise = puppeteer.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+        ],
+      });
+    }
+
+    try {
+      return await this.browserPromise;
+    } catch (error) {
+      this.browserPromise = null;
+      throw error;
     }
   }
 

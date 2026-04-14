@@ -15,6 +15,8 @@ import { Doctor } from '@/modules/doctor/entities/doctor.entity';
 import { ReviewResponseDto } from '@/modules/review/dto/review-response.dto';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { AppointmentStatusEnum } from '../common/enums/appointment-status.enum';
+import { NotificationService } from '@/modules/notification/notification.service';
+import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.enum';
 
 @Injectable()
 export class ReviewService {
@@ -25,6 +27,7 @@ export class ReviewService {
     private doctorRepository: Repository<Doctor>,
     @InjectRepository(Appointment)
     private appointmentRepository: Repository<Appointment>,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async create(
@@ -109,6 +112,20 @@ export class ReviewService {
     return new ResponseCommon(200, 'SUCCESS', reviews);
   }
 
+  async findAllByDoctorUserId(
+    userId: string,
+  ): Promise<ResponseCommon<Review[]>> {
+    const doctor = await this.doctorRepository.findOne({
+      where: { userId },
+    });
+
+    if (!doctor) {
+      throw new NotFoundException(ERROR_MESSAGES.DOCTOR_NOT_FOUND);
+    }
+
+    return this.findAllByDoctorId(doctor.id);
+  }
+
   async findOne(id: string): Promise<ResponseCommon<Review>> {
     const review = await this.reviewRepository.findOne({
       where: { id },
@@ -153,6 +170,18 @@ export class ReviewService {
         doctorResponse: updateReviewDto.doctorResponse,
         responseAt: new Date(),
       });
+
+      // Send notification to patient
+      if (review.reviewerId) {
+        await this.notificationService.createNotification({
+          userId: review.reviewerId,
+          type: NotificationTypeEnum.GENERAL,
+          title: 'Bác sĩ đã phản hồi đánh giá của bạn',
+          content: `Bác sĩ ${review.doctor?.user?.fullName || ''} đã phản hồi nhận xét của bạn về lịch hẹn mã ${review.appointment?.appointmentNumber || ''}.`,
+          refId: review.id,
+          refType: 'REVIEW',
+        });
+      }
     } else {
       // User updating their own review
       if (review.reviewerId !== userId) {

@@ -16,7 +16,9 @@ import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { VitalSign } from '@/modules/medical/entities/vital-sign.entity';
 import { Prescription } from '@/modules/medical/entities/prescription.entity';
 import { MedicalRecordStatusEnum } from '@/modules/common/enums/medical-record-status.enum';
+import { SignedStatusEnum } from '@/modules/common/enums/signed-status.enum';
 import { ScreeningRequest } from '@/modules/screening/entities/screening-request.entity';
+import { MedicalRecordAddendum } from './medical-record-addendum.entity';
 
 @Entity('medical_records')
 @Index('ux_medical_record_appointment', ['appointmentId'], { unique: true })
@@ -48,9 +50,13 @@ export class MedicalRecord {
   @Column({ name: 'record_number', length: 50, unique: true })
   recordNumber: string;
 
-  // ===== SIGNING FIELDS =====
-  @Column({ name: 'signed_status', type: 'varchar', default: 'NOT_SIGNED' })
-  signedStatus: string; // 'NOT_SIGNED' | 'SIGNED'
+  @Column({
+    name: 'signed_status',
+    type: 'enum',
+    enum: SignedStatusEnum,
+    default: SignedStatusEnum.NOT_SIGNED,
+  })
+  signedStatus: SignedStatusEnum;
 
   @Column({ name: 'signed_at', type: 'timestamptz', nullable: true })
   signedAt: Date | null;
@@ -60,6 +66,9 @@ export class MedicalRecord {
 
   @Column({ name: 'pdf_url', type: 'varchar', nullable: true })
   pdfUrl: string | null;
+
+  @Column({ name: 'content_hash', type: 'varchar', nullable: true })
+  contentHash: string | null;
 
   // ===== ADMINISTRATIVE FIELDS =====
   @Column({
@@ -164,13 +173,14 @@ export class MedicalRecord {
   @Column({ name: 'full_record_summary', type: 'text', nullable: true })
   fullRecordSummary: string | null;
 
-  // Related records
+  // Previous records (Linking)
   @ManyToOne(() => MedicalRecord, { onDelete: 'SET NULL', nullable: true })
-  @JoinColumn({ name: 'related_record_id' })
-  relatedRecord: MedicalRecord | null;
+  @JoinColumn({ name: 'previous_record_id' })
+  previousRecord: MedicalRecord | null;
 
-  @Column({ name: 'related_record_id', type: 'uuid', nullable: true })
-  relatedRecordId: string | null;
+  @Index('idx_medical_record_previous_record')
+  @Column({ name: 'previous_record_id', type: 'uuid', nullable: true })
+  previousRecordId: string | null;
 
   @Column({
     type: 'enum',
@@ -182,6 +192,7 @@ export class MedicalRecord {
   @Column({ name: 'completed_at', type: 'timestamptz', nullable: true })
   completedAt: Date | null;
 
+  @Index('idx_medical_record_patient_created')
   @CreateDateColumn({
     name: 'created_at',
     type: 'timestamptz',
@@ -205,4 +216,7 @@ export class MedicalRecord {
 
   @OneToMany(() => ScreeningRequest, (s) => s.medicalRecord)
   screeningRequests: ScreeningRequest[];
+
+  @OneToMany(() => MedicalRecordAddendum, (a) => a.originalRecord)
+  addenda: MedicalRecordAddendum[];
 }

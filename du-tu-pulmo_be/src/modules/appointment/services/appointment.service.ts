@@ -86,10 +86,6 @@ export class AppointmentService {
     return this.appointmentCheckinService.checkInByNumber(appointmentNumber);
   }
 
-  checkInVideo(id: string): Promise<ResponseCommon<AppointmentResponseDto>> {
-    return this.appointmentCheckinService.checkInVideo(id);
-  }
-
   startExamination(
     id: string,
   ): Promise<ResponseCommon<AppointmentResponseDto>> {
@@ -161,10 +157,12 @@ export class AppointmentService {
   reschedule(
     appointmentId: string,
     newTimeSlotId: string,
+    rescheduledBy: string,
   ): Promise<ResponseCommon<AppointmentResponseDto>> {
     return this.appointmentSchedulingService.reschedule(
       appointmentId,
       newTimeSlotId,
+      rescheduledBy,
     );
   }
 

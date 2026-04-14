@@ -54,6 +54,10 @@ export class RichTextService {
     return this.enforceFinalImageSrcPolicy(withCloudinaryUrls);
   }
 
+  async processDoctorNotes(html: string): Promise<string> {
+    return this.processPatientNotes(html);
+  }
+
   private sanitizeHtml(html: string): string {
     return sanitizeHtml(html, {
       allowedTags: Array.from(RichTextService.ALLOWED_TAGS),

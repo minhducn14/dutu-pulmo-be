@@ -42,7 +42,6 @@ import { ResetPasswordWithOtpDto } from '@/modules/core/auth/dto/reset-password-
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 
 @ApiTags('Auth')
-@Throttle({ default: { limit: 15, ttl: 60000 } })
 @Controller('auth')
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
@@ -115,7 +114,7 @@ export class AuthController {
     @Res() res: express.Response,
   ) {
     if (error || !code) {
-      return res.redirect(`${process.env.FRONTEND_URL}/signin?error=${error}`);
+      return res.redirect(`${process.env.FRONTEND_URL}/login?error=${error}`);
     }
 
     try {
@@ -131,15 +130,14 @@ export class AuthController {
         `${process.env.FRONTEND_URL}/login-success?data=${encodedResult}`,
       );
     } catch (error) {
-      console.error('Google OAuth callback error:', error);
+      this.logger.error('Google OAuth callback error:', error);
       // Xử lý lỗi OAuth
       return res.redirect(
-        `${process.env.FRONTEND_URL}/signin?error=oauth_failed`,
+        `${process.env.FRONTEND_URL}/login?error=oauth_failed`,
       );
     }
   }
 
-  @Throttle({ default: { limit: 9, ttl: 300000 } }) // 9 requests/5 phút
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Gửi email reset mật khẩu' })
@@ -157,7 +155,6 @@ export class AuthController {
     });
   }
 
-  @Throttle({ default: { limit: 9, ttl: 300000 } })
   @Post('forgot-password-otp')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Gửi OTP reset mật khẩu' })
@@ -175,7 +172,6 @@ export class AuthController {
     });
   }
 
-  @Throttle({ default: { limit: 9, ttl: 300000 } })
   @Post('reset-password-otp')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset mật khẩu bằng OTP' })
@@ -201,7 +197,6 @@ export class AuthController {
     });
   }
 
-  @Throttle({ default: { limit: 9, ttl: 300000 } })
   @Post('reset-password-email')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset mật khẩu bằng token từ email' })
@@ -324,7 +319,6 @@ export class AuthController {
 
   @Post('resend-verification')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 3, ttl: 300000 } })
   @ApiOperation({ summary: 'Gửi lại email xác thực' })
   @ApiResponse({
     status: HttpStatus.OK,

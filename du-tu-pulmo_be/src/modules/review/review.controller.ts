@@ -73,6 +73,22 @@ export class ReviewController {
     return new ResponseCommon(response.code, response.message, data);
   }
 
+  @Get('doctor/me')
+  @Roles(RoleEnum.DOCTOR)
+  @ApiOperation({ summary: 'Lấy danh sách đánh giá của bác sĩ hiện tại' })
+  @ApiResponse({ status: HttpStatus.OK, type: [ReviewResponseDto] })
+  async findMyDoctorReviews(
+    @CurrentUser() user: JwtUser,
+  ): Promise<ResponseCommon<ReviewResponseDto[]>> {
+    const response = await this.reviewService.findAllByDoctorUserId(
+      user.userId,
+    );
+    const data = (response.data ?? []).map((review) =>
+      ReviewResponseDto.fromEntity(review),
+    );
+    return new ResponseCommon(response.code, response.message, data);
+  }
+
   @Get('doctor/:doctorId')
   @ApiOperation({ summary: 'Lấy danh sách đánh giá theo bác sĩ' })
   @ApiResponse({ status: HttpStatus.OK, type: [ReviewResponseDto] })

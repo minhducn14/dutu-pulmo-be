@@ -71,6 +71,12 @@ export class AppointmentActionController {
   ) {}
 
   @Post()
+  @Roles(
+    RoleEnum.ADMIN,
+    RoleEnum.RECEPTIONIST,
+    RoleEnum.PATIENT,
+    RoleEnum.DOCTOR,
+  )
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Tạo lịch hẹn mới' })
   @ApiResponse({ status: HttpStatus.CREATED, type: AppointmentResponseDto })
@@ -199,37 +205,6 @@ export class AppointmentActionController {
     return this.wrapAppointment(response);
   }
 
-  @Post(':id/check-in/video')
-  @Roles(RoleEnum.PATIENT, RoleEnum.DOCTOR)
-  @ApiOperation({
-    summary: 'Check-in cho cuộc hẹn VIDEO (bệnh nhân hoặc bác sĩ)',
-    description:
-      'Cho phép check-in trước giờ hẹn 1 tiếng để chuẩn bị join video call',
-  })
-  @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
-  @ApiResponse({ status: HttpStatus.OK, type: AppointmentResponseDto })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Không phải VIDEO appointment hoặc chưa đến giờ',
-  })
-  async checkInVideo(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: JwtUser,
-  ): Promise<ResponseCommon<AppointmentResponseDto>> {
-    const result = await this.appointmentService.findById(id);
-    const appointment = result.data!;
-
-    const isPatient = appointment.patient.id === user.patientId;
-    const isDoctor = appointment.doctor.id === user.doctorId;
-
-    if (!isPatient && !isDoctor && !user.roles?.includes(RoleEnum.ADMIN)) {
-      throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
-    }
-
-    const response = await this.appointmentService.checkInVideo(id);
-    return this.wrapAppointment(response);
-  }
-
   @Post(':id/start-examination')
   @Roles(RoleEnum.DOCTOR)
   @ApiOperation({ summary: 'Bác sĩ bắt đầu khám bệnh' })
@@ -322,6 +297,12 @@ export class AppointmentActionController {
   }
 
   @Put(':id/cancel')
+  @Roles(
+    RoleEnum.ADMIN,
+    RoleEnum.DOCTOR,
+    RoleEnum.PATIENT,
+    RoleEnum.RECEPTIONIST,
+  )
   @ApiOperation({ summary: 'Hủy lịch hẹn' })
   @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
   @ApiResponse({ status: HttpStatus.OK, type: AppointmentResponseDto })
@@ -367,6 +348,12 @@ export class AppointmentActionController {
   }
 
   @Put(':id/reschedule')
+  @Roles(
+    RoleEnum.ADMIN,
+    RoleEnum.DOCTOR,
+    RoleEnum.PATIENT,
+    RoleEnum.RECEPTIONIST,
+  )
   @ApiOperation({ summary: 'Đổi lịch hẹn sang time slot khác' })
   @ApiParam({ name: 'id', description: 'Appointment ID (UUID)' })
   @ApiResponse({ status: HttpStatus.OK, type: AppointmentResponseDto })
@@ -401,9 +388,17 @@ export class AppointmentActionController {
       }
     }
 
+    let rescheduledBy = 'SYSTEM';
+    if (user.roles?.includes(RoleEnum.PATIENT)) rescheduledBy = 'PATIENT';
+    else if (user.roles?.includes(RoleEnum.DOCTOR)) rescheduledBy = 'DOCTOR';
+    else if (user.roles?.includes(RoleEnum.ADMIN)) rescheduledBy = 'ADMIN';
+    else if (user.roles?.includes(RoleEnum.RECEPTIONIST))
+      rescheduledBy = 'RECEPTIONIST';
+
     const response = await this.appointmentService.reschedule(
       id,
       dto.newTimeSlotId,
+      rescheduledBy,
     );
     return this.wrapAppointment(response);
   }
@@ -527,12 +522,27 @@ export class AppointmentActionController {
     const appt = await this.appointmentService.findOne(id);
     if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
-    this.accessService.validateMedicalStatus(appt.status, 'EDIT');
     this.accessService.checkEditAccess(user, appt);
+    try {
+      const encounterResponse =
+        await this.medicalService.getEncounterByAppointment(id);
+      const encounterRecord = encounterResponse.data;
+      if (encounterRecord) {
+        this.accessService.validateMedicalRecordStatus(
+          encounterRecord.status,
+          'EDIT',
+        );
+      }
+    } catch (error) {
+      if (!(error instanceof NotFoundException)) {
+        throw error;
+      }
+    }
 
     const response = await this.medicalService.updateEncounterByAppointment(
       id,
       dto,
+      user,
     );
     const record = response.data;
     if (!record) {
@@ -563,17 +573,20 @@ export class AppointmentActionController {
     const appt = await this.appointmentService.findOne(id);
     if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
-    this.accessService.validateMedicalStatus(appt.status, 'EDIT');
-    this.accessService.checkEditAccess(user, appt);
-
     const encounterResponse =
       await this.medicalService.getEncounterByAppointment(id);
-    const encounter = encounterResponse.data;
-    if (!encounter)
+    const encounterRecord = encounterResponse.data;
+    if (!encounterRecord)
       throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
+    this.accessService.validateMedicalRecordStatus(
+      encounterRecord.status,
+      'EDIT',
+    );
+    this.accessService.checkEditAccess(user, appt);
+
     const response = await this.medicalService.addVitalSignToEncounter(
-      encounter.id,
+      encounterRecord.id,
       appt.patientId,
       dto,
     );
@@ -604,7 +617,16 @@ export class AppointmentActionController {
     const appt = await this.appointmentService.findOne(id);
     if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
-    this.accessService.validateMedicalStatus(appt.status, 'EDIT');
+    const encounterResponse =
+      await this.medicalService.getEncounterByAppointment(id);
+    const encounterRecord = encounterResponse.data;
+    if (!encounterRecord)
+      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
+
+    this.accessService.validateMedicalRecordStatus(
+      encounterRecord.status,
+      'EDIT',
+    );
 
     const isDoctor = user.doctorId === appt.doctorId;
     if (!isDoctor) throw new ForbiddenException(ERROR_MESSAGES.ACCESS_DENIED);
@@ -613,18 +635,13 @@ export class AppointmentActionController {
       throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
-    const encounterResponse =
-      await this.medicalService.getEncounterByAppointment(id);
-    const encounter = encounterResponse.data;
-    if (!encounter)
-      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
-
     const response = await this.medicalService.createPrescriptionForEncounter(
-      encounter.id,
+      encounterRecord.id,
       appt.patientId,
       user.doctorId || appt.doctorId,
       id,
       dto,
+      user,
     );
     const prescription = response.data;
     if (!prescription) {
@@ -666,7 +683,13 @@ export class AppointmentActionController {
     const appt = await this.appointmentService.findOne(id);
     if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
-    this.accessService.validateMedicalStatus(appt.status, 'EDIT');
+    const encounterResponse =
+      await this.medicalService.getEncounterByAppointment(id);
+    const record = encounterResponse.data;
+    if (!record) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
+
+    this.accessService.validateMedicalRecordStatus(record.status, 'EDIT');
+    this.accessService.checkEditAccess(user, appt);
 
     const response = await this.medicalService.cancelPrescription(
       prescriptionId,
@@ -710,7 +733,12 @@ export class AppointmentActionController {
     const appt = await this.appointmentService.findOne(id);
     if (!appt) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
 
-    this.accessService.validateMedicalStatus(appt.status, 'EDIT');
+    const encounterResponse =
+      await this.medicalService.getEncounterByAppointment(id);
+    const record = encounterResponse.data;
+    if (!record) throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
+
+    this.accessService.validateMedicalRecordStatus(record.status, 'EDIT');
 
     const response = await this.medicalService.updatePrescription(
       prescriptionId,

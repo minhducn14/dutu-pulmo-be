@@ -27,6 +27,7 @@ import { PublicDoctorController } from '@/modules/doctor/controllers/public-doct
 import { NotificationModule } from '@/modules/notification/notification.module';
 import { PublicTimeSlotController } from '@/modules/doctor/controllers/public-time-slot.controller';
 import { ConsultationPricingService } from '@/modules/doctor/services/consultation-pricing.service';
+import { AppointmentCancellationModule } from '@/modules/appointment/appointment-cancellation.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { ConsultationPricingService } from '@/modules/doctor/services/consultati
     ]),
     CloudinaryModule,
     NotificationModule,
+    AppointmentCancellationModule,
   ],
   controllers: [
     DoctorController,

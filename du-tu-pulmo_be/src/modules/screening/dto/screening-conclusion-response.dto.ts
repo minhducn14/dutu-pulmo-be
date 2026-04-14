@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type { DecisionSource } from '@/modules/common/enums/decision-source.enum';
+import { PatientResponseDto } from '@/modules/patient/dto/patient-response.dto';
+import { DoctorResponseDto } from '@/modules/doctor/dto/doctor-response.dto';
 
 export class ScreeningConclusionResponseDto {
   @ApiProperty({ example: 'f1e2d3c4-b5a6-7890-1234-56789abcdef0' })
@@ -32,6 +34,9 @@ export class ScreeningConclusionResponseDto {
   @ApiPropertyOptional({ example: 'Override reason' })
   doctorOverrideReason?: string;
 
+  @ApiPropertyOptional({ example: 'Doctor notes' })
+  doctorNotes?: string;
+
   @ApiProperty({ example: '2024-10-11T09:30:00.000Z' })
   reviewedAt: Date;
 
@@ -40,6 +45,12 @@ export class ScreeningConclusionResponseDto {
 
   @ApiProperty({ example: '2024-10-11T09:30:00.000Z' })
   updatedAt: Date;
+
+  @ApiPropertyOptional({ type: PatientResponseDto })
+  patient?: PatientResponseDto;
+
+  @ApiPropertyOptional({ type: DoctorResponseDto })
+  doctor?: DoctorResponseDto;
 
   static fromEntity(conclusion: {
     id: string;
@@ -52,10 +63,13 @@ export class ScreeningConclusionResponseDto {
 
     decisionSource?: DecisionSource | null;
     doctorOverrideReason?: string | null;
+    doctorNotes?: string | null;
 
     reviewedAt: Date;
     createdAt: Date;
     updatedAt: Date;
+    patient?: Parameters<typeof PatientResponseDto.fromEntity>[0] | null;
+    doctor?: Parameters<typeof DoctorResponseDto.fromEntity>[0] | null;
   }): ScreeningConclusionResponseDto {
     const dto = new ScreeningConclusionResponseDto();
     dto.id = conclusion.id;
@@ -68,10 +82,17 @@ export class ScreeningConclusionResponseDto {
 
     dto.decisionSource = conclusion.decisionSource ?? undefined;
     dto.doctorOverrideReason = conclusion.doctorOverrideReason ?? undefined;
+    dto.doctorNotes = conclusion.doctorNotes ?? undefined;
 
     dto.reviewedAt = conclusion.reviewedAt;
     dto.createdAt = conclusion.createdAt;
     dto.updatedAt = conclusion.updatedAt;
+    dto.patient = conclusion.patient
+      ? PatientResponseDto.fromEntity(conclusion.patient)
+      : undefined;
+    dto.doctor = conclusion.doctor
+      ? DoctorResponseDto.fromEntity(conclusion.doctor)
+      : undefined;
     return dto;
   }
 

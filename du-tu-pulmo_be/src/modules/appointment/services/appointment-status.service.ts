@@ -3,9 +3,11 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  forwardRef,
+  Inject,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
 import { AppointmentStatusEnum } from '@/modules/common/enums/appointment-status.enum';
 import { AppointmentTypeEnum } from '@/modules/common/enums/appointment-type.enum';
@@ -18,6 +20,9 @@ import { AppointmentEntityService } from '@/modules/appointment/services/appoint
 import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.enum';
 import { NotificationService } from '@/modules/notification/notification.service';
+import { MedicalService } from '@/modules/medical/medical.service';
+import { RichTextService } from '@/modules/appointment/services/rich-text.service';
+import { validateTextFieldsPolicy } from '@/common/utils/text-fields-policy.util';
 
 @Injectable()
 export class AppointmentStatusService {
@@ -31,100 +36,142 @@ export class AppointmentStatusService {
     private readonly appointmentReadService: AppointmentReadService,
     private readonly appointmentEntityService: AppointmentEntityService,
     private readonly notificationService: NotificationService,
+    private readonly dataSource: DataSource,
+    private readonly richTextService: RichTextService,
+    @Inject(forwardRef(() => MedicalService))
+    private readonly medicalService: MedicalService,
   ) {}
 
   async updateStatus(
     id: string,
     status: AppointmentStatusEnum,
   ): Promise<ResponseCommon<AppointmentResponseDto>> {
-    const appointment = await this.appointmentEntityService.findOne(id);
+    let createdEncounter: Pick<
+      Awaited<ReturnType<MedicalService['upsertEncounterInTx']>>['record'],
+      'id' | 'patientId' | 'recordNumber'
+    > | null = null;
 
-    if (!appointment) {
-      this.logger.error('Appointment not found');
-      throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
-    }
+    await this.dataSource.transaction(async (manager: EntityManager) => {
+      const appointment = await manager.findOne(Appointment, {
+        where: { id },
+        relations: [
+          'patient',
+          'patient.user',
+          'doctor',
+          'doctor.user',
+          'scheduleSlot',
+        ],
+      });
 
-    const validTransitions: Record<
-      AppointmentStatusEnum,
-      AppointmentStatusEnum[]
-    > = {
-      [AppointmentStatusEnum.PENDING_PAYMENT]: [
-        AppointmentStatusEnum.CONFIRMED,
-        AppointmentStatusEnum.CANCELLED,
-        AppointmentStatusEnum.PENDING,
-      ],
-      [AppointmentStatusEnum.PENDING]: [
-        AppointmentStatusEnum.CONFIRMED,
-        AppointmentStatusEnum.CANCELLED,
-      ],
-      [AppointmentStatusEnum.CONFIRMED]: [
-        AppointmentStatusEnum.CHECKED_IN,
-        AppointmentStatusEnum.IN_PROGRESS,
-        AppointmentStatusEnum.CANCELLED,
-      ],
-      [AppointmentStatusEnum.CHECKED_IN]: [
-        AppointmentStatusEnum.IN_PROGRESS,
-        AppointmentStatusEnum.CANCELLED,
-      ],
-      [AppointmentStatusEnum.IN_PROGRESS]: [
-        AppointmentStatusEnum.COMPLETED,
-        AppointmentStatusEnum.CANCELLED,
-      ],
-      [AppointmentStatusEnum.COMPLETED]: [],
-      [AppointmentStatusEnum.CANCELLED]: [],
-      [AppointmentStatusEnum.RESCHEDULED]: [
-        AppointmentStatusEnum.CONFIRMED,
-        AppointmentStatusEnum.CANCELLED,
-      ],
-    };
+      if (!appointment) {
+        this.logger.error('Appointment not found');
+        throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
+      }
 
-    const allowedNextStates = validTransitions[appointment.status] || [];
-    if (!allowedNextStates.includes(status)) {
-      this.logger.error('Invalid status transition');
-      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
-    }
+      const validTransitions: Record<
+        AppointmentStatusEnum,
+        AppointmentStatusEnum[]
+      > = {
+        [AppointmentStatusEnum.PENDING_PAYMENT]: [
+          AppointmentStatusEnum.CONFIRMED,
+          AppointmentStatusEnum.CANCELLED,
+          AppointmentStatusEnum.PENDING,
+        ],
+        [AppointmentStatusEnum.PENDING]: [
+          AppointmentStatusEnum.CONFIRMED,
+          AppointmentStatusEnum.CANCELLED,
+        ],
+        [AppointmentStatusEnum.CONFIRMED]: [
+          AppointmentStatusEnum.CHECKED_IN,
+          AppointmentStatusEnum.IN_PROGRESS,
+          AppointmentStatusEnum.CANCELLED,
+          AppointmentStatusEnum.NO_SHOW,
+        ],
+        [AppointmentStatusEnum.CHECKED_IN]: [
+          AppointmentStatusEnum.IN_PROGRESS,
+          AppointmentStatusEnum.CANCELLED,
+        ],
+        [AppointmentStatusEnum.IN_PROGRESS]: [
+          AppointmentStatusEnum.COMPLETED,
+          AppointmentStatusEnum.CANCELLED,
+        ],
+        [AppointmentStatusEnum.COMPLETED]: [],
+        [AppointmentStatusEnum.CANCELLED]: [],
+        [AppointmentStatusEnum.RESCHEDULED]: [
+          AppointmentStatusEnum.CONFIRMED,
+          AppointmentStatusEnum.CANCELLED,
+        ],
+        [AppointmentStatusEnum.NO_SHOW]: [],
+      };
 
-    const updateData: Partial<Appointment> = { status };
+      const allowedNextStates = validTransitions[appointment.status] || [];
+      if (!allowedNextStates.includes(status)) {
+        this.logger.error('Invalid status transition');
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+      }
 
-    if (status === AppointmentStatusEnum.CONFIRMED) {
-      if (
-        appointment.appointmentType === AppointmentTypeEnum.VIDEO &&
-        !appointment.meetingUrl
+      const updateData: Partial<Appointment> = { status };
+
+      if (status === AppointmentStatusEnum.CONFIRMED) {
+        if (
+          appointment.appointmentType === AppointmentTypeEnum.VIDEO &&
+          !appointment.meetingUrl
+        ) {
+          try {
+            const room = await this.dailyService.getOrCreateRoom(
+              appointment.id,
+            );
+            updateData.meetingUrl = room.url;
+            updateData.dailyCoChannel = room.name;
+            this.logger.log(
+              `Generated meeting URL for appointment ${appointment.id}`,
+            );
+          } catch (error) {
+            this.logger.error(`Failed to generate meeting URL: ${error}`);
+            throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+          }
+        }
+      } else if (status === AppointmentStatusEnum.IN_PROGRESS) {
+        updateData.startedAt = new Date();
+        // Ensure medical record is created
+        const encounterResult = await this.medicalService.upsertEncounterInTx(
+          manager,
+          appointment,
+        );
+        if (encounterResult.created) {
+          createdEncounter = encounterResult.record;
+        }
+      } else if (
+        status === AppointmentStatusEnum.COMPLETED ||
+        status === AppointmentStatusEnum.NO_SHOW
       ) {
-        try {
-          const room = await this.dailyService.getOrCreateRoom(appointment.id);
-          updateData.meetingUrl = room.url;
-          updateData.dailyCoChannel = room.name;
-          this.logger.log(
-            `Generated meeting URL for appointment ${appointment.id}`,
-          );
-        } catch (error) {
-          this.logger.error(`Failed to generate meeting URL: ${error}`);
-          throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
+        updateData.endedAt = new Date();
+
+        if (
+          appointment.appointmentType === AppointmentTypeEnum.VIDEO &&
+          appointment.dailyCoChannel
+        ) {
+          try {
+            await this.dailyService.deleteRoom(appointment.dailyCoChannel);
+            await this.callStateService.clearCallsForAppointment(
+              appointment.id,
+            );
+            this.logger.log(
+              `Cleaned up video room for appointment ${appointment.id}`,
+            );
+          } catch (error) {
+            this.logger.warn(`Failed to cleanup video room: ${error}`);
+          }
         }
       }
-    } else if (status === AppointmentStatusEnum.IN_PROGRESS) {
-      updateData.startedAt = new Date();
-    } else if (status === AppointmentStatusEnum.COMPLETED) {
-      updateData.endedAt = new Date();
 
-      if (
-        appointment.appointmentType === AppointmentTypeEnum.VIDEO &&
-        appointment.dailyCoChannel
-      ) {
-        try {
-          await this.dailyService.deleteRoom(appointment.dailyCoChannel);
-          await this.callStateService.clearCallsForAppointment(appointment.id);
-          this.logger.log(
-            `Cleaned up video room for appointment ${appointment.id}`,
-          );
-        } catch (error) {
-          this.logger.warn(`Failed to cleanup video room: ${error}`);
-        }
-      }
+      await manager.update(Appointment, id, updateData);
+    });
+
+    if (createdEncounter) {
+      this.medicalService.logAutoCreatedEncounter(createdEncounter);
     }
 
-    await this.appointmentRepository.update(id, updateData);
     return this.appointmentReadService.findById(id);
   }
 
@@ -208,6 +255,7 @@ export class AppointmentStatusService {
     const terminalStates = [
       AppointmentStatusEnum.COMPLETED,
       AppointmentStatusEnum.CANCELLED,
+      AppointmentStatusEnum.NO_SHOW,
     ];
 
     if (terminalStates.includes(appointment.status)) {
@@ -215,7 +263,52 @@ export class AppointmentStatusService {
       throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
-    await this.appointmentRepository.update(appointmentId, data);
+    validateTextFieldsPolicy({
+      chiefComplaint: data.chiefComplaint,
+      chiefComplaintErrorCode:
+        ERROR_MESSAGES.APPOINTMENT_NOTES_CHIEF_COMPLAINT_PLAIN_TEXT_ONLY,
+    });
+
+    const sanitizedData = { ...data };
+
+    if (sanitizedData.patientNotes) {
+      sanitizedData.patientNotes =
+        await this.richTextService.processPatientNotes(
+          sanitizedData.patientNotes,
+        );
+    }
+
+    if (sanitizedData.doctorNotes) {
+      sanitizedData.doctorNotes = await this.richTextService.processDoctorNotes(
+        sanitizedData.doctorNotes,
+      );
+    }
+
+    if (sanitizedData.doctorNotes !== undefined) {
+      const medicalRecord =
+        await this.medicalService.findEncounterByAppointmentIdSafe(
+          appointmentId,
+        );
+
+      if (medicalRecord) {
+        // Medical record tồn tại → ghi vào nguồn sự thật chính xác
+        await this.dataSource
+          .createQueryBuilder()
+          .update('medical_records')
+          .set({ assessment: sanitizedData.doctorNotes })
+          .where('appointment_id = :appointmentId', { appointmentId })
+          .execute();
+        // Không ghi vào appointments nữa → xóa khỏi sanitizedData
+        delete sanitizedData.doctorNotes;
+        this.logger.log(
+          `doctorNotes redirected to medical_records.assessment for appointment ${appointmentId}`,
+        );
+      }
+      // Nếu không có medical record → giữ nguyên sanitizedData.doctorNotes
+      // để ghi vào appointments.doctor_notes (backward compat)
+    }
+
+    await this.appointmentRepository.update(appointmentId, sanitizedData);
 
     this.logger.log(`Updated clinical info for appointment ${appointmentId}`);
 

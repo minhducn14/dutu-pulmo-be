@@ -18,6 +18,7 @@ import { AppointmentMapperService } from '@/modules/appointment/services/appoint
 
 import { MedicalRecord } from '@/modules/medical/entities/medical-record.entity';
 import { applyPaginationAndSort } from '@/common/utils/pagination.util';
+import { endOfDayVN, startOfDayVN } from '@/common/datetime';
 
 @Injectable()
 export class AppointmentReadService {
@@ -38,7 +39,25 @@ export class AppointmentReadService {
       .leftJoinAndSelect('appointment.patient', 'patient')
       .leftJoinAndSelect('patient.user', 'patientUser')
       .leftJoinAndSelect('appointment.doctor', 'doctor')
-      .leftJoinAndSelect('doctor.user', 'doctorUser');
+      .leftJoinAndSelect('doctor.user', 'doctorUser')
+      .leftJoinAndSelect('appointment.payment', 'payment');
+
+    if (query?.search) {
+      qb.andWhere(
+        new Brackets((subQuery) => {
+          subQuery
+            .where('UPPER(patientUser.fullName) LIKE :search', {
+              search: `%${query.search?.toUpperCase()}%`,
+            })
+            .orWhere('UPPER(doctorUser.fullName) LIKE :search', {
+              search: `%${query.search?.toUpperCase()}%`,
+            })
+            .orWhere('UPPER(appointment.appointmentNumber) LIKE :search', {
+              search: `%${query.search?.toUpperCase()}%`,
+            });
+        }),
+      );
+    }
 
     if (query?.status) {
       qb.andWhere('appointment.status = :status', { status: query.status });
@@ -52,16 +71,16 @@ export class AppointmentReadService {
 
     if (query?.startDate && query?.endDate) {
       qb.andWhere('appointment.scheduledAt BETWEEN :startDate AND :endDate', {
-        startDate: new Date(query.startDate),
-        endDate: new Date(query.endDate),
+        startDate: startOfDayVN(new Date(query.startDate)),
+        endDate: endOfDayVN(new Date(query.endDate)),
       });
     } else if (query?.startDate) {
       qb.andWhere('appointment.scheduledAt >= :startDate', {
-        startDate: new Date(query.startDate),
+        startDate: startOfDayVN(new Date(query.startDate)),
       });
     } else if (query?.endDate) {
       qb.andWhere('appointment.scheduledAt <= :endDate', {
-        endDate: new Date(query.endDate),
+        endDate: endOfDayVN(new Date(query.endDate)),
       });
     }
 
@@ -69,7 +88,13 @@ export class AppointmentReadService {
     applyPaginationAndSort(
       qb,
       query || {},
-      ['scheduledAt', 'createdAt', 'status', 'appointmentType'],
+      [
+        'scheduledAt',
+        'createdAt',
+        'status',
+        'appointmentType',
+        'appointmentNumber',
+      ],
       'scheduledAt',
       'DESC',
     );
@@ -104,14 +129,19 @@ export class AppointmentReadService {
 
     const dto = this.mapper.toDto(appointment);
 
-    // Try to find associated medical record ID
+    // Try to find associated medical record
     const medicalRecord = await this.medicalRecordRepository.findOne({
       where: { appointmentId: id },
-      select: ['id'],
+      select: ['id', 'assessment', 'diagnosis'],
     });
 
     if (medicalRecord) {
       dto.medicalRecordId = medicalRecord.id;
+      // Backward compatibility: If appointment notes are empty, use medical record notes
+      dto.doctorNotes =
+        dto.doctorNotes || medicalRecord.assessment || undefined;
+      dto.clinicalNotes =
+        dto.clinicalNotes || medicalRecord.diagnosis || undefined;
     }
 
     return new ResponseCommon(200, 'SUCCESS', dto);
@@ -127,6 +157,7 @@ export class AppointmentReadService {
       .leftJoinAndSelect('patient.user', 'patientUser')
       .leftJoinAndSelect('appointment.doctor', 'doctor')
       .leftJoinAndSelect('doctor.user', 'doctorUser')
+      .leftJoinAndSelect('appointment.payment', 'payment')
       .where('appointment.patientId = :patientId', { patientId });
 
     if (query?.search) {
@@ -150,15 +181,11 @@ export class AppointmentReadService {
       qb.andWhere('appointment.status = :status', { status: query.status });
     }
 
-    const startDate = query?.startDate ? new Date(query.startDate) : null;
-    const endDate = query?.endDate ? new Date(query.endDate) : null;
+    const startDate = query?.startDate
+      ? startOfDayVN(new Date(query.startDate))
+      : null;
+    const endDate = query?.endDate ? endOfDayVN(new Date(query.endDate)) : null;
 
-    if (startDate) {
-      startDate.setHours(0, 0, 0, 0);
-    }
-    if (endDate) {
-      endDate.setHours(23, 59, 59, 999);
-    }
     if (startDate && endDate) {
       qb.andWhere('appointment.scheduledAt BETWEEN :startDate AND :endDate', {
         startDate,
@@ -211,19 +238,17 @@ export class AppointmentReadService {
       .leftJoinAndSelect('patient.user', 'patientUser')
       .leftJoinAndSelect('appointment.doctor', 'doctor')
       .leftJoinAndSelect('doctor.user', 'doctorUser')
+      .leftJoinAndSelect('appointment.payment', 'payment')
       .where('appointment.doctorId = :doctorId', { doctorId });
 
     if (query?.status) {
       qb.andWhere('appointment.status = :status', { status: query.status });
     }
-    const startDate = query?.startDate ? new Date(query.startDate) : null;
-    const endDate = query?.endDate ? new Date(query.endDate) : null;
-    if (startDate) {
-      startDate.setHours(0, 0, 0, 0);
-    }
-    if (endDate) {
-      endDate.setHours(23, 59, 59, 999);
-    }
+    const startDate = query?.startDate
+      ? startOfDayVN(new Date(query.startDate))
+      : null;
+    const endDate = query?.endDate ? endOfDayVN(new Date(query.endDate)) : null;
+
     if (startDate && endDate) {
       qb.andWhere('appointment.scheduledAt BETWEEN :startDate AND :endDate', {
         startDate,

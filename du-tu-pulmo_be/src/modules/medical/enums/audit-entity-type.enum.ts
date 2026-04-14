@@ -1,0 +1,5 @@
+export enum AuditEntityType {
+  MEDICAL_RECORD = 'MEDICAL_RECORD',
+  PRESCRIPTION = 'PRESCRIPTION',
+  VITAL_SIGN = 'VITAL_SIGN',
+}

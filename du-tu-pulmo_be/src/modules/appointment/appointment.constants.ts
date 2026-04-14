@@ -7,6 +7,7 @@ export const APPOINTMENT_BASE_RELATIONS = [
   'doctor.user.account',
   'hospital',
   'timeSlot',
+  'payment',
 ];
 
 export const APPOINTMENT_AUTH_RELATIONS = [
@@ -22,10 +23,12 @@ export const CHECKIN_TIME_THRESHOLDS = {
   IN_CLINIC: {
     EARLY_MINUTES: 30,
     LATE_MINUTES: 15,
+    LATE_TOLERANCE_MINUTES: null,
   },
   VIDEO: {
     EARLY_MINUTES: 60,
     LATE_MINUTES: 30,
+    LATE_TOLERANCE_MINUTES: 30,
   },
 };
 

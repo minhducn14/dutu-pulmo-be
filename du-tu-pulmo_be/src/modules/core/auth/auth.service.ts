@@ -84,7 +84,7 @@ export class AuthService {
     }
 
     const passwordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.])[A-Za-z\d@$!%*?&.]{8,}$/;
     if (!passwordRegex.test(dto.password)) {
       throw new BadRequestException(ERROR_MESSAGES.PASSWORD_TOO_WEAK);
     }
@@ -1043,10 +1043,10 @@ export class AuthService {
   }
 
   /**
-   * OTP valid for 10 minutes
+   * OTP valid for 5 minutes
    */
   private getOtpExpiry(): Date {
-    return new Date(Date.now() + 10 * 60 * 1000);
+    return new Date(Date.now() + 5 * 60 * 1000);
   }
 
   /**
@@ -1219,24 +1219,6 @@ export class AuthService {
             });
           }
 
-          // Rate limiting: Check if OTP was sent recently (within 1 minute)
-          if (account.resetPasswordOtpExpiry) {
-            const now = new Date();
-            const timeSinceLastOtp =
-              now.getTime() - account.resetPasswordOtpExpiry.getTime();
-            const nineMinutes = 9 * 60 * 1000; // 9 phút
-
-            // Nếu OTP cũ còn hơn 1 phút (tức mới gửi trong vòng 1 phút)
-            if (timeSinceLastOtp < nineMinutes) {
-              this.logger.warn(
-                `Rate limit: Reset password OTP already sent recently for ${normalizedEmail}`,
-              );
-              return new ResponseCommon(200, 'SUCCESS', {
-                message: 'Rate limited',
-              });
-            }
-          }
-
           // Generate new OTP
           const resetPasswordOtp = this.generateOtp();
           const resetPasswordOtpExpiry = this.getOtpExpiry();
@@ -1340,7 +1322,7 @@ export class AuthService {
       const normalizedEmail = email.toLowerCase().trim();
 
       const passwordRegex =
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.])[A-Za-z\d@$!%*?&.]{8,}$/;
       if (!passwordRegex.test(newPassword)) {
         throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
       }

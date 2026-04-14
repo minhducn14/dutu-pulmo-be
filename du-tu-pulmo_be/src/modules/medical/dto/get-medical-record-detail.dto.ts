@@ -16,9 +16,34 @@ const toScreeningRequests = ({
 }): ScreeningRequestResponseDto[] =>
   Array.isArray(value) ? (value as ScreeningRequestResponseDto[]) : [];
 
-export enum SignedStatusEnum {
-  NOT_SIGNED = 'NOT_SIGNED',
-  SIGNED = 'SIGNED',
+// Re-export từ common/enums để backward-compatible với các import hiện có
+export { SignedStatusEnum } from '@/modules/common/enums/signed-status.enum';
+import { SignedStatusEnum } from '@/modules/common/enums/signed-status.enum';
+
+export class MedicalRecordAddendumResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  doctorId: string | null;
+
+  @ApiPropertyOptional()
+  doctorName?: string;
+
+  @ApiProperty()
+  reason: string;
+
+  @ApiProperty()
+  content: string;
+
+  @ApiProperty({ enum: SignedStatusEnum })
+  signedStatus: string;
+
+  @ApiPropertyOptional()
+  signedAt?: Date;
+
+  @ApiProperty()
+  createdAt: Date;
 }
 
 export class MedicalRecordDetailResponseDto {
@@ -207,6 +232,33 @@ export class MedicalRecordDetailResponseDto {
   @ApiProperty({ description: 'Ngày cập nhật' })
   updatedAt: Date;
 
+  @ApiPropertyOptional({ description: 'Ngày đóng bệnh án' })
+  completedAt?: Date;
+
+  @ApiPropertyOptional({ description: 'ID hồ sơ trước đó (liên kết)' })
+  previousRecordId?: string;
+
+  @ApiPropertyOptional({ description: 'ID hồ hồ sơ đề xuất liên kết' })
+  suggestedPreviousRecordId?: string | null;
+
+  @ApiPropertyOptional({ description: 'Thông tin hồ sơ đã liên kết' })
+  previousRecord?: {
+    id: string;
+    recordNumber: string;
+    createdAt: Date;
+    doctorName?: string;
+    recordType?: string;
+  };
+
+  @ApiPropertyOptional({ description: 'Thông tin hồ sơ đề xuất' })
+  suggestedPreviousRecord?: {
+    id: string;
+    recordNumber: string;
+    createdAt: Date;
+    doctorName?: string;
+    recordType?: string;
+  };
+
   @ApiPropertyOptional({ description: 'PDF URL' })
   @Transform(toOptionalString)
   pdfUrl?: string;
@@ -214,4 +266,7 @@ export class MedicalRecordDetailResponseDto {
   @ApiPropertyOptional({ type: [ScreeningRequestResponseDto] })
   @Transform(toScreeningRequests)
   screeningRequests?: ScreeningRequestResponseDto[];
+
+  @ApiPropertyOptional({ type: [MedicalRecordAddendumResponseDto] })
+  addenda?: MedicalRecordAddendumResponseDto[];
 }

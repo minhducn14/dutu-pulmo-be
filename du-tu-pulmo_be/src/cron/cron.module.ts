@@ -1,7 +1,9 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DoctorModule } from '@/modules/doctor/doctor.module';
+import { MedicalModule } from '@/modules/medical/medical.module';
 import { SlotSchedulerService } from '@/cron/slot-scheduler.service';
+
 import { AppointmentSchedulerService } from '@/cron/appointment-scheduler.service';
 import { PaymentSchedulerService } from '@/cron/payment-scheduler.service';
 import { Appointment } from '@/modules/appointment/entities/appointment.entity';
@@ -17,6 +19,7 @@ import { AppointmentModule } from '@/modules/appointment/appointment.module';
     DoctorModule,
     forwardRef(() => VideoCallModule),
     PaymentModule,
+    MedicalModule,
     AppointmentModule,
   ],
   providers: [

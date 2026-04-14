@@ -5,7 +5,7 @@ import {
   SwaggerModule,
   type OpenAPIObject,
 } from '@nestjs/swagger';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { AllExceptionsFilter } from '@/common/filters/all-exceptions.filter';
 import * as express from 'express';
@@ -26,16 +26,17 @@ function getRolesFromOperation(operation: unknown): string[] | undefined {
 }
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
 
-  // Set request body limit
+  // Body limit
   app.use(express.json({ limit: '20mb' }));
   app.use(express.urlencoded({ limit: '20mb', extended: true }));
 
-  // Enable CORS
+  // CORS
   app.enableCors();
 
-  // Global validation pipe
+  // Validation
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -50,12 +51,32 @@ async function bootstrap() {
   const port = process.env.PORT ?? 3000;
   const host = '0.0.0.0';
 
-  const serverUrl = process.env.PUBLIC_URL || `http://${host}:${port}`;
+  /**
+   * 🔥 ENV DETECTION
+   */
+  const ENV = process.env.ENV || process.env.NODE_ENV || 'development';
+
+  const PUBLIC_URL = process.env.BACKEND_URL;
+
+  let serverUrl: string;
+
+  if (ENV === 'production' || ENV === 'staging') {
+    if (!PUBLIC_URL) {
+      throw new Error('❌ PUBLIC_URL is required in production/staging');
+    }
+    serverUrl = PUBLIC_URL;
+  } else {
+    serverUrl = `http://localhost:${port}`;
+  }
+
+  logger.log(`🌍 ENV: ${ENV}`);
+  logger.log(`🌐 PUBLIC_URL: ${PUBLIC_URL}`);
+  logger.log(`🚀 Using server URL: ${serverUrl}`);
 
   /**
-   * Swagger configuration
+   * 🔥 SWAGGER CONFIG
    */
-  const config = new DocumentBuilder()
+  const builder = new DocumentBuilder()
     .setTitle('DuTu Pulmo API')
     .setDescription(
       'API documentation for DuTu Pulmo - Lung Disease Diagnosis System',
@@ -72,13 +93,23 @@ async function bootstrap() {
         in: 'header',
       },
       'JWT-auth',
-    )
-    .addServer('http://localhost:3000', 'Local Server')
-    .addServer(serverUrl, 'Public Server')
-    .build();
+    );
+
+  // 👉 Chỉ add localhost khi dev
+  if (ENV === 'development') {
+    builder.addServer(`http://localhost:${port}`, 'Local Server');
+  }
+
+  // 👉 Server chính
+  builder.addServer(serverUrl, 'Public Server');
+
+  const config = builder.build();
 
   const document = SwaggerModule.createDocument(app, config);
 
+  /**
+   * 🔥 FILTER DOC BY ROLE
+   */
   function filterDocumentByRole(
     doc: OpenAPIObject,
     role: string,
@@ -140,21 +171,21 @@ async function bootstrap() {
   });
 
   SwaggerModule.setup('docs', app, document, {
-    swaggerOptions: {
-      persistAuthorization: true,
-      tagsSorter: 'alpha',
-      operationsSorter: 'alpha',
-    },
+    swaggerOptions,
     customSiteTitle: 'DuTu Pulmo API Docs',
   });
 
+  /**
+   * EXPORT OPENAPI (optional)
+   */
   const exportPath = process.env.EXPORT_OPENAPI_PATH;
   const exportPatientPath = process.env.EXPORT_PATIENT_OPENAPI_PATH;
+
   if (exportPath || exportPatientPath) {
     if (exportPath) {
       mkdirSync(dirname(exportPath), { recursive: true });
       writeFileSync(exportPath, JSON.stringify(document, null, 2), 'utf8');
-      console.log(`Exported OpenAPI: ${exportPath}`);
+      logger.log(`Exported OpenAPI: ${exportPath}`);
     }
     if (exportPatientPath) {
       mkdirSync(dirname(exportPatientPath), { recursive: true });
@@ -163,20 +194,19 @@ async function bootstrap() {
         JSON.stringify(patientDocument, null, 2),
         'utf8',
       );
-      console.log(`Exported patient OpenAPI: ${exportPatientPath}`);
+      logger.log(`Exported patient OpenAPI: ${exportPatientPath}`);
     }
     await app.close();
     return;
   }
 
+  /**
+   * START SERVER
+   */
   await app.listen(port, host);
 
-  console.log(`🚀 Application running on: http://${host}:${port}`);
-  console.log(`📚 Swagger API Docs: http://${host}:${port}/docs`);
-  console.log(`📚 Swagger Admin API Docs: http://${host}:${port}/docs/admin`);
-  console.log(`📚 Swagger Doctor API Docs: http://${host}:${port}/docs/doctor`);
-  console.log(
-    `📚 Swagger Patient API Docs: http://${host}:${port}/docs/patient`,
-  );
+  logger.log(`🚀 Running at: ${serverUrl}`);
+  logger.log(`📚 Docs: ${serverUrl}/docs`);
 }
+
 void bootstrap();

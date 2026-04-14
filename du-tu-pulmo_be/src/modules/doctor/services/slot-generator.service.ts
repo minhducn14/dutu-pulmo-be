@@ -39,9 +39,8 @@ export class SlotGeneratorService {
   ): Promise<ResponseCommon<TimeSlot[]>> {
     const now = vnNow();
     if (startDate < now) {
-      const startOfToday = startOfDayVN(now);
-      const startOfTomorrow = addDaysVN(startOfToday, 1);
-      startDate = startOfTomorrow;
+      this.logger.error('Invalid date range. Start date is in the past');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     if (endDate < startDate) {
@@ -142,6 +141,7 @@ export class SlotGeneratorService {
       allowedAppointmentTypes: slot.allowedAppointmentTypes!,
       isAvailable: true,
       scheduleId: slot.scheduleId ?? undefined,
+      scheduleVersion: slot.scheduleVersion ?? undefined,
     }));
 
     const result = await this.timeSlotService.createMany(
@@ -216,6 +216,10 @@ export class SlotGeneratorService {
     const daySchedules = sortedSchedules.filter((s) => {
       // Check effective dates
       if (!this.isScheduleActiveOnDate(s, targetDate)) {
+        return false;
+      }
+
+      if (s.scheduleType !== ScheduleType.TIME_OFF && !s.isAvailable) {
         return false;
       }
 
@@ -373,16 +377,12 @@ export class SlotGeneratorService {
     const currentDate = startOfDayVN(effectiveStart);
 
     while (currentDate <= effectiveEnd) {
-      if (currentDate.getDay() === schedule.dayOfWeek && schedule.isAvailable) {
-        const dWeek = getDayVN(currentDate);
-
-        if (dWeek === schedule.dayOfWeek) {
-          const daySlots = this.generateSlotsFromSchedule(
-            schedule,
-            currentDate,
-          );
-          allSlots.push(...daySlots);
-        }
+      if (
+        getDayVN(currentDate) === schedule.dayOfWeek &&
+        schedule.isAvailable
+      ) {
+        const daySlots = this.generateSlotsFromSchedule(schedule, currentDate);
+        allSlots.push(...daySlots);
       }
       currentDate.setDate(currentDate.getDate() + 1);
     }
@@ -409,8 +409,8 @@ export class SlotGeneratorService {
   ): Promise<ResponseCommon<TimeSlot[]>> {
     const now = vnNow();
     if (startDate < now) {
-      const startOfToday = startOfDayVN(now);
-      startDate = addDaysVN(startOfToday, 1);
+      this.logger.error('Invalid date range. Start date is in the past');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     if (endDate < startDate) {
@@ -505,6 +505,7 @@ export class SlotGeneratorService {
       allowedAppointmentTypes: slot.allowedAppointmentTypes!,
       isAvailable: true,
       scheduleId: slot.scheduleId ?? undefined,
+      scheduleVersion: slot.scheduleVersion ?? undefined,
     }));
 
     const result = await this.timeSlotService.createMany(doctorId, dtos);
@@ -555,6 +556,7 @@ export class SlotGeneratorService {
       const daySchedules = sortedSchedules.filter((s) => {
         if (s.scheduleType === ScheduleType.TIME_OFF) return false;
         if (!this.isScheduleActiveOnDate(s, currentDate)) return false;
+        if (!s.isAvailable) return false;
 
         if (s.scheduleType === ScheduleType.FLEXIBLE) {
           if (!s.specificDate) return false;
@@ -584,6 +586,12 @@ export class SlotGeneratorService {
           (s) => s.scheduleType === ScheduleType.REGULAR,
         );
         winnerScheduleIds = regularSchedules.map((s) => s.id);
+      }
+
+      // No working winner schedule for this day -> do not disable everything by accident.
+      if (winnerScheduleIds.length === 0) {
+        currentDate.setDate(currentDate.getDate() + 1);
+        continue;
       }
 
       const disabled = await this.timeSlotService.disableSlotsNotInSchedules(

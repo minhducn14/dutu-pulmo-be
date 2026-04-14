@@ -1,98 +1,112 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# du-tu-pulmo_be
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## Tổng quan
+Backend cho hệ thống khám/chăm sóc sức khỏe từ xa (telehealth). Dự án xây dựng bằng NestJS, cung cấp API REST, xác thực JWT, realtime (Socket.IO) và tài liệu Swagger. Các module chính nằm trong `src/modules/` (account, auth, doctor, patient, appointment, medical, payment, chat, notification, screening, video call...).
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Công nghệ sử dụng
+- Node.js, TypeScript, NestJS
+- TypeORM, PostgreSQL
+- Swagger, JWT, Passport
+- Socket.IO
+- Tích hợp dịch vụ qua biến môi trường: Cloudinary, VNPay, PayOS, Daily, Google OAuth, Pulmo AI
 
-## Description
+## Yêu cầu hệ thống
+- Node.js và npm
+- PostgreSQL
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
-
+## Cài đặt và thiết lập
 ```bash
-$ npm install
+npm install
 ```
 
-## Compile and run the project
+## Biến môi trường
+Cấu hình trong `.env` ở root dự án (không commit giá trị thật):
+- `NODE_ENV`: môi trường chạy
+- `PORT`: cổng backend (mặc định 3000)
+- `FRONTEND_URL`: URL FE dùng cho CORS/redirect
+- `DB_URL`: chuỗi kết nối PostgreSQL
+- `DB_TYPE`: loại DB (ví dụ `postgres`)
+- `JWT_SECRET`: khóa ký JWT
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`: cấu hình email SMTP
+- `VNP_TMN_CODE`, `VNP_HASH_SECRET`, `VNP_URL`, `VNP_RETURN_URL`, `VNP_IPN_URL`: cấu hình VNPay
+- `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY`: cấu hình PayOS
+- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`: cấu hình Cloudinary
+- `DAILY_API_KEY`: cấu hình Daily (video call)
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`: cấu hình Google OAuth
+- `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_FULLNAME`: tài khoản admin mặc định khi seed
+- `PULMO_AI_BASE_URL`, `PULMO_AI_API_KEY`: cấu hình gọi dịch vụ AI
 
+Lưu ý: Nếu repo đang chứa `.env` có thông tin thật, nên tách ra môi trường riêng và thay thế bằng giá trị mẫu.
+
+## Chạy ứng dụng
 ```bash
-# development
-$ npm run start
+# Dev
+npm run start:dev
 
-# watch mode
-$ npm run start:dev
+# Debug
+npm run start:debug
 
-# production mode
-$ npm run start:prod
+# Build
+npm run build
+
+# Production
+npm run start:prod
+```
+Mặc định chạy tại `http://localhost:3000` (có thể đổi bằng `PORT`).
+
+### Luồng chạy/migration/seed (khuyến nghị)
+1. Cài đặt dependencies:
+   ```bash
+   npm install
+   ```
+2. Cấu hình `.env` (DB_URL, JWT, SMTP, payment, cloud...).
+3. Build để sinh `dist/` (TypeORM CLI dùng file trong `dist/`):
+   ```bash
+   npm run build
+   ```
+4. Chạy migration:
+   ```bash
+   npm run migration:run
+   ```
+5. Seed dữ liệu (nếu cần):
+   ```bash
+   npm run seed
+   ```
+6. Khởi chạy ứng dụng:
+   ```bash
+   npm run start:prod
+   ```
+
+### Tạo migration mới
+```bash
+npm run migration:generate -- -n <ten_migration>
+```
+Sau đó chạy lại `npm run migration:run`.
+
+## Tài liệu API (cho BE)
+- Swagger UI: `http://localhost:3000/api`
+- Swagger JSON: `docs/swagger.json` (được sinh khi ứng dụng khởi chạy)
+- Quy chuẩn API: `docs/api-standardization.md`
+
+## Kiểm thử
+```bash
+npm run test
+npm run test:watch
+npm run test:cov
+npm run test:e2e
 ```
 
-## Run tests
+## Triển khai
+- Build: `npm run build`
+- Chạy: `npm run start:prod`
+- Chạy migration (nếu có dùng TypeORM):
+  - `npm run migration:run`
+- Seed dữ liệu (nếu cần):
+  - `npm run seed`
 
-```bash
-# unit tests
-$ npm run test
+## Cấu trúc dự án
+Xem chi tiết tại `docs/structure.md`.
 
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+## Đóng góp
+- Tạo nhánh mới từ nhánh chính.
+- Mô tả rõ mục tiêu thay đổi và cách kiểm thử.

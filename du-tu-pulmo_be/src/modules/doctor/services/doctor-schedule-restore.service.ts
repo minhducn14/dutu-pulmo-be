@@ -6,7 +6,7 @@ import {
   ScheduleType,
   SCHEDULE_TYPE_PRIORITY,
 } from '@/modules/common/enums/schedule-type.enum';
-import { endOfDayVN, startOfDayVN } from '@/common/datetime';
+import { endOfDayVN, getDayVN, startOfDayVN } from '@/common/datetime';
 
 @Injectable()
 export class DoctorScheduleRestoreService {
@@ -16,13 +16,34 @@ export class DoctorScheduleRestoreService {
     specificDate: Date,
     rangeStart: Date,
     rangeEnd: Date,
+    options?: {
+      excludeTimeOffScheduleIds?: string[];
+    },
   ): Promise<number> {
-    // 1. Try to find active FLEXIBLE schedule for this date
+    const dayStart = startOfDayVN(specificDate);
+    const dayEnd = endOfDayVN(specificDate);
+    const timeOffSchedulesRaw = await manager.find(DoctorSchedule, {
+      where: {
+        doctorId,
+        scheduleType: ScheduleType.TIME_OFF,
+        specificDate: Between(dayStart, dayEnd),
+      },
+    });
+    const excludedIds = new Set(options?.excludeTimeOffScheduleIds ?? []);
+    const timeOffSchedules = timeOffSchedulesRaw.filter(
+      (schedule) => !excludedIds.has(schedule.id),
+    );
+    const blockingPeriods = this.buildBlockingPeriods(
+      timeOffSchedules,
+      specificDate,
+    );
+
+    // Try to restore from the active FLEXIBLE winner for the day first.
     const flexibleSchedule = await manager.findOne(DoctorSchedule, {
       where: {
         doctorId,
         scheduleType: ScheduleType.FLEXIBLE,
-        specificDate: specificDate,
+        specificDate: Between(dayStart, dayEnd),
         isAvailable: true,
       },
     });
@@ -35,11 +56,12 @@ export class DoctorScheduleRestoreService {
         rangeStart,
         rangeEnd,
         [flexibleSchedule],
+        blockingPeriods,
       );
     }
 
-    // 2. Fallback to REGULAR
-    const dayOfWeek = specificDate.getDay();
+    // Fallback to REGULAR when there is no active FLEXIBLE override.
+    const dayOfWeek = getDayVN(specificDate);
     const regularSchedules = await manager.find(DoctorSchedule, {
       where: {
         doctorId,
@@ -77,6 +99,7 @@ export class DoctorScheduleRestoreService {
       rangeStart,
       rangeEnd,
       highestPrioritySchedules,
+      blockingPeriods,
     );
   }
 
@@ -87,6 +110,7 @@ export class DoctorScheduleRestoreService {
     rangeStart: Date,
     rangeEnd: Date,
     schedules: DoctorSchedule[],
+    blockingPeriods: Array<{ start: Date; end: Date }>,
   ): Promise<number> {
     let totalRestoredSlots = 0;
 
@@ -129,6 +153,13 @@ export class DoctorScheduleRestoreService {
         const slotEnd = new Date(currentStart.getTime() + slotDurationMs);
         if (slotEnd > overlapEnd) break;
 
+        if (
+          this.overlapsBlockingPeriod(currentStart, slotEnd, blockingPeriods)
+        ) {
+          currentStart = slotEnd;
+          continue;
+        }
+
         const matchingSlot = existingSlots.find(
           (s) =>
             Math.abs(s.startTime.getTime() - currentStart.getTime()) < 1000,
@@ -167,5 +198,46 @@ export class DoctorScheduleRestoreService {
     }
 
     return totalRestoredSlots;
+  }
+
+  private buildBlockingPeriods(
+    schedules: DoctorSchedule[],
+    specificDate: Date,
+  ): Array<{ start: Date; end: Date }> {
+    const baseDate = startOfDayVN(specificDate);
+    const periods = schedules
+      .map((schedule) => {
+        const [startH, startM] = schedule.startTime.split(':').map(Number);
+        const [endH, endM] = schedule.endTime.split(':').map(Number);
+
+        return {
+          start: new Date(baseDate.getTime() + (startH * 60 + startM) * 60000),
+          end: new Date(baseDate.getTime() + (endH * 60 + endM) * 60000),
+        };
+      })
+      .sort((a, b) => a.start.getTime() - b.start.getTime());
+
+    const merged: Array<{ start: Date; end: Date }> = [];
+    for (const period of periods) {
+      const last = merged[merged.length - 1];
+      if (!last || period.start > last.end) {
+        merged.push(period);
+        continue;
+      }
+
+      last.end = new Date(Math.max(last.end.getTime(), period.end.getTime()));
+    }
+
+    return merged;
+  }
+
+  private overlapsBlockingPeriod(
+    slotStart: Date,
+    slotEnd: Date,
+    blockingPeriods: Array<{ start: Date; end: Date }>,
+  ): boolean {
+    return blockingPeriods.some(
+      (period) => slotStart < period.end && slotEnd > period.start,
+    );
   }
 }

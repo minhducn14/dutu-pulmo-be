@@ -1,4 +1,4 @@
-﻿export enum OccupationEnum {
+export enum OccupationEnum {
   JOB_00000 = '00000',
   JOB_41101 = '41101',
   JOB_17240 = '17240',
