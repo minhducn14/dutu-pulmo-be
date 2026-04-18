@@ -1373,6 +1373,7 @@ export class MedicalService {
           createdAt: p.createdAt,
         })) || [],
       progressNotes: record.progressNotes || undefined,
+      fullRecordSummary: record.fullRecordSummary || undefined,
       primaryDiagnosis: record.primaryDiagnosis || undefined,
       secondaryDiagnosis: record.secondaryDiagnosis || undefined,
       treatmentPlan: record.treatmentPlan || undefined,
