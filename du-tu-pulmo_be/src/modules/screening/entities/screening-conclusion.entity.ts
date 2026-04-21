@@ -79,6 +79,10 @@ export class ScreeningConclusion {
   @Column({ name: 'doctor_notes', type: 'text', nullable: true })
   doctorNotes: string;
 
+  @Column({ name: 'conclusion', type: 'text', nullable: true })
+  conclusion: string;
+
+
   @Column({
     name: 'reviewed_at',
     type: 'timestamptz',

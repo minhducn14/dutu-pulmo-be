@@ -41,4 +41,12 @@ export class CreateConclusionDto {
   @IsOptional()
   @IsString()
   doctorNotes?: string;
+
+  @ApiPropertyOptional({
+    description: 'Final conclusion from the doctor',
+  })
+  @IsOptional()
+  @IsString()
+  conclusion?: string;
+
 }

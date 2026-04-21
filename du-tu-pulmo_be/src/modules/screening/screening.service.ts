@@ -227,18 +227,25 @@ export class ScreeningService {
     const latestAnalysis = analyses[0] ?? null;
 
     // ── Business rules ──────────────────────────────────────────
-    // 1. AI_ONLY → bác sĩ không tự đọc, agreesWithAi phải là true
+    // 1. Nếu bác bỏ AI (agreesWithAi === false), không thể chọn AI_ONLY
+    if (dto.agreesWithAi === false && dto.decisionSource === 'AI_ONLY') {
+      throw new BadRequestException(
+        'Không thể chọn nguồn quyết định AI_ONLY khi bác bỏ kết quả AI',
+      );
+    }
+
+    // 2. AI_ONLY -> bác sĩ không tự đọc, agreesWithAi phải là true
     let agreesWithAi = dto.agreesWithAi;
     if (dto.decisionSource === 'AI_ONLY') {
       agreesWithAi = true;
     }
 
-    // 2. DOCTOR_ONLY → không so với AI, agreesWithAi không có nghĩa
+    // 3. DOCTOR_ONLY -> không so với AI, agreesWithAi không có nghĩa
     if (dto.decisionSource === 'DOCTOR_ONLY') {
       agreesWithAi = undefined;
     }
 
-    // 3. Nếu bác bỏ AI nhưng không có lý do → throw (double-check ngoài class-validator)
+    // 4. Nếu bác bỏ AI nhưng không có lý do → throw (double-check ngoài class-validator)
     if (agreesWithAi === false && !dto.doctorOverrideReason?.trim()) {
       throw new BadRequestException(
         ERROR_MESSAGES.DOCTOR_OVERRIDE_REASON_REQUIRED,
@@ -256,8 +263,10 @@ export class ScreeningService {
       decisionSource: dto.decisionSource,
       doctorOverrideReason: dto.doctorOverrideReason,
       doctorNotes: dto.doctorNotes,
+      conclusion: dto.conclusion,
       reviewedAt: new Date(),
     });
+
 
     const saved = await this.conclusionRepository.save(conclusion);
     saved.patient = screening.patient;
