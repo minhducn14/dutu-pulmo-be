@@ -73,6 +73,7 @@ export class DoctorScheduleTimeOffService {
 
     const today = startOfDayVN(vnNow());
     const specificDateNormalized = startOfDayVN(specificDate);
+    console.log('specificDateNormalized', specificDateNormalized);
     const dayOfWeek = getDayVN(specificDateNormalized);
 
     if (specificDateNormalized < today) {

@@ -19,6 +19,7 @@ export function vnNow(): Date {
 export function startOfDayVN(date: Date): Date {
   // 1. Convert input date (UTC) to VN time (Date object representing local time components)
   const vnView = toZonedTime(date, VN_TZ);
+  console.log('vnView', vnView);
   // 2. Set time to 00:00:00
   vnView.setHours(0, 0, 0, 0);
   // 3. Convert back to UTC considering VN_TZ
