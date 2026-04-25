@@ -3,38 +3,98 @@ import {
   addMinutes as addMins,
   addHours as addHrs,
   addDays as addDys,
+  differenceInMinutes,
+  isBefore,
+  isAfter,
 } from 'date-fns';
 
 export const VN_TZ = 'Asia/Ho_Chi_Minh';
 
-// "Now" for business logic in VN zone, returned as a UTC Date (safe to store as timestamptz)
+// 🔥 bật/tắt log tại đây
+const ENABLE_TZ_LOG = true;
+
+// 🔥 helper log chuẩn
+function logTZ(label: string, date: Date) {
+  if (!ENABLE_TZ_LOG) return;
+
+  console.log(`🧪 [${label}]`);
+  console.log('  Raw:', date);
+  console.log('  ISO:', date.toISOString());
+  console.log('  VN:', formatInTimeZone(date, VN_TZ, 'yyyy-MM-dd HH:mm:ss'));
+  console.log('----------------------');
+}
+
+/**
+ * 🔥 FIX CORE
+ */
+function normalizeDateInput(date: Date): Date {
+  const isUTCMidnight =
+    date.getUTCHours() === 0 &&
+    date.getUTCMinutes() === 0 &&
+    date.getUTCSeconds() === 0 &&
+    date.getUTCMilliseconds() === 0;
+
+  if (isUTCMidnight) {
+    const iso = date.toISOString().slice(0, 10);
+
+    if (ENABLE_TZ_LOG) {
+      console.log('⚠️ [TZ FIX DETECTED]');
+      logTZ('Raw Input', date);
+      console.log('  Convert →', iso + 'T00:00:00+07:00');
+    }
+
+    const fixed = new Date(iso + 'T00:00:00+07:00');
+
+    logTZ('Fixed Date', fixed);
+
+    return fixed;
+  }
+
+  return date;
+}
+
+// ------------------------
+
 export function vnNow(): Date {
-  // Take current instant, view in VN, then convert back to UTC instant for storage
   const now = new Date();
   const vnView = toZonedTime(now, VN_TZ);
-  return fromZonedTime(vnView, VN_TZ);
+  const result = fromZonedTime(vnView, VN_TZ);
+
+  logTZ('vnNow', result);
+  return result;
 }
 
-// Returns the start of the day in VN time (00:00:00.000), converted to UTC Date
+// ------------------------
+
 export function startOfDayVN(date: Date): Date {
-  // 1. Convert input date (UTC) to VN time (Date object representing local time components)
-  const vnView = toZonedTime(date, VN_TZ);
-  console.log('vnView', vnView);
-  // 2. Set time to 00:00:00
+  const safeDate = normalizeDateInput(date);
+
+  logTZ('startOfDayVN - input', safeDate);
+
+  const vnView = toZonedTime(safeDate, VN_TZ);
   vnView.setHours(0, 0, 0, 0);
-  // 3. Convert back to UTC considering VN_TZ
-  return fromZonedTime(vnView, VN_TZ);
+
+  const result = fromZonedTime(vnView, VN_TZ);
+
+  logTZ('startOfDayVN - result', result);
+
+  return result;
 }
 
-// Returns the end of the day in VN time (23:59:59.999), converted to UTC Date
 export function endOfDayVN(date: Date): Date {
-  const vnView = toZonedTime(date, VN_TZ);
+  const safeDate = normalizeDateInput(date);
+
+  const vnView = toZonedTime(safeDate, VN_TZ);
   vnView.setHours(23, 59, 59, 999);
-  return fromZonedTime(vnView, VN_TZ);
+
+  const result = fromZonedTime(vnView, VN_TZ);
+
+  logTZ('endOfDayVN', result);
+
+  return result;
 }
 
-// Wrapper for differenceInMinutes to be explicit
-import { differenceInMinutes, isBefore, isAfter } from 'date-fns';
+// ------------------------
 
 export function diffMinutes(dateLeft: Date, dateRight: Date): number {
   return differenceInMinutes(dateLeft, dateRight);
@@ -48,36 +108,65 @@ export function isAfterVN(date: Date, dateToCompare: Date): boolean {
   return isAfter(date, dateToCompare);
 }
 
-// Add helpers that do arithmetic in VN zone then return UTC Date for storage/compare
+// ------------------------
+
 export function addMinutesVN(base: Date, minutes: number): Date {
-  const vn = toZonedTime(base, VN_TZ);
+  const safeBase = normalizeDateInput(base);
+
+  const vn = toZonedTime(safeBase, VN_TZ);
   const vnPlus = addMins(vn, minutes);
-  return fromZonedTime(vnPlus, VN_TZ);
-}
-export function addHoursVN(base: Date, hours: number): Date {
-  const vn = toZonedTime(base, VN_TZ);
-  const vnPlus = addHrs(vn, hours);
-  return fromZonedTime(vnPlus, VN_TZ);
-}
-export function addDaysVN(base: Date, days: number): Date {
-  const vn = toZonedTime(base, VN_TZ);
-  const vnPlus = addDys(vn, days);
-  return fromZonedTime(vnPlus, VN_TZ);
+
+  const result = fromZonedTime(vnPlus, VN_TZ);
+
+  logTZ('addMinutesVN', result);
+
+  return result;
 }
 
-// Get day of week (0-6) in VN timezone
+export function addHoursVN(base: Date, hours: number): Date {
+  const safeBase = normalizeDateInput(base);
+
+  const vn = toZonedTime(safeBase, VN_TZ);
+  const vnPlus = addHrs(vn, hours);
+
+  const result = fromZonedTime(vnPlus, VN_TZ);
+
+  logTZ('addHoursVN', result);
+
+  return result;
+}
+
+export function addDaysVN(base: Date, days: number): Date {
+  const safeBase = normalizeDateInput(base);
+
+  const vn = toZonedTime(safeBase, VN_TZ);
+  const vnPlus = addDys(vn, days);
+
+  const result = fromZonedTime(vnPlus, VN_TZ);
+
+  logTZ('addDaysVN', result);
+
+  return result;
+}
+
+// ------------------------
+
 export function getDayVN(date: Date): number {
-  const vn = toZonedTime(date, VN_TZ);
+  const safeDate = normalizeDateInput(date);
+
+  const vn = toZonedTime(safeDate, VN_TZ);
+
+  logTZ('getDayVN', safeDate);
+
   return vn.getDay();
 }
 
-/**
- * Check if two dates represent the same calendar day in VN timezone.
- * This properly handles timezone differences without using tolerance hacks.
- */
+// ------------------------
+
 export function isSameDayVN(date1: Date, date2: Date): boolean {
-  const vn1 = toZonedTime(date1, VN_TZ);
-  const vn2 = toZonedTime(date2, VN_TZ);
+  const vn1 = toZonedTime(normalizeDateInput(date1), VN_TZ);
+  const vn2 = toZonedTime(normalizeDateInput(date2), VN_TZ);
+
   return (
     vn1.getFullYear() === vn2.getFullYear() &&
     vn1.getMonth() === vn2.getMonth() &&
@@ -85,49 +174,50 @@ export function isSameDayVN(date1: Date, date2: Date): boolean {
   );
 }
 
-/**
- * Format a date as YYYY-MM-DD string in VN timezone.
- * Useful for display and logging.
- */
+// ------------------------
+
 export function formatDateVN(
   date: Date,
   formatStr: string = 'yyyy-MM-dd',
 ): string {
-  return formatInTimeZone(date, VN_TZ, formatStr);
+  return formatInTimeZone(normalizeDateInput(date), VN_TZ, formatStr);
 }
-/**
- * Trả về số phút kể từ 00:00 theo giờ Việt Nam.
- *
- * Dùng thay thế cho date.getHours() / date.getMinutes() trên server chạy UTC,
- * vì getHours() trả giờ UTC không phải giờ VN.
- *
- * Ví dụ: 08:30 VN (01:30 UTC) → 510
- * Ví dụ: 00:30 VN (17:30 UTC hôm trước) → 30
- */
+
+// ------------------------
+
 export function getTimeMinutesVN(date: Date): number {
-  const vn = toZonedTime(date, VN_TZ);
+  const vn = toZonedTime(normalizeDateInput(date), VN_TZ);
   return vn.getHours() * 60 + vn.getMinutes();
 }
 
-/**
- * Returns the start of the 1st day of the next month in VN timezone.
- */
+// ------------------------
+
 export function startOfNextMonthVN(base: Date = vnNow()): Date {
-  const vn = toZonedTime(base, VN_TZ);
+  const safeBase = normalizeDateInput(base);
+
+  const vn = toZonedTime(safeBase, VN_TZ);
   vn.setMonth(vn.getMonth() + 1);
   vn.setDate(1);
   vn.setHours(0, 0, 0, 0);
-  return fromZonedTime(vn, VN_TZ);
+
+  const result = fromZonedTime(vn, VN_TZ);
+
+  logTZ('startOfNextMonthVN', result);
+
+  return result;
 }
 
-/**
- * Returns the end of the last day of the next month in VN timezone.
- */
 export function endOfNextMonthVN(base: Date = vnNow()): Date {
   const startNext = toZonedTime(startOfNextMonthVN(base), VN_TZ);
-  // Last day of next month: go to 2nd month from now, then back 1 day
+
   const startAfterNext = new Date(startNext);
   startAfterNext.setMonth(startAfterNext.getMonth() + 1);
+
   const endNext = new Date(startAfterNext.getTime() - 1);
-  return fromZonedTime(endNext, VN_TZ);
+
+  const result = fromZonedTime(endNext, VN_TZ);
+
+  logTZ('endOfNextMonthVN', result);
+
+  return result;
 }
