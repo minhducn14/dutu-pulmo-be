@@ -11,7 +11,7 @@ import {
 export const VN_TZ = 'Asia/Ho_Chi_Minh';
 
 // 🔥 bật/tắt log tại đây
-const ENABLE_TZ_LOG = true;
+const ENABLE_TZ_LOG = false;
 
 // 🔥 helper log chuẩn
 function logTZ(label: string, date: Date) {

@@ -227,7 +227,7 @@ export class PdfService implements OnModuleDestroy {
       diagnosisName: medicalRecord?.diagnosis ?? 'Chưa có chẩn đoán',
       diagnosisCode: medicalRecord?.primaryDiagnosis ?? undefined,
       medicines,
-      advice: prescription.instructions ?? undefined,
+      advice: prescription.notes ?? undefined,
       doctorName: doctorUser?.fullName ?? 'Bác sĩ',
       revisitDate: prescription.validUntil
         ? this.formatDate(prescription.validUntil)
