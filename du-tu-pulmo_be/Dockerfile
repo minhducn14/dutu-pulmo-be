@@ -16,12 +16,21 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-# Copy built assets and production dependencies
+# Cài Chromium cho Alpine
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont
+
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/package*.json ./
 COPY --from=build /app/node_modules ./node_modules
-# Re-install only production dependencies to keep image small (optional if node_modules is large)
-# RUN npm ci --only=production
 
 # Expose port (default NestJS is 3000)
 EXPOSE 3000

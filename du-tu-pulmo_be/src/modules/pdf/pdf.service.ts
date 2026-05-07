@@ -423,23 +423,30 @@ export class PdfService implements OnModuleDestroy {
   }
 
   private async getBrowser(): Promise<puppeteer.Browser> {
-    if (!this.browserPromise) {
-      this.browserPromise = puppeteer.launch({
-        headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-        ],
-      });
+    if (this.browserPromise) {
+      try {
+        const browser = await this.browserPromise;
+        if (browser.connected) {
+          return browser;
+        }
+      } catch {
+        console.log('The browser is malfunctioning, regenerating.');
+      }
+      this.browserPromise = null;
     }
 
-    try {
-      return await this.browserPromise;
-    } catch (error) {
-      this.browserPromise = null;
-      throw error;
-    }
+    this.browserPromise = puppeteer.launch({
+      headless: true,
+      executablePath: '/usr/bin/chromium-browser',
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+      ],
+    });
+
+    return this.browserPromise;
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
