@@ -8,7 +8,7 @@ import uuid
 import logging
 import requests
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, abort
 from PIL import Image
 
 import time
@@ -20,6 +20,7 @@ from models.disease_config import VINBIGDATA_LABELS
 from services.image_processor import ImageProcessor
 from services.diagnosis_analyzer import LungDiagnosisAnalyzer
 from services.cloudinary_service import CloudinaryService
+from services.gemini_validator import GeminiXrayValidator
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,18 @@ cloudinary_service = CloudinaryService(
     api_secret=Config.CLOUDINARY_API_SECRET,
     folder=Config.CLOUDINARY_FOLDER
 )
+
+_gemini_validator = None
+
+def get_gemini_validator():
+    """Lazy-load GeminiXrayValidator."""
+    global _gemini_validator
+    if _gemini_validator is None and Config.is_gemini_configured():
+        try:
+            _gemini_validator = GeminiXrayValidator(api_key=Config.GEMINI_API_KEY)
+        except Exception as e:
+            logger.warning(f"Could not initialize GeminiXrayValidator: {e}")
+    return _gemini_validator
 
 _model = None
 
@@ -232,6 +245,28 @@ def predict_xray():
         if not original_upload.get('success'):
             return jsonify({"success": False, "error": "Upload failed"}), 500
         original_image_url = original_upload.get('url')
+
+        # 3.5. Gemini Validation: kiểm tra có phải X-quang phổi không
+        timer.start('gemini_validation')
+        validator = get_gemini_validator()
+        if validator and validator.available:
+            validation = validator.validate(processed_filepath)
+            if not validation["is_valid"]:
+                logger.warning(
+                    f"[{file_id}] Gemini rejected image: {validation['reason']}"
+                )
+                # Dọn file local trước khi từ chối
+                for f_path in [filepath, processed_filepath]:
+                    if f_path and os.path.exists(f_path):
+                        try: os.remove(f_path)
+                        except: pass
+                return jsonify({
+                    "success": False,
+                    "error": "Ảnh không hợp lệ: không phải X-quang lồng ngực (chest X-ray).",
+                    "reason": validation["reason"],
+                    "confidence": validation["confidence"]
+                }), 422
+        timer.stop('gemini_validation')
         
         # 4. Model Inference (GPU/CPU Bound)
         timer.start('inference')
@@ -401,6 +436,25 @@ def predict_xray_v2():
         except Exception as img_err:
             logger.warning(f"[{correlation_id}] Image processing failed, using original: {img_err}")
             processed_filepath = filepath
+
+        # Gemini Validation: kiểm tra có phải X-quang phổi không
+        validator = get_gemini_validator()
+        if validator and validator.available:
+            validation = validator.validate(processed_filepath)
+            if not validation["is_valid"]:
+                logger.warning(
+                    f"[{correlation_id}] Gemini rejected image: {validation['reason']}"
+                )
+                for f_path in [filepath, processed_filepath]:
+                    if f_path and os.path.exists(f_path):
+                        try: os.remove(f_path)
+                        except: pass
+                return jsonify({
+                    "success": False,
+                    "error": "Ảnh không hợp lệ: không phải X-quang lồng ngực (chest X-ray).",
+                    "reason": validation["reason"],
+                    "confidence": validation["confidence"]
+                }), 422
         
         detections, annotated_img = run_inference(
             processed_filepath, 

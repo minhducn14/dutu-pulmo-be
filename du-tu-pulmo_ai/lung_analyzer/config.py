@@ -27,6 +27,10 @@ class Config:
     APPLY_HISTOGRAM_EQ = os.getenv('APPLY_HISTOGRAM_EQ', 'true').lower() == 'true'
     
     CONF_THRESHOLD = float(os.getenv('CONF_THRESHOLD', 0.60))
+
+    # Gemini AI Validation
+    GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
+    GEMINI_VALIDATION_ENABLED = os.getenv('GEMINI_VALIDATION_ENABLED', 'true').lower() == 'true'
     
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
@@ -47,6 +51,11 @@ class Config:
         if os.path.isabs(cls.MODEL_PATH):
             return cls.MODEL_PATH
         return os.path.join(cls.BASE_DIR, cls.MODEL_PATH)
+
+    @classmethod
+    def is_gemini_configured(cls) -> bool:
+        """Check if Gemini validation is properly configured."""
+        return bool(cls.GEMINI_API_KEY) and cls.GEMINI_VALIDATION_ENABLED
 
 
 

@@ -157,7 +157,8 @@ def health_check():
         "scheme": SCHEME,
         "services": {
             "cloudinary": Config.is_cloudinary_configured() and CLOUDINARY_AVAILABLE,
-            "dicom_support": True
+            "dicom_support": True,
+            "gemini_validation": Config.is_gemini_configured()
         }
     }
 
