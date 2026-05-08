@@ -81,7 +81,6 @@ export class AppointmentCheckinService {
       if (lateResult?.maxQueue != null) {
         return Number(lateResult.maxQueue) + 1;
       }
-      // Fallback: tái dùng baseQuery
     }
 
     const result = await baseQuery.getRawOne<{ maxQueue: string | null }>();
@@ -91,7 +90,6 @@ export class AppointmentCheckinService {
   async checkIn(id: string): Promise<ResponseCommon<AppointmentResponseDto>> {
     const { queueNumber, doctorId, appointmentType, isLateCheckin } =
       await this.dataSource.transaction(async (manager) => {
-        // Lock appointment row trước
         const appointmentStatus = await manager.findOne(Appointment, {
           where: { id },
           lock: { mode: 'pessimistic_write' },
@@ -105,7 +103,6 @@ export class AppointmentCheckinService {
           throw new BadRequestException(ERROR_MESSAGES.INVALID_REQUEST);
         }
 
-        // Validate thanh toán
         /*
         if (
           Number(appointmentStatus.paidAmount) <
@@ -118,7 +115,6 @@ export class AppointmentCheckinService {
         }
         */
 
-        // Validate thời gian check-in
         const now = new Date();
         const timeDiffMinutes =
           (new Date(appointmentStatus.scheduledAt).getTime() - now.getTime()) /
@@ -187,7 +183,6 @@ export class AppointmentCheckinService {
     const appt = await this.appointmentReadService.findById(id);
     const data = appt.data!;
 
-    // Notify patient
     if (data.patient?.user?.id) {
       void this.notificationService.createNotification({
         userId: data.patient.user.id,
@@ -201,7 +196,6 @@ export class AppointmentCheckinService {
       });
     }
 
-    // Notify doctor if late
     if (isLateCheckin && data.doctor?.userId) {
       void this.notificationService.createNotification({
         userId: data.doctor.userId,
@@ -231,7 +225,6 @@ export class AppointmentCheckinService {
       throw new NotFoundException(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
-    // Validate appointment type for check-in by number
     if (appointment.appointmentType !== AppointmentTypeEnum.IN_CLINIC) {
       this.logger.error(
         `Appointment ${appointment.id} is not IN_CLINIC type, cannot check-in by number.`,
@@ -374,7 +367,6 @@ export class AppointmentCheckinService {
       }
     }
 
-    // Gửi ngầm việc generate PDF, không block response
     void this.medicalService
       .generatePdfsForRecordWithRetry(result.recordId)
       .catch((err) => {

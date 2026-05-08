@@ -232,7 +232,7 @@ export class AppointmentResponseDto {
 }
 
 // ============================================================================
-// NEW: STATISTICS DTO
+// STATISTICS DTO
 // ============================================================================
 
 export class AppointmentStatisticsDto {
@@ -268,7 +268,7 @@ export class AppointmentStatisticsDto {
 }
 
 // ============================================================================
-// NEW: QUEUE DTO
+// QUEUE DTO
 // ============================================================================
 
 export class DoctorQueueDto {

@@ -68,7 +68,6 @@ export class AppointmentStatsService {
           ? CHECKIN_TIME_THRESHOLDS.VIDEO.LATE_MINUTES
           : CHECKIN_TIME_THRESHOLDS.IN_CLINIC.LATE_MINUTES;
 
-      // restore late threshold validation
       return timeDiffMinutes >= -lateThreshold;
     });
 

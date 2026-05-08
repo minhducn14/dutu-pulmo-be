@@ -84,7 +84,6 @@ export class AppointmentReadService {
       });
     }
 
-    // Apply pagination and sort mapping
     applyPaginationAndSort(
       qb,
       query || {},
@@ -129,7 +128,6 @@ export class AppointmentReadService {
 
     const dto = this.mapper.toDto(appointment);
 
-    // Try to find associated medical record
     const medicalRecord = await this.medicalRecordRepository.findOne({
       where: { appointmentId: id },
       select: ['id', 'assessment', 'diagnosis'],
@@ -137,7 +135,6 @@ export class AppointmentReadService {
 
     if (medicalRecord) {
       dto.medicalRecordId = medicalRecord.id;
-      // Backward compatibility: If appointment notes are empty, use medical record notes
       dto.doctorNotes =
         dto.doctorNotes || medicalRecord.assessment || undefined;
       dto.clinicalNotes =
@@ -201,7 +198,6 @@ export class AppointmentReadService {
       });
     }
 
-    // Apply pagination and sort mapping
     applyPaginationAndSort(
       qb,
       query || {},
@@ -264,7 +260,6 @@ export class AppointmentReadService {
       });
     }
 
-    // Apply pagination and sort mapping
     applyPaginationAndSort(
       qb,
       query || {},

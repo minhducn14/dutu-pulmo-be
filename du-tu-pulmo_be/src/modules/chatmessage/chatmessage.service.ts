@@ -76,7 +76,6 @@ export class ChatMessageService {
     id: string,
     updateChatMessageDto: UpdateChatMessageDto,
   ): Promise<ResponseCommon<ChatMessage>> {
-    // Chỉ update content
     await this.chatMessageRepository.update(id, {
       content: updateChatMessageDto.content,
     });

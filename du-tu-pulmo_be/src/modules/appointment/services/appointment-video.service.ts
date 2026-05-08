@@ -74,8 +74,6 @@ export class AppointmentVideoService {
       appointment.status === AppointmentStatusEnum.IN_PROGRESS;
     const isValidState = VIDEO_JOIN_VALID_STATES.includes(appointment.status);
 
-    // Bác sĩ luôn vào được nếu đúng trạng thái (bác sĩ tạo phòng)
-    // Bệnh nhân chỉ vào được nếu đã có phòng (bác sĩ đã vào trước)
     const hasRoom = !!appointment.meetingUrl;
     const canJoinTimeWindow = isInProgress || (!isEarly && !isLate);
 
@@ -83,7 +81,6 @@ export class AppointmentVideoService {
     let message = 'Bạn có thể join video call';
 
     if (!isDoctor && canJoin && !hasRoom) {
-      // Nếu là bệnh nhân, đúng giờ nhưng bác sĩ chưa vào tạo phòng
       canJoin = false;
       message = 'Bác sĩ đang chuẩn bị phòng. Vui lòng quay lại sau ít phút.';
     } else if (!isValidState) {

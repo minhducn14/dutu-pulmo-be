@@ -175,7 +175,6 @@ export class DoctorScheduleFlexibleService {
 
       const cancellationEffects: AppointmentCancellationPostCommitEffect[] = [];
 
-      // Business rule: creating FLEXIBLE on a date cancels all pre-booked appointments on that date.
       const conflicting = appointments;
 
       for (const apt of conflicting) {

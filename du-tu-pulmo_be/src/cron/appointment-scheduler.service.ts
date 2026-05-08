@@ -132,7 +132,6 @@ export class AppointmentSchedulerService {
                   'Auto-cancelled by scheduler (past appointment)',
               });
 
-              // Giải phóng slot (đảm bảo bookedCount chính xác cho thống kê)
               if (appointment.timeSlotId) {
                 await manager.decrement(
                   TimeSlot,
@@ -141,9 +140,6 @@ export class AppointmentSchedulerService {
                   1,
                 );
 
-                // Mở lại slot nếu còn chỗ
-                // (Thực tế slot đã qua ngày nên isAvailable không ảnh hưởng booking
-                //  nhưng đảm bảo data consistency)
                 const slot = await manager.findOne(TimeSlot, {
                   where: { id: appointment.timeSlotId },
                 });
@@ -172,13 +168,11 @@ export class AppointmentSchedulerService {
           ) {
             const recordId = await this.dataSource.transaction(
               async (manager) => {
-                // 1. Update Appointment Status
                 await manager.update(Appointment, appointment.id, {
                   status: AppointmentStatusEnum.COMPLETED,
                   endedAt: appointment.endedAt || new Date(),
                 });
 
-                // 2. Find and Update Medical Record Status if exists
                 const record = await manager.findOne(MedicalRecord, {
                   where: { appointmentId: appointment.id },
                 });
@@ -188,7 +182,6 @@ export class AppointmentSchedulerService {
                   await manager.save(record);
                 }
 
-                // 3. Cleanup video room if video appointment
                 if (
                   appointment.appointmentType === AppointmentTypeEnum.VIDEO &&
                   appointment.dailyCoChannel
@@ -210,7 +203,6 @@ export class AppointmentSchedulerService {
 
             this.logger.log(`✅ Auto-completed appointment ${appointment.id}`);
 
-            // 4. Trigger PDF generation if record exists
             if (recordId) {
               void this.medicalService
                 .generatePdfsForRecordWithRetry(recordId)

@@ -88,7 +88,6 @@ export class AppointmentSchedulingService {
         throw new NotFoundException(ERROR_MESSAGES.APPOINTMENT_NOT_FOUND);
       }
 
-      // 1. Terminal states trước tiên
       if (appointment.status === AppointmentStatusEnum.COMPLETED) {
         this.logger.error('Appointment is completed');
         throw new BadRequestException(ERROR_MESSAGES.CANNOT_CANCEL_COMPLETED);
@@ -143,7 +142,6 @@ export class AppointmentSchedulingService {
               ERROR_MESSAGES.CANNOT_CANCEL_IN_PROGRESS,
             );
           case AppointmentStatusEnum.CHECKED_IN:
-            // Chỉ PATIENT mới rơi vào đây (STAFF đã có CHECKED_IN trong list)
             throw new BadRequestException(
               ERROR_MESSAGES.CANNOT_CANCEL_CHECKED_IN,
             );
@@ -154,7 +152,6 @@ export class AppointmentSchedulingService {
         }
       }
 
-      // ── Kiểm tra thời gian (chỉ khi CONFIRMED — lúc này chỉ STAFF mới tới được đây) ───────────────────
       if (appointment.status === AppointmentStatusEnum.CONFIRMED) {
         const now = new Date();
         const minutesUntilStart =
@@ -220,7 +217,6 @@ export class AppointmentSchedulingService {
             ? 'Bệnh nhân'
             : 'Hệ thống';
 
-      // Notify patient
       if (apptWithRelations.patient?.user?.id) {
         void this.notificationService.createNotification({
           userId: apptWithRelations.patient.user.id,
@@ -232,7 +228,6 @@ export class AppointmentSchedulingService {
         });
       }
 
-      // Notify doctor
       if (apptWithRelations.doctor?.user?.id) {
         void this.notificationService.createNotification({
           userId: apptWithRelations.doctor.user.id,
@@ -268,7 +263,6 @@ export class AppointmentSchedulingService {
         throw new NotFoundException(ERROR_MESSAGES.APPOINTMENT_NOT_FOUND);
       }
 
-      // ── Kiểm tra quá hạn ──────────────────────────────────────────
       if (new Date(appointment.scheduledAt) < new Date()) {
         this.logger.error('Cannot reschedule expired appointment');
         throw new BadRequestException(
@@ -279,7 +273,7 @@ export class AppointmentSchedulingService {
       const RESCHEDULE_ALLOWED_STATUSES = [
         AppointmentStatusEnum.PENDING,
         AppointmentStatusEnum.PENDING_PAYMENT,
-        AppointmentStatusEnum.CONFIRMED, // ← FIX: thêm CONFIRMED
+        AppointmentStatusEnum.CONFIRMED,
       ];
 
       if (!RESCHEDULE_ALLOWED_STATUSES.includes(appointment.status)) {
@@ -287,7 +281,6 @@ export class AppointmentSchedulingService {
         throw new BadRequestException(ERROR_MESSAGES.CANNOT_RESCHEDULE_STATUS);
       }
 
-      // Áp dụng time restriction giống cancel, chỉ khi status = CONFIRMED
       if (appointment.status === AppointmentStatusEnum.CONFIRMED) {
         const now = new Date();
         const minutesUntilStart =
@@ -297,7 +290,7 @@ export class AppointmentSchedulingService {
         if (rescheduledBy === 'PATIENT') {
           if (
             minutesUntilStart <
-            CANCELLATION_POLICY.PATIENT_CANCEL_BEFORE_MINUTES // 4 * 60 = 240 phút
+            CANCELLATION_POLICY.PATIENT_CANCEL_BEFORE_MINUTES
           ) {
             throw new BadRequestException(
               ERROR_MESSAGES.RESCHEDULE_TOO_LATE_PATIENT,
@@ -307,14 +300,13 @@ export class AppointmentSchedulingService {
 
         if (rescheduledBy === 'DOCTOR') {
           if (
-            minutesUntilStart < CANCELLATION_POLICY.DOCTOR_CANCEL_BEFORE_MINUTES // 2 * 60 = 120 phút
+            minutesUntilStart < CANCELLATION_POLICY.DOCTOR_CANCEL_BEFORE_MINUTES
           ) {
             throw new BadRequestException(
               ERROR_MESSAGES.RESCHEDULE_TOO_LATE_DOCTOR,
             );
           }
         }
-        // ADMIN / RECEPTIONIST: không có giới hạn thời gian
       }
 
       const hasPaidPayment = await manager.exists(Payment, {
@@ -481,14 +473,13 @@ export class AppointmentSchedulingService {
         },
       });
 
-      // GIAI ĐOẠN 1 (trong transaction): Mark CANCELLED local + đánh dấu chờ sync gateway
       for (const payment of pendingPayments) {
         payment.status = PaymentStatus.CANCELLED;
         payment.cancelledAt = new Date();
         payment.cancellationReason = payment.cancellationReason
           ? `${payment.cancellationReason};INVALIDATED_BY_RESCHEDULE`
           : 'INVALIDATED_BY_RESCHEDULE';
-        payment.errorCode = 'PENDING_GATEWAY_CANCEL'; // ← đánh dấu cần sync lại
+        payment.errorCode = 'PENDING_GATEWAY_CANCEL';
         payment.errorMessage =
           'Payment invalidated due to appointment reschedule, pending gateway cancel';
         payment.lastErrorAt = new Date();
@@ -550,7 +541,6 @@ export class AppointmentSchedulingService {
               'INVALIDATED_BY_RESCHEDULE',
             );
 
-            // Xóa error code khi gateway thành công
             await this.dataSource.getRepository(Payment).update(payment.id, {
               errorCode: null,
               errorMessage: null,

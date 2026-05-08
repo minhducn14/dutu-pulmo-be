@@ -122,7 +122,6 @@ export class AppointmentCreateService {
 
       this.validateSlotBookingWindow(slot.startTime, schedule);
 
-      // Repair slot counters from source-of-truth appointments before booking.
       const activeAppointmentCount = await manager.count(Appointment, {
         where: {
           timeSlotId: slot.id,

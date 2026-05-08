@@ -27,9 +27,6 @@ const VISITED_STATUSES = [
   AppointmentStatusEnum.COMPLETED,
 ];
 
-// ============================================================
-// Types nội bộ — chỉ dùng trong service này
-// ============================================================
 interface PeriodDates {
   currentStart: Date;
   currentEnd: Date;
@@ -81,9 +78,6 @@ export class DashboardStatsService {
     private readonly paymentRepository: Repository<Payment>,
   ) {}
 
-  // ============================================================
-  // PUBLIC: Entry point duy nhất
-  // ============================================================
   async getStats(
     doctorId: string,
     period: DashboardPeriodEnum = DashboardPeriodEnum.TODAY,

@@ -51,7 +51,7 @@ export class AccountService {
     }
 
     if (dto.roles !== undefined) {
-      account.roles = dto.roles as RoleEnum[]; // Trust admin input
+      account.roles = dto.roles as RoleEnum[];
     }
     if (dto.isVerified !== undefined) {
       account.isVerified = dto.isVerified;
@@ -80,7 +80,6 @@ export class AccountService {
     account.deleteReason = reason || 'Account deleted by user request';
     await this.accountRepo.save(account);
 
-    // Use TypeORM soft delete (sets deletedAt)
     await this.accountRepo.softDelete(id);
 
     return new ResponseCommon(200, 'SUCCESS', null);
