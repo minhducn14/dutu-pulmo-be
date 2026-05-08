@@ -27,6 +27,13 @@ import { ERROR_MESSAGES } from '@/common/constants/error-messages.constant';
 import { GetScreeningRequestsQueryDto } from '@/modules/screening/dto/get-screening-requests.dto';
 import { CreateConclusionDto } from '@/modules/screening/dto/create-conclusion.dto';
 
+class PulmoAiValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PulmoAiValidationError';
+  }
+}
+
 @Injectable()
 export class ScreeningService {
   private readonly logger = new Logger(ScreeningService.name);
@@ -267,7 +274,6 @@ export class ScreeningService {
       reviewedAt: new Date(),
     });
 
-
     const saved = await this.conclusionRepository.save(conclusion);
     saved.patient = screening.patient;
 
@@ -385,96 +391,118 @@ export class ScreeningService {
     screeningId: string,
     imageId: string,
   ): Promise<AiAnalysis> {
-    return this.screeningRepository.manager.transaction(
-      async (manager: EntityManager) => {
-        const screening = await manager.findOne(ScreeningRequest, {
-          where: { id: screeningId },
-          lock: { mode: 'pessimistic_write' },
-        });
-
-        if (!screening) {
-          throw new NotFoundException(ERROR_MESSAGES.SCREENING_NOT_FOUND);
-        }
-
-        if (screening.status === ScreeningStatusEnum.CANCELLED) {
-          throw new BadRequestException(
-            ERROR_MESSAGES.CANNOT_ANALYZE_CANCELLED,
-          );
-        }
-
-        const image = await this.findImageById(imageId);
-        if (image.screeningId !== screeningId) {
-          throw new BadRequestException(
-            ERROR_MESSAGES.IMAGE_NOT_BELONG_TO_SCREENING,
-          );
-        }
-
-        screening.status = ScreeningStatusEnum.AI_PROCESSING;
-        screening.aiStartedAt = new Date();
-        await manager.save(screening);
-
-        let aiAnalysis = manager.create(AiAnalysis, {
-          screeningId,
-          medicalImageId: imageId,
-          diagnosisStatus: AiDiagnosisStatusEnum.PENDING,
-        });
-        aiAnalysis = await manager.save(aiAnalysis);
-
-        try {
-          const pulmoResponse = await this.callPulmoAiPredictWithRetry(
-            image.fileUrl,
-          );
-
-          const updateData = this.mapPulmoAiToEntity(pulmoResponse);
-
-          await manager.update(AiAnalysis, aiAnalysis.id, {
-            ...updateData,
-            analyzedAt: new Date(),
+    const { screening, aiAnalysis, image } =
+      await this.screeningRepository.manager.transaction(
+        async (manager: EntityManager) => {
+          const screening = await manager.findOne(ScreeningRequest, {
+            where: { id: screeningId },
+            lock: { mode: 'pessimistic_write' },
           });
 
-          if (pulmoResponse.success) {
-            screening.status = ScreeningStatusEnum.AI_COMPLETED;
-            screening.aiCompletedAt = new Date();
-          } else {
-            screening.status = ScreeningStatusEnum.AI_FAILED;
+          if (!screening) {
+            throw new NotFoundException(ERROR_MESSAGES.SCREENING_NOT_FOUND);
           }
-          await manager.save(screening);
 
-          const updatedAnalysis = await manager.findOne(AiAnalysis, {
-            where: { id: aiAnalysis.id },
-            relations: ['screening', 'medicalImage'],
-          });
-
-          if (!updatedAnalysis) {
-            throw new InternalServerErrorException(
-              ERROR_MESSAGES.AI_ANALYSIS_RETRIEVE_FAILED,
+          if (screening.status === ScreeningStatusEnum.CANCELLED) {
+            throw new BadRequestException(
+              ERROR_MESSAGES.CANNOT_ANALYZE_CANCELLED,
             );
           }
 
-          return updatedAnalysis;
-        } catch (error: unknown) {
-          const message =
-            error instanceof Error ? error.message : 'Phân tích AI thất bại';
-          this.logger.error(
-            message,
-            error instanceof Error ? error.stack : undefined,
-          );
-
-          await manager.update(AiAnalysis, aiAnalysis.id, {
-            diagnosisStatus: AiDiagnosisStatusEnum.ERROR,
-            errorMessage: message,
-            analyzedAt: new Date(),
+          const image = await manager.findOne(MedicalImage, {
+            where: { id: imageId },
           });
+          if (!image) {
+            throw new NotFoundException(ERROR_MESSAGES.SCREENING_IMAGE_NOT_FOUND);
+          }
+          if (image.screeningId !== screeningId) {
+            throw new BadRequestException(
+              ERROR_MESSAGES.IMAGE_NOT_BELONG_TO_SCREENING,
+            );
+          }
 
-          screening.status = ScreeningStatusEnum.AI_FAILED;
+          screening.status = ScreeningStatusEnum.AI_PROCESSING;
+          screening.aiStartedAt = new Date();
           await manager.save(screening);
 
-          throw new InternalServerErrorException(
-            ERROR_MESSAGES.AI_ANALYSIS_FAILED,
-          );
-        }
-      },
-    );
+          let aiAnalysis = manager.create(AiAnalysis, {
+            screeningId,
+            medicalImageId: imageId,
+            diagnosisStatus: AiDiagnosisStatusEnum.PENDING,
+          });
+          aiAnalysis = await manager.save(aiAnalysis);
+
+          return { screening, aiAnalysis, image };
+        },
+      );
+
+    try {
+      const pulmoResponse = await this.callPulmoAiPredictWithRetry(
+        image.fileUrl,
+      );
+
+      const updateData = this.mapPulmoAiToEntity(pulmoResponse);
+
+      await this.aiAnalysisRepository.update(aiAnalysis.id, {
+        ...updateData,
+        analyzedAt: new Date(),
+      });
+
+      if (pulmoResponse.success) {
+        screening.status = ScreeningStatusEnum.AI_COMPLETED;
+        screening.aiCompletedAt = new Date();
+      } else {
+        screening.status = ScreeningStatusEnum.AI_FAILED;
+      }
+      await this.screeningRepository.save(screening);
+
+      const updatedAnalysis = await this.aiAnalysisRepository.findOne({
+        where: { id: aiAnalysis.id },
+        relations: ['screening', 'medicalImage'],
+      });
+
+      if (!updatedAnalysis) {
+        throw new InternalServerErrorException(
+          ERROR_MESSAGES.AI_ANALYSIS_RETRIEVE_FAILED,
+        );
+      }
+
+      return updatedAnalysis;
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Phân tích AI thất bại';
+      this.logger.error(
+        `[ScreeningService] AI error for screening ${screeningId}: ${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+
+      await this.aiAnalysisRepository.update(aiAnalysis.id, {
+        diagnosisStatus: AiDiagnosisStatusEnum.ERROR,
+        errorMessage: message,
+        analyzedAt: new Date(),
+      });
+
+      screening.status = ScreeningStatusEnum.AI_FAILED;
+      await this.screeningRepository.save(screening);
+
+      if (error instanceof PulmoAiValidationError) {
+        this.logger.warn(
+          `[ScreeningService] Image validation failed for screening ${screeningId}: ${message}`,
+        );
+        const savedAnalysis = await this.aiAnalysisRepository.findOne({
+          where: { id: aiAnalysis.id },
+          relations: ['screening', 'medicalImage'],
+        });
+        return (
+          savedAnalysis ??
+          ({ ...aiAnalysis, errorMessage: message } as AiAnalysis)
+        );
+      }
+
+      throw new InternalServerErrorException(
+        ERROR_MESSAGES.AI_ANALYSIS_FAILED,
+      );
+    }
   }
 
   private async callPulmoAiPredictWithRetry(
@@ -490,6 +518,10 @@ export class ScreeningService {
 
         return await this.callPulmoAiPredict(imageUrl, correlationId);
       } catch (error) {
+        if (error instanceof PulmoAiValidationError) {
+          throw error;
+        }
+
         if (attempt === this.maxRetries) {
           throw error;
         }
@@ -537,14 +569,20 @@ export class ScreeningService {
       );
       return response.data;
     } catch (error: unknown) {
-      const axiosError = error as { response?: { data?: { error?: string } } };
+      const axiosError = error as {
+        response?: { data?: { error?: string; success?: boolean } };
+      };
       if (axiosError.response) {
+        const responseData = axiosError.response.data;
         this.logger.error(
-          `[${correlationId}] Pulmo AI error: ${JSON.stringify(axiosError.response.data)}`,
+          `[${correlationId}] Pulmo AI error: ${JSON.stringify(responseData)}`,
         );
-        throw new Error(
-          axiosError.response.data?.error || ERROR_MESSAGES.PULMO_AI_ERROR,
-        );
+        const errorMessage =
+          responseData?.error || ERROR_MESSAGES.PULMO_AI_ERROR;
+        if (responseData?.success === false) {
+          throw new PulmoAiValidationError(errorMessage);
+        }
+        throw new Error(errorMessage);
       }
       throw error;
     }
