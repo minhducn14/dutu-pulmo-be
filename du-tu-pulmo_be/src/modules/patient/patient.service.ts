@@ -196,14 +196,6 @@ export class PatientService {
     return this.findOne(id);
   }
 
-  // ============================================================================
-  // MEDICAL DATA - Fetching related medical information
-  // ============================================================================
-
-  // ============================================================================
-  // MEDICAL DATA - Fetching related medical information
-  // ============================================================================
-
   /**
    * Get patient's medical records
    */
