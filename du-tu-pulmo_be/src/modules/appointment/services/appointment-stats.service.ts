@@ -59,16 +59,19 @@ export class AppointmentStatsService {
     const confirmed = appointments.filter((a) => {
       if (a.status !== AppointmentStatusEnum.CONFIRMED) return false;
 
-      const scheduledTime = new Date(a.scheduledAt);
-      const timeDiffMinutes =
-        (scheduledTime.getTime() - now.getTime()) / (1000 * 60);
+      // const scheduledTime = new Date(a.scheduledAt);
+      // const timeDiffMinutes =
+      //   (scheduledTime.getTime() - now.getTime()) / (1000 * 60);
 
-      const lateThreshold =
-        a.appointmentType === AppointmentTypeEnum.VIDEO
-          ? CHECKIN_TIME_THRESHOLDS.VIDEO.LATE_MINUTES
-          : CHECKIN_TIME_THRESHOLDS.IN_CLINIC.LATE_MINUTES;
+      // const lateThreshold =
+      //   a.appointmentType === AppointmentTypeEnum.VIDEO
+      //     ? CHECKIN_TIME_THRESHOLDS.VIDEO.LATE_MINUTES
+      //     : CHECKIN_TIME_THRESHOLDS.IN_CLINIC.LATE_MINUTES;
 
-      return timeDiffMinutes >= -lateThreshold;
+      // // restore late threshold validation
+      // return timeDiffMinutes >= -lateThreshold;
+
+      return true;
     });
 
     const totalInQueue =
