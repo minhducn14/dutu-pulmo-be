@@ -13,6 +13,8 @@ import { startOfDayVN, vnNow } from '@/common/datetime';
 import { DataSource } from 'typeorm';
 import { AppointmentCheckinService } from '@/modules/appointment/services/appointment-checkin.service';
 import { MedicalService } from '@/modules/medical/medical.service';
+import { NotificationService } from '@/modules/notification/notification.service';
+import { NotificationTypeEnum } from '@/modules/common/enums/notification-type.enum';
 
 @Injectable()
 export class AppointmentSchedulerService {
@@ -24,6 +26,7 @@ export class AppointmentSchedulerService {
     private readonly dailyService: DailyService,
     private readonly dataSource: DataSource,
     private readonly medicalService: MedicalService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   /**
@@ -221,6 +224,94 @@ export class AppointmentSchedulerService {
       }
     } catch (error) {
       this.logger.error(`❌ Error in autoCompletePastAppointments: ${error}`);
+    }
+  }
+
+  /**
+   * Auto-cancel unpaid future appointments after 24 hours
+   * Runs every day at 02:00 VN time
+   */
+  @Cron('0  2 * * *', {
+    name: 'cleanup-unpaid-future-appointments',
+    timeZone: 'Asia/Ho_Chi_Minh',
+  })
+  async cleanupUnpaidFutureAppointments() {
+    const startOfToday = startOfDayVN(vnNow());
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    try {
+      const unpaidAppointments = await this.appointmentRepository.find({
+        where: {
+          scheduledAt: Not(LessThan(startOfToday)), // Future or Today
+          status: AppointmentStatusEnum.PENDING_PAYMENT,
+          createdAt: LessThan(twentyFourHoursAgo),
+        },
+        relations: ['patient', 'patient.user'],
+      });
+
+      if (unpaidAppointments.length === 0) {
+        return;
+      }
+
+      this.logger.log(
+        `🤖 Found ${unpaidAppointments.length} unpaid future appointments to cleanup`,
+      );
+
+      for (const appointment of unpaidAppointments) {
+        try {
+          await this.dataSource.transaction(async (manager) => {
+            await manager.update(Appointment, appointment.id, {
+              status: AppointmentStatusEnum.CANCELLED,
+              cancelledAt: new Date(),
+              cancelledBy: 'SYSTEM',
+              cancellationReason:
+                'Auto-cancelled by scheduler (unpaid for > 24h)',
+            });
+
+            if (appointment.timeSlotId) {
+              await manager.decrement(
+                TimeSlot,
+                { id: appointment.timeSlotId },
+                'bookedCount',
+                1,
+              );
+
+              const slot = await manager.findOne(TimeSlot, {
+                where: { id: appointment.timeSlotId },
+              });
+              if (slot && slot.bookedCount < slot.capacity) {
+                await manager.update(
+                  TimeSlot,
+                  { id: slot.id },
+                  { isAvailable: true },
+                );
+              }
+            }
+          });
+
+          // Notify user
+          if (appointment.patient?.user?.id) {
+            void this.notificationService.createNotification({
+              userId: appointment.patient.user.id,
+              type: NotificationTypeEnum.APPOINTMENT,
+              title: 'Lịch hẹn đã bị hủy',
+              content: `Lịch hẹn mã ${appointment.appointmentNumber} đã bị hủy do quá thời hạn thanh toán (24 giờ).`,
+              refId: appointment.id,
+              refType: 'APPOINTMENT',
+            });
+          }
+
+          this.logger.log(
+            `✅ Auto-cancelled unpaid appointment ${appointment.id}`,
+          );
+        } catch (error) {
+          this.logger.error(
+            `❌ Failed to cleanup unpaid appointment ${appointment.id}: ${error}`,
+          );
+        }
+      }
+    } catch (error) {
+      this.logger.error(`❌ Error in cleanupUnpaidFutureAppointments: ${error}`);
     }
   }
 }

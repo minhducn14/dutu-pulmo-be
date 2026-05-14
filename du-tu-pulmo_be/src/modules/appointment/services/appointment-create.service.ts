@@ -313,7 +313,7 @@ export class AppointmentCreateService {
         userId: savedAppointment.patient.userId,
         type: NotificationTypeEnum.APPOINTMENT,
         title: 'Đặt lịch thành công',
-        content: `Lịch hẹn ${savedAppointment.appointmentNumber} đã được đặt thành công. Vui lòng thanh toán để xác nhận.`,
+        content: `Lịch hẹn ${savedAppointment.appointmentNumber} đã được đặt thành công. Vui lòng thanh toán trong vòng 24 giờ để xác nhận và giữ chỗ.`,
         refId: savedAppointment.id,
         refType: 'APPOINTMENT',
       });

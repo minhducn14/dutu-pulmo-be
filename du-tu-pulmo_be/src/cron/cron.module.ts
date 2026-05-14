@@ -12,6 +12,7 @@ import { MedicalRecord } from '@/modules/medical/entities/medical-record.entity'
 import { VideoCallModule } from '@/modules/video_call/video-call.module';
 import { PaymentModule } from '@/modules/payment/payment.module';
 import { AppointmentModule } from '@/modules/appointment/appointment.module';
+import { NotificationModule } from '@/modules/notification/notification.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { AppointmentModule } from '@/modules/appointment/appointment.module';
     PaymentModule,
     MedicalModule,
     AppointmentModule,
+    NotificationModule,
   ],
   providers: [
     SlotSchedulerService,
