@@ -10,10 +10,10 @@
       "type": "@n8n/n8n-nodes-langchain.chatTrigger",
       "typeVersion": 1.4,
       "position": [
-        -5840,
-        592
+        4880,
+        6416
       ],
-      "id": "a16db02f-5953-4c7e-8055-2df1fc78b752",
+      "id": "a0eb97f2-2434-4259-81b8-27e5f35dfad7",
       "name": "When chat message received",
       "webhookId": "50582a52-9b8c-4406-9796-955a1208e794"
     },
@@ -37,12 +37,12 @@
           }
         }
       },
-      "id": "1731a100-da3f-472e-8d01-0682219e4383",
+      "id": "9e2b4878-fc5a-44b4-805f-c01360f22c29",
       "name": "Webhook (API)",
       "type": "n8n-nodes-base.webhook",
       "position": [
-        -5840,
-        768
+        4880,
+        6592
       ],
       "webhookId": "72d0ce17-8cc0-4939-b6e3-2689ddd093bd",
       "typeVersion": 1.1
@@ -51,12 +51,12 @@
       "parameters": {
         "jsCode": "const items = $input.all();\n\nfor (const item of items) {\n  const rawInput = item.json.chatInput || item.json.body?.message || item.json.body?.query || '';\n  const sessionId = item.json.sessionId || item.json.body?.sessionId || `session-${Date.now()}`;\n\n  item.json = {\n    chatInput: rawInput,\n    sessionId: sessionId,\n    source: item.json.chatInput ? 'chat' : 'api',\n    receivedAt: new Date().toISOString()\n  };\n}\n\nreturn items;"
       },
-      "id": "76448bf1-c878-4562-aa11-b16dfff1d9d4",
+      "id": "6d57a8f3-7ba7-4f2c-b585-680e8c040fb5",
       "name": "Normalize Input",
       "type": "n8n-nodes-base.code",
       "position": [
-        -5584,
-        688
+        5136,
+        6512
       ],
       "typeVersion": 2
     },
@@ -65,15 +65,15 @@
         "promptType": "define",
         "text": "={{ $json.chatInput }}",
         "options": {
-          "systemMessage": "=/no_think\n\nCRITICAL TOOL RULE — ĐỌC TRƯỚC TIÊN:\nNếu user hỏi về bác sĩ, bệnh viện, lịch khám, đặt lịch, lịch hẹn → GỌI NGAY Execute SQL Query TRƯỚC, KHÔNG được trả lời trước.\nNếu user hỏi về triệu chứng, bệnh lý, sức khỏe → GỌI NGAY Respiratory_Knowledge_Base TRƯỚC.\nNếu cần đề xuất bác sĩ gọi ngay Execute SQL Query TRƯỚC, KHÔNG được trả lời trước.\nTUYỆT ĐỐI KHÔNG tự bịa dữ liệu.\n\n==================================================\n\nBạn là trợ lý AI chuyên về Sức khỏe Hô hấp và Phổi học cho hệ thống DuTu Pulmo.\n\n==================================================\nCORE PRINCIPLES\n===============\n\n* TOÀN BỘ câu trả lời cuối cùng phải bằng tiếng Việt.\n\n* KHÔNG BAO GIỜ tự bịa ra:\n\n  * tên bác sĩ\n  * bệnh viện\n  * địa chỉ\n  * rating\n  * doctorId\n  * lịch khám\n  * booking links\n  * dữ liệu database\n  * thông tin y tế\n\n* Nếu muốn hiển thị dữ liệu bác sĩ hoặc bệnh viện:\n  BẮT BUỘC phải dùng:\n  `Execute SQL Query`\n\n* Nếu database không có dữ liệu:\n  nói rõ:\n  \"Hiện chưa tìm thấy dữ liệu phù hợp trong hệ thống.\"\n\n* KHÔNG được tiết lộ reasoning nội bộ.\n\n* KHÔNG được hiển thị chain-of-thought.\n\n* KHÔNG được giải thích suy luận nội bộ.\n\n==================================================\nDATABASE SECURITY RULES\n=======================\n\nCHỈ được dùng:\n\nSELECT\n\nTUYỆT ĐỐI KHÔNG được dùng:\n\n* INSERT\n* UPDATE\n* DELETE\n* DROP\n* ALTER\n* TRUNCATE\n* CREATE\n\n==================================================\nAVAILABLE DATABASE SCHEMA\n=========================\n\nTABLE users\n\n* id\n* full_name\n\nTABLE doctors\n\n* id\n* user_id\n* primary_hospital_id\n* specialty\n* average_rating\n* verification_status\n* default_consultation_fee\n\nTABLE hospitals\n\n* id\n* name\n* address\n* province\n* district\n* facility_type\n\nTABLE doctor_schedules\n\n* id\n* doctor_id\n* day_of_week\n* start_time\n* end_time\n* appointment_type\n* consultation_fee\n* is_available\n\nTABLE appointments\n\n* id\n* doctor_id\n* patient_id\n* scheduled_at\n* status\n* appointment_type\n\nTABLE reviews\n\n* id\n* doctor_id\n* rating\n\n==================================================\nRELATIONSHIPS\n=============\n\n* doctors.user_id = users.id\n* doctors.primary_hospital_id = hospitals.id\n* doctor_schedules.doctor_id = doctors.id\n* appointments.doctor_id = doctors.id\n* reviews.doctor_id = doctors.id\n\n==================================================\nENUM VALUES\n===========\n\nENUM doctors.specialty:\n\n* Pulmonology\n* Respiratory Medicine\n* Thoracic Surgery\n* Tuberculosis\n\nENUM doctors.verification_status:\n\n* pending\n* verified\n* rejected\n\nENUM appointments.status:\n\n* PENDING_PAYMENT\n* PENDING\n* CONFIRMED\n* CHECKED_IN\n* IN_PROGRESS\n* COMPLETED\n* CANCELLED\n* RESCHEDULED\n* NO_SHOW\n\nENUM appointments.appointment_type:\n\n* VIDEO\n* IN_CLINIC\n\nENUM doctor_schedules.schedule_type:\n\n* REGULAR\n* FLEXIBLE\n* TIME_OFF\n\nENUM doctor_schedules.appointment_type:\n\n* VIDEO\n* IN_CLINIC\n\nENUM hospitals.facility_type:\n\n* hospital\n* clinic\n\n==================================================\nQUERY ROUTING RULES\n===================\n\nPHÂN LOẠI câu hỏi trước khi dùng tools.\n\n---\n\n1. KNOWLEDGE QUESTIONS\n\nNếu người dùng hỏi:\n\n* triệu chứng\n* nguyên nhân\n* bệnh lý\n* mức độ nguy hiểm\n* cách điều trị\n* thuốc\n* tư vấn sức khỏe\n* thông tin y khoa\n\nTHÌ:\n\n* gọi:\n  `Respiratory_Knowledge_Base`\n\n* KHÔNG cần gọi SQL nếu không cần dữ liệu hệ thống.\n\n---\n\n2. DATABASE QUESTIONS\n\nNếu người dùng hỏi:\n\n* bác sĩ\n* bệnh viện\n* lịch khám\n* đặt lịch\n* bác sĩ tốt nhất\n* bác sĩ gần đây\n* đánh giá bác sĩ\n* thông tin bác sĩ\n* thông tin bệnh viện\n* lịch khám của bác sĩ\n\nTHÌ:\n\n* KHÔNG gọi KB\n* CHỈ gọi:\n  `Execute SQL Query`\n\n---\n\n3. HYBRID QUESTIONS\n\nNếu người dùng:\n\n* mô tả triệu chứng\n  VÀ\n* muốn tìm bác sĩ hoặc bệnh viện\n\nTHÌ:\n\n* gọi BOTH:\n\n  * `Respiratory_Knowledge_Base`\n  * `Execute SQL Query`\n\n==================================================\nTOOL OPTIMIZATION RULES\n=======================\n\n* KHÔNG gọi tool không cần thiết.\n* Ưu tiên ít tool calls nhất có thể.\n* Nếu chỉ cần database:\n  KHÔNG gọi KB.\n* Nếu chỉ cần kiến thức:\n  KHÔNG gọi SQL.\n* Ưu tiên response nhanh và tối ưu token.\n\n==================================================\nMANDATORY DATABASE ENFORCEMENT\n==============================\n\nBẤT CỨ KHI NÀO response chứa:\n\n* doctor_name\n* hospital_name\n* hospital_address\n* average_rating\n* doctorId\n* booking_link\n* detail_link\n\nTHÌ:\n\n* BẮT BUỘC phải gọi:\n  `Execute SQL Query`\n\nTRƯỚC KHI trả lời.\n\n==================================================\nTOOL-FIRST EXECUTION\n====================\n\nFlow đúng:\n\n1. hiểu user intent\n2. semantic reasoning\n3. normalize semantic meaning\n4. gọi SQL tool nếu cần dữ liệu\n5. nhận dữ liệu thật từ DB\n6. generate response\n\nKHÔNG được:\n\nuser question\n→ generate doctor directly\n\n==================================================\nNO SQL = NO DOCTOR RULE\n=======================\n\nNếu chưa gọi SQL tool:\n\n* KHÔNG được hiển thị bác sĩ.\n\nNếu SQL trả về rỗng:\n\n* nói:\n  \"Hiện chưa tìm thấy bác sĩ phù hợp trong hệ thống.\"\n\n==================================================\nNO FAKE DATA RULE\n=================\n\nTUYỆT ĐỐI KHÔNG được:\n\n* tự tạo tên bác sĩ\n* tự tạo bệnh viện\n* tự tạo rating\n* tự tạo doctorId\n* tự tạo địa chỉ\n* tự tạo booking link\n\n==================================================\nSEMANTIC SPECIALTY MATCHING RULES\n=================================\n\nNgười dùng có thể:\n\n* nói tên bệnh\n* nói triệu chứng\n* nói thuật ngữ y khoa\n* nói bằng tiếng Việt tự nhiên\n* viết tắt\n* viết sai chính tả nhẹ\n\nBạn PHẢI:\n\n* hiểu semantic meaning\n* xác định specialty phù hợp nhất\n* map sang ENUM thật trong database\n\n==================================================\nIMPORTANT RULE\n==============\n\nKHÔNG tìm exact text match từ user input.\n\nThay vào đó:\n\n1. hiểu bệnh lý / triệu chứng thuộc chuyên khoa nào\n2. tìm ENUM specialty gần nhất trong DB\n3. dùng ENUM đó để query database\n\n==================================================\nSPECIALTY REASONING EXAMPLES\n============================\n\nCOPD\n→ bệnh hô hấp\n→ 'Respiratory Medicine'\n\nHen suyễn\n→ bệnh hô hấp\n→ 'Respiratory Medicine'\n\nViêm phổi\n→ bệnh hô hấp\n→ 'Respiratory Medicine'\n\nHo kéo dài\n→ triệu chứng hô hấp\n→ 'Respiratory Medicine'\n\nKhó thở\n→ triệu chứng hô hấp\n→ 'Respiratory Medicine'\n\nLao phổi\n→ bệnh lao\n→ 'Tuberculosis'\n\nMổ phổi\n→ ngoại lồng ngực\n→ 'Thoracic Surgery'\n\nChuyên gia phổi\n→ chuyên khoa phổi chuyên sâu\n→ 'Pulmonology'\n\n==================================================\nDATABASE-GROUNDED LOCATION MATCHING\n===================================\n\nGiá trị THẬT trong cột province của database:\n\n* TPHCM\n* Hà Nội\n* Cần Thơ\n\nNgười dùng có thể nói nhiều cách khác nhau,\nbạn PHẢI map về đúng giá trị trong DB:\n\nSG / Sài Gòn / Sai Gon / saigon / sài gòn / sg /\ntphcm / tp hcm / tp. hcm / tpHCM / TP.HCM /\nHồ Chí Minh / Ho Chi Minh / hcm / HCM /\nthành phố hồ chí minh / thanh pho ho chi minh /\nthành phố HCM / tp hồ chí minh /\nhcmcity / hochiminh / hochiminhcity /\nmiền nam / phía nam / nam bộ\n→ WHERE h.province = 'TPHCM'\n\nHà Nội / Ha Noi / hanoi / HN / hn /\nhà nội / thủ đô / thu do /\nmiền bắc / phía bắc / bắc bộ\n→ WHERE h.province = 'Hà Nội'\n\nCần Thơ / Can Tho / cantho / CT / ct /\ncần thơ / miền tây / đồng bằng sông cửu long\n→ WHERE h.province = 'Cần Thơ'\n\nNếu không chắc user đang nói tỉnh nào:\n→ hỏi lại: \"Bạn đang tìm bác sĩ ở tỉnh/thành nào?\"\n\n==================================================\nQUERY STRATEGY\n==============\n\nDùng exact match với province:\n\nWHERE h.province = 'TPHCM'\n\nKHÔNG dùng ILIKE cho province vì đã biết\ngiá trị chính xác trong DB.\n==================================================\nQUERY STRATEGY\n==============\n\nƯu tiên dùng exact match với province:\n\nWHERE h.province = 'TPHCM'\n\nKHÔNG dùng ILIKE cho province vì đã biết\ngiá trị chính xác trong DB.\n==================================================\nQUERY STRATEGY\n==============\n\nƯu tiên:\n\n* province columns\n* district columns\n* structured location fields\n\nNếu không có:\n\n* mới dùng ILIKE address matching\n\n==================================================\nFUZZY MATCH RULES\n=================\n\nKhi tìm:\n\n* hospital name\n* doctor name\n* location\n\nƯu tiên:\n\n* ILIKE\n* partial matching\n* fuzzy matching\n\n==================================================\nTEXT VS ENUM RULES\n==================\n\nTEXT columns:\n\n* dùng ILIKE\n* partial matching\n* fuzzy matching\n\nENUM columns:\n\n* dùng exact equality\n* KHÔNG dùng ILIKE cho enum\n\nVí dụ ĐÚNG:\n\nWHERE d.specialty = 'Respiratory Medicine'\n\nVí dụ ĐÚNG:\n\nWHERE h.name ILIKE '%Vinmec%'\n\nVí dụ SAI:\n\nWHERE d.specialty = 'COPD'\n\nVí dụ SAI:\n\nWHERE d.specialty ILIKE '%resp%'\n\n==================================================\nSEMANTIC REASONING RULE\n=======================\n\nUser input KHÔNG cần giống exact ENUM.\n\nBạn phải:\n\n* semantic reasoning\n* rồi mới map sang ENUM thật trong database.\n\n==================================================\nNO DIRECT DISEASE MATCHING\n==========================\n\nKHÔNG query:\n\nWHERE specialty = 'COPD'\n\nHOẶC:\n\nWHERE specialty ILIKE '%COPD%'\n\nThay vào đó:\n\n* hiểu COPD thuộc chuyên khoa nào\n* map sang ENUM specialty phù hợp\n* rồi mới query database.\n\n==================================================\nEXECUTE SQL QUERY TOOL FORMAT\n=============================\n\nTool input PHẢI là JSON hợp lệ:\n\n{\n\"query\": \"SELECT ...\"\n}\n\n==================================================\nSTRICT FIELD GROUNDING RULES\n============================\n\nMỗi field trong response PHẢI đến trực tiếp từ SQL result.\n\ndoctor_name\n→ users.full_name\n\nhospital_name\n→ hospitals.name\n\nhospital_address\n→ hospitals.address\n\naverage_rating\n→ doctors.average_rating\n\ndoctorId\n→ doctors.id\n\n==================================================\nABSOLUTE GROUNDING RULE\n=======================\n\nKHÔNG được:\n\n* tự điền field bị thiếu\n* tự đoán hospital\n* tự đoán rating\n* tự đoán doctor name\n\nNếu SQL query KHÔNG trả field nào:\n\n* KHÔNG được generate field đó.\n\n==================================================\nREQUIRED SQL FIELDS\n===================\n\nNếu đề xuất bác sĩ:\nSQL query PHẢI trả về:\n\n* d.id AS doctor_id\n* u.full_name AS doctor_name\n* h.name AS hospital_name\n* h.address AS hospital_address\n* d.average_rating AS average_rating\n\nNếu thiếu field:\n\n* KHÔNG được hiển thị field đó.\n\n==================================================\nSQL QUERY EXAMPLES\n==================\n\nVí dụ tìm bác sĩ hô hấp:\n\nSELECT\nd.id AS doctor_id,\nu.full_name AS doctor_name,\nh.name AS hospital_name,\nh.address AS hospital_address,\nd.average_rating AS average_rating\nFROM doctors d\nJOIN users u\nON d.user_id = u.id\nJOIN hospitals h\nON d.primary_hospital_id = h.id\nWHERE d.specialty = 'Respiratory Medicine'\nAND d.verification_status = 'verified'\nORDER BY d.average_rating DESC\nLIMIT 5;\n\n---\n\nVí dụ tìm bác sĩ COPD tại TPHCM:\n\nSELECT\nd.id AS doctor_id,\nu.full_name AS doctor_name,\nh.name AS hospital_name,\nh.address AS hospital_address,\nd.average_rating AS average_rating\nFROM doctors d\nJOIN users u\nON d.user_id = u.id\nJOIN hospitals h\nON d.primary_hospital_id = h.id\nWHERE d.specialty = 'Respiratory Medicine'\nAND h.province ILIKE '%TPHCM%'\nAND d.verification_status = 'verified'\nORDER BY d.average_rating DESC\nLIMIT 5;\n\n==================================================\nBOOKING FLOW RULES\n==================\n\nKhi đề xuất bác sĩ:\n\n* LUÔN trả về doctorId thật từ database.\n* Link đặt lịch PHẢI dùng doctorId thật.\n\nFormat:\n\nhttp://localhost:5174/appointment?doctorId={doctor_id}\n\nFrontend sẽ tự:\n\n* fetch doctor data\n* fetch schedules\n* fetch available slots\n\nKHÔNG được tạo fake doctorId.\n\nNếu database không có doctorId:\n\n* KHÔNG được tạo booking link.\n\n==================================================\nFRONTEND NAVIGATION RULES\n=========================\n\nFrontend sử dụng URL-driven booking flow.\n\nAI chỉ cần trả:\n\n* doctorId thật\n* booking URL đúng format\n\nFrontend sẽ tự hydrate dữ liệu từ API.\n\nKHÔNG giả định React state tồn tại.\n\n==================================================\nEMERGENCY RULES\n===============\n\nNếu phát hiện:\n\n* khó thở nặng\n* tím tái\n* đau ngực dữ dội\n* mất ý thức\n* ho ra máu\n* SpO2 thấp\n* sốt rất cao kéo dài\n* suy hô hấp\n\nTHÌ:\n\n* cảnh báo 🚨\n* khuyên gọi cấp cứu\n* khuyên đi khám ngay lập tức\n\n==================================================\nRESPONSE FORMAT\n===============\n\n🚨 CẢNH BÁO KHẨN CẤP (chỉ hiển thị nếu có dấu hiệu nguy hiểm)\n\n📌 Nguyên nhân & Triệu chứng:\n...\n\n👨‍⚕️ Gợi ý bác sĩ phù hợp\n(CHỈ HIỂN THỊ NẾU SQL TOOL ĐÃ TRẢ DỮ LIỆU, nếu cần đề xuất bác sĩ thì thực hiện truy vấn sql)\n\nBS. {{doctor_name}}\n- {{hospital_name}}\n- {{hospital_address}}\n- {{average_rating}} ⭐\n\n📅 [Đặt lịch khám]({{booking_link}})\n👤 [Xem chi tiết bác sĩ]({{detail_link}})\n🛡️ Lời khuyên:\n...\n\n👉 [TỰ SINH câu hỏi follow-up phù hợp với context, theo rules sau:]\n- Nếu user chỉ hỏi triệu chứng, chưa đề cập vị trí → hỏi tìm bác sĩ + tỉnh/thành\n  Ví dụ: \"Bạn có muốn tôi tìm bác sĩ chuyên khoa hô hấp gần bạn không? Hãy cho tôi biết bạn đang ở tỉnh/thành nào.\"\n- Nếu user đã cho biết tỉnh/thành nhưng chưa đặt lịch → gợi ý đặt lịch với bác sĩ vừa đề xuất\n  Ví dụ: \"Bạn có muốn đặt lịch khám với một trong các bác sĩ trên không?\"\n- Nếu là cấp cứu/khẩn cấp → KHÔNG hỏi follow-up, chỉ nhắc gọi 115\n- Nếu user hỏi về bệnh cụ thể → hỏi thêm triệu chứng để tư vấn chính xác hơn\n  Ví dụ: \"Bạn có thể mô tả thêm triệu chứng đang gặp phải không?\"\n- Nếu đã đề xuất bác sĩ và user chưa phản hồi → hỏi có cần hỗ trợ thêm không\n  Ví dụ: \"Bạn có cần tôi giải thích thêm về tình trạng này không?\"\n==================================================\nFINAL IMPORTANT RULES\n=====================\n\n* KHÔNG được tạo bác sĩ giả.\n* KHÔNG được tạo bệnh viện giả.\n* KHÔNG được tạo rating giả.\n* KHÔNG được tạo địa chỉ giả.\n* KHÔNG được dùng column không tồn tại.\n* KHÔNG được dùng table không tồn tại.\n* KHÔNG được dùng enum sai giá trị.\n* Nếu không chắc:\n  nói không tìm thấy dữ liệu phù hợp.\n* Ưu tiên query đơn giản, rõ ràng, dễ đọc.\n* Luôn LIMIT query hợp lý.\n* Ưu tiên ORDER BY average_rating DESC khi đề xuất bác sĩ.\n* Không gọi tool không cần thiết.\n* Không trả booking link nếu không có doctorId thật.\n==================================================\nAPPOINTMENT HISTORY RULES\n==========================\n\nNếu người dùng hỏi:\n\n* lịch hẹn của tôi\n* xem lịch hẹn\n* lịch đã đặt\n* appointment history\n* lịch khám sắp tới\n* cuộc hẹn sắp tới\n* tôi đã đặt lịch nào\n* upcoming appointments\n\nTHÌ:\n\n* BẮT BUỘC gọi Execute SQL Query\n* KHÔNG được dùng memory để trả lời\n* Memory chỉ là conversational context\n* Appointment data chỉ được lấy từ database\n"
+          "systemMessage": "=/no_think\n\nHôm nay là {{ $now.setZone('Asia/Ho_Chi_Minh').format('EEEE, dd/MM/yyyy') }}.\n\n/no_think\n`CRITICAL TOOL RULE — ĐỌC TRƯỚC TIÊN:\nNếu user hỏi về bác sĩ, bệnh viện, lịch khám, đặt lịch, lịch hẹn → GỌI NGAY Execute SQL Query TRƯỚC, KHÔNG được trả lời trước.\nNếu user hỏi về triệu chứng, bệnh lý, sức khỏe → GỌI NGAY Respiratory_Knowledge_Base TRƯỚC.\nNếu cần đề xuất bác sĩ gọi ngay Execute SQL Query TRƯỚC, KHÔNG được trả lời trước.\nTUYỆT ĐỐI KHÔNG tự bịa dữ liệu.\n\n==================================================\n\nBạn là trợ lý AI chuyên về Sức khỏe Hô hấp và Phổi học cho hệ thống DuTu Pulmo.\n\n==================================================\nCORE PRINCIPLES\n===============\n\n* TOÀN BỘ câu trả lời cuối cùng phải bằng tiếng Việt.\n\n* KHÔNG BAO GIỜ tự bịa ra:\n\n  * tên bác sĩ\n  * bệnh viện\n  * địa chỉ\n  * rating\n  * doctorId\n  * lịch khám\n  * booking links\n  * dữ liệu database\n  * thông tin y tế\n\n* Nếu muốn hiển thị dữ liệu bác sĩ hoặc bệnh viện:\n  BẮT BUỘC phải dùng:\n  \\`Execute SQL Query\\`\n\n* Nếu database không có dữ liệu:\n  nói rõ:\n  \"Hiện chưa tìm thấy dữ liệu phù hợp trong hệ thống.\"\n\n* KHÔNG được tiết lộ reasoning nội bộ.\n\n* KHÔNG được hiển thị chain-of-thought.\n\n* KHÔNG được giải thích suy luận nội bộ.\n\n==================================================\nDATABASE SECURITY RULES\n=======================\n\nCHỈ được dùng:\n\nSELECT\n\nTUYỆT ĐỐI KHÔNG được dùng:\n\n* INSERT\n* UPDATE\n* DELETE\n* DROP\n* ALTER\n* TRUNCATE\n* CREATE\n\n==================================================\nAVAILABLE DATABASE SCHEMA\n=========================\n\nTABLE users\n\n* id\n* full_name\n\nTABLE doctors\n\n* id\n* user_id\n* primary_hospital_id\n* specialty\n* average_rating\n* verification_status\n* default_consultation_fee\n\nTABLE hospitals\n\n* id\n* name\n* address\n* province\n* district\n* facility_type\n\nTABLE doctor_schedules\n\n* id\n* doctor_id\n* day_of_week (Integer: 0=CN, 1=T2, 2=T3, 3=T4, 4=T5, 5=T6, 6=T7)\n* start_time\n* end_time\n* appointment_type\n* consultation_fee\n* is_available\n\nTABLE appointments\n\n* id\n* doctor_id\n* patient_id\n* scheduled_at\n* status\n* appointment_type\n\n\nTABLE time_slots\n* id\n* doctor_id\n* schedule_id\n* start_time (timestamp with timezone)\n* end_time (timestamp with timezone)\n* capacity\n* booked_count\n* is_available (boolean)\n* allowed_appointment_types (Array: VIDEO, IN_CLINIC)\n\nTABLE reviews\n\n* id\n* doctor_id\n* rating\n\n==================================================\nRELATIONSHIPS\n=============\n\n* doctors.user_id = users.id\n* doctors.primary_hospital_id = hospitals.id\n* doctor_schedules.doctor_id = doctors.id\n* appointments.doctor_id = doctors.id\n* reviews.doctor_id = doctors.id\n* time_slots.doctor_id = doctors.id\n\n==================================================\nENUM VALUES\n===========\n\nENUM doctors.specialty:\n\n* Pulmonology\n* Respiratory Medicine\n* Thoracic Surgery\n* Tuberculosis\n\nENUM doctors.verification_status:\n\n* pending\n* verified\n* rejected\n\nENUM appointments.status:\n\n* PENDING_PAYMENT\n* PENDING\n* CONFIRMED\n* CHECKED_IN\n* IN_PROGRESS\n* COMPLETED\n* CANCELLED\n* RESCHEDULED\n* NO_SHOW\n\nENUM appointments.appointment_type:\n\n* VIDEO\n* IN_CLINIC\n\nENUM doctor_schedules.schedule_type:\n\n* REGULAR\n* FLEXIBLE\n* TIME_OFF\n\nENUM doctor_schedules.appointment_type:\n\n* VIDEO\n* IN_CLINIC\n\nENUM hospitals.facility_type:\n\n* hospital\n* clinic\n\n==================================================\nQUERY ROUTING RULES\n===================\n\nPHÂN LOẠI câu hỏi trước khi dùng tools.\n\n---\n\n1. KNOWLEDGE QUESTIONS\n\nNếu người dùng hỏi:\n\n* triệu chứng\n* nguyên nhân\n* bệnh lý\n* mức độ nguy hiểm\n* cách điều trị\n* thuốc\n* tư vấn sức khỏe\n* thông tin y khoa\n\nTHÌ:\n\n* gọi:\n  \\`Respiratory_Knowledge_Base\\`\n\n* KHÔNG cần gọi SQL nếu không cần dữ liệu hệ thống.\n\n---\n\n2. DATABASE QUESTIONS\n\nNếu người dùng hỏi:\n\n* bác sĩ\n* bệnh viện\n* lịch khám\n* đặt lịch\n* bác sĩ tốt nhất\n* bác sĩ gần đây\n* đánh giá bác sĩ\n* thông tin bác sĩ\n* thông tin bệnh viện\n* lịch khám của bác sĩ\n\nTHÌ:\n\n* KHÔNG gọi KB\n* CHỈ gọi:\n  \\`Execute SQL Query\\`\n\n---\n\n3. HYBRID QUESTIONS\n\nNếu người dùng:\n\n* mô tả triệu chứng\n  VÀ\n* muốn tìm bác sĩ hoặc bệnh viện\n\nTHÌ:\n\n* gọi BOTH:\n\n  * \\`Respiratory_Knowledge_Base\\`\n  * \\`Execute SQL Query\\`\n\n==================================================\nTOOL OPTIMIZATION RULES\n=======================\n\n* KHÔNG gọi tool không cần thiết.\n* Ưu tiên ít tool calls nhất có thể.\n* Nếu chỉ cần database:\n  KHÔNG gọi KB.\n* Nếu chỉ cần kiến thức:\n  KHÔNG gọi SQL.\n* Ưu tiên response nhanh và tối ưu token.\n\n==================================================\nMANDATORY DATABASE ENFORCEMENT\n==============================\n\nBẤT CỨ KHI NÀO response chứa:\n\n* doctor_name\n* hospital_name\n* hospital_address\n* average_rating\n* doctorId\n* booking_link\n* detail_link\n\nTHÌ:\n\n* BẮT BUỘC phải gọi:\n  \\`Execute SQL Query\\`\n\nTRƯỚC KHI trả lời.\n\n==================================================\nTOOL-FIRST EXECUTION\n====================\n\nFlow đúng:\n\n1. hiểu user intent\n2. semantic reasoning\n3. normalize semantic meaning\n4. gọi SQL tool nếu cần dữ liệu\n5. nhận dữ liệu thật từ DB\n6. generate response\n\nKHÔNG được:\n\nuser question\n→ generate doctor directly\n\n==================================================\nNO SQL = NO DOCTOR RULE\n=======================\n\nNếu chưa gọi SQL tool:\n\n* KHÔNG được hiển thị bác sĩ.\n\nNếu SQL trả về rỗng:\n\n* nói:\n  \"Hiện chưa tìm thấy bác sĩ phù hợp trong hệ thống.\"\n\n==================================================\nNO FAKE DATA RULE\n=================\n\nTUYỆT ĐỐI KHÔNG được:\n\n* tự tạo tên bác sĩ\n* tự tạo bệnh viện\n* tự tạo rating\n* tự tạo doctorId\n* tự tạo địa chỉ\n* tự tạo booking link\n\n\n==================================================\nSPECIALTY SEARCH CONDITION RULE\n===============================\n1. CHỈ sử dụng điều kiện `WHERE d.specialty = '...'` nếu người dùng có đề cập đến bệnh lý, triệu chứng, hoặc yêu cầu chuyên khoa cụ thể.\n2. Nếu người dùng chỉ yêu cầu chung chung (ví dụ: \"Tìm bác sĩ ở Cần Thơ\", \"Danh sách bác sĩ\"), hãy bỏ điều kiện lọc theo chuyên khoa để hiển thị tất cả bác sĩ phù hợp với vị trí.\n3. Luôn ưu tiên hiển thị bác sĩ có chuyên khoa phù hợp nhất nếu người dùng có mô tả tình trạng sức khỏe.\n\n==================================================\nSEMANTIC SPECIALTY MATCHING RULES\n=================================\n\nNgười dùng có thể:\n\n* nói tên bệnh\n* nói triệu chứng\n* nói thuật ngữ y khoa\n* nói bằng tiếng Việt tự nhiên\n* viết tắt\n* viết sai chính tả nhẹ\n\nBạn PHẢI:\n\n* hiểu semantic meaning\n* xác định specialty phù hợp nhất\n* map sang ENUM thật trong database\n\n==================================================\nIMPORTANT RULE\n==============\n\nKHÔNG tìm exact text match từ user input.\n\nThay vào đó:\n\n1. hiểu bệnh lý / triệu chứng thuộc chuyên khoa nào\n2. tìm ENUM specialty gần nhất trong DB\n3. dùng ENUM đó để query database\n\n==================================================\nSPECIALTY REASONING EXAMPLES\n============================\n\nCOPD\n→ bệnh hô hấp\n→ 'Respiratory Medicine'\n\nHen suyễn\n→ bệnh hô hấp\n→ 'Respiratory Medicine'\n\nViêm phổi\n→ bệnh hô hấp\n→ 'Respiratory Medicine'\n\nHo kéo dài\n→ triệu chứng hô hấp\n→ 'Respiratory Medicine'\n\nKhó thở\n→ triệu chứng hô hấp\n→ 'Respiratory Medicine'\n\nLao phổi\n→ bệnh lao\n→ 'Tuberculosis'\n\nMổ phổi\n→ ngoại lồng ngực\n→ 'Thoracic Surgery'\n\nChuyên gia phổi\n→ chuyên khoa phổi chuyên sâu\n→ 'Pulmonology'\n\n==================================================\nDATABASE-GROUNDED LOCATION MATCHING\n===================================\n\nGiá trị THẬT trong cột province của database:\n\n* TPHCM\n* Hà Nội\n* Cần Thơ\n\nNgười dùng có thể nói nhiều cách khác nhau,\nbạn PHẢI map về đúng giá trị trong DB:\n\nSG / Sài Gòn / Sai Gon / saigon / sài gòn / sg /\ntphcm / tp hcm / tp. hcm / tpHCM / TP.HCM /\nHồ Chí Minh / Ho Chi Minh / hcm / HCM /\nthành phố hồ chí minh / thanh pho ho chi minh /\nthành phố HCM / tp hồ chí minh /\nhcmcity / hochiminh / hochiminhcity /\nmiền nam / phía nam / nam bộ\n→ WHERE h.province = 'TPHCM'\n\nHà Nội / Ha Noi / hanoi / HN / hn /\nhà nội / thủ đô / thu do /\nmiền bắc / phía bắc / bắc bộ\n→ WHERE h.province = 'Hà Nội'\n\nCần Thơ / Can Tho / cantho / CT / ct /\ncần thơ / miền tây / đồng bằng sông cửu long\n→ WHERE h.province = 'Cần Thơ'\n\nNếu không chắc user đang nói tỉnh nào:\n→ hỏi lại: \"Bạn đang tìm bác sĩ ở tỉnh/thành nào?\"\n\n==================================================\nQUERY STRATEGY\n==============\n\nDùng exact match với province:\n\nWHERE h.province = 'TPHCM'\n\nKHÔNG dùng ILIKE cho province vì đã biết\ngiá trị chính xác trong DB.\n==================================================\nQUERY STRATEGY\n==============\n\nƯu tiên dùng exact match với province:\n\nWHERE h.province = 'TPHCM'\n\nKHÔNG dùng ILIKE cho province vì đã biết\ngiá trị chính xác trong DB.\n==================================================\nQUERY STRATEGY\n==============\n\nƯu tiên:\n\n* province columns\n* district columns\n* structured location fields\n\nNếu không có:\n\n* mới dùng ILIKE address matching\n\n==================================================\nFUZZY MATCH RULES\n=================\n\nKhi tìm:\n\n* hospital name\n* doctor name\n* location\n\nƯu tiên:\n\n* ILIKE\n* partial matching\n* fuzzy matching\n\n==================================================\nTEXT VS ENUM RULES\n==================\n\nTEXT columns:\n\n* dùng ILIKE\n* partial matching\n* fuzzy matching\n\nENUM columns:\n\n* dùng exact equality\n* KHÔNG dùng ILIKE cho enum\n\nVí dụ ĐÚNG:\n\nWHERE d.specialty = 'Respiratory Medicine'\n\nVí dụ ĐÚNG:\n\nWHERE h.name ILIKE '%Vinmec%'\n\nVí dụ SAI:\n\nWHERE d.specialty = 'COPD'\n\nVí dụ SAI:\n\nWHERE d.specialty ILIKE '%resp%'\n\n==================================================\nSEMANTIC REASONING RULE\n=======================\n\nUser input KHÔNG cần giống exact ENUM.\n\nBạn phải:\n\n* semantic reasoning\n* rồi mới map sang ENUM thật trong database.\n\n==================================================\nNO DIRECT DISEASE MATCHING\n==========================\n\nKHÔNG query:\n\nWHERE specialty = 'COPD'\n\nHOẶC:\n\nWHERE specialty ILIKE '%COPD%'\n\nThay vào đó:\n\n* hiểu COPD thuộc chuyên khoa nào\n* map sang ENUM specialty phù hợp\n* rồi mới query database.\n\n==================================================\nEXECUTE SQL QUERY TOOL FORMAT\n=============================\n\nTool input PHẢI là JSON hợp lệ:\n\n{\n\"query\": \"SELECT ...\"\n}\n\n==================================================\nSTRICT FIELD GROUNDING RULES\n============================\n\nMỗi field trong response PHẢI đến trực tiếp từ SQL result.\n\ndoctor_name\n→ users.full_name\n\nhospital_name\n→ hospitals.name\n\nhospital_address\n→ hospitals.address\n\naverage_rating\n→ doctors.average_rating\n\ndoctorId\n→ doctors.id\n\n==================================================\nABSOLUTE GROUNDING RULE\n=======================\n\nKHÔNG được:\n\n* tự điền field bị thiếu\n* tự đoán hospital\n* tự đoán rating\n* tự đoán doctor name\n\nNếu SQL query KHÔNG trả field nào:\n\n* KHÔNG được generate field đó.\n\n==================================================\nREQUIRED SQL FIELDS\n===================\n\nNếu đề xuất bác sĩ:\nSQL query PHẢI trả về:\n* d.id AS doctor_id\n* u.full_name AS doctor_name\n* h.name AS hospital_name\n* h.address AS hospital_address\n* d.average_rating AS average_rating\n\nLƯU Ý: Nếu người dùng yêu cầu THỜI GIAN cụ thể (giờ, ngày):\n* PHẢI JOIN thêm \\`doctor_schedules\\` để lấy khung giờ làm việc.\n* PHẢI JOIN/Query \\`appointments\\` để lọc các giờ đã bị đặt.\n\nNếu thiếu field:\n\n* KHÔNG được hiển thị field đó.\n\n==================================================\nSQL QUERY EXAMPLES\n==================\n\n1. TÌM BÁC SĨ THEO CHUYÊN KHOA VÀ VỊ TRÍ (CƠ BẢN):\nSELECT d.id AS doctor_id, u.full_name AS doctor_name, h.name AS hospital_name, h.address AS hospital_address, d.average_rating AS average_rating\nFROM doctors d\nJOIN users u ON d.user_id = u.id\nJOIN hospitals h ON d.primary_hospital_id = h.id\nWHERE d.specialty = 'Respiratory Medicine' AND h.province = 'TPHCM' AND d.verification_status = 'verified'\nORDER BY d.average_rating DESC LIMIT 5;\n\n2. KIỂM TRA LỊCH TRỐNG CỦA MỘT BÁC SĨ CỤ THỂ:\nSELECT s.day_of_week, s.start_time, s.end_time, s.appointment_type\nFROM doctor_schedules s\nWHERE s.doctor_id = 'ID_BÁC_SĨ' AND s.is_available = true;\n\n3. KIỂM TRA CÁC CUỘC HẸN ĐÃ CÓ (ĐỂ TRÁNH TRÙNG):\nSELECT scheduled_at FROM appointments \nWHERE doctor_id = 'ID_BÁC_SĨ' AND scheduled_at::date = '2026-05-18' AND status NOT IN ('CANCELLED');\n\n4. TÌM BÁC SĨ KÈM THEO LỊCH KHÁM (PHỨC TẠP):\nSELECT d.id AS doctor_id, u.full_name AS doctor_name, s.start_time, s.end_time\nFROM doctors d\nJOIN users u ON d.user_id = u.id\nJOIN doctor_schedules s ON d.id = s.doctor_id\nWHERE d.specialty = 'Thoracic Surgery' AND s.day_of_week = 1 AND s.is_available = true;\n\n\n\n\n\n==================================================\nDATE & DAY_OF_WEEK MAPPING\n==========================\n1. Xác định thứ từ ngày người dùng yêu cầu (dựa trên \"Hôm nay là...\" ở trên).\n2. Quy đổi Thứ sang số để query bảng \\`doctor_schedules\\`:\n   - Chủ Nhật (Sunday) -> 0\n   - Thứ Hai (Monday) -> 1\n   - Thứ Ba (Tuesday) -> 2\n   - Thứ Tư (Wednesday) -> 3\n   - Thứ Năm (Thursday) -> 4\n   - Thứ Sáu (Friday) -> 5\n   - Thứ Bảy (Saturday) -> 6\nVí dụ: Nếu người dùng nói \"thứ 2 tới\" và hôm nay là Thứ 5, bạn phải tính đúng ngày YYYY-MM-DD và dùng day_of_week = 1.\n\n5. TÌM SLOT TRỐNG CỤ THỂ (CHÍNH XÁC NHẤT):\nSELECT start_time, end_time, allowed_appointment_types\nFROM time_slots\nWHERE doctor_id = 'ID_BÁC_SĨ' AND start_time::date = '2026-05-18' AND is_available = true;\n\n==================================================\nAVAILABILITY & SCHEDULING RULES\n===============================\nNếu người dùng yêu cầu đặt lịch vào một THỜI GIAN CỤ THỂ (ví dụ: \"9h sáng mai\"):\n1. ƯU TIÊN kiểm tra bảng \\`time_slots\\` để xem có khung giờ nào trống không (is_available = true và booked_count < capacity).\n2. Nếu bảng \\`time_slots\\` không có dữ liệu, mới kiểm tra \\`doctor_schedules\\` (lịch tổng quát) và \\`appointments\\` (các lịch đã đặt).\n3. Chỉ được xác nhận giờ khám nếu đã verify qua SQL. Nếu giờ đó không có, hãy gợi ý các giờ khác gần nhất từ \\`time_slots\\`.\n\nVí dụ SQL tìm slot trống của bác sĩ vào ngày 18/05/2026:\nSELECT start_time, end_time, allowed_appointment_types\nFROM time_slots\nWHERE doctor_id = 'ID_BÁC_SĨ' \nAND start_time::date = '2026-05-18'\nAND is_available = true \nAND booked_count < capacity;\n==================================================\nPRE-FILLED BOOKING DATA RULES\n=============================\nNếu người dùng đã cung cấp rõ ràng:\n1. Ngày khám (Ví dụ: \"ngày mai\", \"15/05/2026\", \"thứ 6 tới\") -> hãy map sang format YYYY-MM-DD.\n2. Giờ khám (Ví dụ: \"9 giờ sáng\", \"14:30\") -> hãy map sang format HH:mm.\n3. Hình thức khám (Ví dụ: \"online\", \"tại phòng khám\", \"video\") -> hãy map sang \"VIDEO\" hoặc \"IN_PERSON\".\n3. Khi trả về thông tin `time: HH:mm`:\n   - BẮT BUỘC phải dùng giá trị `start_time` (format HH:mm) lấy trực tiếp từ bảng `time_slots` hoặc `doctor_schedules`.\n   - Tuyệt đối KHÔNG được trả về giờ do user nói (ví dụ user nói \"8h15\" nhưng DB có slot \"08:00\" thì bạn phải trả về `time: 08:00`).\n   - Nếu user nói giờ mà DB không có slot khớp, hãy chọn slot gần nhất và thông báo cho user.\n\nBẮT BUỘC ghi các thông tin này vào cuối câu trả lời theo format sau (để hệ thống tự động điền vào form):\ndate: YYYY-MM-DD\ntime: HH:mm\ntype: VIDEO hoặc IN_PERSON\n\nVí dụ:\ndate: 2026-05-15\ntime: 09:00\ntype: VIDEO\n\n==================================================\nBOOKING FLOW RULES\n==================\n\nKhi đề xuất bác sĩ:\n\n* LUÔN trả về doctorId thật từ database.\n* Link đặt lịch PHẢI dùng doctorId thật.\n* THÔNG BÁO CHO USER: Sau khi đăng ký, họ có **24 giờ** để hoàn tất thanh toán. Nếu quá 24 giờ mà chưa thanh toán, lịch hẹn sẽ tự động bị hủy để giải phóng chỗ.\n\nFormat:\n\nhttp://localhost:5174/appointment?doctorId={doctor_id}\n\nFrontend sẽ tự:\n\n* fetch doctor data\n* fetch schedules\n* fetch available slots\n\nKHÔNG được tạo fake doctorId.\n\nNếu database không có doctorId:\n\n* KHÔNG được tạo booking link.\n\n==================================================\nFRONTEND NAVIGATION RULES\n=========================\n\nFrontend sử dụng URL-driven booking flow.\n\nAI chỉ cần trả:\n\n* doctorId thật\n* booking URL đúng format\n\nFrontend sẽ tự hydrate dữ liệu từ API.\n\nKHÔNG giả định React state tồn tại.\n\n\n==================================================\nSTRICT BOOKING ACTION RULE\n==========================\n1. Bạn KHÔNG có quyền tự tạo (INSERT) lịch hẹn vào database.\n2. Bạn KHÔNG được nói \"Tôi đã đặt lịch thành công\" hoặc \"Lịch của bạn đã được đặt\" trừ khi bạn nhận được thông tin xác nhận từ [HỆ THỐNG].\n3. Nếu người dùng nói \"Hãy đặt lịch giúp tôi\" hoặc \"Tôi đồng ý\":\n   - Tuyệt đối KHÔNG được bịa ra thông báo thành công.\n   - PHẢI trả lời: \"Vui lòng kiểm tra thông tin trong bảng Đặt lịch ở trên và nhấn nút 'Xác nhận đặt lịch' để hoàn tất.\"\n   - Đảm bảo bạn vẫn trả về các tag date/time/type nếu thông tin đó chưa có hoặc cần thay đổi.\n\n==================================================\nEMERGENCY RULES\n===============\n\nNếu phát hiện:\n\n* khó thở nặng\n* tím tái\n* đau ngực dữ dội\n* mất ý thức\n* ho ra máu\n* SpO2 thấp\n* sốt rất cao kéo dài\n* suy hô hấp\n\nTHÌ:\n\n* cảnh báo 🚨\n* khuyên gọi cấp cứu\n* khuyên đi khám ngay lập tức\n\n==================================================\nRESPONSE FORMAT\n===============\n\n🚨 CẢNH BÁO KHẨN CẤP (chỉ hiển thị nếu có dấu hiệu nguy hiểm)\n\n📌 Nguyên nhân & Triệu chứng:\n...\n\n👨‍⚕️ Gợi ý bác sĩ phù hợp\n(CHỈ HIỂN THỊ NẾU SQL TOOL ĐÃ TRẢ DỮ LIỆU, nếu cần đề xuất bác sĩ thì thực hiện truy vấn sql)\n\nBS. {{doctor_name}}\n- {{hospital_name}}\n- {{hospital_address}}\n- {{average_rating}} ⭐\n\n📅 [Đặt lịch khám]({{booking_link}})\n👤 [Xem chi tiết bác sĩ]({{detail_link}})\n🛡️ Lời khuyên:\n...\n\n👉 [TỰ SINH câu hỏi follow-up phù hợp với context, theo rules sau:]\n- Nếu user chỉ hỏi triệu chứng, chưa đề cập vị trí → hỏi tìm bác sĩ + tỉnh/thành\n  Ví dụ: \"Bạn có muốn tôi tìm bác sĩ chuyên khoa hô hấp gần bạn không? Hãy cho tôi biết bạn đang ở tỉnh/thành nào.\"\n- Nếu user đã cho biết tỉnh/thành nhưng chưa đặt lịch → gợi ý đặt lịch với bác sĩ vừa đề xuất\n  Ví dụ: \"Bạn có muốn đặt lịch khám với một trong các bác sĩ trên không?\"\n- Nếu là cấp cứu/khẩn cấp → KHÔNG hỏi follow-up, chỉ nhắc gọi 115\n- Nếu user hỏi về bệnh cụ thể → hỏi thêm triệu chứng để tư vấn chính xác hơn\n  Ví dụ: \"Bạn có thể mô tả thêm triệu chứng đang gặp phải không?\"\n- Nếu đã đề xuất bác sĩ và user chưa phản hồi → hỏi có cần hỗ trợ thêm không\n  Ví dụ: \"Bạn có cần tôi giải thích thêm về tình trạng này không?\"\n==================================================\nFINAL IMPORTANT RULES\n=====================\n\n* KHÔNG được tạo bác sĩ giả.\n* KHÔNG được tạo bệnh viện giả.\n* KHÔNG được tạo rating giả.\n* KHÔNG được tạo địa chỉ giả.\n* KHÔNG được dùng column không tồn tại.\n* KHÔNG được dùng table không tồn tại.\n* KHÔNG được dùng enum sai giá trị.\n* Nếu không chắc:\n  nói không tìm thấy dữ liệu phù hợp.\n* Ưu tiên query đơn giản, rõ ràng, dễ đọc.\n* Luôn LIMIT query hợp lý.\n* Ưu tiên ORDER BY average_rating DESC khi đề xuất bác sĩ.\n* Không gọi tool không cần thiết.\n* Không trả booking link nếu không có doctorId thật.\n==================================================\nAPPOINTMENT HISTORY RULES\n==========================\n\nNếu người dùng hỏi:\n\n* lịch hẹn của tôi\n* xem lịch hẹn\n* lịch đã đặt\n* appointment history\n* lịch khám sắp tới\n* cuộc hẹn sắp tới\n* tôi đã đặt lịch nào\n* upcoming appointments\n\nTHÌ:\n\n* BẮT BUỘC gọi Execute SQL Query\n* KHÔNG được dùng memory để trả lời\n* Memory chỉ là conversational context\n* Appointment data chỉ được lấy từ database\n\\` }}` }}"
         }
       },
-      "id": "d3d45abc-1605-4832-8b83-f8eab0e6d741",
+      "id": "8274deb2-0d56-45ce-938d-53a9187d6a3f",
       "name": "AI Agent (RAG)",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "position": [
-        -5104,
-        704
+        5616,
+        6528
       ],
       "typeVersion": 1.9
     },
@@ -83,12 +83,12 @@
         "sessionKey": "={{ $json.sessionId }}",
         "contextWindowLength": 100
       },
-      "id": "35fb8070-2dd4-43c8-bc87-c9b034d502e9",
+      "id": "a10d37ef-3727-45ab-8c72-2c4092262237",
       "name": "Conversation Memory",
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "position": [
-        -5120,
-        1104
+        5600,
+        6928
       ],
       "typeVersion": 1.3
     },
@@ -98,12 +98,12 @@
         "description": "Công cụ tra cứu thông tin sức khỏe hô hấp. Gọi tool này MỘT LẦN DUY NHẤT với câu hỏi của người dùng trước khi trả lời. Sau khi nhận kết quả, tổng hợp và trả lời ngay, không gọi lại.",
         "topK": 10
       },
-      "id": "6a0959fc-865a-4177-8609-0904c455f91d",
+      "id": "372bffdf-e697-4e99-bc4d-407b4b95cf88",
       "name": "Knowledge Base Tool",
       "type": "@n8n/n8n-nodes-langchain.toolVectorStore",
       "position": [
-        -4880,
-        1056
+        5840,
+        6880
       ],
       "typeVersion": 1
     },
@@ -117,12 +117,12 @@
         },
         "options": {}
       },
-      "id": "d6080f96-d6be-4380-b0fb-824f3de310d3",
+      "id": "6d4c9dda-4504-445e-b146-00bd1011dd12",
       "name": "Pinecone Vector Store",
       "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
       "position": [
-        -5008,
-        1216
+        5712,
+        7040
       ],
       "typeVersion": 1.1,
       "credentials": {
@@ -156,12 +156,12 @@
         },
         "options": {}
       },
-      "id": "d26111ad-9d36-436c-b35e-a5495e2b25e7",
+      "id": "bbc33aa1-ca3e-47ac-8a5b-84ed4d997fcc",
       "name": "Check AI Success",
       "type": "n8n-nodes-base.if",
       "position": [
-        -4704,
-        704
+        6016,
+        6528
       ],
       "typeVersion": 2
     },
@@ -185,12 +185,12 @@
         },
         "options": {}
       },
-      "id": "dac3f60e-2f1f-4f00-acb4-cc848b9230f6",
+      "id": "3201d0c4-57c9-467e-9746-562e41b5f781",
       "name": "Format Success Response",
       "type": "n8n-nodes-base.set",
       "position": [
-        -4320,
-        704
+        6400,
+        6528
       ],
       "typeVersion": 3.4
     },
@@ -220,25 +220,25 @@
         },
         "options": {}
       },
-      "id": "8d024474-2fe4-4c0a-8055-7cf029bf6b18",
+      "id": "f7d4b1eb-8461-4520-a484-a5af9492f6da",
       "name": "Format Error Response",
       "type": "n8n-nodes-base.set",
       "position": [
-        -4352,
-        896
+        6368,
+        6720
       ],
       "typeVersion": 3.4
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.first();\nconst data = item?.json || {};\n\nlet sessionId = data.sessionId;\ntry {\n  if (!sessionId) sessionId = $('Normalize Input').first().json.sessionId;\n} catch (e) {}\n\nlet response = data.response || 'Xin lỗi, tôi không hiểu câu hỏi của bạn.';\n\n// === LỌC THINKING LEAK ===\nconst isThinkingLine = (line) => {\n  const t = line.trim();\n  if (t === '') return false;\n  if (/^(Okay|Let me|Now|Looking|I need|I will|First,|The context|Wait,|Check|So I|Let's|Based on|The user|According|I called|I have|I should|I'll|The tool|I got|Now I|This is|Alright|Sure|Make sure|Then a|Then the|structure it|Let me structure)/i.test(t)) return true;\n  if (/\\[from data\\]|\\[từ context\\]|\\[nội dung\\]|\\[information\\]/i.test(t)) return true;\n  if (/^[a-zA-Z\\s,.\\-:]+$/.test(t) && t.length > 15) return true;\n  return false;\n};\n\n// === [MỚI] LỌC PLACEHOLDER LINES ===\n// Xóa dòng nào chứa tên cột DB chưa được thay thế\nconst isPlaceholderLine = (line) => {\n  const t = line.trim();\n  // Các pattern placeholder từ AI template\n  const placeholderPatterns = [\n    /^\\*\\s*(doctor_name|hospital_name|hospital_address|average_rating|booking_link|detail_link)\\s*$/i,\n    /^\\-\\s*(doctor_name|hospital_name|hospital_address|average_rating|booking_link|detail_link)\\s*$/i,\n    /^(doctor_name|hospital_name|hospital_address|average_rating|booking_link|detail_link)\\s*$/i,\n    // Dòng chỉ chứa format hint như \"(CHỈ HIỂN THỊ NẾU...)\"\n    /^\\(CHỈ HIỂN THỊ/i,\n    /^\\(ONLY SHOW/i,\n  ];\n  return placeholderPatterns.some(p => p.test(t));\n};\n\nconst removePlaceholderDoctorBlock = (text) => {\n  const lines = text.split('\\n');\n  const result = [];\n  let inDoctorBlock = false;\n  let blockBuffer = [];\n  let blockHasRealData = false;\n\n  for (const line of lines) {\n    const t = line.trim();\n\n    // Phát hiện header \"Gợi ý bác sĩ\"\n    if (/👨[‍⚕️]?\\s*Gợi ý bác sĩ/i.test(t) || /Gợi ý bác sĩ phù hợp/i.test(t)) {\n      inDoctorBlock = true;\n      blockBuffer = [line];\n      blockHasRealData = false;\n      continue;\n    }\n\n    if (inDoctorBlock) {\n      // Kết thúc block khi gặp section khác (bắt đầu bằng emoji section hoặc dòng trống sau nội dung)\n      const isNewSection = /^[🛡️⚠️📌💊🚨👉]/.test(t) && t.length > 3;\n      if (isNewSection) {\n        // Flush block: chỉ giữ nếu có dữ liệu thực\n        if (blockHasRealData) {\n          result.push(...blockBuffer);\n        }\n        inDoctorBlock = false;\n        blockBuffer = [];\n        result.push(line);\n        continue;\n      }\n\n      // Kiểm tra dòng có phải placeholder không\n      if (isPlaceholderLine(line)) {\n        blockBuffer.push(line); // ghi vào buffer nhưng đánh dấu là fake\n      } else if (t !== '') {\n        blockHasRealData = true; // dòng có nội dung thực\n        blockBuffer.push(line);\n      } else {\n        blockBuffer.push(line);\n      }\n    } else {\n      result.push(line);\n    }\n  }\n\n  // Flush buffer cuối nếu còn\n  if (inDoctorBlock && blockHasRealData) {\n    result.push(...blockBuffer);\n  }\n\n  return result.join('\\n');\n};\n\n// Apply filter\nlet lines = response.split('\\n');\nlet cleanLines = [];\nlet foundRealContent = false;\n\nfor (let i = 0; i < lines.length; i++) {\n  const t = lines[i].trim();\n  if (isPlaceholderLine(lines[i])) continue;\n\n  if (!foundRealContent) {\n    if (isThinkingLine(t)) continue;\n    const hasRealEmoji = /^[📌💊⚠️🛡️🚨]/.test(t) && !/\\[from data\\]|\\[từ context\\]/.test(t);\n    const hasVietnamese = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(t);\n    if (hasRealEmoji || hasVietnamese || t.startsWith('🚨')) {\n      foundRealContent = true;\n      cleanLines.push(lines[i]);\n    }\n  } else {\n    cleanLines.push(lines[i]);\n  }\n}\n\nresponse = cleanLines.join('\\n').trim();\nresponse = removePlaceholderDoctorBlock(response); \nif (response.length < 20) {\n  response = data.response || 'Xin lỗi, tôi không hiểu câu hỏi của bạn.';\n}\n\n// === PARSE BOOKING DATA ===\nconst doctorIdMatch = response.match(/doctorId[=\\/:]\\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);\nconst doctorId = doctorIdMatch?.[1] ?? null;\n\nconst doctorNameMatch = response.match(/[-*]\\s*(BS\\.\\s*[^\\n\\-*📌🛡️👨]+)/);\nconst doctorName = doctorNameMatch?.[1]?.trim() ?? null;\n\nconst hospitalMatch = response.match(/[-*]\\s*(Bệnh viện[^\\n]+|Phòng khám[^\\n]+)/);\nconst hospitalName = hospitalMatch?.[1]?.trim() ?? null;\n\nconst ratingMatch = response.match(/(\\d+\\.?\\d*)[\\s]*[⭐★]/);\nconst rating = ratingMatch ? parseFloat(ratingMatch[1]) : null;\n\n// === CLEAN MESSAGE ===\n// const cleanMessage = response\n//   .replace(/[-*]\\s*Đặt lịch khám:\\s*https?:\\/\\/[^\\s\\n]+/g, '')\n//   .replace(/[-*]\\s*Xem chi tiết:\\s*https?:\\/\\/[^\\s\\n]+/g, '')\n//   .replace(/https?:\\/\\/[^\\s\\n]+/g, '')\n//   .replace(/\\n{3,}/g, '\\n\\n')\n//   .trim();\n\nconst cleanMessage = response\n  .replace(/[-*]\\s*Đặt lịch khám:\\s*(https?:\\/\\/[^\\s\\n]+)/g, '[📅 Đặt lịch khám]($1)')\n  .replace(/[-*]\\s*Xem chi tiết bác sĩ:\\s*(https?:\\/\\/[^\\s\\n]+)/g, '[👤 Xem chi tiết bác sĩ]($1)')\n  .replace(/\\n{3,}/g, '\\n\\n')\n  .trim();\n\n// === AUTO-DETECT SEVERITY ===\nconst isEmergency = /🚨|gọi 115|cấp cứu ngay|đến bệnh viện ngay/i.test(response);\nconst severity = isEmergency ? 'emergency' : (data.severity || 'normal');\nconst responseType = isEmergency ? 'emergency' : (data.responseType || 'general');\n\n// === BUILD FINAL RESPONSE ===\nconst finalResponse = {\n  success: true,\n  data: {\n    message: cleanMessage,\n    type: responseType,\n    severity,\n    timestamp: new Date().toISOString(),\n    disclaimer: isEmergency\n      ? null\n      : '💙 Thông tin này chỉ mang tính tham khảo. Vui lòng tham khảo bác sĩ để được tư vấn chính xác.',\n    suggestedActions: isEmergency\n      ? ['🚨 Gọi cấp cứu 115 ngay lập tức', 'Đến bệnh viện/phòng cấp cứu gần nhất', 'Giữ bình tĩnh và ngồi thẳng']\n      : ['Theo dõi triệu chứng trong vài ngày', 'Gặp bác sĩ nếu không thuyên giảm', 'Giữ vệ sinh và nghỉ ngơi đầy đủ'],\n\n    ...(doctorId ? {\n      action: 'OPEN_BOOKING',\n      bookingData: {\n        doctorId,\n        ...(doctorName   ? { doctorName }   : {}),\n        ...(hospitalName ? { hospitalName } : {}),\n        ...(rating       ? { doctorRating: rating } : {}),\n      }\n    } : {})\n  },\n  meta: {\n    sessionId: sessionId || 'unknown',\n    queryType: responseType,\n    processedAt: new Date().toISOString()\n  }\n};\n\nreturn [{ json: finalResponse }];"
+        "jsCode": "const item = $input.first();\nconst data = item?.json || {};\n\nlet sessionId = data.sessionId;\ntry {\n  if (!sessionId) sessionId = $('Normalize Input').first().json.sessionId;\n} catch (e) {}\n\nlet response = data.response || 'Xin lỗi, tôi không hiểu câu hỏi của bạn.';\n\n// === LỌC THINKING LEAK ===\nconst isThinkingLine = (line) => {\n  const t = line.trim();\n  if (t === '') return false;\n  if (/^(Okay|Let me|Now|Looking|I need|I will|First,|The context|Wait,|Check|So I|Let's|Based on|The user|According|I called|I have|I should|I'll|The tool|I got|Now I|This is|Alright|Sure|Make sure|Then a|Then the|structure it|Let me structure)/i.test(t)) return true;\n  if (/\\[from data\\]|\\[từ context\\]|\\[nội dung\\]|\\[information\\]/i.test(t)) return true;\n  if (/^[a-zA-Z\\s,.\\-:]+$/.test(t) && t.length > 15) return true;\n  return false;\n};\n\n// === [MỚI] LỌC PLACEHOLDER LINES ===\n// Xóa dòng nào chứa tên cột DB chưa được thay thế\nconst isPlaceholderLine = (line) => {\n  const t = line.trim();\n  // Các pattern placeholder từ AI template\n  const placeholderPatterns = [\n    /^\\*\\s*(doctor_name|hospital_name|hospital_address|average_rating|booking_link|detail_link)\\s*$/i,\n    /^\\-\\s*(doctor_name|hospital_name|hospital_address|average_rating|booking_link|detail_link)\\s*$/i,\n    /^(doctor_name|hospital_name|hospital_address|average_rating|booking_link|detail_link)\\s*$/i,\n    // Dòng chỉ chứa format hint như \"(CHỈ HIỂN THỊ NẾU...)\"\n    /^\\(CHỈ HIỂN THỊ/i,\n    /^\\(ONLY SHOW/i,\n  ];\n  return placeholderPatterns.some(p => p.test(t));\n};\n\nconst removePlaceholderDoctorBlock = (text) => {\n  const lines = text.split('\\n');\n  const result = [];\n  let inDoctorBlock = false;\n  let blockBuffer = [];\n  let blockHasRealData = false;\n\n  for (const line of lines) {\n    const t = line.trim();\n\n    // Phát hiện header \"Gợi ý bác sĩ\"\n    if (/👨[‍⚕️]?\\s*Gợi ý bác sĩ/i.test(t) || /Gợi ý bác sĩ phù hợp/i.test(t)) {\n      inDoctorBlock = true;\n      blockBuffer = [line];\n      blockHasRealData = false;\n      continue;\n    }\n\n    if (inDoctorBlock) {\n      // Kết thúc block khi gặp section khác (bắt đầu bằng emoji section hoặc dòng trống sau nội dung)\n      const isNewSection = /^[🛡️⚠️📌💊🚨👉]/.test(t) && t.length > 3;\n      if (isNewSection) {\n        // Flush block: chỉ giữ nếu có dữ liệu thực\n        if (blockHasRealData) {\n          result.push(...blockBuffer);\n        }\n        inDoctorBlock = false;\n        blockBuffer = [];\n        result.push(line);\n        continue;\n      }\n\n      // Kiểm tra dòng có phải placeholder không\n      if (isPlaceholderLine(line)) {\n        blockBuffer.push(line); // ghi vào buffer nhưng đánh dấu là fake\n      } else if (t !== '') {\n        blockHasRealData = true; // dòng có nội dung thực\n        blockBuffer.push(line);\n      } else {\n        blockBuffer.push(line);\n      }\n    } else {\n      result.push(line);\n    }\n  }\n\n  // Flush buffer cuối nếu còn\n  if (inDoctorBlock && blockHasRealData) {\n    result.push(...blockBuffer);\n  }\n\n  return result.join('\\n');\n};\n\n// Apply filter\nlet lines = response.split('\\n');\nlet cleanLines = [];\nlet foundRealContent = false;\n\nfor (let i = 0; i < lines.length; i++) {\n  const t = lines[i].trim();\n  if (isPlaceholderLine(lines[i])) continue;\n\n  if (!foundRealContent) {\n    if (isThinkingLine(t)) continue;\n    const hasRealEmoji = /^[📌💊⚠️🛡️🚨]/.test(t) && !/\\[from data\\]|\\[từ context\\]/.test(t);\n    const hasVietnamese = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(t);\n    if (hasRealEmoji || hasVietnamese || t.startsWith('🚨')) {\n      foundRealContent = true;\n      cleanLines.push(lines[i]);\n    }\n  } else {\n    cleanLines.push(lines[i]);\n  }\n}\n\nresponse = cleanLines.join('\\n').trim();\nresponse = removePlaceholderDoctorBlock(response); \nif (response.length < 20) {\n  response = data.response || 'Xin lỗi, tôi không hiểu câu hỏi của bạn.';\n}\n\n// === PARSE BOOKING DATA ===\nconst doctorIdMatch = response.match(/doctorId[=\\/:]\\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);\nconst doctorId = doctorIdMatch?.[1] ?? null;\n\nconst doctorNameMatch = response.match(/[-*]\\s*(BS\\.\\s*[^\\n\\-*📌🛡️👨]+)/);\nconst doctorName = doctorNameMatch?.[1]?.trim() ?? null;\n\nconst hospitalMatch = response.match(/[-*]\\s*(Bệnh viện[^\\n]+|Phòng khám[^\\n]+)/);\nconst hospitalName = hospitalMatch?.[1]?.trim() ?? null;\n\nconst ratingMatch = response.match(/(\\d+\\.?\\d*)[\\s]*[⭐★]/);\nconst rating = ratingMatch ? parseFloat(ratingMatch[1]) : null;\nconst dateMatch = response.match(/date[=\\/:]\\s*(\\d{4}-\\d{2}-\\d{2})/i);\nconst date = dateMatch?.[1] ?? null;\n\nconst timeMatch = response.match(/time[=\\/:]\\s*(\\d{2}:\\d{2})/i);\nconst time = timeMatch?.[1] ?? null;\n\nconst typeMatch = response.match(/type[=\\/:]\\s*(VIDEO|IN_PERSON|online|offline)/i);\nlet type = typeMatch?.[1]?.toUpperCase() ?? null;\nif (type === 'ONLINE') type = 'VIDEO';\nif (type === 'OFFLINE') type = 'IN_PERSON';\n\n\n// === CLEAN MESSAGE ===\n// const cleanMessage = response\n//   .replace(/[-*]\\s*Đặt lịch khám:\\s*https?:\\/\\/[^\\s\\n]+/g, '')\n//   .replace(/[-*]\\s*Xem chi tiết:\\s*https?:\\/\\/[^\\s\\n]+/g, '')\n//   .replace(/https?:\\/\\/[^\\s\\n]+/g, '')\n//   .replace(/\\n{3,}/g, '\\n\\n')\n//   .trim();\n\nconst cleanMessage = response\n  .replace(/[-*]\\s*Đặt lịch khám:\\s*(https?:\\/\\/[^\\s\\n]+)/g, '[📅 Đặt lịch khám]($1)')\n  .replace(/[-*]\\s*Xem chi tiết bác sĩ:\\s*(https?:\\/\\/[^\\s\\n]+)/g, '[👤 Xem chi tiết bác sĩ]($1)')\n  .replace(/\\n{3,}/g, '\\n\\n')\n  .trim();\n\n// === AUTO-DETECT SEVERITY ===\nconst isEmergency = /🚨|gọi 115|cấp cứu ngay|đến bệnh viện ngay/i.test(response);\nconst severity = isEmergency ? 'emergency' : (data.severity || 'normal');\nconst responseType = isEmergency ? 'emergency' : (data.responseType || 'general');\n\n// === BUILD FINAL RESPONSE ===\nconst finalResponse = {\n  success: true,\n  data: {\n    message: cleanMessage,\n    type: responseType,\n    severity,\n    timestamp: new Date().toISOString(),\n    disclaimer: isEmergency\n      ? null\n      : '💙 Thông tin này chỉ mang tính tham khảo. Vui lòng tham khảo bác sĩ để được tư vấn chính xác.',\n    suggestedActions: isEmergency\n      ? ['🚨 Gọi cấp cứu 115 ngay lập tức', 'Đến bệnh viện/phòng cấp cứu gần nhất', 'Giữ bình tĩnh và ngồi thẳng']\n      : ['Theo dõi triệu chứng trong vài ngày', 'Gặp bác sĩ nếu không thuyên giảm', 'Giữ vệ sinh và nghỉ ngơi đầy đủ'],\n\n    ...(doctorId ? {\n      action: 'OPEN_BOOKING',\n      bookingData: {\n        doctorId,\n        ...(doctorName   ? { doctorName }   : {}),\n        ...(hospitalName ? { hospitalName } : {}),\n        ...(rating       ? { doctorRating: rating } : {}),\n        ...(date         ? { date } : {}),\n        ...(time         ? { slot: time } : {}),\n        ...(type         ? { type } : {}),\n      }\n    } : {})\n  },\n  meta: {\n    sessionId: sessionId || 'unknown',\n    queryType: responseType,\n    processedAt: new Date().toISOString()\n  }\n};\n\nreturn [{ json: finalResponse }];"
       },
-      "id": "69eb2531-4ba2-4c49-99ee-d750ff7d4246",
+      "id": "5f1fc0bd-84e4-4040-8008-51bfc1e3ebcb",
       "name": "Compile Final Response",
       "type": "n8n-nodes-base.code",
       "position": [
-        -4064,
-        720
+        6656,
+        6544
       ],
       "typeVersion": 2
     },
@@ -266,12 +266,12 @@
           }
         }
       },
-      "id": "c11c715f-d5de-4dc7-ab5a-e41d5f7d0356",
+      "id": "f25f5c6e-b56f-4184-b328-d0ef3d534cd9",
       "name": "Send Response",
       "type": "n8n-nodes-base.respondToWebhook",
       "position": [
-        -3888,
-        688
+        6832,
+        6512
       ],
       "typeVersion": 1.1
     },
@@ -285,10 +285,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
       "typeVersion": 1,
       "position": [
-        -5232,
-        912
+        5488,
+        6736
       ],
-      "id": "a17493f5-a42d-4ba0-8071-4b8cbd2129ec",
+      "id": "eb962b34-f9d3-4f75-9bb4-e89c257264cb",
       "name": "Ollama Chat Model",
       "credentials": {
         "ollamaApi": {
@@ -307,10 +307,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
       "typeVersion": 1,
       "position": [
-        -4656,
-        1248
+        6064,
+        7072
       ],
-      "id": "c020b4da-60e0-4e98-929b-85cf2261a392",
+      "id": "097437b6-342c-46df-b138-6dd1f4ad3373",
       "name": "Ollama Chat Model1",
       "credentials": {
         "ollamaApi": {
@@ -329,10 +329,10 @@
       "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
       "typeVersion": 1.2,
       "position": [
-        -5024,
-        1376
+        5696,
+        7200
       ],
-      "id": "1f10c9eb-1575-4e69-9820-2c73413b6df0",
+      "id": "cf1edea5-3e31-4984-9990-c83f612500e4",
       "name": "Embeddings OpenAI",
       "credentials": {
         "openAiApi": {
@@ -349,12 +349,12 @@
         "query": "={{ $fromAI(\"query\", \"SQL SELECT query\") }}",
         "options": {}
       },
-      "id": "3d0f304d-d1af-4ca9-96a8-d17ff910b975",
+      "id": "289d6209-68dd-4dc8-aeed-f6ec4c846eb7",
       "name": "Execute SQL Query",
       "type": "n8n-nodes-base.postgresTool",
       "position": [
-        -4992,
-        976
+        5728,
+        6800
       ],
       "typeVersion": 2.5,
       "credentials": {
@@ -384,12 +384,12 @@
           }
         }
       },
-      "id": "19dbb5b9-85a5-4d5b-b888-9e298270fd86",
+      "id": "d6e504d5-4d7c-4412-9b15-409dc773a282",
       "name": "Webhook (Booking Confirm)",
       "type": "n8n-nodes-base.webhook",
       "position": [
-        -5904,
-        1744
+        4816,
+        7568
       ],
       "webhookId": "webhook-booking-confirm",
       "typeVersion": 1.1
@@ -398,12 +398,12 @@
       "parameters": {
         "jsCode": "const bookingPayload = $input.first().json.body || $input.first().json;\n\nconst {\n  sessionId,\n  doctorId,\n  doctorName,\n  selectedDate,\n  selectedSlot,\n  visitType,\n} = bookingPayload;\n\nif (!sessionId) {\n  throw new Error('sessionId is required');\n}\n\nconst bookingMemoryText =\n  `[HỆ THỐNG - Lịch đặt thành công] ` +\n  `Bệnh nhân vừa đặt lịch khám với ${doctorName ?? 'bác sĩ'} ` +\n  `(doctorId: ${doctorId}), ` +\n  `ngày ${selectedDate}, giờ ${selectedSlot}, ` +\n  `hình thức: ${visitType === 'VIDEO' ? 'Video call' : 'Trực tiếp'}. ` +\n  `Trạng thái: CONFIRMED.`;\n\nreturn [{\n  json: {\n    sessionId,\n    bookingMemoryText,\n    doctorId,\n    doctorName,\n    selectedDate,\n    selectedSlot,\n    visitType,\n  }\n}];"
       },
-      "id": "c40e0afe-4e02-4413-971a-2492970add7d",
+      "id": "dccc0009-e34d-4f94-a28b-e9fbb8cb5882",
       "name": "Save Booking to Memory",
       "type": "n8n-nodes-base.code",
       "position": [
-        -5648,
-        1744
+        5072,
+        7568
       ],
       "typeVersion": 2
     },
@@ -415,25 +415,25 @@
           "systemMessage": "Ghi nhớ thông tin lịch khám này. Trả lời ngắn: OK."
         }
       },
-      "id": "1e35954f-03b0-42f1-8f8a-b87e81f660b4",
+      "id": "aa7ec809-eb9b-4088-bfa2-e59ae3669c26",
       "name": "Inject to AI Memory",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "position": [
-        -5488,
-        1376
+        5232,
+        7200
       ],
       "typeVersion": 1.9
     },
     {
       "parameters": {
-        "jsCode": "const $json = $input.first().json;\n\nconst confirmResponse = {\n  success: true,\n  data: {\n    message:\n      `✅ Lịch khám đã được xác nhận!\\n\\n` +\n      `📅 ${$json.selectedDate} lúc ${$json.selectedSlot}\\n\\n` +\n      `👨⚕️ ${$json.doctorName ?? 'Bác sĩ'}\\n\\n` +\n      `📋 Hình thức: ${$json.visitType === 'VIDEO' ? 'Video call' : 'Trực tiếp'}`,\n    type: 'booking_confirmed',\n    severity: 'success',\n    timestamp: new Date().toISOString(),\n    suggestedActions: [\n      'Xem lịch hẹn của tôi',\n      'Chuẩn bị gì trước khi khám?',\n      'Đặt lịch khám khác',\n    ],\n  },\n  meta: {\n    sessionId: $json.sessionId,\n    queryType: 'booking_confirmed',\n    processedAt: new Date().toISOString(),\n  }\n};\n\nreturn [{ json: confirmResponse }];"
+        "jsCode": "const $json = $input.first().json;\n\nconst confirmResponse = {\n  success: true,\n  data: {\n    message:\n      `✅ Lịch khám đã được xác nhận!\\n\\n` +\n      `📅 ${$json.selectedDate} lúc ${$json.selectedSlot}\\n\\n` +\n      `👨⚕️ ${$json.doctorName ?? 'Bác sĩ'}\\n\\n` +\n      `📋 Hình thức: ${$json.visitType === 'VIDEO' ? 'Video call' : 'Trực tiếp'}\\n\\n` +\n      `⚠️ Lưu ý: Bạn vui lòng thanh toán trong vòng **24 giờ** để giữ chỗ. Quá thời gian này lịch sẽ tự động bị hủy.`,\n    type: 'booking_confirmed',\n    severity: 'success',\n    timestamp: new Date().toISOString(),\n    suggestedActions: [\n      'Xem lịch hẹn của tôi',\n      'Chuẩn bị gì trước khi khám?',\n      'Đặt lịch khám khác',\n    ],\n  },\n  meta: {\n    sessionId: $json.sessionId,\n    queryType: 'booking_confirmed',\n    processedAt: new Date().toISOString(),\n  }\n};\n\nreturn [{ json: confirmResponse }];"
       },
-      "id": "748a0345-fd40-4790-9309-f7de513f3631",
+      "id": "0cfbf58f-f79e-4b89-a5c5-e51ae2f145af",
       "name": "Prepare Booking Response",
       "type": "n8n-nodes-base.code",
       "position": [
-        -5104,
-        1760
+        5616,
+        7584
       ],
       "typeVersion": 2
     },
@@ -443,12 +443,12 @@
         "responseBody": "={{ JSON.stringify($json, null, 2) }}",
         "options": {}
       },
-      "id": "366830aa-21b0-4f3a-bfef-5f2d006c87e8",
+      "id": "98d758f5-ee48-4a2b-a771-46605e8407af",
       "name": "Respond Booking Confirm",
       "type": "n8n-nodes-base.respondToWebhook",
       "position": [
-        -4672,
-        1760
+        6048,
+        7584
       ],
       "typeVersion": 1.1
     }
@@ -681,7 +681,7 @@
     "executionOrder": "v1",
     "availableInMCP": false
   },
-  "versionId": "e4f8c332-3b0b-4550-85b5-e9d8d907eda9",
+  "versionId": "ea2e2cb5-40cc-4b7e-bd89-de5bcd9c28a6",
   "meta": {
     "instanceId": "f19ed9fad5d3fc6c406211e4d1a49eaa90748654f86be14a397378264213be4d"
   },
